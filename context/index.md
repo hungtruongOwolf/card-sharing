@@ -19,10 +19,11 @@ Tip: open `context/` as an Obsidian vault for graph/backlinks; run `python tools
 - [[threat-model-mvp]] — wiki/architecture/threat-model-mvp.md — STRIDE, 26 abuse cases, SR-1…SR-37, EM security decisions D1–D7 (proposed)
 - [[ADR-0001-tech-stack]] — wiki/architecture/decisions/ADR-0001-tech-stack.md — backend Rust stack; frontend part superseded by ADR-0002
 - [[ADR-0002-cross-platform-stack]] — wiki/architecture/decisions/ADR-0002-cross-platform-stack.md — Expo/RN + Skia mobile, Next.js web, Yjs, monorepo (accepted; web = preview pages only)
-- [[ADR-0004-auth-sessions]] — wiki/architecture/decisions/ADR-0004-auth-sessions.md — in-house auth, opaque server sessions, widget token (proposed)
-- [[ADR-0005-media-pipeline]] — wiki/architecture/decisions/ADR-0005-media-pipeline.md — quarantine → re-encode → CSAM/nudity scan → signed per-viewer URLs (proposed)
-- [[ADR-0006-job-queue]] — wiki/architecture/decisions/ADR-0006-job-queue.md — Postgres job queue + transactional outbox (proposed)
-- [[ADR-0007-board-sync]] — wiki/architecture/decisions/ADR-0007-board-sync.md — per-pin rows, versioned ops batches, fractional z-order, Yjs-ready (proposed)
+- [[ADR-0004-auth-sessions]] — wiki/architecture/decisions/ADR-0004-auth-sessions.md — in-house auth, opaque server sessions, widget token (accepted)
+- [[ADR-0005-media-pipeline]] — wiki/architecture/decisions/ADR-0005-media-pipeline.md — quarantine → re-encode → CSAM/nudity scan → signed per-viewer URLs (accepted)
+- [[ADR-0006-job-queue]] — wiki/architecture/decisions/ADR-0006-job-queue.md — Postgres job queue + transactional outbox (accepted)
+- [[ADR-0007-board-sync]] — wiki/architecture/decisions/ADR-0007-board-sync.md — per-pin rows, versioned ops batches, fractional z-order, Yjs-ready (accepted)
+- [[ADR-0008-hosting]] — wiki/architecture/decisions/ADR-0008-hosting.md — Supabase Postgres (locked-down Data API), Cloudflare R2/CDN, Fly.io, Upstash, Postmark (accepted)
 - [[ADR-0003-effects-tiers]] — wiki/architecture/decisions/ADR-0003-effects-tiers.md — effects tiers: shader engine / style packs / OS AI / cloud (accepted)
 - [[region-policy]] — wiki/architecture/region-policy.md — per-jurisdiction rules (age, consent, ads) as config (proposed)
 - [[subject-cutout]] — wiki/architecture/subject-cutout.md — on-device segmentation → mask → Skia cut styles (proposed)
@@ -59,3 +60,4 @@ Tip: open `context/` as an Obsidian vault for graph/backlinks; run `python tools
 - raw/research/2026-11-04-zero-download-ai.md — OS-provided AI, tiny models, style packs, shader effects
 - raw/discussions/2026-11-04-prd-design-qa.md — EM Q&A answers: brand, effects, friends/search, boards, public links, age
 - raw/discussions/2026-11-04-security-qa.md — EM security decisions: nudity classifier, widget on lock screen, OG image, boards
+- raw/discussions/2026-11-04-infra-qa.md — EM: ADR-0004..0007 approved, full encrypted DOB, attestation log-only in beta, Supabase for data

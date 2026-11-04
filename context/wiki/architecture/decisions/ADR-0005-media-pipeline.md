@@ -1,9 +1,9 @@
 ---
 title: ADR-0005 Media pipeline, storage & CDN
 type: decision
-status: proposed
+status: accepted
 updated: 2026-11-04
-sources: [raw/discussions/2026-11-04-security-qa.md]
+sources: [raw/discussions/2026-11-04-infra-qa.md, raw/discussions/2026-11-04-security-qa.md]
 related: [[overview]], [[api-mvp]], [[data-model]], [[security-baseline]], [[subject-cutout]], [[prd-mvp]], [[ADR-0006-job-queue]], [[threat-model-mvp]]
 ---
 # ADR-0005: Media pipeline, storage & CDN
@@ -56,7 +56,7 @@ pages show resized **watermarked** derivatives only (AC-24.5); EXIF stripped; �
   signed URL. **Accepted risk (D4):** social crawlers / chat apps that already fetched the preview keep their own copy after revoke; the
   owner is told once in the app; minors cannot create public links (AC-24.6).
 - **Provider:** behind `StorageProvider` + `UrlSigner` ports; S3-compatible storage + CDN with token auth and low/zero egress fees
-  (e.g. Cloudflare R2 + CDN, or S3 + CloudFront) — **EM to choose** with hosting.
+  — **Cloudflare R2 + Cloudflare CDN** per [[ADR-0008-hosting]].
 
 ## Consequences
 - Positive: one fail-closed gate for all images; private by default; edge caching despite per-viewer authorization; provider swappable.

@@ -3,7 +3,7 @@ title: API contract — MVP (/v1)
 type: spec
 status: proposed
 updated: 2026-11-04
-sources: [raw/discussions/2026-11-04-prd-design-qa.md, raw/discussions/2026-11-04-security-qa.md]
+sources: [raw/discussions/2026-11-04-infra-qa.md, raw/discussions/2026-11-04-prd-design-qa.md, raw/discussions/2026-11-04-security-qa.md]
 related: [[prd-mvp]], [[overview]], [[data-model]], [[security-baseline]], [[ADR-0004-auth-sessions]], [[ADR-0005-media-pipeline]], [[ADR-0006-job-queue]], [[ADR-0007-board-sync]], [[region-policy]], [[threat-model-mvp]], [[effects-catalog]]
 ---
 # API contract — MVP (`/v1`)
@@ -221,6 +221,6 @@ and be enabled; unknown JSON fields rejected (`deny_unknown_fields`).
 ```
 
 ## Open questions
-- Attestation enforcement mode at launch (log-only vs hard-fail on `att` endpoints) — recommend log-only for beta, enforce at GA.
+- ~~Attestation enforcement mode~~ — **decided (EM 2026-11-04): log-only in beta, hard-fail at GA** on all `att` endpoints.
 - Captcha provider for `/v1/public/reports` (privacy-friendly option preferred).
-- Attestation on `POST /v1/board-invitations/{id}/accept` (SR-13 lists friend-invite accept only) — recommend log-only for beta.
+- `POST /v1/board-invitations/{id}/accept` is an `att` endpoint (same log-only-in-beta rule).

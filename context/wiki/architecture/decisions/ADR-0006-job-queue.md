@@ -1,9 +1,9 @@
 ---
 title: ADR-0006 Job queue & domain events (Postgres + outbox)
 type: decision
-status: proposed
+status: accepted
 updated: 2026-11-04
-sources: [raw/discussions/2026-11-04-security-qa.md]
+sources: [raw/discussions/2026-11-04-infra-qa.md, raw/discussions/2026-11-04-security-qa.md]
 related: [[overview]], [[data-model]], [[ADR-0005-media-pipeline]], [[ADR-0002-cross-platform-stack]], [[change-management]]
 ---
 # ADR-0006: Job queue & domain events
