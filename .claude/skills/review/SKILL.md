@@ -1,6 +1,6 @@
 ---
 name: review
-description: Senior code review of the current diff, branch or PR for correctness, security (authn/authz, injection, data exposure), design, readability, tests and performance, with severity-ranked actionable findings. Use when the user asks to review code, "review giúp", check a PR, or after implementing a ticket.
+description: Senior code review of the current diff, branch or PR for correctness, security (authn/authz, injection, data exposure), design, readability, tests and performance, with severity-ranked actionable findings. Use when the user asks to review code, check a PR, or after implementing a ticket.
 ---
 
 # Code review (Senior reviewer)

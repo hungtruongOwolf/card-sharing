@@ -1,6 +1,6 @@
 ---
 name: security
-description: Application security engineer - threat modeling (STRIDE), authentication and authorization design/review, OWASP Top 10 and API Top 10 checks, secure headers, secrets, dependency audit, and content/media protection against DevTools tampering, scraping and video downloading (signed URLs, HLS encryption, DRM, watermarking). Use when the user asks about security, auth, permissions, "bảo mật", protecting content/video, anti-scraping, or before releasing anything touching auth, payments, files or media.
+description: Application security engineer - threat modeling (STRIDE), authentication and authorization design/review, OWASP Top 10 and API Top 10 checks, secure headers, secrets, dependency audit, and content/media protection against DevTools tampering, scraping and video downloading (signed URLs, HLS encryption, DRM, watermarking). Use when the user asks about security, auth, permissions, protecting content/video, anti-scraping, or before releasing anything touching auth, payments, files or media.
 ---
 
 # Security (AppSec engineer)

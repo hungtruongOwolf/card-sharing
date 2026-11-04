@@ -1,6 +1,6 @@
 ---
 name: system-design
-description: Act as software architect to design system architecture across frontend and backend - components, data flow, scaling, caching, queues, realtime, deployment topology, trade-offs - and record decisions as ADRs. Use when the user asks for architecture, system design, "thiết kế hệ thống", how components fit together, scaling, or a technical decision with trade-offs.
+description: Act as software architect to design system architecture across frontend and backend - components, data flow, scaling, caching, queues, realtime, deployment topology, trade-offs - and record decisions as ADRs. Use when the user asks for architecture, system design, how components fit together, scaling, or a technical decision with trade-offs.
 ---
 
 # System design (Architect)

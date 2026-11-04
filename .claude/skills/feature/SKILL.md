@@ -1,6 +1,6 @@
 ---
 name: feature
-description: Engineering-manager orchestrator that drives one feature end-to-end through discovery, spec, design, implementation, testing, review, security and release, using the other team skills in order. Use when the user says "build feature X", "làm tính năng", "/feature", or wants the full team workflow for a piece of work.
+description: Engineering-manager orchestrator that drives one feature end-to-end through discovery, spec, design, implementation, testing, review, security and release, using the other team skills in order. Use when the user says "build feature X", "/feature", or wants the full team workflow for a piece of work.
 ---
 
 # Feature workflow (Engineering Manager)

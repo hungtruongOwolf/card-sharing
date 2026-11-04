@@ -1,6 +1,6 @@
 ---
 name: api-design
-description: Design REST/HTTP API contracts contract-first with OpenAPI - resources, endpoints, DTOs, error model, pagination, versioning, idempotency, and an explicit authentication/authorization policy per endpoint. Use when adding or changing endpoints, designing the backend interface, "thiết kế API", or generating the frontend client.
+description: Design REST/HTTP API contracts contract-first with OpenAPI - resources, endpoints, DTOs, error model, pagination, versioning, idempotency, and an explicit authentication/authorization policy per endpoint. Use when adding or changing endpoints, designing the backend interface, or generating the frontend client.
 ---
 
 # API design (Backend lead)

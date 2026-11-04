@@ -1,6 +1,6 @@
 ---
 name: release
-description: Release manager and retrospective facilitator - pre-release checklist, changelog, versioning, migration and rollback plan, feature flags, post-release verification, and a blameless retro that feeds learnings back into the context wiki. Use when shipping, "release", "deploy lên production", preparing a launch, writing a changelog, or running a retrospective / post-mortem.
+description: Release manager and retrospective facilitator - pre-release checklist, changelog, versioning, migration and rollback plan, feature flags, post-release verification, and a blameless retro that feeds learnings back into the context wiki. Use when shipping, "release", preparing a launch, writing a changelog, or running a retrospective / post-mortem.
 ---
 
 # Release & retro (Release manager)

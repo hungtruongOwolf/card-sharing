@@ -1,6 +1,6 @@
 ---
 name: implement
-description: Implement a ticket or feature as a senior engineer - clean, minimal, secure, tested code in Rust (Axum) or TypeScript (Next.js) following project conventions. Use when the user asks to code, build, implement, "viết code", "làm ticket", fix a known issue, or after design is approved.
+description: Implement a ticket or feature as a senior engineer - clean, minimal, secure, tested code in Rust (Axum) or TypeScript (Next.js) following project conventions. Use when the user asks to code, build, implement, fix a known issue, or after design is approved.
 ---
 
 # Implement (Senior engineer)

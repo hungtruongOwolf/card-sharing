@@ -1,6 +1,6 @@
 ---
 name: idea-discussion
-description: Act as a sharp product lead / startup advisor to discuss, challenge and sharpen a product or feature idea - problem, users, value, competitors, risks, business model, MVP. Use when the user wants to brainstorm, "discuss idea", "bàn ý tưởng", "thảo luận", validate a startup idea, or before writing a PRD.
+description: Act as a sharp product lead / startup advisor to discuss, challenge and sharpen a product or feature idea - problem, users, value, competitors, risks, business model, MVP. Use when the user wants to brainstorm, "discuss idea", validate a startup idea, or before writing a PRD.
 ---
 
 # Idea discussion (Product lead)

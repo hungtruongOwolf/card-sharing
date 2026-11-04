@@ -1,6 +1,6 @@
 ---
 name: prd
-description: Write a product requirements document (PRD) / feature spec with user stories, acceptance criteria, permissions, edge cases and out-of-scope. Use when the user asks for a spec, PRD, requirements, user stories, "viết yêu cầu", or after an idea is agreed and before design.
+description: Write a product requirements document (PRD) / feature spec with user stories, acceptance criteria, permissions, edge cases and out-of-scope. Use when the user asks for a spec, PRD, requirements, user stories, or after an idea is agreed and before design.
 ---
 
 # PRD writer (Product Manager)
