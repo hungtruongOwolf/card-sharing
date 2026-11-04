@@ -34,6 +34,7 @@ Global, English. Backend stays Rust.
   (effects-registry added 2026-11-04 per [[effects-catalog]] / [[ADR-0003-effects-tiers]]);
   Cargo workspace `apps/api`. Expect ~60–75% shared TS.
 - **3D:** deferred; 2.5D Skia effects first.
+- **Implemented versions (skeleton, 2026-11-04):** Expo SDK 57, RN 0.86, react-native-skia 2.6.2, Reanimated 4.5, Next.js 16.4, TS 6.0.
 
 ## Consequences
 - Positive: one canvas/shader engine everywhere; web drives virality; Rust keeps AI/media backend cheap.

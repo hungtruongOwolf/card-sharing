@@ -22,11 +22,12 @@ default:
   ai_label: { visible_badge: true, c2pa: true }
 overrides:
   EU:  { min_age: 16, ads: { personalized_requires_consent: true } }   # GDPR Art. 8 (member states 13–16) — legal review
-  UK:  { min_age: 13 }                                                   # Age Appropriate Design Code — review
+  GB:  { min_age: 13 }                                                   # UK (ISO 3166 code GB) — Age Appropriate Design Code — review
   US:  { min_age: 13 }                                                   # COPPA
   KR:  { min_age: 14 }                                                   # PIPA — verify
 ```
-(Values are placeholders pending legal review — only the mechanism is decided.)
+(Values are placeholders pending legal review — only the mechanism is decided. Implemented in `crates/policy`, config at
+`config/policy/regions.yaml`; country keys are ISO 3166-1 alpha-2. Open: should the `EU` group become `EEA` (adds IS, LI, NO)?)
 
 ## Rules
 - Resolution order: country → region group (EU) → default. Region from store country / IP / user-declared; take the **strictest** when signals conflict.
