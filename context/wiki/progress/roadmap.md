@@ -3,7 +3,7 @@ title: Roadmap
 type: status
 status: draft
 updated: 2026-11-04
-related: [[status]], [[vision]]
+related: [[status]], [[vision]], [[prd-mvp]]
 ---
 # Roadmap
 

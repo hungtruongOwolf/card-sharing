@@ -4,7 +4,7 @@ type: decision
 status: accepted
 updated: 2026-11-04
 sources: [raw/research/2026-11-04-on-device-genai.md, raw/research/2026-11-04-zero-download-ai.md, raw/research/2026-11-04-genai-effects.md, raw/discussions/2026-11-04-idea-round-5.md, raw/discussions/2026-11-04-idea-round-6.md]
-related: [[genai-effects]], [[subject-cutout]], [[monetization]], [[region-policy]], [[ADR-0002-cross-platform-stack]]
+related: [[effects-catalog]], [[prd-mvp]], [[genai-effects]], [[subject-cutout]], [[monetization]], [[region-policy]], [[ADR-0002-cross-platform-stack]]
 ---
 # ADR-0003: Image effects architecture — tiers
 

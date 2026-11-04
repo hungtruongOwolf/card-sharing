@@ -4,7 +4,7 @@ type: concept
 status: draft
 updated: 2026-11-04
 sources: [raw/discussions/2026-11-04-idea-round-6.md, raw/discussions/2026-11-04-idea-round-5.md, raw/discussions/2026-11-04-idea-round-4.md, raw/discussions/2026-11-04-kickoff.md, raw/discussions/2026-11-04-idea-round-1.md, raw/discussions/2026-11-04-idea-round-2.md, raw/research/2026-11-04-boop-teardown.md]
-related: [[glossary]], [[roadmap]], [[competitors]], [[monetization]], [[region-policy]], [[ADR-0003-effects-tiers]]
+related: [[prd-mvp]], [[design-system]], [[glossary]], [[roadmap]], [[competitors]], [[monetization]], [[region-policy]], [[ADR-0003-effects-tiers]]
 ---
 # Product Vision — card-sharing
 **TL;DR (working hypothesis):** A warm, playful mobile app (with web share pages) to capture everyday moments — pets first, then anything —
