@@ -17,12 +17,11 @@ related: [[roadmap]], [[ADR-0002-cross-platform-stack]], [[vision]]
 - Research (5 tracks): frontend stack, subject cutout, cloud GenAI, on-device GenAI, zero-download AI.
 
 ## Next
-1. EM confirms PRD scope decisions + design-system brand/fonts.
 2. Monorepo walking skeleton (in progress) → `/system-design` + `/api-design` + `/database-design` for MVP.
 3. Week-1 spike: Skia web perf, holo shader, cutout module, Tier-0 hero effects.
 
 ## Blockers / waiting on EM
-- PRD scope decisions (prd-mvp open questions); brand vibe & fonts (design-system).
+- Minor: PRD Q8 metric targets, Q9 moderation staffing (not blocking design).
 
 ## Accepted
 - ADR-0002 cross-platform stack (app-first, web = previews). Sharing model: close friends + share-out, Explore later. Min age 13+ (per-region overrides via config). AI = images only.

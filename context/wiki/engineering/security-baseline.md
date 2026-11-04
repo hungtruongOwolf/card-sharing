@@ -119,6 +119,8 @@ Notes:
 - **Consent** before any photo goes to a third-party AI; AI never runs automatically.
 - **Generated content**: moderation in + out, C2PA signing + visible AI label (EU AI Act Art. 50),
   report/block flows, CSAM hash matching, no face-swap/undress templates.
+- **Handle search** = exact match only, identical "not found" for hidden/minor/blocked/non-existent accounts
+  (no enumeration), per-user/device/IP rate limits; never returns users below `discovery.min_age` — [[prd-mvp]] US-5a.
 - Region-specific rules (age, consent, ads) resolved server-side from config — [[region-policy]].
 - See [[genai-effects]], [[monetization]], [[subject-cutout]], [[ADR-0003-effects-tiers]].
 

@@ -3,7 +3,7 @@ title: PRD — MVP (capture → card → send → board → share)
 type: spec
 status: draft
 updated: 2026-11-04
-sources: [raw/discussions/2026-11-04-idea-round-1.md, raw/discussions/2026-11-04-idea-round-2.md, raw/discussions/2026-11-04-idea-round-3.md, raw/discussions/2026-11-04-idea-round-4.md, raw/discussions/2026-11-04-idea-round-5.md, raw/discussions/2026-11-04-idea-round-6.md]
+sources: [raw/discussions/2026-11-04-prd-design-qa.md, raw/discussions/2026-11-04-idea-round-1.md, raw/discussions/2026-11-04-idea-round-2.md, raw/discussions/2026-11-04-idea-round-3.md, raw/discussions/2026-11-04-idea-round-4.md, raw/discussions/2026-11-04-idea-round-5.md, raw/discussions/2026-11-04-idea-round-6.md]
 related: [[vision]], [[monetization]], [[ADR-0003-effects-tiers]], [[region-policy]], [[security-baseline]], [[subject-cutout]], [[effects-catalog]], [[competitors]], [[ADR-0002-cross-platform-stack]]
 ---
 # PRD — MVP
@@ -69,12 +69,16 @@ Priorities: **M**ust / **S**hould / **C**ould (see MoSCoW). All limits below are
   - AC-2.4: The DOB screen is neutral (no pre-filled date, no hint of the threshold).
 - **US-3 (M):** As a new user, I pick a display name + avatar (a card of myself or my pet) and grant camera access with a clear explanation.
   - AC-3.1: Given I deny camera permission, When I reach the capture screen, Then I see an explainer with "Open Settings" and the library import still works.
-  - AC-3.2: Display names are 2–30 chars, pass the profanity filter, and are not unique handles (no global search).
+  - AC-3.2: Display names are 2–30 chars and pass the profanity filter; they are not unique and are never searchable.
+  - AC-3.3: I also pick a unique **handle** (3–20 chars, `[a-z0-9._]`, profanity-filtered, case-insensitive unique, changeable at most once per 30 days); old handles are reserved for 30 days.
 
 ### E2 — Friends
 **Decision: max 20 friends** (config `friends.max`). Why: matches Locket's proven intimate ceiling; keeps the widget meaningful
 (a busy widget = noise); bounds fan-out cost (1 send ≤ 20 deliveries/pushes); limits the harassment surface for 13+ users.
-**Decision: invite link / QR only** — no username search, no contact sync in MVP (strangers cannot find minors).
+**Decision (EM 2026-11-04): invite link / QR + exact-handle search.** No contact sync in MVP.
+Safety rules for search (so strangers cannot find minors): exact match only (no prefix/fuzzy/browse), users under
+`discovery.min_age` (region config, default 18) are never returned, adults can turn "Findable by handle" off,
+searches are rate-limited, and a result only allows sending a request that must be accepted.
 - **US-4 (M):** As a user, I share my personal invite link/QR so close friends can add me.
   - AC-4.1: Given I tap "Invite", Then I get a share sheet with a link `…/i/<token>` (≥ 128-bit random) and a QR code.
   - AC-4.2: Given a recipient without the app opens the link, Then the web page shows my display name + avatar card and store buttons, and the invite is applied after install (deferred deep link).
@@ -84,6 +88,11 @@ Priorities: **M**ust / **S**hould / **C**ould (see MoSCoW). All limits below are
   - AC-5.2: Given either party has 20 friends, When a request is sent or accepted, Then it fails with "Friend list full (20)".
   - AC-5.3: Given I have 20 pending outgoing requests or sent 30 requests today, When I send another, Then it is rejected (rate limit).
   - AC-5.4: Given a pending request older than 14 days, Then it expires automatically.
+- **US-5a (M):** As a user, I find a friend by typing their exact handle and send a friend request.
+  - AC-5a.1: Given I search `@mai.cat`, Then I get at most one result, only on an exact case-insensitive match; partial input returns nothing (no autocomplete of other users' handles).
+  - AC-5a.2: Given the matching account is under `discovery.min_age` for its region, or has "Findable by handle" off, or has blocked me, Then I get the same "No one found" response as a non-existent handle (no enumeration signal, same latency class).
+  - AC-5a.3: Given I made 30 searches today or 10 in a minute, Then further searches return "try later" (per-user + per-device + per-IP limits).
+  - AC-5a.4: A found user shows display name + avatar only; sending a request follows AC-5.1–5.4 (acceptance required, caps).
 - **US-6 (M):** As a user, I remove a friend.
   - AC-6.1: Given I remove a friend, Then neither of us receives the other's new cards, past received cards disappear from both feeds/widgets within 60 s, and their cards pinned on my boards render as "card unavailable".
   - AC-6.2: Removal sends no notification to the other party.
@@ -106,7 +115,7 @@ Priorities: **M**ust / **S**hould / **C**ould (see MoSCoW). All limits below are
   - AC-10.2: Cut styles are registry entries; adding one requires no screen code changes ([[change-management]]).
 - **US-11 (M):** As a user, I choose a finish and feel the card physically.
   - AC-11.1: Finishes at launch: matte, glossy, holo (gyro-driven shine).
-  - AC-11.2: Given I press/drag a card, Then it squishes with spring physics, a haptic tick and an optional sound; frame rate stays 60 fps on mid-range.
+  - AC-11.2: Given I press/drag a card, Then it squishes with spring physics, a haptic tick and a sound (on by default, toggle in settings, silent when the device is muted); frame rate stays 60 fps on mid-range.
   - AC-11.3: Given OS "Reduce Motion" is on, Then gyro holo and squish animations are replaced by static/fade variants; haptics follow the OS setting.
 - **US-12 (S):** As a user, I add a caption (≤ 80 chars, profanity-filtered, emoji allowed) to a card.
 
@@ -166,14 +175,14 @@ on-device cutout + landmarks + Skia shaders/particles + Rive/Lottie props. No ge
 ### E9 — Share-out & web preview
 - **US-23 (M):** As a user, I export a card or board as an image to TikTok/IG/save to Photos.
   - AC-23.1: Given I tap Export, Then a PNG (card: transparent; board: 1080×1920 and 1080×1350) is generated on-device with a small brand mark and the OS share sheet opens.
-  - AC-23.2: Only the card owner can export a card. A board export renders the owner's cards; friends' cards render as a neutral "private card" tile (same rule as AC-24.3) — **open question Q3**.
+  - AC-23.2: Only the card owner can export a card. A board export renders the owner's cards; friends' cards render as a neutral "private card" tile (same rule as AC-24.3) (decided: owner only).
 - **US-24 (M):** As a board owner, I create a public link to a board.
   - AC-24.1: Given I tap "Share link", Then a URL `…/b/<token>` (≥ 128-bit, unguessable) is created; I can revoke it or set expiry (24 h / 7 d / never).
   - AC-24.2: Given a guest opens the link, Then the Next.js page renders server-side with an OG image, the board snapshot, owner display name, and "Get the app" CTA; LCP ≤ 2.5 s on 4G mid-range.
   - AC-24.3: The public page shows **only the owner's own cards**; pins of friends' cards render as a neutral "private card" tile unless that friend opted in per card (C).
   - AC-24.4: Given the link is revoked/expired or the board deleted, Then the page returns 404 within 60 s (CDN purge).
   - AC-24.5: Images on the page are resized, watermarked derivatives via signed URLs (TTL ≤ 10 min); the page is `noindex` by default.
-  - AC-24.6: Given the owner is under 18, Then public links are disabled unless region config allows (`public_links.min_age`, default 18) — **open question Q2**.
+  - AC-24.6: Given the owner is under 18, Then public links are disabled unless region config allows (`public_links.min_age`, default 18) (decided).
 - **US-25 (S):** As a guest, I tap a card on the preview page to see it enlarged (lazy-loaded Skia holo preview only if budget allows).
 
 ### E10 — Safety
@@ -218,6 +227,7 @@ Server-enforced on every request (function level + object level, [[security-base
 | React to a card | ❌ | ❌ | ✅ if recipient | ❌ (unless also recipient) | ❌ (unless recipient) | ❌ |
 | See reactions | ❌ | own cards only | own reaction only | ❌ | ❌ | reported only |
 | Send friend request (via invite) | ❌ | ✅ valid token, caps | — | — | — | — |
+| Search by exact handle | ❌ | ✅ rate-limited; never returns users < `discovery.min_age`, non-findable, or blockers | — | — | — | audit only |
 | Remove friend / block | ❌ | ✅ | ✅ | — | — | ban/suspend |
 | Create board | ❌ | ✅ | — | — | — | — |
 | View board (app) | ❌ | ❌ | ❌ (unless collaborator) | ✅ | ✅ | reported only |
@@ -274,11 +284,11 @@ per-viewer signed URLs (TTL ≤ 10 min app, ≤ 10 min web) issued after the che
 |---|---|
 | Scraping public board links | 128-bit tokens (no enumeration), per-IP rate limits, `noindex`, only resized watermarked derivatives, signed URLs TTL ≤ 10 min, revocation + expiry, anomaly auto-disable, friends' cards excluded by default. |
 | Spam invites / friend-request floods | Requests need acceptance; 20 pending outgoing + 30/day caps; 14-day expiry; invite reset; device attestation on accept; block prevents re-requests. |
-| Harassment / bullying | No stranger discovery (invite-only), no text DMs in MVP, reactions private, silent block/unfriend, report flow with priority categories, suspend/ban. |
+| Harassment / bullying | No browsable stranger discovery (invite + exact-handle search only, acceptance required), no text DMs in MVP, reactions private, silent block/unfriend, report flow with priority categories, suspend/ban. |
 | Unwanted exposure via shared boards | One-time disclosure when pinning to shared board; collaborators only friends of owner; leaving/removal removes their pins; public page shows owner's cards only. |
 | CSAM / sexual content | Hash matching on every upload before delivery (fail closed); mandatory reporting process; priority queue; account ban + evidence preservation; profanity/sexual text filter on captions and names. |
-| Minors (13–17) | Region-configured age gate, DOB locked, neutral gate + cooldown; no search/contact discovery; public links off < 18 by default; no cloud AI or ads in MVP; no personalized tracking. |
-| Underage user lying about age | Report reason "minor safety" → moderator can suspend pending verification; no age-verification ID collection in MVP (open question Q5). |
+| Minors (13–17) | Region-configured age gate, DOB locked, neutral gate + cooldown; never returned by handle search (`discovery.min_age`), no contact discovery; public links off < 18 by default; no cloud AI or ads in MVP; no personalized tracking. |
+| Underage user lying about age | Report reason "minor safety" → moderator can suspend pending verification; no age-verification ID collection in MVP (decided: self-declared DOB for MVP). |
 | Send spam / storage abuse | 100 sends/day, 20 boards × 100 pins, upload size ≤ 10 MB, re-encode; per-user storage quota (config). |
 | IDOR / privilege escalation (DevTools attacker) | Object-level checks on every endpoint; collaborator/owner/role never from client; 404 on denial; authorization-matrix tests ([[security-baseline]] §6). |
 | Re-share of a friend's card | Export restricted to owner; screenshots cannot be prevented (accepted risk, documented in ToS). |
@@ -286,7 +296,7 @@ per-viewer signed URLs (TTL ≤ 10 min app, ≤ 10 min web) issued after the che
 ## MoSCoW
 | Priority | Items |
 |---|---|
-| **Must** | Auth (Apple/Google/magic link); region age gate; invite link/QR + requests + 20-friend cap; capture/import; on-device cutout + refine; ≥ 6 cut styles; 3 finishes + squish/haptics; send to all/subset; feed; widget (iOS + Android); reactions; personal boards; shared boards (async); ≥ 10 Tier-0 effects; image export; public board link + Next.js preview page; report/block; moderation queue; CSAM hashing; account deletion; data export; push notifications with toggles; offline outbox. |
+| **Must** | Auth (Apple/Google/magic link); region age gate; unique handle; invite link/QR + exact-handle search + requests + 20-friend cap; capture/import; on-device cutout + refine; ≥ 6 cut styles; 3 finishes + squish/haptics/sound (toggle); send to all/subset; feed; widget (iOS + Android); reactions; personal boards; shared boards (async); ≥ 10 Tier-0 effects; image export; public board link + Next.js preview page; report/block; moderation queue; CSAM hashing; account deletion; data export; push notifications with toggles; offline outbox. |
 | **Should** | Drafts tray; captions; board backdrops & decorations; board rename/duplicate; widget per-friend filter; guest card enlarge on preview page; quiet hours. |
 | **Could** | "Surprise me" random effect; per-card opt-in to appear on friends' public boards; sound packs; board templates. |
 | **Won't (MVP)** | See Out of scope. |
@@ -300,7 +310,7 @@ per-viewer signed URLs (TTL ≤ 10 min app, ≤ 10 min web) issued after the che
 | Pro subscription (premium finishes, templates, capacity), web billing | 2 |
 | Albums, notes, event timeline (round 1 ideas) | 2 |
 | Text replies / DMs on cards | 2 (needs text moderation) |
-| Contact sync / username search friend discovery | 2 (safety review first) |
+| Contact sync friend discovery | 2 (safety review first) |
 | Server-side segmentation fallback (BiRefNet) | 2 |
 | Tier 2 cloud "exact subject" AI edits, credits ledger, C2PA/AI labels | 3 |
 | Public Explore / discovery feed | 3 |
@@ -308,13 +318,20 @@ per-viewer signed URLs (TTL ≤ 10 min app, ≤ 10 min web) issued after the che
 | AI video, gacha, battles, 3D scenes | not planned (EM decisions) |
 | Languages other than English (infra is i18n-ready) | post-launch |
 
+## Decisions (EM 2026-11-04, Q&A) — source: raw/discussions/2026-11-04-prd-design-qa.md
+| Was | Decision |
+|---|---|
+| Q1 friend cap | 20 |
+| Q2 minors & public links | Off for < 18 by default (`public_links.min_age`) |
+| Q3 friends' cards on public pages/exports | Owner's cards only |
+| Q4 shared boards | Async in MVP, realtime Phase 2 |
+| Q5 age assurance | Self-declared DOB |
+| Q6 brand mark on exports | Always on |
+| Q7 keep original upload | Default off |
+| Friend discovery | Invite/QR + exact-handle search (US-5a) |
+| Text replies | Emoji + squish only |
+| Sound | In MVP, toggleable |
+
 ## Open questions for the EM
-1. **Q1 — Friend cap:** confirm 20 (Locket parity), or prefer a larger cap (e.g. 50) traded against widget noise and fan-out?
-2. **Q2 — Minors & public links:** disable public board links for users under 18 by default (config), or allow with extra friction?
-3. **Q3 — Friends' cards in exports/public pages:** owner's cards only (current spec), or allow friends' cards with per-card opt-in in MVP?
-4. **Q4 — Shared boards async in MVP, realtime in Phase 2:** confirm, or is realtime co-editing a launch "wow" worth the delay?
-5. **Q5 — Age assurance:** self-declared DOB only for MVP (current spec), or add an age-estimation vendor in strict regions (UK/AU)?
-6. **Q6 — Brand mark on exports:** always on in MVP (growth), removable later via Pro?
-7. **Q7 — "Keep original" upload:** default off (current spec) — acceptable that board/card re-edits after sending are limited?
-8. **Q8 — Metric targets:** accept the hypothesis targets above for the beta go/no-go, or set different bars?
-9. **Q9 — Moderation staffing:** in-house moderators vs vendor for the 24 h SLA at launch; which CSAM hash service (PhotoDNA / Thorn Safer)?
+1. **Q8 — Metric targets:** accept the hypothesis targets above for the beta go/no-go, or set different bars?
+2. **Q9 — Moderation staffing:** in-house moderators vs vendor for the 24 h SLA at launch; which CSAM hash service (PhotoDNA / Thorn Safer)?

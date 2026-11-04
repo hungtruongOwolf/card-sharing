@@ -3,7 +3,7 @@ title: Effects Catalog (Tier 0) & Effect Registry
 type: spec
 status: draft
 updated: 2026-11-04
-sources: [raw/research/2026-11-04-zero-download-ai.md, raw/research/2026-11-04-subject-cutout.md, raw/research/2026-11-04-on-device-genai.md, raw/research/2026-11-04-frontend-stack.md, raw/discussions/2026-11-04-idea-round-1.md, raw/discussions/2026-11-04-idea-round-5.md]
+sources: [raw/discussions/2026-11-04-prd-design-qa.md, raw/research/2026-11-04-zero-download-ai.md, raw/research/2026-11-04-subject-cutout.md, raw/research/2026-11-04-on-device-genai.md, raw/research/2026-11-04-frontend-stack.md, raw/discussions/2026-11-04-idea-round-1.md, raw/discussions/2026-11-04-idea-round-5.md]
 related: [[ADR-0003-effects-tiers]], [[subject-cutout]], [[design-system]], [[change-management]], [[monetization]], [[region-policy]], [[vision]], [[genai-effects]]
 ---
 # Effects Catalog (Tier 0) & Effect Registry
@@ -108,7 +108,7 @@ pose model downloaded on first use (Phase 2, [[ADR-0003-effects-tiers]]). Props 
 
 Export rules:
 - **Still:** render the composed card offscreen (`makeImageSnapshot`) at export resolution (long side 2048, 1080 for share), PNG with alpha for stickers, JPEG for photos; holo frozen at a flattering tilt.
-- **Loop clip (procedural only, not AI video):** render N frames with the `time` uniform offscreen → encode MP4/animated WebP via a native encoder module (AVAssetWriter / MediaCodec); Skia video export is beta → Phase 2. EM rule "images only, no AI video" (round 5) concerns AI generation — confirm procedural loops are OK.
+- **Loop clip (procedural only, not AI video):** render N frames with the `time` uniform offscreen → encode MP4/animated WebP via a native encoder module (AVAssetWriter / MediaCodec); Skia video export is beta → Phase 2. EM confirmed 2026-11-04: procedural loops are allowed (not AI video) — **Phase 2**.
 - Web share pages show the baked still (`webPreview: 'baked'`); live shaders only after lazy CanvasKit load.
 
 ### 3.3 MVP must-have 10 (and why)
@@ -144,7 +144,7 @@ All derive from the 8-bit mask (source of truth); one `cutStyle` per item; resul
 `frame.*` and `fx.*` entries are shared with §3 — one entry, listed in both pickers via `kind` + tags, never duplicated.
 
 ## Open questions
-- EM: confirm the MVP 10 (swap candidates: `fx.halftone` or `cut.torn` instead of `prop.crown`).
+- MVP 10 **confirmed by EM 2026-11-04** (crown/props kept).
 - EM: are **procedural** looping clips (GIF/MP4, 2–3 s) allowed under "images only"? Default assumption: yes, Phase 2.
 - Unlock defaults (`free` vs `ad`) per effect — owned by [[monetization]]; proposal: all MVP 10 free, ad-unlock for "random extra" variants.
 - Validate cost estimates and the Android pet fallback UX in the week-1 Tier-0 spike.

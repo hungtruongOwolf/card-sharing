@@ -48,3 +48,8 @@
 - Added prd-mvp (31 stories, permissions matrix, abuse cases), design-system (tokens, motion, haptics, canvas budgets), effects-catalog (registry, 15 hero effects, MVP 10).
 - Glossary adopted PRD terms (glossary = source of truth). ADR-0002 package list += effects-registry (change-impact).
 - Status → Phase 2 Design. Waiting on EM: PRD scope decisions, brand/fonts.
+
+## [2026-11-04] decision | PRD + design Q&A with EM
+- 13 answers recorded (raw/discussions/2026-11-04-prd-design-qa.md). Change vs draft: exact-handle search added (US-5a, unique handles AC-3.3).
+- Propagated: prd-mvp (stories, permissions matrix, abuse, MoSCoW, out-of-scope, decisions table), region-policy (discovery.min_age,
+  public_links.min_age), security-baseline (anti-enumeration search), design-system (brand decided, sound), effects-catalog (MVP 10 + loops Phase 2), status, index.

@@ -4,7 +4,7 @@ type: concept
 status: proposed
 updated: 2026-11-04
 sources: [raw/discussions/2026-11-04-idea-round-5.md, raw/discussions/2026-11-04-idea-round-6.md]
-related: [[change-management]], [[security-baseline]], [[genai-effects]], [[monetization]], [[vision]]
+related: [[prd-mvp]], [[change-management]], [[security-baseline]], [[genai-effects]], [[monetization]], [[vision]]
 ---
 # Region / jurisdiction policy
 **TL;DR:** Default global rules (min age 13+), with per-jurisdiction overrides in **versioned config**,
@@ -15,6 +15,8 @@ resolved server-side by a `policy` module. Adding/changing a country = config ch
 # config/policy/regions.yaml  (versioned, reviewed like code)
 default:
   min_age: 13
+  discovery: { min_age: 18 }          # handle search never returns younger users (prd-mvp US-5a)
+  public_links: { min_age: 18 }       # public board links off below this age (prd-mvp US-24)
   ai_effects: { cloud_allowed: true, people_in_photo: on_device_or_non_gemini }
   ads: { rewarded: true, personalized_requires_consent: false }
   ai_label: { visible_badge: true, c2pa: true }
