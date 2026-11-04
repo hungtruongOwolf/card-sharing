@@ -1,0 +1,6 @@
+# Reviewed false positives only (generic-api-key on non-secret text). Add a fingerprint here only after a human
+# confirms the match is not a secret; never allowlist whole files or rules.
+# README.md:38 - "pnpm infra:up  # Postgres 17, Valkey, S3-compatible storage, Mailpit" (command comment)
+d45bdc590acd89042bb1e255aa48baeca6c739fe:README.md:generic-api-key:38
+# infra/docker-compose.yml:26 - container image tag "valkey/valkey:8.1.11-alpine3.24"
+d45bdc590acd89042bb1e255aa48baeca6c739fe:infra/docker-compose.yml:generic-api-key:26
