@@ -53,3 +53,20 @@
 - 13 answers recorded (raw/discussions/2026-11-04-prd-design-qa.md). Change vs draft: exact-handle search added (US-5a, unique handles AC-3.3).
 - Propagated: prd-mvp (stories, permissions matrix, abuse, MoSCoW, out-of-scope, decisions table), region-policy (discovery.min_age,
   public_links.min_age), security-baseline (anti-enumeration search), design-system (brand decided, sound), effects-catalog (MVP 10 + loops Phase 2), status, index.
+
+## [2026-11-04] ingest | MVP architecture, data model, API, threat model + security decisions
+- Added overview (rewritten), data-model, api-mvp, ADR-0004 auth/sessions, ADR-0005 media pipeline, ADR-0006 job queue, ADR-0007 board sync, threat-model-mvp.
+- EM security Q&A (raw/discussions/2026-11-04-security-qa.md): nudity classifier on all sends; widget shows photos when locked (accepted risk);
+  OG image = watermarked board snapshot (accepted risk); board membership needs acceptance; private tiles for non-recipients; residual risks accepted.
+- PRD gained AC-1.3/1.4, 4.4, 5.5, 13.6, 16.4/16.5, 19.7–19.9, 24.7, 28.3.
+
+## [2026-11-04] decision | English-only repository
+- EM: chat in Vietnamese, everything in the repo in English. Removed Vietnamese trigger phrases from skills, translated quotes in raw/ notes
+  (raw immutability overridden by this rule), added language rule to CLAUDE.md and tools/english_only.py checker.
+
+## [2026-11-04] ingest | Architecture aligned with EM security decisions (change-impact)
+- board_invitations + accept/decline flow (AC-19.8); per-viewer board read resolution incl. minor protection (AC-19.7/19.9);
+  nudity classifier + content holds + appeals in media pipeline (AC-28.3); widget lock-screen display + 60 s revalidation;
+  OG snapshot caching/purge; ADR-0004 moved to short access + rotating refresh tokens (AC-1.3/1.4); minors' invite limits.
+- Fixed stale PRD lines (role definition, AC-19.5, US-31, permissions matrix) and security-baseline token wording.
+- New open question in api-mvp: device attestation on board-invite accept.

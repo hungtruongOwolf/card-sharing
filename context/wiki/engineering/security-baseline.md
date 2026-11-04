@@ -38,8 +38,8 @@ Therefore:
 - Prefer passkeys/WebAuthn + OAuth (Google/Apple) as options; email magic link as fallback.
 - **Sessions for the web:** `HttpOnly; Secure; SameSite=Lax|Strict` cookies. Do not store tokens in
   `localStorage` (readable by any XSS).
-- If JWT is used: short-lived access token (5–15 min) + rotating refresh token stored server-side
-  (revocable), refresh token reuse detection → revoke the whole family. Pin `alg`, verify `iss/aud/exp`.
+- Tokens (decided in [[ADR-0004-auth-sessions]]): opaque server-side sessions — 10 min access token + rotating refresh
+  token stored server-side (revocable), reuse detection → revoke the whole family. If a JWT is ever introduced: pin `alg`, verify `iss/aud/exp`.
 - Rate-limit + lockout/backoff on login, OTP, password reset. Generic error messages (no user enumeration).
 - MFA available for all users, required for admins.
 - Log auth events (login, failed login, password change, token refresh anomaly).
@@ -121,6 +121,7 @@ Notes:
   report/block flows, CSAM hash matching, no face-swap/undress templates.
 - **Handle search** = exact match only, identical "not found" for hidden/minor/blocked/non-existent accounts
   (no enumeration), per-user/device/IP rate limits; never returns users below `discovery.min_age` — [[prd-mvp]] US-5a.
+- MVP threat model, abuse cases and SR-1…SR-37 live in [[threat-model-mvp]]; every feature PR checks the SRs it touches.
 - Region-specific rules (age, consent, ads) resolved server-side from config — [[region-policy]].
 - See [[genai-effects]], [[monetization]], [[subject-cutout]], [[ADR-0003-effects-tiers]].
 

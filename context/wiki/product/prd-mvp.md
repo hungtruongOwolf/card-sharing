@@ -3,8 +3,8 @@ title: PRD — MVP (capture → card → send → board → share)
 type: spec
 status: draft
 updated: 2026-11-04
-sources: [raw/discussions/2026-11-04-prd-design-qa.md, raw/discussions/2026-11-04-idea-round-1.md, raw/discussions/2026-11-04-idea-round-2.md, raw/discussions/2026-11-04-idea-round-3.md, raw/discussions/2026-11-04-idea-round-4.md, raw/discussions/2026-11-04-idea-round-5.md, raw/discussions/2026-11-04-idea-round-6.md]
-related: [[vision]], [[monetization]], [[ADR-0003-effects-tiers]], [[region-policy]], [[security-baseline]], [[subject-cutout]], [[effects-catalog]], [[competitors]], [[ADR-0002-cross-platform-stack]]
+sources: [raw/discussions/2026-11-04-security-qa.md, raw/discussions/2026-11-04-prd-design-qa.md, raw/discussions/2026-11-04-idea-round-1.md, raw/discussions/2026-11-04-idea-round-2.md, raw/discussions/2026-11-04-idea-round-3.md, raw/discussions/2026-11-04-idea-round-4.md, raw/discussions/2026-11-04-idea-round-5.md, raw/discussions/2026-11-04-idea-round-6.md]
+related: [[threat-model-mvp]], [[vision]], [[monetization]], [[ADR-0003-effects-tiers]], [[region-policy]], [[security-baseline]], [[subject-cutout]], [[effects-catalog]], [[competitors]], [[ADR-0002-cross-platform-stack]]
 ---
 # PRD — MVP
 **TL;DR:** Global English mobile app (iOS + Android, Expo; users 13+ with region overrides). Capture anything (pets first) →
@@ -51,7 +51,7 @@ Events are instrumented with a first-party analytics pipeline; no third-party ad
 | User | Authenticated account that passed the age gate | Region policy resolved server-side ([[region-policy]]). |
 | Friend | User with an accepted mutual friendship with another user | Max **20** friends (config). Recipient of cards. |
 | Board owner | Creator of a board | Exactly one per board. |
-| Board collaborator | Friend of the owner added to a shared board | Max **8** per board (config). |
+| Board collaborator | Friend of the owner who accepted an invitation to a shared board (AC-19.8) | Max **8** per board (config). |
 | Moderator | Staff reviewing reports | Separate admin route group, MFA required ([[security-baseline]]). |
 | Admin | Staff with config/user management | Superset of moderator; all actions audited. |
 
@@ -62,6 +62,8 @@ Priorities: **M**ust / **S**hould / **C**ould (see MoSCoW). All limits below are
 - **US-1 (M):** As a new user, I sign up with Sign in with Apple, Google, or email magic link so I can start quickly.
   - AC-1.1: Given a fresh install, When I complete Apple/Google/magic-link auth, Then an account is created and I land on the age step.
   - AC-1.2: Given 5 failed magic-link requests from one IP/email in 15 min, When I request again, Then I get a generic "try later" error (no account enumeration).
+  - AC-1.3: Magic links are 256-bit, single use, valid 15 min, opened only via Universal/App Links with an in-app confirm; accounts are never auto-linked by email across Apple/Google/magic link ([[threat-model-mvp]] SR-1).
+  - AC-1.4: Sessions use short-lived access tokens + rotating refresh tokens with reuse detection; I can see my sessions and "log out everywhere"; delete/export/email change require re-auth; a new-device login notifies me (SR-2).
 - **US-2 (M):** As the platform, I gate by age per region so we comply with local law.
   - AC-2.1: Given the server resolves my region's `min_age` (strictest of store country / IP / declared), When I enter a date of birth below it, Then sign-up is refused with a neutral message and no profile, captures or DOB are stored (only a hashed device+account cooldown flag for 24 h).
   - AC-2.2: Given an EU-resolved region with `min_age: 16` in config, When a 15-year-old enters DOB, Then sign-up is refused; Given the same DOB in a `min_age: 13` region, Then sign-up succeeds.
@@ -83,11 +85,13 @@ searches are rate-limited, and a result only allows sending a request that must 
   - AC-4.1: Given I tap "Invite", Then I get a share sheet with a link `…/i/<token>` (≥ 128-bit random) and a QR code.
   - AC-4.2: Given a recipient without the app opens the link, Then the web page shows my display name + avatar card and store buttons, and the invite is applied after install (deferred deep link).
   - AC-4.3: Given I tap "Reset link", Then the old token returns "invite expired" and a new one is issued.
+  - AC-4.4: Given the inviter is under 18, Then the invite expires after 7 days and has a use cap (config), and the invite web page shows display name only (no avatar card).
 - **US-5 (M):** As an invitee, opening an invite sends a friend request that the inviter must accept.
   - AC-5.1: Given I open a valid invite, When I tap "Add", Then the inviter gets a request; friendship exists only after acceptance.
   - AC-5.2: Given either party has 20 friends, When a request is sent or accepted, Then it fails with "Friend list full (20)".
   - AC-5.3: Given I have 20 pending outgoing requests or sent 30 requests today, When I send another, Then it is rejected (rate limit).
   - AC-5.4: Given a pending request older than 14 days, Then it expires automatically.
+  - AC-5.5: Given I am under 18 and receive a request from an adult with no mutual friends, Then the request shows an "adult · no mutual friends" hint.
 - **US-5a (M):** As a user, I find a friend by typing their exact handle and send a friend request.
   - AC-5a.1: Given I search `@mai.cat`, Then I get at most one result, only on an exact case-insensitive match; partial input returns nothing (no autocomplete of other users' handles).
   - AC-5a.2: Given the matching account is under `discovery.min_age` for its region, or has "Findable by handle" off, or has blocked me, Then I get the same "No one found" response as a non-existent handle (no enumeration signal, same latency class).
@@ -126,6 +130,7 @@ searches are rate-limited, and a result only allows sending a request that must 
   - AC-13.3: Given I am offline, Then the card is queued in an outbox ("Sending…") and sent automatically when online; I can cancel it.
   - AC-13.4: Uploads are rendered card images + mask (not the raw capture) unless I enable "keep original" (default off).
   - AC-13.5: Rate limit: ≤ 100 sends/user/day (config).
+  - AC-13.6: "Keep original" files are retrievable by the owner only; recipients only ever get display derivatives (EXIF stripped).
 - **US-14 (M):** As a sender, I delete a card I sent.
   - AC-14.1: Given I delete a sent card, Then it disappears from all feeds, widgets and boards (placeholder "card removed") within 60 s, and its media URLs stop resolving after the current signed-URL TTL.
 - **US-15 (M):** As a friend, I see a chronological feed of cards sent to me and can open each full-screen with its finish/squish.
@@ -134,6 +139,8 @@ searches are rate-limited, and a result only allows sending a request that must 
   - AC-16.1: Given a new card arrives, Then the widget shows it (cutout on transparent/board backdrop) with sender name; tapping deep-links to that card.
   - AC-16.2: Given I log out or delete my account, Then the widget clears to an empty state immediately.
   - AC-16.3: Widget can be filtered to one friend (S).
+  - AC-16.4: Given I unfriend/block a sender or they delete the card, Then my widget stops showing it within 60 s.
+  - AC-16.5: The widget shows the photo even when the device is locked (EM decision D3, Locket parity — accepted risk); its cache is stored with OS data protection and cleared on logout/delete; the widget uses a scoped read-only token.
 
 ### E6 — Reactions
 - **US-17 (M):** As a recipient, I react to a card with one of 6 emoji or a "squish" reaction.
@@ -153,12 +160,15 @@ The pin data model is designed to migrate to a Yjs document later without changi
   - AC-18.3: Board edits work offline and sync when online.
   - AC-18.4: Boards have a backdrop (≥ 6 paper/cork/grid backdrops) and ≥ 10 decorations (washi tape, ribbon, ticket, doodles) (S).
 - **US-19 (M):** As a board owner, I invite friends as collaborators to a shared board.
-  - AC-19.1: I can add only current friends; max 8 collaborators.
+  - AC-19.1: I can invite only current friends; max 8 collaborators.
   - AC-19.2: Collaborators can add pins of their own cards, and move/remove only pins they created; the owner can move/remove any pin.
   - AC-19.3: Given two users edit the same pin, Then the server applies per-pin last-writer-wins with a version check; the losing client refreshes the pin without data loss of other pins.
   - AC-19.4: Changes by others appear on board open, pull-to-refresh, and via a push "board updated" silent update (≤ 60 s p95).
-  - AC-19.5: Pinning my card into a shared board makes it visible to all collaborators, with a one-time explanation ("Everyone on this board can see this card").
+  - AC-19.5: Pinning my own card into a shared board makes it visible to all collaborators (subject to AC-19.9), with a one-time explanation ("Everyone on this board can see this card"); pins of cards I received follow AC-19.7.
   - AC-19.6: Owner can remove a collaborator; a collaborator can leave. On removal, their pins are removed from the board.
+  - AC-19.7: A card pinned on a shared board is shown only to collaborators who may view that card (its recipients, or its owner); everyone else sees a neutral "private card" tile. Pinning requires that the pinner can view the card.
+  - AC-19.8: Board membership requires the invitee to accept; users who blocked each other cannot be co-collaborators.
+  - AC-19.9: Adult collaborators who are not friends with a minor collaborator see that minor's pins as "private card" tiles and the minor's display name only.
 - **US-20 (S):** As a board owner, I rename, duplicate (personal only) and delete boards; deleting a board never deletes cards.
 
 ### E8 — Effects (Tier 0 only)
@@ -182,6 +192,7 @@ on-device cutout + landmarks + Skia shaders/particles + Rive/Lottie props. No ge
   - AC-24.3: The public page shows **only the owner's own cards**; pins of friends' cards render as a neutral "private card" tile unless that friend opted in per card (C).
   - AC-24.4: Given the link is revoked/expired or the board deleted, Then the page returns 404 within 60 s (CDN purge).
   - AC-24.5: Images on the page are resized, watermarked derivatives via signed URLs (TTL ≤ 10 min); the page is `noindex` by default.
+  - AC-24.7: The link-preview (OG) image is a watermarked snapshot of the owner's cards on the board (EM decision D4); the owner is told once that apps which already fetched the preview may keep it after revoke (accepted risk).
   - AC-24.6: Given the owner is under 18, Then public links are disabled unless region config allows (`public_links.min_age`, default 18) (decided).
 - **US-25 (S):** As a guest, I tap a card on the preview page to see it enlarged (lazy-loaded Skia holo preview only if budget allows).
 
@@ -197,6 +208,7 @@ on-device cutout + landmarks + Skia shaders/particles + Rive/Lottie props. No ge
 - **US-28 (M):** As the platform, every uploaded image is hash-matched against known CSAM before delivery.
   - AC-28.1: Given an upload matches, Then delivery is blocked, the account suspended, evidence preserved per legal retention, and a report filed (NCMEC/equivalent) per the documented process.
   - AC-28.2: Given the hash service is unavailable, Then sends are held (queued), not delivered unscanned.
+  - AC-28.3: Every send passes a nudity/sexual-content classifier (on-device pre-check + server check, EM decision D1); flagged cards are held for review and not delivered; false-positive appeals go to the moderation queue.
 
 ### E11 — Account deletion & data export (GDPR / app-store rules)
 - **US-29 (M):** As a user, I delete my account in-app.
@@ -208,7 +220,7 @@ on-device cutout + landmarks + Skia shaders/particles + Rive/Lottie props. No ge
   - AC-30.2: Max 1 export request per 24 h.
 
 ### E12 — Notifications
-- **US-31 (M):** As a user, I receive push notifications for: new card (batched if > 3 in 10 min), reaction on my card, friend request / accepted, added to a shared board.
+- **US-31 (M):** As a user, I receive push notifications for: new card (batched if > 3 in 10 min), reaction on my card, friend request / accepted, invited to a shared board / invitation accepted, card held for review / released.
   - AC-31.1: Each type has a toggle; quiet hours (default 22:00–08:00 local) hold non-urgent pushes.
   - AC-31.2: Push payloads contain no image and no caption text when the device is locked-preview-hidden; never include media URLs.
   - AC-31.3: Given push permission denied, Then the in-app activity tab still shows all events.
@@ -222,7 +234,7 @@ Server-enforced on every request (function level + object level, [[security-base
 | Sign up / log in | ✅ (if ≥ region min_age) | — | — | — | — | — |
 | View own captures/drafts | ❌ | own only | ❌ others' | ❌ | ❌ | ❌ (never) |
 | Create / edit / delete card | ❌ | own only | ❌ others' | ❌ | ❌ | remove (on report) |
-| View a sent card | ❌ | ❌ | ✅ if in card's recipient list **and** still friends | ✅ if pinned on a board they collaborate on | ✅ if pinned on own board **and** viewer was a recipient | reported only |
+| View a sent card | ❌ | ❌ | ✅ if in card's recipient list **and** still friends | ✅ if they may view the card itself (owner or recipient) — otherwise a "private card" tile (AC-19.7, AC-19.9) | ✅ if pinned on own board **and** viewer was a recipient | reported only |
 | Export a card image | ❌ | own only | ❌ | ❌ | ❌ | ❌ |
 | React to a card | ❌ | ❌ | ✅ if recipient | ❌ (unless also recipient) | ❌ (unless recipient) | ❌ |
 | See reactions | ❌ | own cards only | own reaction only | ❌ | ❌ | reported only |
@@ -233,7 +245,7 @@ Server-enforced on every request (function level + object level, [[security-base
 | View board (app) | ❌ | ❌ | ❌ (unless collaborator) | ✅ | ✅ | reported only |
 | Add pin | ❌ | ❌ | ❌ | ✅ own cards only | ✅ own cards + received cards | ❌ |
 | Move/remove pin | ❌ | ❌ | ❌ | pins they created | any pin | remove (on report) |
-| Add/remove collaborators | ❌ | ❌ | ❌ | leave only | ✅ friends only, ≤ 8 | ❌ |
+| Invite/remove collaborators | ❌ | ❌ | accept/decline own invitation | leave only | ✅ invite friends only, ≤ 8 incl. pending; remove | ❌ |
 | Rename/delete board | ❌ | ❌ | ❌ | ❌ | ✅ | remove (on report) |
 | Create/revoke public link | ❌ | ❌ | ❌ | ❌ | ✅ (age per config) | revoke |
 | View public board page | ✅ valid, unrevoked token; owner's cards only | same | same | same | same | ✅ |
@@ -285,7 +297,7 @@ per-viewer signed URLs (TTL ≤ 10 min app, ≤ 10 min web) issued after the che
 | Scraping public board links | 128-bit tokens (no enumeration), per-IP rate limits, `noindex`, only resized watermarked derivatives, signed URLs TTL ≤ 10 min, revocation + expiry, anomaly auto-disable, friends' cards excluded by default. |
 | Spam invites / friend-request floods | Requests need acceptance; 20 pending outgoing + 30/day caps; 14-day expiry; invite reset; device attestation on accept; block prevents re-requests. |
 | Harassment / bullying | No browsable stranger discovery (invite + exact-handle search only, acceptance required), no text DMs in MVP, reactions private, silent block/unfriend, report flow with priority categories, suspend/ban. |
-| Unwanted exposure via shared boards | One-time disclosure when pinning to shared board; collaborators only friends of owner; leaving/removal removes their pins; public page shows owner's cards only. |
+| Unwanted exposure via shared boards | One-time disclosure when pinning to shared board; collaborators only friends of owner who accepted; non-recipients see private tiles; leaving/removal removes their pins; public page shows owner's cards only. |
 | CSAM / sexual content | Hash matching on every upload before delivery (fail closed); mandatory reporting process; priority queue; account ban + evidence preservation; profanity/sexual text filter on captions and names. |
 | Minors (13–17) | Region-configured age gate, DOB locked, neutral gate + cooldown; never returned by handle search (`discovery.min_age`), no contact discovery; public links off < 18 by default; no cloud AI or ads in MVP; no personalized tracking. |
 | Underage user lying about age | Report reason "minor safety" → moderator can suspend pending verification; no age-verification ID collection in MVP (decided: self-declared DOB for MVP). |
@@ -331,6 +343,11 @@ per-viewer signed URLs (TTL ≤ 10 min app, ≤ 10 min web) issued after the che
 | Friend discovery | Invite/QR + exact-handle search (US-5a) |
 | Text replies | Emoji + squish only |
 | Sound | In MVP, toggleable |
+| Nudity classifier (D1) | Every send |
+| Widget on locked device (D3) | Shows photo (accepted risk) |
+| Public link OG image (D4) | Watermarked board snapshot (accepted risk) |
+| Board membership | Invitee must accept; non-recipients see private tiles |
+| Residual risks (D7) | Accepted: screenshots, modified-client export, DOB lying — see [[threat-model-mvp]] §8 |
 
 ## Open questions for the EM
 1. **Q8 — Metric targets:** accept the hypothesis targets above for the beta go/no-go, or set different bars?
