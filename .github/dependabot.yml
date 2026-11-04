@@ -26,3 +26,10 @@ updates:
   - package-ecosystem: docker-compose
     directory: /infra
     schedule: { interval: weekly }
+    ignore:
+      # Local Postgres must match the production major (Supabase, ADR-0008); bump majors deliberately.
+      - dependency-name: 'postgres'
+        update-types: ['version-update:semver-major']
+      # Valkey stands in for Upstash Redis (ADR-0008); keep a protocol-compatible major, bump deliberately.
+      - dependency-name: 'valkey/valkey'
+        update-types: ['version-update:semver-major']
