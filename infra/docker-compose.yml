@@ -1,0 +1,83 @@
+# Local development services ONLY — not a deployment manifest.
+# Run from the repo root:  pnpm infra:up   (= docker compose --env-file .env -f infra/docker-compose.yml up -d --wait)
+# All ports bind to 127.0.0.1 so services are not exposed on the LAN.
+name: card-sharing
+
+services:
+  postgres:
+    image: postgres:17.11-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
+      POSTGRES_DB: ${POSTGRES_DB:?set in .env}
+    ports:
+      - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  valkey:
+    image: valkey/valkey:8.1.11-alpine3.24
+    restart: unless-stopped
+    command:
+      ['valkey-server', '--appendonly', 'yes', '--requirepass', '${VALKEY_PASSWORD:?set in .env}']
+    environment:
+      # Used by the healthcheck only (REDISCLI_AUTH avoids the password on the command line).
+      REDISCLI_AUTH: ${VALKEY_PASSWORD:?set in .env}
+    ports:
+      - '127.0.0.1:${VALKEY_PORT:-6379}:6379'
+    volumes:
+      - valkey-data:/data
+    healthcheck:
+      test: ['CMD', 'valkey-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # The official minio/minio images are no longer published on Docker Hub. This is the
+  # community-maintained fork (pgsty/minio, same `minio server` CLI, client shipped as `mcli`).
+  # Local dev only; production uses a managed S3-compatible store (ADR pending).
+  object-storage:
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
+    restart: unless-stopped
+    command: ['server', '/data', '--console-address', ':9001']
+    environment:
+      MINIO_ROOT_USER: ${S3_ROOT_USER:?set in .env}
+      MINIO_ROOT_PASSWORD: ${S3_ROOT_PASSWORD:?set in .env}
+    ports:
+      - '127.0.0.1:${S3_API_PORT:-9000}:9000'
+      - '127.0.0.1:${S3_CONSOLE_PORT:-9001}:9001'
+    volumes:
+      - object-storage-data:/data
+    healthcheck:
+      test: ['CMD', 'mcli', 'ready', 'local']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  mailpit:
+    image: axllent/mailpit:v1.33.0
+    restart: unless-stopped
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: 'true'
+      MP_SMTP_AUTH_ALLOW_INSECURE: 'true'
+    ports:
+      - '127.0.0.1:${MAILPIT_SMTP_PORT:-1025}:1025'
+      - '127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025'
+    healthcheck:
+      test: ['CMD', '/mailpit', 'readyz']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  postgres-data:
+  valkey-data:
+  object-storage-data:

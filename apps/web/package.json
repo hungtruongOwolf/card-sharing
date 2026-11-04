@@ -1,0 +1,26 @@
+{
+  "name": "@card-sharing/web",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "next typegen && tsc --noEmit"
+  },
+  "dependencies": {
+    "@card-sharing/tokens": "workspace:*",
+    "next": "16.4.5",
+    "react": "19.2.3",
+    "react-dom": "19.2.3"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "@types/react": "~19.2.2",
+    "@types/react-dom": "~19.2.2",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.4.5",
+    "typescript": "~6.0.3"
+  }
+}

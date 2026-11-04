@@ -1,0 +1,14 @@
+packages:
+  - apps/mobile
+  - apps/web
+  - packages/*
+
+# pnpm 10 blocks dependency lifecycle scripts by default; allow-list only what is needed.
+onlyBuiltDependencies:
+  # copies prebuilt Skia native libs into the package (required for iOS/Android builds)
+  - '@shopify/react-native-skia'
+
+peerDependencyRules:
+  allowedVersions:
+    # openapi-typescript 7.x declares typescript ^5 but works with the repo's TS 6
+    openapi-typescript>typescript: '6'

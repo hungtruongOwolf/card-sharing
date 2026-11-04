@@ -1,0 +1,45 @@
+[workspace]
+resolver = "3"
+members = ["apps/api", "crates/*"]
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.88"
+publish = false
+license = "UNLICENSED"
+
+[workspace.dependencies]
+# internal
+policy = { path = "crates/policy" }
+
+# external — keep versions here so every crate uses the same ones
+anyhow = "1.0.104"
+axum = { version = "0.8.9", default-features = false, features = ["http1", "http2", "json", "tokio", "query", "matched-path", "original-uri"] }
+http = "1"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+serde_norway = "0.9.42"
+thiserror = "2.0.21"
+tokio = { version = "1.54.1", features = ["macros", "rt-multi-thread", "net", "signal", "time"] }
+tower = { version = "0.5.3", features = ["timeout", "util"] }
+tower-http = { version = "0.7.1", features = ["cors", "trace", "set-header", "limit", "catch-panic"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter", "json", "fmt"] }
+utoipa = { version = "6.0.0", features = ["axum_extras"] }
+utoipa-axum = "0.3.0"
+uuid = { version = "1.29.0", features = ["v7"] }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+dbg_macro = "deny"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "symbols"

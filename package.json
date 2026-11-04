@@ -1,0 +1,30 @@
+{
+  "name": "card-sharing",
+  "private": true,
+  "packageManager": "pnpm@10.29.1",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "lint:boundaries": "depcruise apps packages --config .dependency-cruiser.cjs",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "dev:web": "pnpm --filter @card-sharing/web dev",
+    "dev:mobile": "pnpm --filter @card-sharing/mobile start",
+    "dev:api": "cargo run -p api",
+    "api:openapi": "cargo run -q -p api --bin openapi > packages/api-client/openapi.json",
+    "api:client": "pnpm api:openapi && pnpm --filter @card-sharing/api-client generate",
+    "infra:up": "docker compose --env-file .env -f infra/docker-compose.yml up -d --wait",
+    "infra:down": "docker compose --env-file .env -f infra/docker-compose.yml down"
+  },
+  "devDependencies": {
+    "dependency-cruiser": "18.7.2",
+    "prettier": "3.9.10",
+    "turbo": "2.11.10",
+    "typescript": "~6.0.3"
+  }
+}

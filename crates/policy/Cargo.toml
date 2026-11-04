@@ -1,0 +1,16 @@
+[package]
+name = "policy"
+version = "0.1.0"
+description = "Region / jurisdiction policy resolution (see context/wiki/architecture/region-policy.md)"
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_norway.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

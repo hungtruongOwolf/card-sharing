@@ -1,0 +1,20 @@
+# owned by other processes / not formatted by this repo's tooling
+context/
+.claude/
+CLAUDE.md
+tools/
+
+# generated
+pnpm-lock.yaml
+packages/api-client/openapi.json
+packages/api-client/src/schema.ts
+**/next-env.d.ts
+
+# build output
+node_modules/
+target/
+.next/
+.expo/
+.turbo/
+dist/
+coverage/

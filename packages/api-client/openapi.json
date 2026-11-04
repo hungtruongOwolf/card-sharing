@@ -1,0 +1,153 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "card-sharing API",
+    "description": "Errors use RFC 9457 application/problem+json (schema: ProblemDetails).",
+    "license": {
+      "name": "UNLICENSED",
+      "identifier": "UNLICENSED"
+    },
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/healthz": {
+      "get": {
+        "tags": [
+          "ops"
+        ],
+        "summary": "Liveness: the process is up. Never depends on downstream services.",
+        "operationId": "healthz",
+        "responses": {
+          "200": {
+            "description": "Process is alive. Auth: public.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/readyz": {
+      "get": {
+        "tags": [
+          "ops"
+        ],
+        "summary": "Readiness: the instance can serve traffic (config loaded; DB/Redis checks join here later).",
+        "operationId": "readyz",
+        "responses": {
+          "200": {
+            "description": "Ready to serve traffic. Auth: public.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "HealthResponse": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "ok"
+          }
+        }
+      },
+      "ProblemDetails": {
+        "type": "object",
+        "description": "RFC 9457 problem details. `code` is a stable machine-readable extension member.",
+        "required": [
+          "type",
+          "title",
+          "status",
+          "code"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Stable error code clients can switch on.",
+            "example": "not_found"
+          },
+          "detail": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "example": 404,
+            "minimum": 0
+          },
+          "title": {
+            "type": "string",
+            "example": "Not Found"
+          },
+          "type": {
+            "type": "string",
+            "description": "URI reference identifying the problem type (`about:blank` = see `status`).",
+            "example": "about:blank"
+          }
+        }
+      },
+      "ReadinessChecks": {
+        "type": "object",
+        "required": [
+          "policy_config_version"
+        ],
+        "properties": {
+          "policy_config_version": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Version of the loaded region policy config.",
+            "example": 1,
+            "minimum": 0
+          }
+        }
+      },
+      "ReadinessResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "checks"
+        ],
+        "properties": {
+          "checks": {
+            "$ref": "#/components/schemas/ReadinessChecks"
+          },
+          "status": {
+            "type": "string",
+            "example": "ready"
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "ops",
+      "description": "Operational probes"
+    }
+  ]
+}
