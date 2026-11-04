@@ -3,9 +3,10 @@ title: Roadmap
 type: status
 status: draft
 updated: 2026-11-04
-related: [[status]], [[vision]], [[prd-mvp]]
+related: [[status]], [[vision]], [[prd-mvp]], [[mvp-plan]]
 ---
 # Roadmap
+Detailed MVP schedule, dependencies and ticket traceability: [[mvp-plan]] / [[sprint-1]].
 
 | Phase | Goal | Exit criteria | Skills |
 |---|---|---|---|
