@@ -75,3 +75,8 @@
 - EM approved ADR-0004..0007; full encrypted DOB; attestation log-only in beta, enforced at GA.
 - EM provides Supabase for data; team chose the rest → ADR-0008-hosting (Supabase Postgres with Data API locked down,
   Cloudflare R2 + CDN, Fly.io, Upstash Redis, Postmark). Updated ADR-0005, api-mvp, data-model, overview, index, status.
+
+## [2026-11-04] status | Walking skeleton landed
+- Commit d45bdc5: Axum API + crates/policy (33 tests), Expo SDK 57 + Skia holo demo, Next.js 16 /b/[token] preview, docker compose, CI.
+- Region policy keys use ISO codes (UK → GB). exFAT drive blocks pnpm locally → recommend moving repo to NTFS.
+- Follow-ups recorded in status.md.
