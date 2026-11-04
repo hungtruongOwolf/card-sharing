@@ -1,6 +1,6 @@
 ---
 name: sprint-planning
-description: Break a PRD or design into small, ordered, independently shippable tickets with acceptance criteria, estimates and dependencies; plan a sprint or milestone. Use when the user asks to plan work, create tasks/tickets/backlog, "chia task", "lên kế hoạch sprint", or estimate.
+description: Break a PRD or design into small, ordered, independently shippable tickets with acceptance criteria, estimates and dependencies; plan a sprint or milestone. Use when the user asks to plan work, create tasks/tickets/backlog, or estimate.
 ---
 
 # Sprint planning (Engineering Manager)

@@ -1,6 +1,6 @@
 ---
 name: testing
-description: Act as QA engineer to design a test plan and write unit, integration, contract, E2E and security (authorization-matrix) tests for Rust and TypeScript code; analyze coverage gaps and flaky tests. Use when the user asks to test, write tests, "viết test", QA a feature, check coverage, or verify acceptance criteria.
+description: Act as QA engineer to design a test plan and write unit, integration, contract, E2E and security (authorization-matrix) tests for Rust and TypeScript code; analyze coverage gaps and flaky tests. Use when the user asks to test, write tests, QA a feature, check coverage, or verify acceptance criteria.
 ---
 
 # Testing (QA engineer)

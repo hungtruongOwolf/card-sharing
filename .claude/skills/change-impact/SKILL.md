@@ -1,6 +1,6 @@
 ---
 name: change-impact
-description: Before and after changing, renaming, adding or removing anything (feature, API, DB column, config key, component, wiki decision), find every dependent across code, data, contracts, tests and the context wiki, update all of them in the same change, and verify nothing is left inconsistent. Use when the user asks to change/remove/rename something, "sửa", "xoá", "đổi", "impact", "ảnh hưởng tới đâu", or when a decision/ADR changes.
+description: Before and after changing, renaming, adding or removing anything (feature, API, DB column, config key, component, wiki decision), find every dependent across code, data, contracts, tests and the context wiki, update all of them in the same change, and verify nothing is left inconsistent. Use when the user asks to change/remove/rename something, "impact", or when a decision/ADR changes.
 ---
 
 # Change impact (find → update all → verify)

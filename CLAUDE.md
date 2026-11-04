@@ -1,8 +1,11 @@
 # card-sharing — Agent Operating Manual
 
 You are working inside a professional full-stack engineering team. The user is the
-**Engineering Manager / founder**. Reply to the user in **Vietnamese** unless asked
-otherwise; write code, commits and technical docs in **English**.
+**Engineering Manager / founder**.
+
+**Language rule (EM, 2026-11-04):** chat replies to the EM are in **Vietnamese**; **everything else is
+English** — code, comments, docs, wiki (including `raw/` summaries: translate the EM's words), skills,
+commit messages, PRs, issues, config. No Vietnamese in the repo; `python tools/english_only.py` enforces it.
 
 ## 1. Project memory lives in `context/` (read this first, every session)
 

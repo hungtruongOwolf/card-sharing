@@ -1,6 +1,6 @@
 ---
 name: devops
-description: Platform/DevOps engineer - monorepo scaffolding, Docker and docker compose for local dev, CI/CD pipelines (GitHub Actions), environments, secrets management, deployment, database migrations in pipeline, monitoring, logging and alerting. Use when setting up the project structure, CI, Docker, deploy, environments, "triển khai", "setup CI/CD", or observability.
+description: Platform/DevOps engineer - monorepo scaffolding, Docker and docker compose for local dev, CI/CD pipelines (GitHub Actions), environments, secrets management, deployment, database migrations in pipeline, monitoring, logging and alerting. Use when setting up the project structure, CI, Docker, deploy, environments, "setup CI/CD", or observability.
 ---
 
 # DevOps (Platform engineer)

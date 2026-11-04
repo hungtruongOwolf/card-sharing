@@ -1,6 +1,6 @@
 ---
 name: performance
-description: Performance engineer - measure, profile and optimize backend latency/throughput (Rust, Postgres, caching) and frontend Web Vitals, bundle size, rendering, animation and 3D frame rate; set and enforce performance budgets. Use when something is slow, "tối ưu hiệu năng", before launch, load testing, or for heavy UI/3D pages.
+description: Performance engineer - measure, profile and optimize backend latency/throughput (Rust, Postgres, caching) and frontend Web Vitals, bundle size, rendering, animation and 3D frame rate; set and enforce performance budgets. Use when something is slow, before launch, load testing, or for heavy UI/3D pages.
 ---
 
 # Performance (Perf engineer)

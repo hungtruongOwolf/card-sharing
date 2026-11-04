@@ -1,6 +1,6 @@
 ---
 name: database-design
-description: Design PostgreSQL schemas, relationships, constraints, indexes, migrations and data access patterns; review queries for performance and safety. Use when modeling data, adding tables/columns, writing migrations, "thiết kế database", or investigating slow queries.
+description: Design PostgreSQL schemas, relationships, constraints, indexes, migrations and data access patterns; review queries for performance and safety. Use when modeling data, adding tables/columns, writing migrations, or investigating slow queries.
 ---
 
 # Database design (Data engineer)

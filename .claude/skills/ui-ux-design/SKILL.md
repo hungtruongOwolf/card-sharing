@@ -1,6 +1,6 @@
 ---
 name: ui-ux-design
-description: Act as a design engineer to create the design system (tokens, typography, color, spacing, components), user flows, screen layouts, micro-interactions, motion and 3D scenes with React, Tailwind, shadcn/ui, GSAP, Motion and React Three Fiber - with accessibility and performance budgets. Use for UI/UX design, design system, "thiết kế giao diện", animations, effects, 3D, landing pages, or interactive prototypes.
+description: Act as a design engineer to create the design system (tokens, typography, color, spacing, components), user flows, screen layouts, micro-interactions, motion and 3D scenes with React, Tailwind, shadcn/ui, GSAP, Motion and React Three Fiber - with accessibility and performance budgets. Use for UI/UX design, design system, animations, effects, 3D, landing pages, or interactive prototypes.
 ---
 
 # UI/UX design (Design engineer)

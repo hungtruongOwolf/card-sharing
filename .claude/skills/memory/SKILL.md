@@ -1,6 +1,6 @@
 ---
 name: memory
-description: Maintain the project's context wiki in context/ (Karpathy LLM-wiki pattern) with three operations - ingest (save a source to raw/ and compile it into wiki pages), query (answer from the wiki), lint (health-check for contradictions, stale or orphan pages). Use when the user says "remember this", "lưu lại", "ghi nhớ", "update memory/context", "what do we know about X", at the end of a session with decisions, or "/memory ingest|query|lint".
+description: Maintain the project's context wiki in context/ (Karpathy LLM-wiki pattern) with three operations - ingest (save a source to raw/ and compile it into wiki pages), query (answer from the wiki), lint (health-check for contradictions, stale or orphan pages). Use when the user says "remember this", "update memory/context", "what do we know about X", at the end of a session with decisions, or "/memory ingest|query|lint".
 ---
 
 # Memory keeper (context wiki)
