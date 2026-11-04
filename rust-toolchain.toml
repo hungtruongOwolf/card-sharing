@@ -1,0 +1,6 @@
+# Track stable; CI and local use the same channel. Pin to an exact version
+# (e.g. "1.99.0") if a toolchain update ever breaks the build.
+[toolchain]
+channel = "stable"
+components = ["rustfmt", "clippy"]
+profile = "minimal"

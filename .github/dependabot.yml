@@ -1,0 +1,28 @@
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: npm # pnpm workspaces are supported via the npm ecosystem
+    directory: /
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+    ignore:
+      # Expo pins RN-ecosystem versions per SDK; upgrade them together via `npx expo install --fix`
+      # (ADR-0002: stay one SDK behind latest), not one by one.
+      - dependency-name: 'expo*'
+      - dependency-name: 'react-native*'
+      - dependency-name: '@shopify/react-native-skia'
+      - dependency-name: 'react'
+      - dependency-name: 'react-dom'
+      - dependency-name: '@types/react*'
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }
+
+  - package-ecosystem: docker-compose
+    directory: /infra
+    schedule: { interval: weekly }

@@ -1,0 +1,65 @@
+# Region / jurisdiction policy — see context/wiki/architecture/region-policy.md
+#
+# Versioned and reviewed like code. Adding/changing a country = edit this file + add a test
+# in crates/policy/tests. Resolution: country override > group override > default; when
+# signals conflict (store / IP / declared country) the strictest value of each field wins.
+#
+# ALL VALUES ARE PLACEHOLDERS PENDING LEGAL REVIEW — only the mechanism is decided.
+version: 1
+
+default:
+  min_age: 13
+  ai_effects:
+    cloud_allowed: true
+    people_in_photo: on_device_or_non_gemini # any | on_device_or_non_gemini | on_device_only
+  ads:
+    rewarded: true
+    personalized_requires_consent: false
+  ai_label:
+    visible_badge: true
+    c2pa: true
+
+groups:
+  # EU member states. Open question: extend to EEA (IS, LI, NO) for GDPR purposes?
+  EU:
+    [
+      AT,
+      BE,
+      BG,
+      HR,
+      CY,
+      CZ,
+      DK,
+      EE,
+      FI,
+      FR,
+      DE,
+      GR,
+      IE,
+      IT,
+      LV,
+      LT,
+      LU,
+      MT,
+      NL,
+      PL,
+      PT,
+      RO,
+      SK,
+      SI,
+      ES,
+      SE,
+      HU,
+    ]
+
+overrides:
+  EU: # GDPR Art. 8 (member states choose 13–16) — legal review
+    min_age: 16
+    ads:
+      personalized_requires_consent: true
+  GB: # United Kingdom (ISO 3166-1 code is GB, not UK) — Age Appropriate Design Code — review
+    min_age: 13
+  US: # COPPA
+    min_age: 13
+  KR: # PIPA — verify
+    min_age: 14
