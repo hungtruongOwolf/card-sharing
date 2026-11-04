@@ -80,3 +80,8 @@
 - Commit d45bdc5: Axum API + crates/policy (33 tests), Expo SDK 57 + Skia holo demo, Next.js 16 /b/[token] preview, docker compose, CI.
 - Region policy keys use ISO codes (UK → GB). exFAT drive blocks pnpm locally → recommend moving repo to NTFS.
 - Follow-ups recorded in status.md.
+
+## [2026-11-04] ingest | MVP delivery plan
+- Added mvp-plan (M0–M9, ~18 weeks to closed beta, critical path identity → friends → media scan gate → send/read →
+  per-viewer boards → moderation → deletion → store release), sprint-1 (18 tickets, 7 spikes), backlog.json (169 tickets,
+  every Must/Should US and SR-1..SR-37 traced). Generator committed at tools/planning/ (gen.py, tickets.py, templates).

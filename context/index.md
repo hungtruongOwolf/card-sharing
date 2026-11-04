@@ -43,6 +43,9 @@ Tip: open `context/` as an Obsidian vault for graph/backlinks; run `python tools
 ## Progress
 - [[status]] — wiki/progress/status.md — current project state & next steps
 - [[roadmap]] — wiki/progress/roadmap.md — phases & milestones (draft)
+- [[mvp-plan]] — wiki/progress/mvp-plan.md — MVP milestones M0–M9 (~18 weeks to closed beta), critical path, spikes, US/SR traceability (proposed)
+- [[sprint-1]] — wiki/progress/sprint-1.md — sprint 1: sign-in + age gate + camera step on staging, 18 tickets incl. 7 spikes (proposed)
+- backlog.json — wiki/progress/backlog.json — 169 tickets (source for GitHub issues); regenerate with `python tools/planning/gen.py`
 
 ## Raw sources
 - raw/discussions/2026-11-04-kickoff.md — kickoff requirements from the EM

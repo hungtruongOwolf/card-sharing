@@ -20,7 +20,7 @@ related: [[roadmap]], [[ADR-0002-cross-platform-stack]], [[vision]]
 - Research (5 tracks): frontend stack, subject cutout, cloud GenAI, on-device GenAI, zero-download AI.
 
 ## Next
-2. `/sprint-planning` for MVP (in progress) → GitHub milestones/issues.
+2. MVP plan done ([[mvp-plan]], [[sprint-1]]) → GitHub milestones/issues → start sprint 1.
 3. Foundation follow-ups: API Dockerfile + CD to Fly.io, sqlx/Postgres + Redis readiness, OpenTelemetry/Sentry, seed + one-command dev, Playwright smoke, `packages/shaders` + `canvas-*` extraction, tokens from design-system.
 3. Week-1 spike: Skia web perf, holo shader, cutout module, Tier-0 hero effects.
 
@@ -34,6 +34,9 @@ related: [[roadmap]], [[ADR-0002-cross-platform-stack]], [[vision]]
 ## Blockers / waiting on EM
 - Minor: PRD Q8 metric targets, Q9 moderation staffing / CSAM hash vendor (blocks launch, not design).
 - Infra: EU data residency stance (before EU launch).
+- From MVP plan (by end of sprint 1): CSAM vendor (PhotoDNA vs Thorn Safer) + NCMEC reporting owner; nudity classifier choice;
+  team size (plan assumes ~4.5 parallel lanes); torn-paper cut style at launch (PRD says yes, catalog says fast-follow);
+  beta go/no-go metrics + beta regions; admin console location + captcha provider (by sprint 6).
 
 ## Accepted
 - ADR-0002 cross-platform stack (app-first, web = previews). Sharing model: close friends + share-out, Explore later. Min age 13+ (per-region overrides via config). AI = images only.
