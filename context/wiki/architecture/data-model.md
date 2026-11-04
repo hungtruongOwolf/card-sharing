@@ -3,7 +3,7 @@ title: Data model (MVP)
 type: spec
 status: proposed
 updated: 2026-11-04
-sources: [raw/discussions/2026-11-04-prd-design-qa.md, raw/discussions/2026-11-04-security-qa.md]
+sources: [raw/discussions/2026-11-04-infra-qa.md, raw/discussions/2026-11-04-prd-design-qa.md, raw/discussions/2026-11-04-security-qa.md]
 related: [[overview]], [[api-mvp]], [[prd-mvp]], [[glossary]], [[effects-catalog]], [[ADR-0004-auth-sessions]], [[ADR-0005-media-pipeline]], [[ADR-0006-job-queue]], [[ADR-0007-board-sync]], [[security-baseline]], [[change-management]], [[threat-model-mvp]]
 ---
 # Data model (MVP)
@@ -191,6 +191,6 @@ invitations between them are cancelled.
 - Defense in depth (later): one DB role per module with `USAGE` only on its schema; RLS on `cards`/`boards` once read paths stabilize.
 
 ## Open questions
-- Store full DOB (needed to re-evaluate `discovery.min_age` / `public_links.min_age` as users age or rules change) vs. birth
-  year-month only — legal review of minimisation; current design stores encrypted full DOB.
+- **Decided (EM 2026-11-04): store full DOB, encrypted** (`birth_date_enc`), decrypted only inside `identity::AgeService`; legal
+  review still confirms retention/minimisation wording in the privacy policy.
 - Legal retention periods for reports, audit and CSAM evidence (placeholders above).

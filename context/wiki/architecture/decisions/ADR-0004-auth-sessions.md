@@ -1,9 +1,9 @@
 ---
 title: ADR-0004 Authentication & sessions
 type: decision
-status: proposed
+status: accepted
 updated: 2026-11-04
-sources: [raw/discussions/2026-11-04-security-qa.md]
+sources: [raw/discussions/2026-11-04-infra-qa.md, raw/discussions/2026-11-04-security-qa.md]
 related: [[overview]], [[api-mvp]], [[data-model]], [[security-baseline]], [[prd-mvp]], [[ADR-0001-tech-stack]], [[threat-model-mvp]]
 ---
 # ADR-0004: Authentication & sessions

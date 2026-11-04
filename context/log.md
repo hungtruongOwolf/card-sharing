@@ -70,3 +70,8 @@
   OG snapshot caching/purge; ADR-0004 moved to short access + rotating refresh tokens (AC-1.3/1.4); minors' invite limits.
 - Fixed stale PRD lines (role definition, AC-19.5, US-31, permissions matrix) and security-baseline token wording.
 - New open question in api-mvp: device attestation on board-invite accept.
+
+## [2026-11-04] decision | ADR approvals + hosting
+- EM approved ADR-0004..0007; full encrypted DOB; attestation log-only in beta, enforced at GA.
+- EM provides Supabase for data; team chose the rest → ADR-0008-hosting (Supabase Postgres with Data API locked down,
+  Cloudflare R2 + CDN, Fly.io, Upstash Redis, Postmark). Updated ADR-0005, api-mvp, data-model, overview, index, status.

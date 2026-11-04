@@ -3,7 +3,7 @@ title: Architecture Overview (MVP)
 type: concept
 status: proposed
 updated: 2026-11-04
-sources: [raw/discussions/2026-11-04-prd-design-qa.md, raw/discussions/2026-11-04-idea-round-4.md, raw/discussions/2026-11-04-idea-round-6.md, raw/discussions/2026-11-04-security-qa.md]
+sources: [raw/discussions/2026-11-04-infra-qa.md, raw/discussions/2026-11-04-prd-design-qa.md, raw/discussions/2026-11-04-idea-round-4.md, raw/discussions/2026-11-04-idea-round-6.md, raw/discussions/2026-11-04-security-qa.md]
 related: [[prd-mvp]], [[data-model]], [[api-mvp]], [[threat-model-mvp]], [[ADR-0001-tech-stack]], [[ADR-0002-cross-platform-stack]], [[ADR-0003-effects-tiers]], [[ADR-0004-auth-sessions]], [[ADR-0005-media-pipeline]], [[ADR-0006-job-queue]], [[ADR-0007-board-sync]], [[region-policy]], [[security-baseline]], [[change-management]], [[subject-cutout]]
 ---
 # Architecture Overview (MVP)
@@ -248,7 +248,7 @@ region at launch. 10×: read replica for feed/board reads, more workers, partiti
 `media` worker fleet, consider fan-out read model in Redis; still one API codebase unless a module proves a distinct scaling need.
 
 ## Open questions
-- **EM:** hosting provider + region (storage/CDN with free egress vs. AWS) and EU data residency stance ([[ADR-0005-media-pipeline]]).
+- ~~Hosting~~ — decided in [[ADR-0008-hosting]] (Supabase Postgres, Cloudflare R2/CDN, Fly.io, Upstash). Still open: EU data residency stance ([[ADR-0005-media-pipeline]]).
 - **EM (PRD Q9):** hash-matching provider (PhotoDNA vs Thorn Safer); blocks launch, not design.
 - **EM (D6):** nudity classifier choice (self-hosted vs vendor) + threshold, and moderation staffing for appeals.
 - iOS background/widget push budgets may miss p95 60 s for `board.updated`; fallback is refresh on open (to verify in spike).
