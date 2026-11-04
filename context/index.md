@@ -6,7 +6,9 @@ Tip: open `context/` as an Obsidian vault for graph/backlinks; run `python tools
 
 ## Product
 - [[vision]] — wiki/product/vision.md — pet/food memory app: Locket-style sharing + scrapbook pin boards (draft hypothesis)
-- [[glossary]] — wiki/product/glossary.md — shared domain vocabulary (draft)
+- [[prd-mvp]] — wiki/product/prd-mvp.md — MVP PRD: 31 stories, permissions matrix, abuse cases, MoSCoW (draft, EM to confirm 10 scope decisions)
+- [[effects-catalog]] — wiki/product/effects-catalog.md — effect registry schema, 15 hero Tier-0 effects, cut styles, MVP 10 (draft)
+- [[glossary]] — wiki/product/glossary.md — shared domain vocabulary: capture, mask, card, cut style, finish, effect, board, pin, public link (draft)
 - [[monetization]] — wiki/product/monetization.md — free core, rewarded ads for image effects, subscription; unit economics (draft)
 - [[competitors]] — wiki/product/competitors.md — Boop, Locket teardown & our wedge (draft)
 
@@ -24,6 +26,7 @@ Tip: open `context/` as an Obsidian vault for graph/backlinks; run `python tools
 - [[conventions]] — wiki/engineering/conventions.md — coding standards, git flow, definition of done (accepted)
 - [[security-baseline]] — wiki/engineering/security-baseline.md — authn/authz, OWASP, content protection rules (accepted)
 - [[change-management]] — wiki/engineering/change-management.md — extensibility + change propagation rules & tooling (accepted)
+- [[design-system]] — wiki/engineering/design-system.md — principles, tokens, motion/springs, haptics, components, canvas budgets (draft)
 - [[testing-strategy]] — wiki/engineering/testing-strategy.md — test pyramid & tooling (draft)
 
 ## Tech stack

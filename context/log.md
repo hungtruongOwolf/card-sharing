@@ -43,3 +43,8 @@
 - Ingested research: on-device-genai, zero-download-ai. Key: Apple ImageCreator deprecated (iOS 27); no OS identity-preserving image gen API.
 - New: ADR-0003-effects-tiers (accepted), region-policy (proposed), change-management (accepted), skill change-impact, tools/wiki_graph.py.
 - Updated: vision, monetization, genai-effects (now Tier 2 only), conventions DoD, security-baseline, CLAUDE.md, memory skill. Lint: 0 problems.
+
+## [2026-11-04] ingest | MVP PRD, design system, effects catalog
+- Added prd-mvp (31 stories, permissions matrix, abuse cases), design-system (tokens, motion, haptics, canvas budgets), effects-catalog (registry, 15 hero effects, MVP 10).
+- Glossary adopted PRD terms (glossary = source of truth). ADR-0002 package list += effects-registry (change-impact).
+- Status → Phase 2 Design. Waiting on EM: PRD scope decisions, brand/fonts.

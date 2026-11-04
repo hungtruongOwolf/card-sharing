@@ -4,7 +4,7 @@ type: decision
 status: accepted
 updated: 2026-11-04
 sources: [raw/research/2026-11-04-frontend-stack.md, raw/research/2026-11-04-subject-cutout.md, raw/research/2026-11-04-genai-effects.md, raw/discussions/2026-11-04-idea-round-3.md]
-related: [[ADR-0001-tech-stack]], [[stack-research]], [[subject-cutout]], [[genai-effects]], [[overview]]
+related: [[effects-catalog]], [[design-system]], [[ADR-0001-tech-stack]], [[stack-research]], [[subject-cutout]], [[genai-effects]], [[overview]]
 ---
 # ADR-0002: Cross-platform stack (supersedes frontend part of ADR-0001)
 
@@ -30,7 +30,8 @@ Global, English. Backend stays Rust.
   (SSR/HTML + OG previews), landing page, web billing if needed. No full web editor for now; lazy-load Skia only for interactive previews.
 - **Collaboration:** Yjs (client) ↔ `yrs` (Rust/Axum) over WebSocket, Yjs awareness for presence.
 - **Backend:** Rust/Axum + Postgres + Redis + job queue (AI, segmentation fallback) + S3-compatible private storage.
-- **Monorepo:** pnpm + Turborepo: `apps/mobile`, `apps/web`; `packages/{tokens, api-client, canvas-engine, canvas-skia, shaders}`;
+- **Monorepo:** pnpm + Turborepo: `apps/mobile`, `apps/web`; `packages/{tokens, api-client, canvas-engine, canvas-skia, shaders, effects-registry}`
+  (effects-registry added 2026-11-04 per [[effects-catalog]] / [[ADR-0003-effects-tiers]]);
   Cargo workspace `apps/api`. Expect ~60–75% shared TS.
 - **3D:** deferred; 2.5D Skia effects first.
 
