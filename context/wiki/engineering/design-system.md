@@ -3,7 +3,7 @@ title: Design System (foundation)
 type: guide
 status: draft
 updated: 2026-11-04
-sources: [raw/discussions/2026-11-04-idea-round-1.md, raw/discussions/2026-11-04-idea-round-3.md, raw/research/2026-11-04-frontend-stack.md, raw/research/2026-11-04-subject-cutout.md, raw/research/2026-11-04-zero-download-ai.md, raw/research/2026-11-04-boop-teardown.md]
+sources: [raw/discussions/2026-11-04-prd-design-qa.md, raw/discussions/2026-11-04-idea-round-1.md, raw/discussions/2026-11-04-idea-round-3.md, raw/research/2026-11-04-frontend-stack.md, raw/research/2026-11-04-subject-cutout.md, raw/research/2026-11-04-zero-download-ai.md, raw/research/2026-11-04-boop-teardown.md]
 related: [[vision]], [[competitors]], [[effects-catalog]], [[ADR-0002-cross-platform-stack]], [[ADR-0003-effects-tiers]], [[subject-cutout]], [[change-management]], [[glossary]]
 ---
 # Design System (foundation)
@@ -257,7 +257,7 @@ Images pre-resized server-side to widget sizes; no shaders in widgets (baked out
 | Share page | LCP < 2.5 s with static board image; Skia/CanvasKit (~2.9 MB gz) lazy only on interaction |
 
 ## Open questions
-- **EM to confirm brand vibe & fonts:** "warm scrapbook zine" (Bricolage Grotesque + DM Sans + Caveat) vs a softer "cozy cute" direction (e.g. Fredoka + Nunito). Primary colour tomato `#C8412B` OK?
+- **Decided (EM 2026-11-04):** brand vibe "warm scrapbook zine" — Bricolage Grotesque + DM Sans + Caveat + Anton + DM Mono, primary tomato `#C8412B`. Card-touch sounds ship in MVP (toggle, respect mute).
 - App name / logo not yet decided — tokens are brand-agnostic until then.
 - Sound design: ship optional sounds in MVP or later?
 - Validate spring/haptic values on device during the week-1 spike; Android haptic quality varies by OEM.

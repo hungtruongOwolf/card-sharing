@@ -6,7 +6,7 @@ Tip: open `context/` as an Obsidian vault for graph/backlinks; run `python tools
 
 ## Product
 - [[vision]] — wiki/product/vision.md — pet/food memory app: Locket-style sharing + scrapbook pin boards (draft hypothesis)
-- [[prd-mvp]] — wiki/product/prd-mvp.md — MVP PRD: 31 stories, permissions matrix, abuse cases, MoSCoW (draft, EM to confirm 10 scope decisions)
+- [[prd-mvp]] — wiki/product/prd-mvp.md — MVP PRD: 31 stories, permissions matrix, abuse cases, MoSCoW (scope decided via Q&A; Q8 metrics, Q9 moderation open)
 - [[effects-catalog]] — wiki/product/effects-catalog.md — effect registry schema, 15 hero Tier-0 effects, cut styles, MVP 10 (draft)
 - [[glossary]] — wiki/product/glossary.md — shared domain vocabulary: capture, mask, card, cut style, finish, effect, board, pin, public link (draft)
 - [[monetization]] — wiki/product/monetization.md — free core, rewarded ads for image effects, subscription; unit economics (draft)
@@ -50,3 +50,4 @@ Tip: open `context/` as an Obsidian vault for graph/backlinks; run `python tools
 - raw/discussions/2026-11-04-idea-round-6.md — round 6: region-configurable rules, extensible architecture + full change propagation, tiers accepted
 - raw/research/2026-11-04-on-device-genai.md — open-source on-device diffusion: models, runtimes, limits
 - raw/research/2026-11-04-zero-download-ai.md — OS-provided AI, tiny models, style packs, shader effects
+- raw/discussions/2026-11-04-prd-design-qa.md — EM Q&A answers: brand, effects, friends/search, boards, public links, age
