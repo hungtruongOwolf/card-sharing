@@ -1,0 +1,12 @@
+# Normalize line endings: LF in repo and working tree (cross-platform tooling: Rust, Node, CI on Linux)
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.glb binary
+*.ktx2 binary
+*.ttf binary
+*.woff2 binary
+*.riv binary
