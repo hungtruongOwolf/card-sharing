@@ -39,5 +39,15 @@ pulled forward from M3 (T-64, T-63, T-69) landed in [[sprint-2]].
 |---|---|---|---|
 | #197 mobile sessions settings (list, revoke, log out everywhere) | #215 | a6ac299 | Revoking another device has no confirm; only "Log out everywhere" asks |
 | #212 editor polish (drag sliders, thumbnails, tile states) | #218 | 45b24a8 | One drag = one undo step; mask-needing styles stay hidden on whole-photo cards |
-| T-48 invite landing page | | | Waits for T-37/T-38 invite endpoints |
-| T-44 find a friend by handle | | | Waits for T-43 and T-40 |
+| T-37 invite link and reset (crate `social`) | #217 | bcc4181 | |
+| T-38 minor invite rules (7-day TTL, 5 uses, from region config) | #219 | ba3e034 | Use cap 5 is a lead default |
+| T-39 request from invite (silent drop when blocked) | #220 | ddcde02 | |
+| T-40 accept/decline/cancel (20-friend cap under advisory lock) | #221 | e9ab73b | Cursor pagination noted in the PR |
+| T-41 caps (20 pending, 30/day) and 14-day expiry job | #222 | 4a819d6 | |
+| T-42 adult-no-mutual-friends hint (minor recipients only) | #223 | 430355d | |
+| T-43 handle search (single code path, 150 ms floor) | #224 | 623a730 | KS p > 0.05, identical bytes; caught one real extra-query leak |
+| T-45 findable toggle (`PATCH /v1/me/settings`) | #226 | 67538a9 | |
+| T-46 friends list, silent unfriend | #227 | 91ec42d | |
+| T-47 block/unblock, silent | #228 | 4f7ad0f | #225 widen "related" to senders/board members |
+| T-48 invite landing page | | | Unblocked (endpoints merged) |
+| T-44 find a friend by handle | | | Unblocked; mobile friend screens tracked in #216 |

@@ -204,3 +204,9 @@
 - #197 sessions settings #215 (a6ac299), #212 editor polish #218 (45b24a8); both issues closed. T-48 and T-44 wait for
   the backend invite, request and search endpoints. Defaults taken (EM may revisit): no confirm for revoking another
   device; locked tiles visible but not selectable until an unlock flow exists; "new" badge from the registry tag only.
+
+## [2026-11-05] progress | Sprint 3 backend lane done
+- T-37 #217, T-38 #219, T-39 #220, T-40 #221, T-41 #222, T-42 #223, T-43 #224, T-45 #226, T-46 #227, T-47 #228; issues
+  #39-#45, #47-#49 closed. Follow-ups #216 (mobile friend screens), #225 (block "related" scope).
+- Defaults pending EM confirmation: minor invite use cap 5; findable defaults on when a minor turns 18; search latency
+  floor 150 ms; accepted AC-5.2 residual (409 at a full friend list vs 201 when also blocked).
