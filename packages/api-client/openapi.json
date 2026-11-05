@@ -523,6 +523,204 @@
         }
       }
     },
+    "/v1/me/handle": {
+      "put": {
+        "tags": [
+          "me"
+        ],
+        "summary": "Claim or change my handle. Auth: onb/ses (after the age gate).",
+        "description": "Free to change for 24 h after the first claim; afterwards once per 30 days (both config). A\nhandle released after the grace window stays reserved for 30 days. Finishing the profile\n(display name and handle set) makes the account `active` and the current session a full one.",
+        "operationId": "claimHandle",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HandleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Claimed (or already mine).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED (format or filtered term).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE (age gate not passed) or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "HANDLE_TAKEN (taken or reserved; no detail).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HANDLE_CHANGE_COOLDOWN (with Retry-After) or RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "TEMPORARILY_UNAVAILABLE (rate limit store down; fails closed).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "onb/ses",
+          "rateLimit": "me.handle.claim",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
+    "/v1/me/handle/check": {
+      "post": {
+        "tags": [
+          "me"
+        ],
+        "summary": "Is this handle available to me? Auth: onb/ses (after the age gate).",
+        "description": "Rate-limited (20/min and 100/day per user, fails closed): it necessarily reveals whether a\nhandle is taken, and nothing else.",
+        "operationId": "checkHandle",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HandleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Availability only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HandleCheckResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED (format or filtered term).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE (age gate not passed) or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "TEMPORARILY_UNAVAILABLE (rate limit store down; fails closed).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "onb/ses",
+          "rateLimit": "me.handle.check",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
     "/v1/me/profile": {
       "put": {
         "tags": [
@@ -944,6 +1142,34 @@
         },
         "additionalProperties": false
       },
+      "HandleCheckResponse": {
+        "type": "object",
+        "description": "Availability of a handle for the caller. Nothing about any other account is returned.",
+        "required": [
+          "available"
+        ],
+        "properties": {
+          "available": {
+            "type": "boolean",
+            "description": "`false` when taken, reserved or otherwise not claimable; `true` for the caller's own."
+          }
+        }
+      },
+      "HandleRequest": {
+        "type": "object",
+        "description": "Body of `POST /v1/me/handle/check` and `PUT /v1/me/handle`.",
+        "required": [
+          "handle"
+        ],
+        "properties": {
+          "handle": {
+            "type": "string",
+            "description": "`^[a-z0-9._]{3,20}$` after lowercasing (uppercase input is accepted and lowercased).",
+            "example": "mai.cat"
+          }
+        },
+        "additionalProperties": false
+      },
       "HealthResponse": {
         "type": "object",
         "required": [
@@ -1155,6 +1381,14 @@
               "null"
             ],
             "example": "Mai"
+          },
+          "handle": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Unique, lowercase.",
+            "example": "mai.cat"
           }
         }
       },

@@ -151,6 +151,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/handle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Claim or change my handle. Auth: onb/ses (after the age gate).
+         * @description Free to change for 24 h after the first claim; afterwards once per 30 days (both config). A
+         *     handle released after the grace window stays reserved for 30 days. Finishing the profile
+         *     (display name and handle set) makes the account `active` and the current session a full one.
+         */
+        put: operations["claimHandle"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/handle/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Is this handle available to me? Auth: onb/ses (after the age gate).
+         * @description Rate-limited (20/min and 100/day per user, fails closed): it necessarily reveals whether a
+         *     handle is taken, and nothing else.
+         */
+        post: operations["checkHandle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/profile": {
         parameters: {
             query?: never;
@@ -306,6 +349,19 @@ export interface components {
              */
             nonce: string;
         };
+        /** @description Availability of a handle for the caller. Nothing about any other account is returned. */
+        HandleCheckResponse: {
+            /** @description `false` when taken, reserved or otherwise not claimable; `true` for the caller's own. */
+            available: boolean;
+        };
+        /** @description Body of `POST /v1/me/handle/check` and `PUT /v1/me/handle`. */
+        HandleRequest: {
+            /**
+             * @description `^[a-z0-9._]{3,20}$` after lowercasing (uppercase input is accepted and lowercased).
+             * @example mai.cat
+             */
+            handle: string;
+        };
         HealthResponse: {
             /** @example ok */
             status: string;
@@ -389,6 +445,11 @@ export interface components {
         ProfileView: {
             /** @example Mai */
             display_name?: string | null;
+            /**
+             * @description Unique, lowercase.
+             * @example mai.cat
+             */
+            handle?: string | null;
         };
         ReadinessChecks: {
             /**
@@ -794,6 +855,153 @@ export interface operations {
                 };
             };
             /** @description TEMPORARILY_UNAVAILABLE (fails closed). */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    claimHandle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HandleRequest"];
+            };
+        };
+        responses: {
+            /** @description Claimed (or already mine). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileResponse"];
+                };
+            };
+            /** @description VALIDATION_FAILED (format or filtered term). */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE (age gate not passed) or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description HANDLE_TAKEN (taken or reserved; no detail). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description HANDLE_CHANGE_COOLDOWN (with Retry-After) or RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description TEMPORARILY_UNAVAILABLE (rate limit store down; fails closed). */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    checkHandle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HandleRequest"];
+            };
+        };
+        responses: {
+            /** @description Availability only. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HandleCheckResponse"];
+                };
+            };
+            /** @description VALIDATION_FAILED (format or filtered term). */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE (age gate not passed) or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description TEMPORARILY_UNAVAILABLE (rate limit store down; fails closed). */
             503: {
                 headers: {
                     [name: string]: unknown;
