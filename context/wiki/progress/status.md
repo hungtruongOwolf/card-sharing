@@ -20,7 +20,7 @@ related: [[roadmap]], [[ADR-0002-cross-platform-stack]], [[vision]]
 - Research (5 tracks): frontend stack, subject cutout, cloud GenAI, on-device GenAI, zero-download AI.
 
 ## Next
-1. Sprint 1 in progress: backend lane, mobile lane (T-33), research spikes (T-136, T-137). GitHub issues T-1..T-169 synced.
+1. Sprint 1: vertical slice (sign-in → age gate → onboarding → camera explainer) done in code with tests; T-30..T-32 (profile/handle endpoints) in progress; T-52, T-126 open. Progress table in [[sprint-1]].
 2. Deferred until the EM registers accounts (free-first): staging deploy T-4..T-7, EAS T-9, real Apple/Google sign-in, native device spikes.
 3. Foundation follow-ups: API Dockerfile + CD to Fly.io, sqlx/Postgres + Redis readiness, OpenTelemetry/Sentry, seed + one-command dev, Playwright smoke, `packages/shaders` + `canvas-*` extraction, tokens from design-system.
 3. Week-1 spike: Skia web perf, holo shader, cutout module, Tier-0 hero effects.
