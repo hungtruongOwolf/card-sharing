@@ -1,7 +1,8 @@
 use std::fmt;
 use std::str::FromStr;
 
-use serde::Serialize;
+use policy::PolicyContext;
+use serde::{Deserialize, Serialize};
 
 /// Lifecycle of an account (`identity.accounts.status`, see data-model.md).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -63,6 +64,30 @@ impl SessionScope {
     }
 }
 
+/// Jurisdiction signals stored with the account (`identity.accounts.region_signals`, SR-24):
+/// ISO 3166-1 alpha-2 codes, each optional.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RegionSignals {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub store: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ip: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub declared: Option<String>,
+}
+
+impl RegionSignals {
+    /// As a policy context; invalid stored codes are ignored.
+    pub fn context(&self) -> PolicyContext {
+        let parse = |value: &Option<String>| value.as_deref().and_then(|v| v.parse().ok());
+        PolicyContext {
+            store_country: parse(&self.store),
+            ip_country: parse(&self.ip),
+            declared_country: parse(&self.declared),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[error("unknown value {0:?}")]
 pub struct UnknownValue(pub String);
@@ -106,6 +131,16 @@ mod tests {
             assert_eq!(status.as_str().parse::<AccountStatus>(), Ok(status));
         }
         assert!("root".parse::<AccountStatus>().is_err());
+    }
+
+    #[test]
+    fn region_signals_become_a_policy_context() {
+        let signals: RegionSignals =
+            serde_json::from_str(r#"{"store":"US","ip":"de","declared":"??"}"#).unwrap();
+        let ctx = signals.context();
+        assert_eq!(ctx.store_country.map(|c| c.to_string()), Some("US".into()));
+        assert_eq!(ctx.ip_country.map(|c| c.to_string()), Some("DE".into()));
+        assert!(ctx.declared_country.is_none(), "invalid codes are ignored");
     }
 
     #[test]

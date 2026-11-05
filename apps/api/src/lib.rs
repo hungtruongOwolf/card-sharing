@@ -5,6 +5,7 @@
 //! service types (see context/wiki/engineering/change-management.md).
 
 pub mod access;
+pub mod client_config;
 pub mod config;
 pub mod db;
 pub mod identity_adapter;
@@ -43,6 +44,7 @@ pub fn build(routes: ApiRouter<AppState>, state: AppState, config: &Config) -> R
             .client_ip_header
             .clone()
             .map_or(ClientIpSource::Peer, ClientIpSource::Header),
+        min_app_version: Arc::new(state.client.min_app_version.clone()),
     };
 
     let router = router

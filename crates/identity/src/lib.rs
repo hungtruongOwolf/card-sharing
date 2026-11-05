@@ -7,9 +7,9 @@ mod model;
 mod service;
 mod token;
 
-pub use model::{AccountStatus, SessionScope, UnknownValue};
+pub use model::{AccountStatus, RegionSignals, SessionScope, UnknownValue};
 pub use service::{
-    AccessError, DeviceInfo, IdentityService, IssuedSession, Platform, Provider, RefreshError,
-    RevokeReason, SessionPolicy, SessionPrincipal, StoreError, VerifiedIdentity,
+    AccessError, AccountSummary, DeviceInfo, IdentityService, IssuedSession, Platform, Provider,
+    RefreshError, RevokeReason, SessionPolicy, SessionPrincipal, StoreError, VerifiedIdentity,
 };
 pub use token::{SecretToken, TokenHash};

@@ -161,3 +161,19 @@ fn rejects_unsupported_version() {
         "{err}"
     );
 }
+
+#[test]
+fn resolve_strictest_combines_stored_and_current_contexts() {
+    let svc = service();
+    let stored = ctx_store("US");
+    let current = PolicyContext {
+        ip_country: Some(cc("DE")),
+        ..PolicyContext::default()
+    };
+    assert_eq!(
+        svc.resolve_strictest(&[stored.clone(), current]).min_age,
+        16
+    );
+    assert_eq!(svc.resolve_strictest(&[stored]).min_age, 13);
+    assert_eq!(svc.resolve_strictest(&[]), default_policy(&svc));
+}

@@ -34,8 +34,10 @@ dependencies = [
  "identity",
  "platform",
  "policy",
+ "semver",
  "serde",
  "serde_json",
+ "serde_norway",
  "sqlx",
  "thiserror",
  "time",
@@ -863,6 +865,7 @@ dependencies = [
  "base64 0.23.1",
  "getrandom 0.4.3",
  "platform",
+ "policy",
  "redis",
  "serde",
  "serde_json",
@@ -1365,6 +1368,12 @@ dependencies = [
  "core-foundation-sys",
  "libc",
 ]
+
+[[package]]
+name = "semver"
+version = "1.0.28"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8a7852d02fc848982e0c167ef163aaff9cd91dc640ba85e263cb1ce46fae51cd"
 
 [[package]]
 name = "serde"

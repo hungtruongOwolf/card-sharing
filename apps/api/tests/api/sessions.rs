@@ -1,11 +1,8 @@
 //! T-18: identity accounts and opaque rotating sessions, against real Postgres + Redis
 //! (TEST_DATABASE_URL, TEST_REDIS_URL; skipped locally when unset, required in CI).
-#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-mod common;
-
+use crate::common::*;
 use axum::body::Body;
-use common::*;
 use http::{Request, StatusCode};
 use identity::{Provider, VerifiedIdentity};
 use serde_json::{Value, json};

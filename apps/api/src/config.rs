@@ -41,6 +41,11 @@ pub struct Config {
     /// `fly-client-ip`). Unset (default) = use the TCP peer address. Only set it when every
     /// request passes through a proxy that overwrites the header.
     pub client_ip_header: Option<HeaderName>,
+    /// `API_IP_COUNTRY_HEADER` — header a trusted edge sets to the client's ISO country (e.g.
+    /// `cf-ipcountry`). Unset (default) = no IP country signal for region policy.
+    pub ip_country_header: Option<HeaderName>,
+    /// `API_CLIENT_CONFIG_PATH` — default `config/client.yaml`.
+    pub client_config_path: PathBuf,
 }
 
 const MAX_BODY_LIMIT_BYTES: usize = 64 * 1024 * 1024;
@@ -92,17 +97,11 @@ impl Config {
         let limits_config_path = env
             .optional("API_LIMITS_CONFIG_PATH")
             .map_or_else(|| PathBuf::from("config/limits.yaml"), PathBuf::from);
-        let client_ip_header = env
-            .optional("API_CLIENT_IP_HEADER")
-            .map(|raw| {
-                HeaderName::from_bytes(raw.to_ascii_lowercase().as_bytes()).map_err(|_| {
-                    invalid(
-                        "API_CLIENT_IP_HEADER",
-                        format!("{raw:?} is not a header name"),
-                    )
-                })
-            })
-            .transpose()?;
+        let client_ip_header = header_name(env, "API_CLIENT_IP_HEADER")?;
+        let ip_country_header = header_name(env, "API_IP_COUNTRY_HEADER")?;
+        let client_config_path = env
+            .optional("API_CLIENT_CONFIG_PATH")
+            .map_or_else(|| PathBuf::from("config/client.yaml"), PathBuf::from);
 
         Ok(Self {
             bind_addr,
@@ -116,8 +115,22 @@ impl Config {
             redis_url,
             limits_config_path,
             client_ip_header,
+            ip_country_header,
+            client_config_path,
         })
     }
+}
+
+fn header_name<F: Fn(&str) -> Option<String>>(
+    env: &Env<F>,
+    key: &'static str,
+) -> Result<Option<HeaderName>, ConfigError> {
+    env.optional(key)
+        .map(|raw| {
+            HeaderName::from_bytes(raw.to_ascii_lowercase().as_bytes())
+                .map_err(|_| invalid(key, format!("{raw:?} is not a header name")))
+        })
+        .transpose()
 }
 
 /// Accepts exact origins only: `scheme://host[:port]`, no path, wildcard or credentials.

@@ -1,0 +1,28 @@
+# Public client configuration served by GET /v1/config (CDN cached, no user data).
+# Reviewed like code. Changing a value here changes every client after the cache TTL.
+version: 1
+
+# Requests with an X-App-Version header below this get 426 UPGRADE_REQUIRED (semver).
+min_app_version: 0.1.0
+
+# Cache-Control max-age for GET /v1/config, in seconds.
+cache_max_age_secs: 300
+
+# Product limits the app shows or enforces locally; the server enforces its own copy.
+limits:
+  caption_max_chars: 80
+  card_recipients_max: 20
+  friends_max: 20
+  boards_max: 20
+  pins_per_board_max: 100
+  board_collaborators_max: 8
+
+# Feature flags: name -> enabled.
+flags: {}
+
+# Registry ids switched off remotely (effects-catalog.md); the app hides them.
+kill_switches:
+  cut_styles: []
+  finishes: []
+  effects: []
+  reactions: []

@@ -1,16 +1,13 @@
 //! T-13: layered rate limiter through the HTTP stack, with and without Redis.
-#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
-
-mod common;
 
 use std::net::IpAddr;
 use std::sync::Arc;
 
+use crate::common::*;
 use api::access::{ApiRouter, RoutePolicy};
 use api::state::AppState;
 use axum::Router;
 use axum::body::Body;
-use common::*;
 use http::{Request, StatusCode};
 use platform::clock::{Clock, ManualClock, SystemClock};
 use platform::config::Secret;
@@ -48,7 +45,12 @@ fn app(limiter: RateLimiter) -> Router {
     config.client_ip_header = Some(http::HeaderName::from_static("x-test-client-ip"));
     api::build(
         routes(),
-        AppState::new(policy_service(), limiter, offline_identity()),
+        AppState::new(
+            policy_service(),
+            limiter,
+            offline_identity(),
+            client_config(),
+        ),
         &config,
     )
 }
