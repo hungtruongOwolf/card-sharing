@@ -190,3 +190,7 @@
   Apple/Google accounts. KR age thresholds (19) are placeholders pending legal review.
 - Windows note: a checkout that deletes a directory an editor (rust-analyzer) still holds leaves it "delete pending";
   git pull fails until the editor releases it. Agents now work in `.worktrees/<lane>`.
+
+## [2026-11-05] plan | Sprint 3 (M2 friends) planned
+- [[sprint-3]]: backend T-37..T-43, T-45..T-47 sequential; mobile finishes T-64/T-63/T-69 then T-44; web T-48; T-49 deferred
+  (domain + device build). Backend lane waits for free RAM (no parallel cargo under 5 GB free).
