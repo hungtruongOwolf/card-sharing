@@ -9,11 +9,13 @@
 //! - [`crypto`]: AEAD encryption for personal-data columns (DOB, provider tokens).
 //! - [`jobs`]: Postgres job queue (lanes, unique keys, leases, backoff, dead letters) and worker.
 //! - [`outbox`]: transactional outbox (domain events, ids only) and its relay to jobs.
+//! - [`audit`]: append-only audit log of auth events (ids and codes only).
 //! - [`idempotency`]: Idempotency-Key store (replay, reuse detection, leases).
 //! - [`cache`]: lazy Redis/Valkey connection (caches and buckets only, never durable data).
 //! - [`rate_limit`]: layered token-bucket rate limiter with limits from config.
 //! - [`text`]: sanitizer and term filter for names, handles and captions (SR-28).
 
+pub mod audit;
 pub mod cache;
 pub mod clock;
 pub mod config;

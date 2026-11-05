@@ -159,7 +159,7 @@ invitations between them are cancelled.
 | `outbox_events` (platform) | `id BIGINT IDENTITY`; `topic` (`module.event`); `payload JSONB` (ids and codes only, validated, ≤ 8 KiB); `trace_id`; `created_at`; `published_at` (T-16) | `(topic, id) WHERE published_at IS NULL`; `(published_at) WHERE published_at IS NOT NULL` | I | 7 d after publish |
 | `jobs` (platform) | `id`; `queue CHECK (critical, default, bulk)`; `kind`; `unique_key UNIQUE NULL`; `payload JSONB` (ids only); `run_at`; `attempts`; `max_attempts`; `locked_by`, `locked_until` (set iff running); `last_error ≤ 2000`; `status CHECK (queued, running, done, dead)`; `created_at`; `finished_at` (T-15) | `(queue, run_at) WHERE status='queued'`; `(locked_until) WHERE status='running'`; `(status, finished_at) WHERE status IN ('done','dead')` | I | done 7 d, dead 30 d |
 | `idempotency_keys` (platform) | `user_id`, `route`, `key UUID`, PK all; `request_hash BYTEA(32)`; `status_code NULL` (null while running); `response_content_type`, `response_body BYTEA ≤ 64 KiB`; `lease_id` (fencing token); `locked_until` (lease); `created_at` (T-14, `migrations/20261107000001_platform_idempotency.sql`) | `(created_at)` | I | 24 h |
-| `audit_events` (platform) | `id`; `actor_id`; `actor_kind CHECK (user, staff, system)`; `action`; `target`; `ip_hash`; `at` — append-only (no UPDATE/DELETE grant) | `(target, at)`, `(actor_id, at)` | I | 2 y |
+| `audit_events` (platform) | `id`; `actor_id` (null for system); `actor_kind CHECK (user, staff, system)`; `action` (`module.verb`); `target` (`type:uuid`); `ip_hash` (keyed hash, not recorded yet); `details JSONB` (ids/codes only, outbox validator); `at` — append-only: role `app_rw` has INSERT/SELECT only (T-17) | `(target, at)`, `(actor_id, at)` | I | 2 y |
 
 ## Access patterns (from PRD stories)
 | # | Query | Story | Frequency | Served by |
@@ -206,6 +206,10 @@ invitations between them are cancelled.
 - Migrations run as a separate CI/CD step before rolling the new image; app must tolerate N-1 schema.
 - Stored JSON (`style`, `decoration`, `backdrop`, `op`) carries registry `{id, version}`; removing a registry entry ships a data
   migration to the fallback (`fx.none`) per [[change-management]].
+- **Roles (T-17, `migrations/20261107000004_platform_audit.sql`):** the NOLOGIN group `app_rw` gets USAGE + SELECT/INSERT/
+  UPDATE/DELETE on the module schemas (and default privileges for later tables); the app's login role is a member of it, and
+  migrations run as the owner. Each new module schema migration must `GRANT USAGE` on its schema to `app_rw`. Audit rows are
+  INSERT/SELECT only for `app_rw`; retention purges run as the owner.
 - Defense in depth (later): one DB role per module with `USAGE` only on its schema; RLS on `cards`/`boards` once read paths stabilize.
 
 ## Open questions

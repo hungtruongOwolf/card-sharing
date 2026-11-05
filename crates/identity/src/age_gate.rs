@@ -10,6 +10,7 @@
 //!   retry from the same device or Apple/Google account is refused. Audit logs never contain
 //!   the DOB or the computed age.
 
+use platform::audit::{self, Actor, AuditAction, AuditEntry};
 use platform::crypto::FieldCipher;
 use policy::{CountryCode, PolicyContext, PolicyService};
 use redis::AsyncCommands;
@@ -217,6 +218,11 @@ impl IdentityService {
         for hash in hashes {
             self.cache.delete_raw(&hash).await;
         }
+        // No DOB, age or threshold: only that a refusal happened.
+        let entry = AuditEntry::new(Actor::User(account_id), AuditAction::AgeRefused)
+            .target("account", account_id)
+            .detail("in_cooldown", in_cooldown);
+        audit::record_or_log(&self.pool, &entry, self.clock.now()).await;
         tracing::info!(
             event = "age_gate.refused",
             %account_id,
