@@ -128,3 +128,24 @@ routes:
     missing_path: /v1/friend-requests
     idempotency_key: true
     expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }
+
+  # Answering requests (T-40): a request id that is not the caller's is the same 404 as a missing one
+  # (tests/api/request_answers.rs covers cross-user accept / decline / cancel).
+  - route: GET /v1/friend-requests
+    path: /v1/friend-requests?direction=incoming
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 200, suspended: 403 }
+
+  - route: POST /v1/friend-requests/{id}/accept
+    path: /v1/friend-requests/0192f0c1-7c1e-7a3b-9d2e-123456789abc/accept
+    missing_path: /v1/friend-requests/0192f0c1-7c1e-7a3b-9d2e-000000000000/accept
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }
+
+  - route: POST /v1/friend-requests/{id}/decline
+    path: /v1/friend-requests/0192f0c1-7c1e-7a3b-9d2e-123456789abc/decline
+    missing_path: /v1/friend-requests/0192f0c1-7c1e-7a3b-9d2e-000000000000/decline
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }
+
+  - route: DELETE /v1/friend-requests/{id}
+    path: /v1/friend-requests/0192f0c1-7c1e-7a3b-9d2e-123456789abc
+    missing_path: /v1/friend-requests/0192f0c1-7c1e-7a3b-9d2e-000000000000
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }

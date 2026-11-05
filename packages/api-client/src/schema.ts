@@ -178,7 +178,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * My pending friend requests. Auth: ses.
+         * @description `incoming`: requests addressed to me that I have not answered. `outgoing`: requests I sent that
+         *     are still open; they all show as pending (declines are silent).
+         */
+        get: operations["listFriendRequests"];
         put?: never;
         /**
          * Send a friend request to the owner of an invite. Auth: ses + att; `Idempotency-Key` required.
@@ -187,6 +192,61 @@ export interface paths {
          *     one.
          */
         post: operations["createFriendRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/friend-requests/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Cancel a friend request I sent. Auth: ses. */
+        delete: operations["cancelFriendRequest"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/friend-requests/{id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept a friend request addressed to me. Auth: ses + att.
+         * @description The 20-friend cap is re-checked for both sides at accept time; when either is full the request
+         *     stays pending.
+         */
+        post: operations["acceptFriendRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/friend-requests/{id}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Decline a friend request addressed to me. Auth: ses. Silent: the sender is not told. */
+        post: operations["declineFriendRequest"];
         delete?: never;
         options?: never;
         head?: never;
@@ -445,6 +505,10 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AcceptResponse: {
+            /** @description The new friend. */
+            friend: components["schemas"]["UserSummaryView"];
+        };
         AccountView: {
             /** @example 0192f0c1-7c1e-7a3b-9d2e-123456789abc */
             id: string;
@@ -755,6 +819,20 @@ export interface components {
         RefreshRequest: {
             refresh_token: string;
         };
+        RequestItemView: {
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            expires_at: string;
+            /** Format: uuid */
+            id: string;
+            /** @description The sender (incoming) or the recipient (outgoing). */
+            user: components["schemas"]["UserSummaryView"];
+        };
+        RequestList: {
+            /** @description Newest first, at most 100. */
+            items: components["schemas"]["RequestItemView"][];
+        };
         /** @description A request as its sender sees it: pending until accepted or expired. */
         SentRequestView: {
             /** Format: date-time */
@@ -795,6 +873,15 @@ export interface components {
             refresh_token: string;
             /** @example Bearer */
             token_type: string;
+        };
+        /** @description Another account as shown in request and friend lists. */
+        UserSummaryView: {
+            /** @example Mai */
+            display_name: string;
+            /** @example mai.cat */
+            handle?: string | null;
+            /** Format: uuid */
+            id: string;
         };
     };
     responses: never;
@@ -1244,6 +1331,65 @@ export interface operations {
             };
         };
     };
+    listFriendRequests: {
+        parameters: {
+            query: {
+                /** @description `incoming` or `outgoing`. */
+                direction: "incoming" | "outgoing";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Open requests, newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RequestList"];
+                };
+            };
+            /** @description VALIDATION_FAILED (missing or unknown direction). */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     createFriendRequest: {
         parameters: {
             query?: never;
@@ -1313,6 +1459,188 @@ export interface operations {
             };
             /** @description IDEMPOTENCY_KEY_REUSED. */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    cancelFriendRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Request id from the outgoing list. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cancelled. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND: no open request from the caller with this id. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    acceptFriendRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Request id from the incoming list. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Now friends. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcceptResponse"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE, ACCOUNT_SUSPENDED or ATTESTATION_FAILED (enforce mode). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND: no pending request to the caller with this id. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description FRIEND_LIMIT_REACHED. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    declineFriendRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Request id from the incoming list. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Declined. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND: no pending request to the caller with this id. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

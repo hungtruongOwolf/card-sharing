@@ -200,6 +200,17 @@ expires_at}}` (14 days, `requests.ttl_days` in `config/social.yaml`). An open re
 shown to the recipient). A minor's invite use is counted in the same transaction (conditional increment). A delivered request
 publishes `social.friend_request_created {request_id, recipient_id}` to the outbox.
 
+Answering requests (T-40): `GET /v1/friend-requests?direction=incoming|outgoing` (limit `friend_requests.list`) → `{items:
+[{id, user: {id, display_name, handle}, created_at, expires_at}]}`, newest first, at most 100 (no cursor yet: open requests are
+bounded by the 14-day expiry and the per-sender pending cap). Incoming = `pending` requests to the caller; outgoing = the
+caller's open requests (declined and dropped ones still look pending). Missing or unknown `direction`, or extra parameters →
+400. `POST /v1/friend-requests/{id}/accept` (ses + att) → 200 `{friend: {id, display_name, handle}}`; the friend cap is re-checked
+for both sides under the pair lock (409 `FRIEND_LIMIT_REACHED`, the request stays pending); an open request in the other
+direction is answered too; publishes `social.friendship_created {request_id, sender_id, recipient_id}`.
+`POST /v1/friend-requests/{id}/decline` → 204 (silent). `DELETE /v1/friend-requests/{id}` (sender only) → 204. Any id that is
+not a pending request to the caller (accept / decline) or an open request from the caller (cancel), including malformed ids,
+→ the same 404 `NOT_FOUND`.
+
 ### Cards, feed, widget, reactions
 | Method | Path | Purpose | Auth | Role | Object rule | Rate limit | Idem. | US |
 |---|---|---|---|---|---|---|---|---|

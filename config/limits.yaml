@@ -119,6 +119,26 @@ limits:
     requests: 30
     per_secs: 86400
     on_store_failure: closed
+  friend_requests.list: # GET /v1/friend-requests
+    scope: user
+    requests: 60
+    per_secs: 60
+    on_store_failure: open
+  friend_requests.accept: # POST /v1/friend-requests/{id}/accept
+    scope: user
+    requests: 60
+    per_secs: 3600
+    on_store_failure: open
+  friend_requests.decline: # POST /v1/friend-requests/{id}/decline
+    scope: user
+    requests: 60
+    per_secs: 3600
+    on_store_failure: open
+  friend_requests.cancel: # DELETE /v1/friend-requests/{id}
+    scope: user
+    requests: 60
+    per_secs: 3600
+    on_store_failure: open
   config.read: # GET /v1/config (CDN cached; this only bounds cache misses)
     scope: ip
     requests: 120
