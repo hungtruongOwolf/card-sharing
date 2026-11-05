@@ -345,6 +345,25 @@ export const en = {
   'invite.preview.sent': 'Request sent. You’ll be friends once {name} accepts.',
   'invite.preview.self': 'That’s you! Share this link with a friend instead.',
   'invite.preview.unusable': 'This invite isn’t valid anymore. Ask your friend for a new link.',
+  'privacy.open': 'Privacy',
+  'privacy.title': 'Privacy',
+  'privacy.loading': 'Loading your privacy settings',
+  'privacy.error.load':
+    'We couldn’t load your privacy settings. Check your connection and try again.',
+  'privacy.findable': 'Findable by handle',
+  'privacy.findable.hint': 'People who type your exact handle can find you and send a request.',
+  'privacy.findable.unavailable':
+    'Finding you by handle isn’t available for your account. Friends can still add you with your invite link.',
+  'privacy.blocked': 'Blocked accounts',
+  'privacy.blocked.intro':
+    'They can’t send you requests or find you. Unblocking doesn’t make you friends again.',
+  'privacy.blocked.loading': 'Loading blocked accounts',
+  'privacy.blocked.error.load':
+    'We couldn’t load blocked accounts. Check your connection and try again.',
+  'privacy.blocked.empty': 'You haven’t blocked anyone.',
+  'privacy.unblock': 'Unblock',
+  'privacy.unblock.a11y': 'Unblock {name}',
+  'privacy.unblocked': '{name} unblocked',
 } as const;
 
 export type MessageKey = keyof typeof en;
