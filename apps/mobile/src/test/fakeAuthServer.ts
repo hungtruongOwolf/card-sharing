@@ -33,13 +33,13 @@ export interface RecordedRequest {
   body: unknown;
 }
 
-const problem = (status: number, code: string) =>
+export const problem = (status: number, code: string) =>
   new Response(JSON.stringify({ type: 'about:blank', status, code }), {
     status,
     headers: { 'Content-Type': 'application/problem+json' },
   });
 
-const json = (body: unknown, status = 200) =>
+export const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
 export class FakeAuthServer {
@@ -48,6 +48,11 @@ export class FakeAuthServer {
   /** Responses to return instead of handling a refresh (e.g. 503), consumed in order. */
   readonly refreshOverrides: (Response | 'network-error' | 'lose-response')[] = [];
   nowMs = Date.parse('2026-11-05T10:00:00Z');
+  /**
+   * Extra authorized routes (see fakeOnboardingServer.ts). Called after the bearer token is accepted;
+   * return null to fall through to the built-in routes.
+   */
+  routes: ((request: RecordedRequest) => Response | null) | null = null;
 
   private families: Family[] = [];
   private counter = 0;
@@ -70,6 +75,11 @@ export class FakeAuthServer {
     };
     this.families.push(family);
     return this.pair(family);
+  }
+
+  /** The server forgets every session (e.g. the account was deleted): their tokens become unknown. */
+  dropSessions(): void {
+    this.families = [];
   }
 
   /** Server-side revocation (logout everywhere, suspension, ban). */
@@ -103,13 +113,14 @@ export class FakeAuthServer {
     const method = (init?.method ?? 'GET').toUpperCase();
     const headers = new Headers(init?.headers);
     const body: unknown = typeof init?.body === 'string' ? JSON.parse(init.body) : undefined;
-    this.requests.push({
+    const recorded: RecordedRequest = {
       method,
       path,
       authorization: headers.get('Authorization'),
       appVersion: headers.get('X-App-Version'),
       body,
-    });
+    };
+    this.requests.push(recorded);
     // Let concurrent callers interleave like real network I/O.
     await Promise.resolve();
 
@@ -124,6 +135,8 @@ export class FakeAuthServer {
 
     const resolved = this.resolve(headers.get('Authorization'));
     if (resolved instanceof Response) return resolved;
+    const routed = this.routes?.(recorded);
+    if (routed) return routed;
     if (method === 'GET' && path === '/v1/me') return json({ account: { id: 'acc-1' } });
     if (method === 'DELETE' && path === '/v1/sessions/current') {
       resolved.revoked = true;

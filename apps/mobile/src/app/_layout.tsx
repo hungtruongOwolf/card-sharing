@@ -6,18 +6,63 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { createQueryClient } from '../data/queryClient';
-import { AuthProvider, createAppAuthClient } from '../features/auth';
+import { AuthProvider, createAppAuthClient, useAuthClient } from '../features/auth';
+import {
+  createAppOnboardingDeps,
+  ErrorScreen,
+  LoadingScreen,
+  OnboardingProvider,
+  useOnboarding,
+  type OnboardingPhase,
+} from '../features/onboarding';
 import { ThemeProvider, ToastProvider, useTheme } from '../ui';
 
-function ThemedStack() {
+/** Route of each phase. Exactly one is reachable at a time (src/features/onboarding/phase.ts). */
+const ROUTES: readonly (readonly [Exclude<OnboardingPhase, 'loading' | 'error'>, string])[] = [
+  ['home', 'index'],
+  ['signIn', 'onboarding/sign-in'],
+  ['refused', 'onboarding/refused'],
+  ['birthDate', 'onboarding/birth-date'],
+  ['displayName', 'onboarding/display-name'],
+  ['handle', 'onboarding/handle'],
+  ['camera', 'onboarding/camera'],
+];
+
+/**
+ * The stack follows the onboarding phase: when the phase changes, the guard of the current screen turns
+ * false and Expo Router moves to the only screen left available and drops the old one from history, so
+ * there is no "back" into a finished step (the DOB screen in particular, AC-2.3). The server enforces the
+ * same order; these guards only keep the UI consistent with it.
+ */
+function PhaseStack() {
   const theme = useTheme();
+  const { phase } = useOnboarding();
+  if (phase === 'loading') return <LoadingScreen />;
+  if (phase === 'error') return <ErrorScreen />;
   return (
     <Stack
       screenOptions={{
         headerShown: false,
+        gestureEnabled: false,
         contentStyle: { backgroundColor: theme.color.bg.canvas },
       }}
-    />
+    >
+      {ROUTES.map(([routePhase, name]) => (
+        <Stack.Protected key={name} guard={phase === routePhase}>
+          <Stack.Screen name={name} />
+        </Stack.Protected>
+      ))}
+    </Stack>
+  );
+}
+
+function Onboarding() {
+  const authClient = useAuthClient();
+  const [deps] = useState(() => createAppOnboardingDeps(authClient));
+  return (
+    <OnboardingProvider {...deps}>
+      <PhaseStack />
+    </OnboardingProvider>
   );
 }
 
@@ -31,7 +76,7 @@ export default function RootLayout() {
           <AuthProvider client={authClient}>
             <ThemeProvider>
               <ToastProvider>
-                <ThemedStack />
+                <Onboarding />
               </ToastProvider>
             </ThemeProvider>
           </AuthProvider>
