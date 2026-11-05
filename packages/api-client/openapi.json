@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "card-sharing API",
-    "description": "Errors use RFC 9457 application/problem+json (schema: ProblemDetails).",
+    "description": "Errors use RFC 9457 application/problem+json (schema: ProblemDetails). Every operation carries `x-policy` (auth kind, role, attestation) from its deny-by-default route policy.",
     "license": {
       "name": "UNLICENSED",
       "identifier": "UNLICENSED"
@@ -31,7 +31,12 @@
         },
         "security": [
           {}
-        ]
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "none",
+          "role": "guest"
+        }
       }
     },
     "/readyz": {
@@ -55,7 +60,12 @@
         },
         "security": [
           {}
-        ]
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "none",
+          "role": "guest"
+        }
       }
     }
   },
@@ -150,6 +160,12 @@
             "example": "ready"
           }
         }
+      }
+    },
+    "securitySchemes": {
+      "bearer": {
+        "type": "http",
+        "scheme": "bearer"
       }
     }
   },

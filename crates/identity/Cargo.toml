@@ -1,0 +1,15 @@
+[package]
+name = "identity"
+version = "0.1.0"
+description = "Accounts, auth identities, sessions, age gate (see context/wiki/architecture/decisions/ADR-0004-auth-sessions.md)"
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+serde.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

@@ -43,6 +43,23 @@ pub enum ApiError {
     Validation(String),
     #[error("unsupported media type")]
     UnsupportedMediaType,
+    /// No credentials, or credentials that do not identify a live session.
+    #[error("unauthenticated")]
+    Unauthenticated,
+    /// The access token expired: refresh and retry.
+    #[error("session expired")]
+    SessionExpired,
+    /// The session was revoked (logout, refresh-token reuse, suspension): sign in again.
+    #[error("session revoked")]
+    SessionRevoked,
+    /// Authenticated, but this kind of session may not call the route.
+    #[error("forbidden")]
+    Forbidden,
+    /// A full session is required; the caller is still onboarding.
+    #[error("onboarding incomplete")]
+    OnboardingIncomplete,
+    #[error("account suspended")]
+    AccountSuspended,
     /// Resource missing, or the caller may not know it exists (object-level denials use this
     /// too, so "forbidden" and "missing" are indistinguishable).
     #[error("resource not found")]
@@ -51,6 +68,9 @@ pub enum ApiError {
     MethodNotAllowed,
     #[error("request timed out")]
     RequestTimeout,
+    /// A dependency is down and the route fails closed.
+    #[error("temporarily unavailable")]
+    Unavailable { retry_after_secs: u64 },
     #[error("internal error: {0}")]
     Internal(#[source] Box<dyn std::error::Error + Send + Sync>),
 }
@@ -64,9 +84,16 @@ impl ApiError {
         match self {
             Self::Validation(_) => StatusCode::BAD_REQUEST,
             Self::UnsupportedMediaType => StatusCode::UNSUPPORTED_MEDIA_TYPE,
+            Self::Unauthenticated | Self::SessionExpired | Self::SessionRevoked => {
+                StatusCode::UNAUTHORIZED
+            }
+            Self::Forbidden | Self::OnboardingIncomplete | Self::AccountSuspended => {
+                StatusCode::FORBIDDEN
+            }
             Self::NotFound => StatusCode::NOT_FOUND,
             Self::MethodNotAllowed => StatusCode::METHOD_NOT_ALLOWED,
             Self::RequestTimeout => StatusCode::REQUEST_TIMEOUT,
+            Self::Unavailable { .. } => StatusCode::SERVICE_UNAVAILABLE,
             Self::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
@@ -75,10 +102,24 @@ impl ApiError {
         match self {
             Self::Validation(_) => "VALIDATION_FAILED",
             Self::UnsupportedMediaType => "MEDIA_TYPE_UNSUPPORTED",
+            Self::Unauthenticated => "UNAUTHENTICATED",
+            Self::SessionExpired => "SESSION_EXPIRED",
+            Self::SessionRevoked => "SESSION_REVOKED",
+            Self::Forbidden => "FORBIDDEN",
+            Self::OnboardingIncomplete => "ONBOARDING_INCOMPLETE",
+            Self::AccountSuspended => "ACCOUNT_SUSPENDED",
             Self::NotFound => "NOT_FOUND",
             Self::MethodNotAllowed => "METHOD_NOT_ALLOWED",
             Self::RequestTimeout => "REQUEST_TIMEOUT",
+            Self::Unavailable { .. } => "TEMPORARILY_UNAVAILABLE",
             Self::Internal(_) => "INTERNAL",
+        }
+    }
+
+    fn retry_after_secs(&self) -> Option<u64> {
+        match self {
+            Self::Unavailable { retry_after_secs } => Some(*retry_after_secs),
+            _ => None,
         }
     }
 
@@ -96,7 +137,13 @@ impl IntoResponse for ApiError {
             // Logged inside the request span, so the request id is attached.
             tracing::error!(error = %source, "internal error");
         }
-        problem_response(self.status(), self.code(), self.detail())
+        let mut response = problem_response(self.status(), self.code(), self.detail());
+        if let Some(secs) = self.retry_after_secs() {
+            response
+                .headers_mut()
+                .insert(header::RETRY_AFTER, HeaderValue::from(secs));
+        }
+        response
     }
 }
 
@@ -139,6 +186,15 @@ mod tests {
         let errors = [
             ApiError::Validation("x".into()),
             ApiError::UnsupportedMediaType,
+            ApiError::Unauthenticated,
+            ApiError::SessionExpired,
+            ApiError::SessionRevoked,
+            ApiError::Forbidden,
+            ApiError::OnboardingIncomplete,
+            ApiError::AccountSuspended,
+            ApiError::Unavailable {
+                retry_after_secs: 1,
+            },
             ApiError::NotFound,
             ApiError::MethodNotAllowed,
             ApiError::RequestTimeout,
@@ -159,6 +215,19 @@ mod tests {
         assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
         let err = ApiError::internal("password=hunter2");
         assert!(err.detail().is_none());
+    }
+
+    #[test]
+    fn unavailable_carries_retry_after() {
+        let response = ApiError::Unavailable {
+            retry_after_secs: 7,
+        }
+        .into_response();
+        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(
+            response.headers().get(header::RETRY_AFTER),
+            Some(&HeaderValue::from(7u64))
+        );
     }
 
     #[test]
