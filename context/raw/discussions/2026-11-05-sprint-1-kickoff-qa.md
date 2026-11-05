@@ -38,3 +38,10 @@ Facts found while starting:
 |---|---|
 | Share page enlarge: baked only, baked + small WebGL holo, or CanvasKit on fast networks | Baked + small WebGL holo (~5 KB, starts < 1 s) |
 | Share-page LCP still limited to ~100 KB (WebP/AVIF ~600 px) | Accepted |
+
+## Follow-up Q&A after T-52 (same day)
+| Question | EM answer |
+|---|---|
+| How to get on-device holo frame-time numbers (only an iPhone available) | Borrow a mid-range Android phone; lead prepares the APK and test script |
+| Ambient holo animation when the phone is still | All visible cards shimmer (not only the focused one) |
+| Approve the new thin-film holo look as the shared base | Approve for now; fine-tune on a device later |
