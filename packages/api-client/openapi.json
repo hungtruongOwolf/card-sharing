@@ -523,6 +523,92 @@
         }
       }
     },
+    "/v1/me/age-signal": {
+      "post": {
+        "tags": [
+          "me"
+        ],
+        "summary": "Record the OS age signal for the caller's account. Auth: onb/ses.",
+        "operationId": "submitAgeSignal",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgeSignalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Stored; a minor signal applies from the next request."
+          },
+          "400": {
+            "description": "VALIDATION_FAILED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: OS age-signal ingestion is disabled.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "onb/ses",
+          "rateLimit": "me.age_signal",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
     "/v1/me/handle": {
       "put": {
         "tags": [
@@ -1120,6 +1206,37 @@
             "example": "pending_profile"
           }
         }
+      },
+      "AgeSignalRequest": {
+        "type": "object",
+        "required": [
+          "source",
+          "signal"
+        ],
+        "properties": {
+          "signal": {
+            "$ref": "#/components/schemas/AgeSignalValue",
+            "description": "`minor` when the OS says the user is under 18, `adult` otherwise."
+          },
+          "source": {
+            "$ref": "#/components/schemas/AgeSignalSource"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AgeSignalSource": {
+        "type": "string",
+        "enum": [
+          "apple_declared_age_range",
+          "google_play_age_signals"
+        ]
+      },
+      "AgeSignalValue": {
+        "type": "string",
+        "enum": [
+          "minor",
+          "adult"
+        ]
       },
       "AiEffectsView": {
         "type": "object",

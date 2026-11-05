@@ -4,7 +4,7 @@ use utoipa::{Modify, OpenApi};
 use utoipa_axum::routes;
 
 use crate::access::{ApiRouter, RoutePolicy};
-use crate::routes::{app_config, auth, health, me, sessions};
+use crate::routes::{age_signal, app_config, auth, health, me, sessions};
 use crate::state::AppState;
 use platform::problem::ProblemDetails;
 
@@ -68,6 +68,10 @@ pub fn router() -> ApiRouter<AppState> {
         .route(
             RoutePolicy::onboarding().limited("me.age"),
             routes!(me::submit_age),
+        )
+        .route(
+            RoutePolicy::onboarding_or_session().limited("me.age_signal"),
+            routes!(age_signal::submit_age_signal),
         )
         .route(
             RoutePolicy::onboarding_or_session().limited("me.profile.update"),

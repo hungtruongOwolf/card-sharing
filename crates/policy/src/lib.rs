@@ -23,9 +23,31 @@ use serde::{Deserialize, Serialize};
 #[serde(deny_unknown_fields)]
 pub struct Policy {
     pub min_age: u8,
+    /// Age of majority: below it an account is a minor (minor protections apply).
+    #[serde(default = "default_adult_age")]
+    pub adult_age: u8,
+    #[serde(default)]
+    pub discovery: DiscoveryPolicy,
     pub ai_effects: AiEffectsPolicy,
     pub ads: AdsPolicy,
     pub ai_label: AiLabelPolicy,
+}
+
+/// Handle search (US-5a): accounts younger than `min_age` are never returned.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DiscoveryPolicy {
+    pub min_age: u8,
+}
+
+impl Default for DiscoveryPolicy {
+    fn default() -> Self {
+        Self { min_age: 18 }
+    }
+}
+
+fn default_adult_age() -> u8 {
+    18
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -131,6 +153,10 @@ impl PolicyService {
 fn strictest(a: Policy, b: Policy) -> Policy {
     Policy {
         min_age: a.min_age.max(b.min_age),
+        adult_age: a.adult_age.max(b.adult_age),
+        discovery: DiscoveryPolicy {
+            min_age: a.discovery.min_age.max(b.discovery.min_age),
+        },
         ai_effects: AiEffectsPolicy {
             cloud_allowed: a.ai_effects.cloud_allowed && b.ai_effects.cloud_allowed,
             people_in_photo: a

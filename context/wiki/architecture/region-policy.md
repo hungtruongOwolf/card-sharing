@@ -2,7 +2,7 @@
 title: Region / jurisdiction policy
 type: concept
 status: proposed
-updated: 2026-11-04
+updated: 2026-11-05
 sources: [raw/discussions/2026-11-04-idea-round-5.md, raw/discussions/2026-11-04-idea-round-6.md]
 related: [[prd-mvp]], [[change-management]], [[security-baseline]], [[genai-effects]], [[monetization]], [[vision]]
 ---
@@ -41,6 +41,17 @@ overrides:
   declared / IP country and the signals stored with the account; client hints can only tighten.
 - IP country comes only from a trusted edge header (`API_IP_COUNTRY_HEADER`, e.g. `cf-ipcountry`); without one there is no IP
   signal. Which edge sets it in production (Cloudflare in front of the API, or a GeoIP database) is still open.
+
+## Implementation (T-29)
+- `config/policy/regions.yaml` now carries `adult_age` (default 18; minor status) and `discovery.min_age` (default 18; handle
+  search), both resolved strictest (max) like `min_age`. KR placeholder: `adult_age: 19`, `discovery.min_age: 19` (civil
+  majority 19 — verify in legal review). Fields missing from a config default to 18.
+- `identity::AgeService::status(account, current_ctx) -> {is_minor, discoverable}` decrypts the DOB, computes the age for the
+  current UTC date and applies `resolve_strictest(current, stored sign-up signals)` — a later request from a laxer region never
+  lowers `adult_age` or `discovery.min_age` (SR-24). Accounts without a DOB get every protection.
+- OS age signals (`POST /v1/me/age-signal`, flag `API_OS_AGE_SIGNALS_ENABLED`, default off pending legal L-3): a `minor` signal
+  caps the effective age below `adult_age`; an `adult` signal never loosens the DOB; latest signal wins; ignored while the flag
+  is off.
 
 ## Open questions
 - Legal review of per-country values before launch.

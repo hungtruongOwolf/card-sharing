@@ -67,6 +67,9 @@ pub struct Config {
     /// secret) — all three or none. Used to exchange Apple authorization codes for refresh
     /// tokens (revoked on account deletion). Unset = exchange skipped.
     pub apple_signing: Option<AppleSigningConfig>,
+    /// `API_OS_AGE_SIGNALS_ENABLED` — accept OS age signals (Apple Declared Age Range, Google Play
+    /// Age Signals) on `POST /v1/me/age-signal`. Default `false` until legal review L-3.
+    pub os_age_signals_enabled: bool,
 }
 
 /// The team's Sign in with Apple key (see [`Config::apple_signing`]).
@@ -142,6 +145,7 @@ impl Config {
         let google_client_ids = client_ids(env, "API_GOOGLE_CLIENT_IDS")?;
         let auth_clock_skew_secs = env.in_range("API_AUTH_CLOCK_SKEW_SECS", 60, 0..=300)?;
         let apple_signing = apple_signing(env)?;
+        let os_age_signals_enabled = env.flag("API_OS_AGE_SIGNALS_ENABLED", false)?;
 
         Ok(Self {
             bind_addr,
@@ -164,6 +168,7 @@ impl Config {
             google_client_ids,
             auth_clock_skew: Duration::from_secs(auth_clock_skew_secs),
             apple_signing,
+            os_age_signals_enabled,
         })
     }
 }
@@ -319,6 +324,12 @@ mod tests {
         assert!(config.google_client_ids.is_empty());
         assert!(config.apple_signing.is_none());
         assert_eq!(config.auth_clock_skew, Duration::from_secs(60));
+        assert!(!config.os_age_signals_enabled, "off until legal review");
+        assert!(
+            load(&[("API_OS_AGE_SIGNALS_ENABLED", "true")])
+                .unwrap()
+                .os_age_signals_enabled
+        );
 
         let config = load(&[
             (

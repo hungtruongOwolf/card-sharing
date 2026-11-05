@@ -177,3 +177,25 @@ fn resolve_strictest_combines_stored_and_current_contexts() {
     assert_eq!(svc.resolve_strictest(&[stored]).min_age, 13);
     assert_eq!(svc.resolve_strictest(&[]), default_policy(&svc));
 }
+
+#[test]
+fn adult_age_and_discovery_min_age_resolve_strictest() {
+    let svc = PolicyService::from_yaml_str(SHIPPED_CONFIG).unwrap();
+    let us = svc.resolve(&ctx_store("US"));
+    assert_eq!((us.adult_age, us.discovery.min_age), (18, 18));
+    let kr = svc.resolve(&ctx_store("KR"));
+    assert_eq!((kr.adult_age, kr.discovery.min_age), (19, 19));
+    // A later request from a laxer region never lowers the stored region's values (SR-24).
+    let both = svc.resolve_strictest(&[ctx_store("US"), ctx_store("KR")]);
+    assert_eq!((both.adult_age, both.discovery.min_age), (19, 19));
+}
+
+#[test]
+fn configs_without_the_new_fields_default_to_18() {
+    let svc = PolicyService::from_yaml_str(
+        "version: 1\ndefault:\n  min_age: 13\n  ai_effects: { cloud_allowed: true, people_in_photo: any }\n  ads: { rewarded: true, personalized_requires_consent: false }\n  ai_label: { visible_badge: true, c2pa: true }\n",
+    )
+    .unwrap();
+    let policy = default_policy(&svc);
+    assert_eq!((policy.adult_age, policy.discovery.min_age), (18, 18));
+}

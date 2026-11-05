@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use http::{HeaderMap, HeaderName};
-use identity::{IdentityService, ProfileRules, ProviderSignIn};
+use identity::{AgeService, IdentityService, ProfileRules, ProviderSignIn};
 use platform::crypto::FieldCipher;
 use platform::idempotency::{IdempotencySettings, IdempotencyStore};
 use platform::rate_limit::RateLimiter;
@@ -24,6 +24,8 @@ pub struct ProfileSettings {
 pub struct AppState {
     pub policy: Arc<PolicyService>,
     pub identity: Arc<IdentityService>,
+    /// Minor status from the encrypted DOB (and OS age signals when enabled).
+    pub age: Arc<AgeService>,
     /// Resolves bearer tokens for the access-policy gate (identity sessions by default).
     pub sessions: Arc<dyn SessionResolver>,
     pub limiter: Arc<RateLimiter>,
@@ -48,8 +50,16 @@ impl AppState {
         field_cipher: FieldCipher,
         profile: ProfileSettings,
     ) -> Self {
+        let policy = Arc::new(policy);
+        let field_cipher = Arc::new(field_cipher);
         Self {
-            policy: Arc::new(policy),
+            age: Arc::new(AgeService::new(
+                Arc::clone(&identity),
+                Arc::clone(&policy),
+                Arc::clone(&field_cipher),
+                false,
+            )),
+            policy,
             sessions: Arc::new(IdentitySessions(Arc::clone(&identity))),
             idempotency: Arc::new(IdempotencyStore::new(
                 identity.pool().clone(),
@@ -59,11 +69,22 @@ impl AppState {
             identity,
             limiter: Arc::new(limiter),
             client: Arc::new(client),
-            field_cipher: Arc::new(field_cipher),
+            field_cipher,
             profile: Arc::new(profile),
             ip_country_header: None,
             sign_in: None,
         }
+    }
+
+    /// Enables or disables OS age-signal ingestion (`API_OS_AGE_SIGNALS_ENABLED`).
+    pub fn with_os_age_signals(mut self, enabled: bool) -> Self {
+        self.age = Arc::new(AgeService::new(
+            Arc::clone(&self.identity),
+            Arc::clone(&self.policy),
+            Arc::clone(&self.field_cipher),
+            enabled,
+        ));
+        self
     }
 
     pub fn with_sign_in(mut self, sign_in: Arc<ProviderSignIn>) -> Self {

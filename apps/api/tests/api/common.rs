@@ -56,6 +56,7 @@ pub fn test_config() -> Config {
         google_client_ids: vec![GOOGLE_CLIENT_ID.to_owned()],
         auth_clock_skew: Duration::from_secs(60),
         apple_signing: None,
+        os_age_signals_enabled: true,
     }
 }
 
@@ -174,7 +175,8 @@ impl TestEnv {
             field_cipher(),
             profile_settings(),
         )
-        .with_ip_country_header(test_config().ip_country_header);
+        .with_ip_country_header(test_config().ip_country_header)
+        .with_os_age_signals(test_config().os_age_signals_enabled);
         let jwks = MockJwks::start(vec![TestRsaKey::shared().jwk()]).await;
         let apple_tokens = Arc::new(FakeAppleTokens::default());
         let sign_in = test_sign_in(
