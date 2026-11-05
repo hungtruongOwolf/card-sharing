@@ -82,6 +82,30 @@ describe('editor state', () => {
     expect(run(captioned, { type: 'undo' }).present.caption).toBe('');
   });
 
+  it('records a whole drag as one undo step', () => {
+    const none = entry('cut.none');
+    const drag = (value: number): EditorAction => ({
+      type: 'setParams',
+      slot: 'cut',
+      entry: none,
+      params: { cornerRadiusPct: value },
+      transient: true,
+    });
+    const dragging = run(start, drag(5), drag(6), drag(7));
+    expect(dragging.present.cut.params).toEqual({ cornerRadiusPct: 7 });
+    expect(dragging.past).toHaveLength(0);
+    expect(canUndo(dragging)).toBe(true);
+    const settled = run(dragging, { type: 'settle' });
+    expect(settled.past).toEqual([start.present]);
+    expect(settled.gestureBase).toBeNull();
+    expect(run(settled, { type: 'undo' }).present).toEqual(start.present);
+    // Undo in the middle of a drag closes it first, then steps back over the whole drag.
+    expect(run(start, drag(5), drag(9), { type: 'undo' }).present).toEqual(start.present);
+    // A drag that ends where it began records nothing.
+    expect(run(start, drag(5), drag(4), { type: 'settle' }).past).toHaveLength(0);
+    expect(run(start, { type: 'settle' })).toBe(start);
+  });
+
   it(`keeps at most ${HISTORY_LIMIT} undo steps`, () => {
     const none = entry('cut.none');
     let history = start;

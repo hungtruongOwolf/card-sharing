@@ -59,6 +59,58 @@ describe('picker tabs', () => {
     expect(cutIds({ raw_v2: true })).toContain('cut.raw');
   });
 
+  it('hides subject styles on a whole-photo card (EM decision 2026-11-05)', () => {
+    const [cut] = pickerTabs(registry, deviceContext('0.1.0', false), undefined);
+    expect(cut!.tiles.map((tile) => tile.entry.id)).not.toContain('cut.diecut');
+  });
+
+  it('shows entries needing another capability as unavailable on this device', () => {
+    const gyro = createRegistry(
+      ENTRIES.map((e) =>
+        e.id === 'cut.torn'
+          ? {
+              ...e,
+              platforms: {
+                ...e.platforms,
+                ios: { ...e.platforms.ios, requires: ['gyro' as const] },
+              },
+            }
+          : e,
+      ),
+    );
+    const [cut] = pickerTabs(gyro, deviceContext('0.1.0', true), undefined);
+    expect(cut!.tiles.find((tile) => tile.entry.id === 'cut.torn')?.state).toEqual({
+      kind: 'unavailable',
+      reason: 'notSupported',
+    });
+  });
+
+  it('locks non-free entries, flags new ones and explains version gates', () => {
+    const custom = createRegistry(
+      ENTRIES.map((e) => {
+        if (e.id === 'cut.raw') return { ...e, unlock: 'pro' as const };
+        if (e.id === 'fx.holo') return { ...e, tags: [...e.tags, 'new'] };
+        if (e.id === 'cut.torn') return { ...e, flags: { minAppVersion: '9.0.0' } };
+        return e;
+      }),
+    );
+    const [cut, finish] = pickerTabs(custom, deviceContext('0.1.0', true), undefined);
+    const state = (id: string) => cut!.tiles.find((tile) => tile.entry.id === id)?.state;
+    expect(state('cut.raw')).toEqual({ kind: 'locked', unlock: 'pro' });
+    expect(cut!.entries.map((e) => e.id)).not.toContain('cut.raw');
+    expect(state('cut.torn')).toEqual({ kind: 'unavailable', reason: 'needsUpdate' });
+    expect(finish!.tiles).toEqual([
+      expect.objectContaining({ isNew: true, state: { kind: 'available' } }),
+    ]);
+  });
+
+  it('never shows kill-switched or dark-launched entries, not even as unavailable', () => {
+    const [cut] = pickerTabs(registry, deviceContext('0.1.0', true), {
+      kill_switches: { cut_styles: ['cut.diecut'] },
+    });
+    expect(cut!.tiles.map((tile) => tile.entry.id)).not.toContain('cut.diecut');
+  });
+
   it('defaults to a sticker-style cut with a subject and the first style without one', () => {
     const cuts = registry.byKind('cutStyle');
     expect(defaultCut(cuts, true)?.inputs).toContain('contour');

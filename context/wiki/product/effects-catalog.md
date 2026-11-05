@@ -51,7 +51,10 @@ export const laserEyes: EffectEntry = {
 ```
 **Implemented (T-59, `packages/effects-registry`):** one file per entry in `src/entries/` plus one line in
 `src/entries/index.ts`; `validateRegistry` (run by tests) checks every entry and rejects duplicate ids. `tier` is a string
-(`'0'`, `'1'`, `'1b'`, `'2'`); `tags` (e.g. `finish`, `builtIn`) add picker listings. `platforms.*.requires` uses the
+(`'0'`, `'1'`, `'1b'`, `'2'`); `tags` (e.g. `finish`, `builtIn`) add picker listings; the tag `new` shows a "New" badge on the tile.
+Picker tile states (#212): `unlock` other than `free` → locked (not selectable until the unlock flow ships); hidden by
+`minAppVersion` / OS minimum / a non-subject capability → shown unavailable with the reason; kill switch, feature flag and a
+missing subject mask → not shown. `platforms.*.requires` uses the
 capability vocabulary `subjectMask, faceLandmarks, animalPose, playServices, gyro`; `fallback` is `userPoints` only (no
 server-cutout fallback in the MVP, prd-mvp AC-7.6). **No-cutout fallback (EM decision 2026-11-05):** a card without a
 subject mask (iOS < 17, Android without the bundled model, no subject found, or the editor's "Use whole photo") is a

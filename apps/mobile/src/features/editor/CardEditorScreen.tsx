@@ -12,10 +12,11 @@ import {
 import { space } from '@card-sharing/tokens';
 
 import { t, type MessageKey } from '../../i18n';
-import { Button, Screen, Text } from '../../ui';
+import { Button, Screen, Text, useToast } from '../../ui';
 import type { CapturedPhoto } from '../capture';
 import { CAPTION_MAX_GRAPHEMES, CaptionSheet } from '../captions';
 import { downscalePhoto, drawCard, previewSize, subjectFor } from './cardScene';
+import { EffectTile, unavailableReason } from './EffectTile';
 import {
   canRedo,
   canUndo,
@@ -27,7 +28,14 @@ import {
 } from './editorState';
 import type { MaskSource } from './maskSource';
 import { ParamControls } from './ParamControls';
-import { defaultCut, deviceContext, pickerTabs, type PickerTab } from './pickerTabs';
+import {
+  defaultCut,
+  deviceContext,
+  pickerTabs,
+  type PickerTab,
+  type PickerTile,
+} from './pickerTabs';
+import { thumbSize, useTileThumbnails } from './tileThumbnails';
 
 const MAX_PREVIEW_WIDTH = 360;
 const MAX_PREVIEW_HEIGHT = 440;
@@ -149,6 +157,7 @@ function Editor({
   });
   const [activeSlot, setActiveSlot] = useState<StyleSlot>('cut');
   const [captionOpen, setCaptionOpen] = useState(false);
+  const toast = useToast();
 
   const draft = history.present;
   const hasSubject = subject !== null && !draft.wholePhoto;
@@ -187,8 +196,15 @@ function Editor({
         ? { type: 'select', slot: 'cut', entry }
         : { type: 'select', slot: 'finish', entry },
     );
-  const setParams = (entry: EffectEntry, params: Record<string, unknown>) =>
-    dispatch({ type: 'setParams', slot: activeTab.slot, entry, params });
+  const setParams = (entry: EffectEntry, params: Record<string, unknown>, transient?: boolean) =>
+    dispatch({ type: 'setParams', slot: activeTab.slot, entry, params, transient });
+  const thumbnails = useTileThumbnails(registry, activeTab, shown, image, mask);
+  const tileSize = thumbSize(image.width() / image.height());
+  const pressTile = (tile: PickerTile) => {
+    if (tile.state.kind === 'available') select(tile.entry);
+    else if (tile.state.kind === 'locked') toast.show({ message: t('editor.tile.locked.toast') });
+    else toast.show({ message: unavailableReason(tile.state.reason) });
+  };
 
   const previewLabel = cut
     ? finish
@@ -281,19 +297,16 @@ function Editor({
             onPress={() => select(null)}
           />
         ) : null}
-        {activeTab.entries.map((entry) => {
-          const selected = entry.id === active?.entry.id;
-          return (
-            <Button
-              key={entry.id}
-              label={t(entry.name as MessageKey)}
-              accessibilityHint={t(entry.description as MessageKey)}
-              variant={selected ? 'primary' : 'secondary'}
-              accessibilityState={{ selected }}
-              onPress={() => select(entry)}
-            />
-          );
-        })}
+        {activeTab.tiles.map((tile) => (
+          <EffectTile
+            key={tile.entry.id}
+            tile={tile}
+            selected={tile.entry.id === active?.entry.id}
+            thumbnail={thumbnails[tile.entry.id]}
+            size={tileSize}
+            onPress={() => pressTile(tile)}
+          />
+        ))}
       </View>
       {active?.entry.presets?.length ? (
         <View style={styles.row}>
@@ -311,7 +324,8 @@ function Editor({
         <ParamControls
           entry={active.entry}
           params={active.choice.params}
-          onChange={(params) => setParams(active.entry, params)}
+          onChange={(params, transient) => setParams(active.entry, params, transient)}
+          onSettle={() => dispatch({ type: 'settle' })}
         />
       ) : null}
       {onNext && shown ? (
