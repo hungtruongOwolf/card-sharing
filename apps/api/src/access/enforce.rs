@@ -7,11 +7,13 @@ use axum::extract::{ConnectInfo, MatchedPath, Request, State};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 use http::{HeaderMap, HeaderName, header};
+use platform::idempotency::IdempotencyStore;
 use platform::problem::ApiError;
 use platform::rate_limit::{AccountSubject, Decision, RateLimiter, Subject};
 
 use super::caller::SessionResolver;
-use super::policy::{PolicyTable, authorize};
+use super::idempotency;
+use super::policy::{Idempotency, PolicyTable, authorize};
 
 /// State of the enforcement middleware.
 #[derive(Clone)]
@@ -22,6 +24,8 @@ pub struct AccessState {
     pub client_ip: ClientIpSource,
     /// Requests whose `X-App-Version` is below this get 426.
     pub min_app_version: Arc<semver::Version>,
+    /// Idempotency-Key store for routes whose policy enables it.
+    pub idempotency: Arc<IdempotencyStore>,
 }
 
 /// Where the client IP comes from. Only trust a header that the edge proxy always overwrites.
@@ -110,10 +114,22 @@ pub async fn enforce(
             return err.into_response();
         }
     }
-    if let Some(principal) = principal {
-        request.extensions_mut().insert(principal);
+    let Some(principal) = principal else {
+        return next.run(request).await;
+    };
+    request.extensions_mut().insert(principal.clone());
+    if policy.idempotency == Idempotency::None {
+        return next.run(request).await;
     }
-    next.run(request).await
+    idempotency::run(
+        &access.idempotency,
+        policy.idempotency,
+        &principal,
+        route.as_str(),
+        request,
+        next,
+    )
+    .await
 }
 
 /// `X-App-Version` (semver) below the minimum → 426. Absent → allowed (web, tools); the

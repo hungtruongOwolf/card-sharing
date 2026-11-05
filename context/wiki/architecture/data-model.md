@@ -2,7 +2,7 @@
 title: Data model (MVP)
 type: spec
 status: proposed
-updated: 2026-11-04
+updated: 2026-11-05
 sources: [raw/discussions/2026-11-04-infra-qa.md, raw/discussions/2026-11-04-prd-design-qa.md, raw/discussions/2026-11-04-security-qa.md]
 related: [[overview]], [[api-mvp]], [[prd-mvp]], [[glossary]], [[effects-catalog]], [[ADR-0004-auth-sessions]], [[ADR-0005-media-pipeline]], [[ADR-0006-job-queue]], [[ADR-0007-board-sync]], [[security-baseline]], [[change-management]], [[threat-model-mvp]]
 ---
@@ -158,7 +158,7 @@ invitations between them are cancelled.
 | `deletion_requests` (privacy) | `user_id PK` (no FK); `requested_at`; `grace_until` (+7 d); `status CHECK (pending, cancelled, erasing, done)`; `steps JSONB` (per-module progress) | `(status, grace_until)` | I | Tombstone kept 1 y (replay after backup restore) |
 | `outbox_events` (platform) | `id BIGSERIAL`; `topic`; `payload JSONB` (ids only, no PII); `trace_id`; `created_at`; `published_at` | `(published_at) WHERE published_at IS NULL` | I | 7 d after publish |
 | `jobs` (platform) | `id`; `queue`; `kind`; `unique_key UNIQUE NULL`; `payload JSONB`; `run_at`; `attempts`; `max_attempts`; `locked_by`, `locked_until`; `last_error`; `status CHECK (queued, running, done, dead)` | `(queue, run_at) WHERE status='queued'` | I | done 7 d, dead 30 d |
-| `idempotency_keys` (platform) | `user_id`, `key`, `route`, PK all; `request_hash`; `status_code`; `response JSONB`; `locked_until` | `(created_at)` | I | 24 h |
+| `idempotency_keys` (platform) | `user_id`, `route`, `key UUID`, PK all; `request_hash BYTEA(32)`; `status_code NULL` (null while running); `response_content_type`, `response_body BYTEA ≤ 64 KiB`; `lease_id` (fencing token); `locked_until` (lease); `created_at` (T-14, `migrations/20261107000001_platform_idempotency.sql`) | `(created_at)` | I | 24 h |
 | `audit_events` (platform) | `id`; `actor_id`; `actor_kind CHECK (user, staff, system)`; `action`; `target`; `ip_hash`; `at` — append-only (no UPDATE/DELETE grant) | `(target, at)`, `(actor_id, at)` | I | 2 y |
 
 ## Access patterns (from PRD stories)

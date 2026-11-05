@@ -18,6 +18,7 @@ use tower_http::set_header::SetResponseHeaderLayer;
 use tower_http::trace::{DefaultOnResponse, TraceLayer};
 use tracing::Level;
 
+use crate::access::IDEMPOTENCY_KEY_HEADER;
 use crate::config::Config;
 use platform::problem::{ApiError, problem_response};
 use platform::request_id::{self, REQUEST_ID_HEADER, RequestId};
@@ -94,6 +95,7 @@ fn cors(config: &Config) -> CorsLayer {
             header::CONTENT_TYPE,
             header::AUTHORIZATION,
             REQUEST_ID_HEADER,
+            IDEMPOTENCY_KEY_HEADER,
         ])
         .expose_headers([REQUEST_ID_HEADER])
         .max_age(Duration::from_secs(600))

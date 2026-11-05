@@ -1234,6 +1234,8 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_norway",
+ "sha2 0.11.1",
+ "sqlx",
  "thiserror",
  "time",
  "tokio",

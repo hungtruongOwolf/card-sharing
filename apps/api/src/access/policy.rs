@@ -69,6 +69,28 @@ impl Role {
     }
 }
 
+/// `Idempotency-Key` handling of a route (api-mvp.md "Idempotency-Key"). Only authenticated
+/// routes may use it: keys are scoped per account.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Idempotency {
+    /// The header is ignored.
+    None,
+    /// Requests without the header run normally; with it, they are deduplicated.
+    Optional,
+    /// The header is mandatory (creates); missing → 400.
+    Required,
+}
+
+impl Idempotency {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::Optional => "optional",
+            Self::Required => "required",
+        }
+    }
+}
+
 /// Policy of one route. Build with the constructors so every field is chosen on purpose.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RoutePolicy {
@@ -81,6 +103,7 @@ pub struct RoutePolicy {
     /// Apply the minimum app version gate (`X-App-Version`). Off only for routes an outdated
     /// app must still reach (`/v1/config`, probes).
     pub version_gate: bool,
+    pub idempotency: Idempotency,
 }
 
 impl RoutePolicy {
@@ -111,6 +134,7 @@ impl RoutePolicy {
             attestation: false,
             rate_limit: None,
             version_gate: true,
+            idempotency: Idempotency::None,
         }
     }
 
@@ -122,6 +146,12 @@ impl RoutePolicy {
     /// Applies the named limit from `config/limits.yaml`.
     pub const fn limited(mut self, limit: &'static str) -> Self {
         self.rate_limit = Some(limit);
+        self
+    }
+
+    /// Deduplicates requests by `Idempotency-Key` (see [`Idempotency`]).
+    pub const fn idempotency(mut self, mode: Idempotency) -> Self {
+        self.idempotency = mode;
         self
     }
 

@@ -45,6 +45,7 @@ pub fn build(routes: ApiRouter<AppState>, state: AppState, config: &Config) -> R
             .clone()
             .map_or(ClientIpSource::Peer, ClientIpSource::Header),
         min_app_version: Arc::new(state.client.min_app_version.clone()),
+        idempotency: Arc::clone(&state.idempotency),
     };
 
     let router = router
