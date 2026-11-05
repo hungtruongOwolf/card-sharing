@@ -56,5 +56,8 @@ Rust build at a time. Everything that needs a device, a store account, a domain 
 | T-22 magic link (Mailpit SMTP, Postmark adapter) | #207 | 3ef106a | #205 real Postmark; verify is T-23 |
 | T-60 registry validation | #209 | 9283758 | #208 server kill switches |
 | T-59, T-61, T-53, T-62 (mobile) | #187, #189, #191, #198 | | #192, #199 |
+| T-64 editor (registry-driven, undo/redo, `MaskSource`) | #203 | 7ff52e4 | #212 polish |
+| T-63 shape cuts + torn paper (mask-free) | #210 | 03b2c55 | #211 torn texture/reseed |
+| T-69 captions (grapheme limit, client filter mirror) | #214 | b5cabbf | #213 generate mirror from YAML |
 
-Backend lane complete. Still open: mobile T-64 editor, T-63 shape cuts, T-69 captions (in progress).
+Both lanes complete (2026-11-05). AC-10.1 met in code (device check pending).

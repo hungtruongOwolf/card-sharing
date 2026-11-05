@@ -9,7 +9,7 @@ related: [[mvp-plan]], [[sprint-2]], [[status]], [[prd-mvp]], [[api-mvp]], [[dat
 # Sprint 3 — friends (M2)
 **TL;DR:** Sprint 3 follows the S3 row of [[mvp-plan]] (M2 Friends, T-37..T-49) under the same constraints as [[sprint-2]]:
 free-first accounts, no Android device or Mac, one Rust build at a time on the shared 16 GB machine. The mobile editor work
-pulled forward from M3 (T-64 editor, T-63 shape cuts, T-69 captions) finishes first in the mobile lane.
+pulled forward from M3 (T-64, T-63, T-69) landed in [[sprint-2]].
 
 ## Sprint goal
 > Close friends connect through an invite link/QR or exact-handle search, with minors protected: invite → request →
@@ -20,7 +20,7 @@ pulled forward from M3 (T-64 editor, T-63 shape cuts, T-69 captions) finishes fi
 | Lane | Tickets, in order | Notes |
 |---|---|---|
 | Backend (one agent, sequential) | T-37 invites → T-38 minor invite rules → T-39 request from invite → T-40 accept/decline/cancel → T-41 caps and expiry → T-42 minor hint → T-43 handle search → T-45 findable toggle → T-46 friends list/unfriend → T-47 block | Starts when the mobile lane's jest runs are done or free RAM allows (< 5 GB free: no parallel cargo); CI runs the integration tests through PRs |
-| Mobile / TS (one agent) | T-64 editor → T-63 shape cuts → T-69 captions (carried in) → T-44 find a friend by handle (after T-43, T-40) | Jest only; zero new dependencies preferred |
+| Mobile / TS (one agent) | #197 sessions settings screen → #212 editor polish → T-44 find a friend by handle (after T-43, T-40) | Jest only; zero new dependencies preferred |
 | Web | T-48 invite landing page (after T-38) | Next.js share app; strict headers, no token in logs |
 | Lead | Reviews, merges once CI is green, wiki ingest | |
 
