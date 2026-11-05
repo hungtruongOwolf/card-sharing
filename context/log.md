@@ -150,3 +150,10 @@
 - Numbers: LCP 1.5-2.1 s, ~140 KB initial JS, CanvasKit 2.78 MB gz wasm, 15-17 s cold tap-to-holo on slow 4G.
 - EM: share page = baked still + small WebGL2 holo port; LCP still <= 100 KB. effects-catalog + design-system updated;
   follow-up issues #176 (WebGL holo), #177 (baked still), #178 (Lighthouse gate), #179 (remove canvaskit-wasm).
+
+## [2026-11-05] ingest | T-52 holo spike (code part)
+- PR #180 (9a8aae1): thin-film holo shader in packages/shaders (shared with web), /holo-lab with gyro tilt
+  (useAnimatedSensor, UI thread), spring squish, maxLive baking, reduced motion, UI-thread frame-time overlay. No new deps.
+- Estimates only (no device): ~170 GPU cycles/px, 3 cards ≈ 0.97 MP/frame ≈ 1.1 ms on mid-range. Defaults maxLive 3 /
+  low-end 1 + scale 0.75 / hot 0. Go: p95 ≤ 17.5 ms and ≤ 1 % dropped. Raw: raw/research/2026-11-05-holo-spike.md.
+- #54 stays open for on-device numbers. Follow-ups #181 tiers/pausing, #182 board-scene spike, #183 shader CI, #184 mask clip.
