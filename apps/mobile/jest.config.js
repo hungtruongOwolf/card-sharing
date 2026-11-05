@@ -6,6 +6,7 @@ module.exports = {
   // Internal packages resolve through tsconfig paths, not node_modules (see pnpm-workspace.yaml).
   moduleNameMapper: {
     '^@card-sharing/tokens$': '<rootDir>/../../packages/tokens/src/index.ts',
+    '^@card-sharing/shaders$': '<rootDir>/../../packages/shaders/src/index.ts',
   },
   testPathIgnorePatterns: ['/node_modules/', '/dist/', '/.expo/'],
   maxWorkers: '50%',

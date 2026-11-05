@@ -46,3 +46,95 @@ body {
 .muted {
   color: var(--color-text-secondary);
 }
+
+/* Share preview card (T-126 spike). 14px = radius.md in packages/tokens. */
+.card-button {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: center;
+  width: 100%;
+  margin-top: 1rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: zoom-in;
+}
+
+.card-button:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 4px;
+  border-radius: 14px;
+}
+
+.card-image {
+  display: block;
+  width: min(100%, 300px);
+  height: auto;
+  aspect-ratio: 5 / 7;
+  border-radius: 14px;
+}
+
+.card-button-hint {
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+}
+
+.holo-dialog {
+  border: 0;
+  border-radius: var(--radius-card);
+  padding: 1.5rem;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  text-align: center;
+}
+
+.holo-dialog::backdrop {
+  background: rgb(0 0 0 / 70%);
+}
+
+.holo-stage {
+  position: relative;
+  width: min(80vw, calc(70dvh * 5 / 7), 420px);
+  aspect-ratio: 5 / 7;
+}
+
+.holo-still,
+.holo-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 14px;
+}
+
+.holo-canvas {
+  opacity: 0;
+  touch-action: none;
+  transition: opacity 200ms ease-out;
+}
+
+.holo-stage[data-status='live'] .holo-canvas {
+  opacity: 1;
+}
+
+.holo-status {
+  min-height: 1.5em;
+}
+
+.holo-close {
+  padding: 0.5rem 1.25rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .holo-canvas {
+    transition: none;
+  }
+}

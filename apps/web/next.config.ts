@@ -16,8 +16,22 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   // Never ship source maps to browsers (security-baseline §4); upload privately to error tracking later.
   productionBrowserSourceMaps: false,
+  turbopack: {
+    // canvaskit-wasm's loader has a Node-only branch that requires fs/path; never taken in browsers.
+    resolveAlias: {
+      fs: { browser: './src/empty-module.ts' },
+      path: { browser: './src/empty-module.ts' },
+    },
+  },
   async headers() {
-    return [{ source: '/:path*', headers: securityHeaders }];
+    return [
+      { source: '/:path*', headers: securityHeaders },
+      // Self-hosted CanvasKit WASM lives under a versioned path (scripts/copy-canvaskit.mjs).
+      {
+        source: '/canvaskit/:version/:file*',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+      },
+    ];
   },
 };
 

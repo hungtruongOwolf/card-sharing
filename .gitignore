@@ -29,3 +29,6 @@ Thumbs.db
 
 # turborepo
 .turbo/
+
+# web: CanvasKit WASM copied from node_modules at dev/build time (apps/web/scripts/copy-canvaskit.mjs)
+apps/web/public/canvaskit/

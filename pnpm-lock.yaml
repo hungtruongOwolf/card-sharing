@@ -108,6 +108,9 @@ importers:
 
   apps/web:
     dependencies:
+      canvaskit-wasm:
+        specifier: 0.41.0
+        version: 0.41.0
       next:
         specifier: 16.4.5
         version: 16.4.5(@types/node@22.20.5)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -160,6 +163,18 @@ importers:
       typescript-eslint:
         specifier: 8.72.1
         version: 8.72.1(eslint@9.39.5)(typescript@6.0.3)
+
+  packages/shaders:
+    devDependencies:
+      eslint:
+        specifier: 9.39.5
+        version: 9.39.5
+      typescript:
+        specifier: ~6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: 5.1.0
+        version: 5.1.0(@types/node@22.20.5)(jsdom@20.0.3)(vite@8.3.5(@types/node@22.20.5)(terser@5.51.2)(yaml@2.9.1))
 
   packages/tokens:
     devDependencies:
@@ -2863,6 +2878,7 @@ packages:
   eslint@9.39.5:
     resolution: {integrity: sha512-DgZS62aPLXKlnxILS/AYCoRvHaZeXceIzlXPkkGGzJWSow1aEk0lbTlxUSlyjC8jcaKxAdOnTDz+o1JFSBsyjw==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+    deprecated: This version is no longer supported. Please see https://eslint.org/version-support for other options.
     hasBin: true
     peerDependencies:
       jiti: '*'
