@@ -16,8 +16,6 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   // Never ship source maps to browsers (security-baseline §4); upload privately to error tracking later.
   productionBrowserSourceMaps: false,
-  // Workspace packages export TypeScript source.
-  transpilePackages: ['@card-sharing/tokens'],
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
   },

@@ -27,7 +27,7 @@ module.exports = {
     {
       name: 'not-to-unresolvable',
       severity: 'error',
-      comment: 'Imports must resolve (catches typos and undeclared workspace links).',
+      comment: 'Imports must resolve (catches typos and missing tsconfig path mappings).',
       from: {},
       to: { couldNotResolve: true },
     },
@@ -36,6 +36,8 @@ module.exports = {
     doNotFollow: { path: 'node_modules' },
     exclude: { path: '(^|/)(node_modules|\\.next|\\.expo|\\.turbo|dist|coverage)/' },
     tsPreCompilationDeps: true,
+    // Internal packages are resolved through tsconfig paths (see pnpm-workspace.yaml).
+    tsConfig: { fileName: 'tsconfig.base.json' },
     combinedDependencies: true,
     enhancedResolveOptions: {
       exportsFields: ['exports'],

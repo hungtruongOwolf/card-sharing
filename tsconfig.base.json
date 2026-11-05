@@ -15,6 +15,10 @@
     "resolveJsonModule": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "noEmit": true
+    "noEmit": true,
+    "paths": {
+      "@card-sharing/tokens": ["./packages/tokens/src/index.ts"],
+      "@card-sharing/api-client": ["./packages/api-client/src/index.ts"]
+    }
   }
 }

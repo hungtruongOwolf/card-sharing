@@ -13,7 +13,6 @@
     "test": "vitest run"
   },
   "devDependencies": {
-    "@card-sharing/eslint-config": "workspace:*",
     "eslint": "9.39.5",
     "typescript": "~6.0.3",
     "vitest": "5.1.0"
