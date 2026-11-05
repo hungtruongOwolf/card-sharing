@@ -7,7 +7,7 @@ related: [[roadmap]], [[ADR-0002-cross-platform-stack]], [[vision]]
 ---
 # Project Status
 
-**Phase:** 3 — Foundation; **sprint 1 started 2026-11-05** ([[sprint-1]], kickoff adjustments there)
+**Phase:** 3 — Foundation; **sprint 1 done (2026-11-05), sprint 2 started** ([[sprint-1]], [[sprint-2]])
 
 ## Done
 - Setup: context wiki, 16 team skills, security baseline, git init (2026-11-04).

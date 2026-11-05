@@ -45,7 +45,8 @@ Tip: open `context/` as an Obsidian vault for graph/backlinks; run `python tools
 - [[status]] — wiki/progress/status.md — current project state & next steps
 - [[roadmap]] — wiki/progress/roadmap.md — phases & milestones (draft)
 - [[mvp-plan]] — wiki/progress/mvp-plan.md — MVP milestones M0–M9 (~18 weeks to closed beta), critical path, spikes, US/SR traceability (proposed)
-- [[sprint-1]] — wiki/progress/sprint-1.md — sprint 1: sign-in + age gate + camera step on staging, 18 tickets incl. 7 spikes (proposed)
+- [[sprint-1]] — wiki/progress/sprint-1.md — sprint 1: sign-in + age gate + camera step on staging, done 2026-11-05 (19 tickets; T-52 device numbers + T-1 boot check open)
+- [[sprint-2]] — wiki/progress/sprint-2.md — Sprint 2: idempotency/jobs/outbox/audit, sessions, age service, attestation, registry, contours, capture (accepted)
 - backlog.json — wiki/progress/backlog.json — 169 tickets (source for GitHub issues); regenerate with `python tools/planning/gen.py`
 
 ## Raw sources
