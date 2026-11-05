@@ -2,7 +2,7 @@
 title: ADR-0002 Cross-platform stack (mobile + web)
 type: decision
 status: accepted
-updated: 2026-11-04
+updated: 2026-11-05
 sources: [raw/research/2026-11-04-frontend-stack.md, raw/research/2026-11-04-subject-cutout.md, raw/research/2026-11-04-genai-effects.md, raw/discussions/2026-11-04-idea-round-3.md]
 related: [[effects-catalog]], [[design-system]], [[ADR-0001-tech-stack]], [[stack-research]], [[subject-cutout]], [[genai-effects]], [[overview]]
 ---
@@ -34,6 +34,10 @@ Global, English. Backend stays Rust.
   (effects-registry added 2026-11-04 per [[effects-catalog]] / [[ADR-0003-effects-tiers]]);
   Cargo workspace `apps/api`. Expect ~60–75% shared TS.
 - **3D:** deferred; 2.5D Skia effects first.
+- **Capture camera (pending, 2026-11-05):** vision-camera vs expo-camera is decided by the capture spike, which needs a
+  device. Until then T-53 ships the system camera and photo picker through `expo-image-picker` behind the `CaptureSource`
+  interface (`apps/mobile/src/features/capture`), results in the app cache only, no EXIF read. AC-7.1 (live camera
+  <= 1.5 s) and AC-7.2 (shutter <= 300 ms) are measured when the live-camera implementation replaces it.
 - **Implemented versions (skeleton, 2026-11-04):** Expo SDK 57, RN 0.86, react-native-skia 2.6.2, Reanimated 4.5, Next.js 16.4, TS 6.0.
 
 ## Consequences

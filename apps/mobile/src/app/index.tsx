@@ -27,6 +27,7 @@ export default function HomeScreen() {
     <Screen title={t('app.name')} centered>
       <HoloCard width={cardWidth} height={cardWidth * CARD_ASPECT} />
       <Text tone="muted">{t('home.hint')}</Text>
+      <Button label={t('home.capture')} onPress={() => router.push('/capture')} />
       <Button label={t('holo.lab.open')} variant="ghost" onPress={() => router.push('/holo-lab')} />
       <View style={styles.actions}>
         <Button

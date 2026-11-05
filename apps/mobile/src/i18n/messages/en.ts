@@ -34,6 +34,7 @@ export const en = {
   'home.caption.save': 'Save caption',
   'home.caption.saved': 'Caption saved',
   'home.send': 'Send to friends',
+  'home.capture': 'Make a card',
   'home.sent': 'Sent to {count, plural, =0 {nobody yet} one {# friend} other {# friends}}',
 
   'holo.label': 'Holographic sample card',
@@ -124,6 +125,24 @@ export const en = {
   'onboarding.camera.openSettings': 'Open Settings',
   'onboarding.camera.library': 'Choose from your photos',
   'onboarding.camera.notNow': 'Not now',
+
+  'capture.title': 'Make a card',
+  'capture.body':
+    'Snap something with the camera, or pick a photo you already have. Photos stay on your phone until you send a card.',
+  'capture.take': 'Take photo',
+  'capture.library': 'Choose from your photos',
+  'capture.allow': 'Allow camera',
+  'capture.deniedTitle': 'Camera is off',
+  'capture.deniedBody':
+    'To snap cards, turn on camera access for this app in Settings. You can still use photos you already have.',
+  'capture.openSettings': 'Open Settings',
+  'capture.failed': 'That didn’t work. Please try again.',
+  'capture.preview.title': 'Your photo',
+  'capture.preview.label': 'The photo you chose',
+  'capture.use': 'Use this photo',
+  'capture.retake': 'Retake',
+  'capture.chooseAnother': 'Choose another photo',
+  'capture.startOver': 'Start over',
 
   // Effect registry copy (packages/effects-registry entries reference these keys; a test checks them).
   'effects.cut.none.name': 'Photo',

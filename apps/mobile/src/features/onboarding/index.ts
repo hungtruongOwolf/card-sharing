@@ -4,6 +4,8 @@ import { createExpoCameraPermissions } from './expoCameraPermissions';
 import { createOnboardingApi, type OnboardingApi } from './onboardingApi';
 import { createAppSignInProviders, type SignInProvider } from './signInProviders';
 
+export type { CameraPermissions, CameraPermissionStatus } from './cameraPermissions';
+export { createExpoCameraPermissions } from './expoCameraPermissions';
 export { OnboardingProvider, useOnboarding } from './OnboardingProvider';
 export type { OnboardingPhase } from './phase';
 export { BirthDateScreen } from './screens/BirthDateScreen';
