@@ -23,6 +23,12 @@ creates, per-pin `base_version` for board edits, media only as short-lived signe
 | `staff` | Staff cookie session (`__Host-`, HttpOnly, SameSite=Strict) + MFA + CSRF token |
 | `att` | Add-on: `X-Attestation` (App Attest assertion / Play Integrity token bound to a server nonce + request hash) |
 
+Enforcement (T-11, `apps/api/src/access`): routes are registered only through `ApiRouter::route(policy, handler)`; a middleware
+looks the policy up by method + route template on every request and refuses routes without one (404). `wid`, `re`, `svc`, `staff`
+and staff roles are denied until implemented. Each OpenAPI operation publishes its policy as `x-policy {auth, role, attestation}`.
+Request DTOs use `deny_unknown_fields`; any body problem is 400 `VALIDATION_FAILED` (415 `MEDIA_TYPE_UNSUPPORTED` for a wrong
+content type). Authenticated routes reject before the body is parsed. `onb`-only routes called with a full session → 403 `FORBIDDEN`.
+
 Rate limits are config (`limits.*`); `u`=per user, `d`=per device, `ip`=per IP. 429 carries `Retry-After`.
 
 ## Endpoints
