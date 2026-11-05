@@ -245,6 +245,11 @@ impl IdentityService {
         &self.pool
     }
 
+    /// The clock this service uses (shared with other stores so tests drive one clock).
+    pub fn clock(&self) -> SharedClock {
+        std::sync::Arc::clone(&self.clock)
+    }
+
     /// Returns the account of a verified identity, creating it (status `pending_age`) on first
     /// sign-in. `created` tells the caller whether this is a new account. `signals` (the region
     /// signals seen at sign-up, SR-24) are stored only on a new account.

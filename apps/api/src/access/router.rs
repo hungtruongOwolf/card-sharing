@@ -7,7 +7,7 @@ use utoipa::openapi::extensions::ExtensionsBuilder;
 use utoipa::openapi::path::{Operation, PathItem};
 use utoipa_axum::router::{OpenApiRouter, UtoipaMethodRouter};
 
-use super::policy::{PolicyTable, RoutePolicy};
+use super::policy::{Idempotency, PolicyTable, RoutePolicy};
 
 pub struct ApiRouter<S: Clone + Send + Sync + 'static> {
     inner: OpenApiRouter<S>,
@@ -83,18 +83,23 @@ pub fn documented_operations(openapi: &OpenApi) -> Vec<(Method, String)> {
 fn annotate(operation: &mut Operation, policy: &RoutePolicy) {
     // One extension key: `Extensions` is a HashMap, so several keys would serialize in a
     // random order and make the committed OpenAPI document drift.
-    let extensions = ExtensionsBuilder::new()
-        .add(
-            "x-policy",
-            serde_json::json!({
-                "auth": policy.auth.as_str(),
-                "role": policy.role.as_str(),
-                "attestation": policy.attestation,
-                "rateLimit": policy.rate_limit,
-                "versionGate": policy.version_gate,
-            }),
-        )
-        .build();
+    let mut value = serde_json::json!({
+        "auth": policy.auth.as_str(),
+        "role": policy.role.as_str(),
+        "attestation": policy.attestation,
+        "rateLimit": policy.rate_limit,
+        "versionGate": policy.version_gate,
+    });
+    // Published only where it applies, so routes without it keep their documented shape.
+    if policy.idempotency != Idempotency::None
+        && let Some(map) = value.as_object_mut()
+    {
+        map.insert(
+            "idempotency".to_owned(),
+            serde_json::Value::from(policy.idempotency.as_str()),
+        );
+    }
+    let extensions = ExtensionsBuilder::new().add("x-policy", value).build();
     match operation.extensions.as_mut() {
         Some(existing) => existing.merge(extensions),
         None => operation.extensions = Some(extensions),

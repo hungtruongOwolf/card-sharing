@@ -11,6 +11,7 @@ mod age_gate;
 mod authz_matrix;
 mod handle;
 mod http;
+mod idempotency;
 mod me;
 mod profile;
 mod rate_limit;

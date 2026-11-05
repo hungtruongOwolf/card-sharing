@@ -3,6 +3,7 @@ use std::sync::Arc;
 use http::{HeaderMap, HeaderName};
 use identity::{IdentityService, ProfileRules, ProviderSignIn};
 use platform::crypto::FieldCipher;
+use platform::idempotency::{IdempotencySettings, IdempotencyStore};
 use platform::rate_limit::RateLimiter;
 use platform::text::TextFilter;
 use policy::{CountryCode, PolicyService};
@@ -26,6 +27,8 @@ pub struct AppState {
     /// Resolves bearer tokens for the access-policy gate (identity sessions by default).
     pub sessions: Arc<dyn SessionResolver>,
     pub limiter: Arc<RateLimiter>,
+    /// Idempotency-Key store (Postgres), used by the access middleware.
+    pub idempotency: Arc<IdempotencyStore>,
     pub client: Arc<ClientConfig>,
     pub profile: Arc<ProfileSettings>,
     /// Encrypts personal-data columns (DOB).
@@ -48,6 +51,11 @@ impl AppState {
         Self {
             policy: Arc::new(policy),
             sessions: Arc::new(IdentitySessions(Arc::clone(&identity))),
+            idempotency: Arc::new(IdempotencyStore::new(
+                identity.pool().clone(),
+                identity.clock(),
+                IdempotencySettings::default(),
+            )),
             identity,
             limiter: Arc::new(limiter),
             client: Arc::new(client),

@@ -133,6 +133,19 @@ fn every_registered_route_has_a_policy() {
     assert!(policies.get(&http::Method::GET, "/openapi.json").is_some());
 }
 
+#[test]
+fn idempotency_keys_are_only_used_on_authenticated_routes() {
+    // Keys are scoped per account; an anonymous route would share one key space.
+    let (_, _, policies) = api::openapi::router().finish();
+    for (method, path, policy) in policies.iter() {
+        assert!(
+            policy.idempotency == api::access::Idempotency::None
+                || policy.auth.requires_principal(),
+            "{method} {path} enables Idempotency-Key without authentication"
+        );
+    }
+}
+
 #[tokio::test]
 async fn route_added_without_a_policy_is_refused() {
     let (router, _, policies) = test_routes().finish();
@@ -143,6 +156,7 @@ async fn route_added_without_a_policy_is_refused() {
         limiter: Arc::clone(&state.limiter),
         client_ip: api::access::ClientIpSource::Peer,
         min_app_version: Arc::new(state.client.min_app_version.clone()),
+        idempotency: Arc::clone(&state.idempotency),
     };
     let router: Router = router
         .route("/raw", get(|| async { "should never be served" }))
