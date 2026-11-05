@@ -73,6 +73,14 @@ pub fn router() -> ApiRouter<AppState> {
             routes!(me::update_profile),
         )
         .route(
+            RoutePolicy::onboarding_or_session().limited("me.handle.check"),
+            routes!(me::check_handle),
+        )
+        .route(
+            RoutePolicy::onboarding_or_session().limited("me.handle.claim"),
+            routes!(me::claim_handle),
+        )
+        .route(
             RoutePolicy::public().limited("auth.signin"),
             routes!(auth::sign_in_apple),
         )

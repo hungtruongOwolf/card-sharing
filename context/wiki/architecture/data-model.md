@@ -77,6 +77,10 @@ is `active`; authorization also checks the account status, and status changes ev
 Profiles (T-31, `migrations/20261106000001_identity_profiles.sql`): one row per account, created by the first profile write;
 `display_name TEXT NULL` (sanitized by `platform::text`; the CHECK is a storage bound of 480 code points = 30 clusters × 16,
 the grapheme rule lives in the app). `avatar_media_id` and `findable_by_handle` are added by the media and discovery tickets.
+Handles (T-32, `migrations/20261106000002_identity_handles.sql`): `handle TEXT UNIQUE` (stored lowercase instead of CITEXT, same
+case-insensitive uniqueness), `handle_claimed_at` (first claim, starts the 24 h free-change grace window, never reset) and
+`handle_changed_at` (cooldown base); `handle_reservations(handle PK, released_by, reserved_until)` without FK so a reservation
+outlives a deleted account. Expired reservations are deleted lazily on the next claim (no cleanup job yet).
 
 Age-gate refusal stores **nothing** in Postgres: the pending account is deleted and a 24 h cooldown key
 `agegate:{sha256(device_id)}` / `agegate:{sha256(provider:subject)}` lives in Redis only (AC-2.1). Implemented (T-28) as

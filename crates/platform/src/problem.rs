@@ -66,6 +66,12 @@ pub enum ApiError {
     OnboardingIncomplete,
     #[error("account suspended")]
     AccountSuspended,
+    /// The handle belongs to, or is reserved for, someone else (no detail which).
+    #[error("handle taken")]
+    HandleTaken,
+    /// The handle was changed too recently.
+    #[error("handle change cooldown")]
+    HandleChangeCooldown { retry_after_secs: u64 },
     /// Resource missing, or the caller may not know it exists (object-level denials use this
     /// too, so "forbidden" and "missing" are indistinguishable).
     #[error("resource not found")]
@@ -105,6 +111,8 @@ impl ApiError {
             | Self::AgeGateRefused
             | Self::AgeAlreadySubmitted => StatusCode::FORBIDDEN,
             Self::NotFound => StatusCode::NOT_FOUND,
+            Self::HandleTaken => StatusCode::CONFLICT,
+            Self::HandleChangeCooldown { .. } => StatusCode::TOO_MANY_REQUESTS,
             Self::MethodNotAllowed => StatusCode::METHOD_NOT_ALLOWED,
             Self::RequestTimeout => StatusCode::REQUEST_TIMEOUT,
             Self::UpgradeRequired => StatusCode::UPGRADE_REQUIRED,
@@ -127,6 +135,8 @@ impl ApiError {
             Self::AgeGateRefused => "AGE_GATE_REFUSED",
             Self::AgeAlreadySubmitted => "AGE_ALREADY_SUBMITTED",
             Self::NotFound => "NOT_FOUND",
+            Self::HandleTaken => "HANDLE_TAKEN",
+            Self::HandleChangeCooldown { .. } => "HANDLE_CHANGE_COOLDOWN",
             Self::MethodNotAllowed => "METHOD_NOT_ALLOWED",
             Self::RequestTimeout => "REQUEST_TIMEOUT",
             Self::UpgradeRequired => "UPGRADE_REQUIRED",
@@ -138,9 +148,9 @@ impl ApiError {
 
     fn retry_after_secs(&self) -> Option<u64> {
         match self {
-            Self::RateLimited { retry_after_secs } | Self::Unavailable { retry_after_secs } => {
-                Some(*retry_after_secs)
-            }
+            Self::RateLimited { retry_after_secs }
+            | Self::Unavailable { retry_after_secs }
+            | Self::HandleChangeCooldown { retry_after_secs } => Some(*retry_after_secs),
             _ => None,
         }
     }

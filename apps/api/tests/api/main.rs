@@ -9,6 +9,7 @@ mod common;
 mod access;
 mod age_gate;
 mod authz_matrix;
+mod handle;
 mod http;
 mod me;
 mod profile;

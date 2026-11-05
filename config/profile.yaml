@@ -5,3 +5,48 @@ version: 1
 display_name:
   min_graphemes: 2
   max_graphemes: 30 # the database allows at most 30 (30 clusters x 16 code points)
+
+# Handles (AC-3.3): ^[a-z0-9._]{3,20}$ after lowercasing, term lists from config/text_filter.yaml, unique.
+handle:
+  # Changing the handle is free for this long after the FIRST claim (typo fixes during onboarding, EM 2026-11-05).
+  grace_hours: 24
+  # After the grace window, a change must wait this long after the previous change (429 HANDLE_CHANGE_COOLDOWN).
+  change_cooldown_days: 30
+  # A handle released after the grace window stays reserved for its previous owner this long.
+  reservation_days: 30
+  # Nobody may claim these (compared with '.' and '_' removed); they answer like a taken handle.
+  reserved:
+    - admin
+    - administrator
+    - root
+    - support
+    - help
+    - helpdesk
+    - moderator
+    - mod
+    - staff
+    - team
+    - security
+    - system
+    - official
+    - verified
+    - api
+    - www
+    - app
+    - mail
+    - info
+    - contact
+    - abuse
+    - legal
+    - privacy
+    - billing
+    - null
+    - undefined
+    - anonymous
+    - everyone
+    - me
+    - settings
+  # Nobody may claim a handle containing these (brand and trust impersonation).
+  reserved_contains:
+    - cardsharing
+    - official

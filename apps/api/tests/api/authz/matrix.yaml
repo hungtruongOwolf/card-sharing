@@ -16,7 +16,7 @@
 # Placeholders in `body`: "$REFRESH_TOKEN" = the role's own refresh token (guest: a random one),
 # "$ADULT_DOB" = a date of birth 30 years ago, "$NONCE" = a fresh raw nonce, "$APPLE_ID_TOKEN" = an
 # Apple ID token for a new subject and that nonce, signed by the mock JWKS key, "$GOOGLE_ID_TOKEN" = the
-# same for Google.
+# same for Google, "$HANDLE" = a fresh random valid handle.
 # A cell expecting 404 must give `missing_path` (same route, nonexistent id): the harness
 # asserts the denial body is byte-identical to the missing-id body, so ids cannot be probed.
 version: 1
@@ -63,4 +63,13 @@ routes:
   # accepted; the other-user and validation cases are in tests/api/profile.rs.
   - route: PUT /v1/me/profile
     body: { display_name: Matrix Cat }
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 200, user: 200, suspended: 403 }
+
+  # Handles: same gate as the profile. Taken/reserved/cooldown/race cases are in tests/api/handle.rs.
+  - route: POST /v1/me/handle/check
+    body: { handle: $HANDLE }
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 200, user: 200, suspended: 403 }
+
+  - route: PUT /v1/me/handle
+    body: { handle: $HANDLE }
     expect: { guest: 401, onboarding_age: 403, onboarding_profile: 200, user: 200, suspended: 403 }
