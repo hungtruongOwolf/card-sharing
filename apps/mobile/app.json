@@ -26,6 +26,20 @@
         {
           "faceIDPermission": false
         }
+      ],
+      [
+        "expo-font",
+        {
+          "fonts": [
+            "./assets/fonts/bricolage-grotesque/BricolageGrotesque-SemiBold.ttf",
+            "./assets/fonts/bricolage-grotesque/BricolageGrotesque-Bold.ttf",
+            "./assets/fonts/dm-sans/DMSans-Regular.ttf",
+            "./assets/fonts/dm-sans/DMSans-SemiBold.ttf",
+            "./assets/fonts/caveat/Caveat-Medium.ttf",
+            "./assets/fonts/anton/Anton-Regular.ttf",
+            "./assets/fonts/dm-mono/DMMono-Medium.ttf"
+          ]
+        }
       ]
     ]
   }

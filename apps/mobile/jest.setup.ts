@@ -7,3 +7,17 @@ jest.mock(
 );
 
 require('react-native-reanimated').setUpTests();
+
+// Brand fonts are embedded natively by the expo-font config plugin; report them as registered so component
+// snapshots show the faces a real build renders (src/ui/theme/fonts.ts falls back to the platform font otherwise).
+jest.mock('expo-font', () => {
+  const actual = jest.requireActual('expo-font');
+  return {
+    ...actual,
+    // Resolved lazily: fonts.ts itself imports expo-font.
+    getLoadedFonts: jest.fn(() => {
+      const { BRAND_FACES } = jest.requireActual('./src/ui/theme/fonts');
+      return Object.values(BRAND_FACES).flatMap((byWeight) => Object.values(byWeight as object));
+    }),
+  };
+});

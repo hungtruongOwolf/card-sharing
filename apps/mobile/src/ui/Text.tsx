@@ -2,7 +2,7 @@ import { Text as RNText, type TextProps } from 'react-native';
 
 import { typeStyle, type SemanticColors, type TypeVariant } from '@card-sharing/tokens';
 
-import { fontFamilyFor } from './theme/fonts';
+import { fontStyleFor } from './theme/fonts';
 import { useTheme } from './theme/ThemeProvider';
 
 export type TextTone = 'ink' | 'muted' | 'primary' | 'onPrimary' | 'danger' | 'onDanger' | 'link';
@@ -39,10 +39,9 @@ export function Text({ variant = 'body.md', tone = 'ink', style, ...rest }: AppT
       style={[
         {
           color: toneColor(theme.color, tone),
-          fontFamily: fontFamilyFor(t.family),
+          ...fontStyleFor(t.family, t.weight),
           fontSize: t.size,
           lineHeight: t.lineHeight,
-          fontWeight: t.weight,
           textTransform: t.uppercase ? 'uppercase' : 'none',
           writingDirection: 'auto',
           textAlign: 'auto',

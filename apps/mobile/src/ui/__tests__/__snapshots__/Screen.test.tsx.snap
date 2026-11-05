@@ -45,9 +45,8 @@ exports[`Screen (dark) matches the snapshot 1`] = `
           [
             {
               "color": "#F5EDE0",
-              "fontFamily": undefined,
+              "fontFamily": "BricolageGrotesque-SemiBold",
               "fontSize": 24,
-              "fontWeight": "600",
               "lineHeight": 30,
               "textAlign": "auto",
               "textTransform": "none",
@@ -65,9 +64,8 @@ exports[`Screen (dark) matches the snapshot 1`] = `
           [
             {
               "color": "#F5EDE0",
-              "fontFamily": undefined,
+              "fontFamily": "DMSans-Regular",
               "fontSize": 15,
-              "fontWeight": "400",
               "lineHeight": 22,
               "textAlign": "auto",
               "textTransform": "none",
@@ -129,9 +127,8 @@ exports[`Screen (light) matches the snapshot 1`] = `
           [
             {
               "color": "#2B2320",
-              "fontFamily": undefined,
+              "fontFamily": "BricolageGrotesque-SemiBold",
               "fontSize": 24,
-              "fontWeight": "600",
               "lineHeight": 30,
               "textAlign": "auto",
               "textTransform": "none",
@@ -149,9 +146,8 @@ exports[`Screen (light) matches the snapshot 1`] = `
           [
             {
               "color": "#2B2320",
-              "fontFamily": undefined,
+              "fontFamily": "DMSans-Regular",
               "fontSize": 15,
-              "fontWeight": "400",
               "lineHeight": 22,
               "textAlign": "auto",
               "textTransform": "none",
