@@ -159,9 +159,8 @@ async fn a_request_older_than_14_days_disappears_from_both_lists() {
     .await;
     assert_problem(response, StatusCode::NOT_FOUND, "NOT_FOUND").await;
 
-    // The periodic job marks it expired...
-    let report = janitor(&env).run_once().await.unwrap();
-    assert!(report.expired >= 1);
+    // The periodic job marks it expired (another test's janitor may have got there first)...
+    janitor(&env).run_once().await.unwrap();
     assert_eq!(request_status(&env, &id).await, "expired");
     // ...and deletes it once it is older than the retention.
     sqlx::query("UPDATE social.friend_requests SET expires_at = $2 WHERE id = $1::uuid")
