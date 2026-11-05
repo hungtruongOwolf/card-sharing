@@ -17,6 +17,8 @@
 # "$ADULT_DOB" = a date of birth 30 years ago, "$NONCE" = a fresh raw nonce, "$APPLE_ID_TOKEN" = an
 # Apple ID token for a new subject and that nonce, signed by the mock JWKS key, "$GOOGLE_ID_TOKEN" = the
 # same for Google, "$HANDLE" = a fresh random valid handle.
+# `path` (optional) is the concrete path to call when the route has parameters; "$SESSION_ID" = the
+# role's own session id (guest: a random id).
 # A cell expecting 404 must give `missing_path` (same route, nonexistent id): the harness
 # asserts the denial body is byte-identical to the missing-id body, so ids cannot be probed.
 version: 1
@@ -51,6 +53,17 @@ routes:
 
   - route: DELETE /v1/sessions/current
     expect: { guest: 401, onboarding_age: 204, onboarding_profile: 204, user: 204, suspended: 403 }
+
+  # Session management (T-24). Other accounts' session ids -> 404 (tests/api/session_management.rs).
+  - route: GET /v1/sessions
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 200, suspended: 403 }
+
+  - route: DELETE /v1/sessions/{id}
+    path: /v1/sessions/$SESSION_ID
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 204, suspended: 403 }
+
+  - route: POST /v1/sessions/revoke-all
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 204, suspended: 403 }
 
   - route: GET /v1/me
     expect: { guest: 401, onboarding_age: 200, onboarding_profile: 200, user: 200, suspended: 403 }

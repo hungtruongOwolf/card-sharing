@@ -30,6 +30,8 @@ struct Row {
     #[serde(default)]
     body: Option<Value>,
     #[serde(default)]
+    path: Option<String>,
+    #[serde(default)]
     missing_path: Option<String>,
     expect: BTreeMap<Role, u16>,
 }
@@ -55,6 +57,7 @@ const ALL_ROLES: [Role; 5] = [
 struct Fixture {
     access_token: Option<String>,
     refresh_token: String,
+    session_id: Uuid,
 }
 
 fn matrix() -> Matrix {
@@ -110,6 +113,7 @@ async fn fixture(env: &TestEnv, role: Role) -> Fixture {
         return Fixture {
             access_token: None,
             refresh_token: format!("unknown-{}", Uuid::now_v7()),
+            session_id: Uuid::now_v7(),
         };
     }
     let (account, _) = env.signed_in_user().await;
@@ -131,6 +135,7 @@ async fn fixture(env: &TestEnv, role: Role) -> Fixture {
     Fixture {
         access_token: Some(session.access_token.expose().to_owned()),
         refresh_token: session.refresh_token.expose().to_owned(),
+        session_id: session.session_id,
     }
 }
 
@@ -215,9 +220,15 @@ async fn every_matrix_cell_holds_against_the_real_api() {
 
     let mut failures = Vec::new();
     for row in matrix().routes {
-        let (method, path) = split_route(&row.route);
+        let (method, template) = split_route(&row.route);
         for (role, expected) in &row.expect {
             let fixture = fixture(&env, *role).await;
+            let path = row
+                .path
+                .as_deref()
+                .unwrap_or(template)
+                .replace("$SESSION_ID", &fixture.session_id.hyphenated().to_string());
+            let path = path.as_str();
             let placeholders = Placeholders::new(&env, &fixture, &adult_dob);
             let body = row.body.as_ref().map(|b| substitute(b, &placeholders));
             let request_id = Uuid::now_v7();

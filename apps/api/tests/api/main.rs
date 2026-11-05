@@ -18,6 +18,7 @@ mod me;
 mod outbox;
 mod profile;
 mod rate_limit;
+mod session_management;
 mod sessions;
 mod sign_in;
 mod sign_in_google;

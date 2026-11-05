@@ -31,6 +31,21 @@ limits:
     requests: 30
     per_secs: 60
     on_store_failure: open
+  sessions.list: # GET /v1/sessions
+    scope: user
+    requests: 30
+    per_secs: 60
+    on_store_failure: open
+  sessions.revoke: # DELETE /v1/sessions/{id}
+    scope: user
+    requests: 30
+    per_secs: 3600
+    on_store_failure: open
+  sessions.revoke_all: # POST /v1/sessions/revoke-all (logging out must keep working when Redis is down)
+    scope: user
+    requests: 10
+    per_secs: 3600
+    on_store_failure: open
   me.read: # GET /v1/me
     scope: user
     requests: 120

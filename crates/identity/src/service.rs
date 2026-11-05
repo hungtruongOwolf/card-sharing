@@ -654,7 +654,7 @@ async fn insert_refresh_token(
 }
 
 /// Revokes a session and its children; returns their access-token hashes for cache eviction.
-async fn revoke_in_tx(
+pub(crate) async fn revoke_in_tx(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     session_id: Uuid,
     reason: RevokeReason,

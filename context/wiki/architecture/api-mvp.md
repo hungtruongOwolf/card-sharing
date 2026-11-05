@@ -66,6 +66,14 @@ Implemented so far: `POST /v1/auth/refresh` `{refresh_token}` → `{token_type: 
 (unknown token → 401 `UNAUTHENTICATED`; reused / revoked / idle- or absolute-expired family → 401 `SESSION_REVOKED`; a retry of the
 previous token within 30 s while its successor is unused is accepted); `DELETE /v1/sessions/current` → 204.
 
+Session management (T-24, ses, AC-1.4): `GET /v1/sessions` (limit `sessions.list`) → `{sessions: [{id, client_label, ip_country,
+created_at, last_seen_at, is_current}]}`: live device sessions of the caller only (widget/reauth children are not listed), most
+recently used first. `DELETE /v1/sessions/{id}` (`sessions.revoke`) → 204; revokes the session and its children; an id that is
+missing, malformed, already revoked or another account's → the same 404 `NOT_FOUND`. `POST /v1/sessions/revoke-all`
+(`sessions.revoke_all`, 10/h, fails open so logout works while Redis is down) → 204; every session of the account (incl. the
+current one and widget tokens) is revoked in one statement and cached lookups are evicted, so all access and refresh tokens stop
+working at once. Both writes are audited (`auth.session_revoked`, `auth.logout_all`).
+
 `POST /v1/auth/apple` (none, limit `auth.signin` 10/min per IP, fails closed) `{id_token, nonce, authorization_code?, device?:
 {id, platform: ios|android, app_version}}` → 200 token pair (same shape as refresh). New account → `pending_age` + onboarding
 session (`GET /v1/me` says `step: age`); the account is keyed by provider + `sub` only, never linked by email (AC-1.3); the
