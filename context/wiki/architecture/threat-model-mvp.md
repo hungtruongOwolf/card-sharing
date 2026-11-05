@@ -239,6 +239,8 @@ Rule (baseline §1): DevTools/root detection, obfuscation and right-click blocki
 | D7 | Residual risks accepted: screenshots, modified-client export, DOB lying | deterrence: report/ban, attestation, forensic watermark later |
 
 ## Open questions
+- A-11 implemented (T-43): constant query path + latency bucket padding + byte-identical misses + caller-bound sealed refs;
+  timing test in CI (KS p > 0.05). The handle-claim check (`/v1/me/handle/check`) still necessarily reveals "taken" (rate-limited).
 - Once [[api-mvp]] and [[data-model]] land: map every endpoint to SR-3/SR-4 policies and check that visibility is one SQL predicate.
 - Signed cookies vs per-object signed URLs on the CDN (cost/latency at 20-recipient fan-out) — `/system-design`.
 - Managed auth vs in-house (baseline open question) affects SR-1/SR-2 implementation.

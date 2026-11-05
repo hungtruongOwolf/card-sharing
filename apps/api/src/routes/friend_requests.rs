@@ -34,6 +34,7 @@ fn request_error(err: RequestError) -> ApiError {
     match err {
         RequestError::InviteNotFound => ApiError::NotFound,
         RequestError::InviteExpired => ApiError::InviteExpired,
+        RequestError::RefNotFound => ApiError::NotFound,
         RequestError::SelfRequest => {
             ApiError::Validation("cannot send a friend request to yourself".to_owned())
         }
@@ -104,12 +105,14 @@ pub async fn preview_invite(
     Ok(Json(preview.into()))
 }
 
-/// Body of `POST /v1/friend-requests`.
+/// Body of `POST /v1/friend-requests`: exactly one of `invite_token` and `search_ref`.
 #[derive(Debug, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct CreateFriendRequest {
     /// Token of the invite the caller opened.
-    pub invite_token: String,
+    pub invite_token: Option<String>,
+    /// `ref` of a handle-search result the caller got (10 minutes, caller only).
+    pub search_ref: Option<String>,
 }
 
 /// A request as its sender sees it: pending until accepted or expired.
@@ -142,7 +145,8 @@ impl From<SentRequest> for CreateFriendRequestResponse {
     }
 }
 
-/// Send a friend request to the owner of an invite. Auth: ses + att; `Idempotency-Key` required.
+/// Send a friend request to the owner of an invite or to a handle-search result. Auth: ses + att;
+/// `Idempotency-Key` required.
 ///
 /// The inviter must accept before a friendship exists. A request between accounts with a block
 /// (either way) gets the same 201 and is never delivered. Repeating a request returns the open
@@ -159,7 +163,7 @@ impl From<SentRequest> for CreateFriendRequestResponse {
         (status = BAD_REQUEST, description = "VALIDATION_FAILED (also: your own invite).", body = ProblemDetails),
         (status = UNAUTHORIZED, description = "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.", body = ProblemDetails),
         (status = FORBIDDEN, description = "ONBOARDING_INCOMPLETE, ACCOUNT_SUSPENDED or ATTESTATION_FAILED (enforce mode).", body = ProblemDetails),
-        (status = NOT_FOUND, description = "NOT_FOUND or INVITE_EXPIRED.", body = ProblemDetails),
+        (status = NOT_FOUND, description = "NOT_FOUND (unknown invite; foreign, forged or expired search ref) or INVITE_EXPIRED.", body = ProblemDetails),
         (status = CONFLICT, description = "ALREADY_FRIENDS, FRIEND_LIMIT_REACHED or IDEMPOTENCY_IN_PROGRESS.", body = ProblemDetails),
         (status = UNPROCESSABLE_ENTITY, description = "IDEMPOTENCY_KEY_REUSED.", body = ProblemDetails),
         (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED (also: 20 open requests or 30 sent in 24 hours; Retry-After).", body = ProblemDetails),
@@ -170,11 +174,17 @@ pub async fn create_friend_request(
     caller: Caller,
     body: ValidJson<CreateFriendRequest>,
 ) -> Result<(StatusCode, Json<CreateFriendRequestResponse>), ApiError> {
-    let sent = state
-        .social
-        .request_from_invite(caller.0.account_id, &body.0.invite_token)
-        .await
-        .map_err(request_error)?;
+    let caller = caller.0.account_id;
+    let sent = match (body.0.invite_token, body.0.search_ref) {
+        (Some(token), None) => state.social.request_from_invite(caller, &token).await,
+        (None, Some(search_ref)) => state.social.request_from_search(caller, &search_ref).await,
+        _ => {
+            return Err(ApiError::Validation(
+                "exactly one of invite_token and search_ref is required".to_owned(),
+            ));
+        }
+    }
+    .map_err(request_error)?;
     Ok((StatusCode::CREATED, Json(sent.into())))
 }
 

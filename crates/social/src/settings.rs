@@ -29,6 +29,14 @@ struct RawConfig {
     invites: RawInvites,
     friends: RawFriends,
     requests: RawRequests,
+    search: RawSearch,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawSearch {
+    latency_floor_ms: u32,
+    ref_ttl_secs: u32,
 }
 
 #[derive(Debug, Deserialize)]
@@ -67,6 +75,10 @@ pub struct SocialSettings {
     pub requests_daily_max: u16,
     /// Answered or expired requests and revoked invites are deleted after this many days.
     pub retention_days: u16,
+    /// Every handle-search answer is padded to a multiple of this many milliseconds (SR-19).
+    pub search_latency_floor_ms: u32,
+    /// How long a search `ref` can be used to send a request.
+    pub search_ref_ttl_secs: u32,
 }
 
 impl Default for SocialSettings {
@@ -79,6 +91,8 @@ impl Default for SocialSettings {
             requests_max_pending: 20,
             requests_daily_max: 30,
             retention_days: 30,
+            search_latency_floor_ms: 150,
+            search_ref_ttl_secs: 600,
         }
     }
 }
@@ -102,9 +116,11 @@ impl SocialSettings {
             || requests.max_pending == 0
             || requests.daily_max == 0
             || requests.retention_days == 0
+            || raw.search.latency_floor_ms == 0
+            || raw.search.ref_ttl_secs == 0
         {
             return Err(SocialConfigError::Invalid(
-                "friends.max and every requests.* value must be at least 1".to_owned(),
+                "friends.max and every requests.* and search.* value must be at least 1".to_owned(),
             ));
         }
         Ok(Self {
@@ -114,6 +130,8 @@ impl SocialSettings {
             requests_max_pending: raw.requests.max_pending,
             requests_daily_max: raw.requests.daily_max,
             retention_days: raw.requests.retention_days,
+            search_latency_floor_ms: raw.search.latency_floor_ms,
+            search_ref_ttl_secs: raw.search.ref_ttl_secs,
         })
     }
 
@@ -144,7 +162,7 @@ mod tests {
     fn url_base_must_be_http_and_end_with_a_slash() {
         for base in ["ftp://x/i/", "https://x/i", "javascript:alert(1)/"] {
             let yaml = format!(
-                "version: 1\ninvites:\n  url_base: \"{base}\"\nfriends:\n  max: 20\nrequests:\n  ttl_days: 14\n  max_pending: 20\n  daily_max: 30\n  retention_days: 30\n"
+                "version: 1\ninvites:\n  url_base: \"{base}\"\nfriends:\n  max: 20\nrequests:\n  ttl_days: 14\n  max_pending: 20\n  daily_max: 30\n  retention_days: 30\nsearch:\n  latency_floor_ms: 150\n  ref_ttl_secs: 600\n"
             );
             assert!(SocialSettings::from_yaml_str(&yaml).is_err(), "{base}");
         }

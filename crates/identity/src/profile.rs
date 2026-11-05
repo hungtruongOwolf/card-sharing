@@ -321,6 +321,19 @@ impl IdentityService {
             .collect())
     }
 
+    /// The active account holding exactly this (already normalized) handle. One query whatever
+    /// the outcome; used by handle search, which adds its own hiding rules.
+    pub async fn handle_owner(&self, handle: &str) -> Result<Option<Uuid>, StoreError> {
+        Ok(sqlx::query_scalar(
+            "SELECT p.account_id FROM identity.profiles p
+             JOIN identity.accounts a ON a.id = p.account_id
+             WHERE p.handle = $1 AND a.status = 'active'",
+        )
+        .bind(handle)
+        .fetch_optional(&self.pool)
+        .await?)
+    }
+
     /// Sets the display name after sanitizing and filtering it. Returns the stored form.
     pub async fn set_display_name(
         &self,

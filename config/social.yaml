@@ -20,3 +20,10 @@ requests:
   daily_max: 30
   # Answered or expired requests and reset invites are deleted after this many days.
   retention_days: 30
+
+search:
+  # Every exact-handle search answer is padded to a multiple of this (found, missing and hidden
+  # accounts take the same time, SR-19).
+  latency_floor_ms: 150
+  # A search result's `ref` can send a friend request for this long, by the searcher only.
+  ref_ttl_secs: 600

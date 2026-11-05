@@ -178,3 +178,16 @@ pub async fn request_status(env: &TestEnv, id: &str) -> String {
         .await
         .unwrap()
 }
+
+/// The same account made older than the new-account window (7 days), with a new session, so it
+/// gets the normal rate limits instead of the reduced new-account quotas.
+pub async fn established(env: &TestEnv, user: User) -> User {
+    sqlx::query(
+        "UPDATE identity.accounts SET created_at = created_at - interval '30 days' WHERE id = $1",
+    )
+    .bind(user.id)
+    .execute(env.identity.pool())
+    .await
+    .unwrap();
+    signed_in_again(env, &user).await
+}

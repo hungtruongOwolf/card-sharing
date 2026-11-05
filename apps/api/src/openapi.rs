@@ -6,6 +6,7 @@ use utoipa_axum::routes;
 use crate::access::{ApiRouter, Idempotency, RoutePolicy};
 use crate::routes::{
     age_signal, app_config, attestation, auth, friend_requests, health, invites, me, sessions,
+    user_search,
 };
 use crate::state::AppState;
 use platform::problem::ProblemDetails;
@@ -165,6 +166,12 @@ pub fn router() -> ApiRouter<AppState> {
         .route(
             RoutePolicy::session().limited("friend_requests.cancel"),
             routes!(friend_requests::cancel_friend_request),
+        )
+        .route(
+            RoutePolicy::session()
+                .limited(user_search::USER_LIMIT)
+                .with_attestation(),
+            routes!(user_search::search_users),
         )
         .undocumented_policy(
             &Method::GET,

@@ -17,7 +17,7 @@ pub use attest::ATTESTATION_HEADER;
 pub use caller::{
     Caller, DenyAllResolver, Principal, ResolveError, ResolveFuture, SessionResolver,
 };
-pub use enforce::{AccessState, ClientIpSource, enforce};
+pub use enforce::{AccessState, ClientIp, ClientIpSource, enforce};
 pub use idempotency::{IDEMPOTENCY_KEY_HEADER, IDEMPOTENT_REPLAYED_HEADER};
 pub use json::ValidJson;
 pub use policy::{AuthKind, Idempotency, PolicyTable, Role, RoutePolicy, authorize};

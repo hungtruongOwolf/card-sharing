@@ -216,6 +216,21 @@ Minor hint (T-42, AC-5.5): an incoming item carries `hint: "adult_no_mutual_frie
 with no friend in common. The field is absent otherwise, so an adult never learns anything about a sender's age. Computed at
 read time; nothing is stored.
 
+Handle search (T-43, SR-19, SR-23, threat A-11): `POST /v1/users/search` (ses + att) `{handle}` → 200 `{result: null}` or
+`{result: {ref, display_name}}` (no id, handle, avatar or age). Exact, case-insensitive; one leading `@` allowed; anything that
+is not a full handle shape matches nothing. A missing handle, an account under the target's `discovery.min_age`, not `active`,
+blocked either way, or the caller's own handle all get the byte-identical `{"result":null}` with the same headers. One code
+path: the handle lookup, age check, block check and profile read run for every query (for a missing handle they run on a decoy, the caller's own cached record, so both paths cost the same),
+and the handler pads every answer to the next multiple of `search.latency_floor_ms` (150 ms, `config/social.yaml`). Limits:
+route limit `users.search` (10/min + 30/day per account, 5/min for new accounts, fails closed) plus `users.search.device`
+(30/day) and `users.search.ip` (100/day) checked in the handler before the padded section (the access layer now passes the
+client IP to handlers as `ClientIp`). `ref` = base64url of the target id + expiry (`search.ref_ttl_secs`, 600 s) sealed with the
+field cipher, associated data = the searcher's id: unreadable, unforgeable, and refused for any other account.
+`POST /v1/friend-requests` now takes exactly one of `invite_token` / `search_ref` (both or neither → 400); a foreign, forged or
+expired ref → 404 `NOT_FOUND`; a target that became hidden since the search → the identical 201, stored as `dropped`. Timing test
+(`tests/api/user_search.rs`): 1,000 searches for a minor's handle vs 1,000 missing handles, interleaved, two-sample KS p > 0.05
+(one retry, since p ≤ 0.05 happens 5% of the time under identical distributions) and identical bytes.
+
 Caps and expiry (T-41, `config/social.yaml`): sending a request checks the sender's own limits first, whatever the target (so
 a block is never revealed by a cap that stops applying): own friend count at `friends.max` → 409 `FRIEND_LIMIT_REACHED`;
 `requests.max_pending` (20) open requests → 429 `RATE_LIMITED` with `Retry-After` = until the oldest open one expires;

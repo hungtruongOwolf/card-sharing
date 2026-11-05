@@ -187,7 +187,8 @@ export interface paths {
         get: operations["listFriendRequests"];
         put?: never;
         /**
-         * Send a friend request to the owner of an invite. Auth: ses + att; `Idempotency-Key` required.
+         * Send a friend request to the owner of an invite or to a handle-search result. Auth: ses + att;
+         *     `Idempotency-Key` required.
          * @description The inviter must accept before a friendship exists. A request between accounts with a block
          *     (either way) gets the same 201 and is never delivered. Repeating a request returns the open
          *     one.
@@ -502,6 +503,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/users/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Find a friend by exact handle. Auth: ses + att.
+         * @description At most one result, only on an exact case-insensitive match. Accounts under the region's
+         *     discovery age, accounts that turned "Findable by handle" off, blocks either way and your own
+         *     handle all answer exactly like a handle nobody has (same body, same latency class). Limited
+         *     per account (10/min, 30/day), per device and per IP; over a limit the answer is a generic
+         *     "try later" (429).
+         */
+        post: operations["searchUsers"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -632,10 +657,12 @@ export interface components {
             /** Format: int32 */
             pins_per_board_max: number;
         };
-        /** @description Body of `POST /v1/friend-requests`. */
+        /** @description Body of `POST /v1/friend-requests`: exactly one of `invite_token` and `search_ref`. */
         CreateFriendRequest: {
             /** @description Token of the invite the caller opened. */
-            invite_token: string;
+            invite_token?: string | null;
+            /** @description `ref` of a handle-search result the caller got (10 minutes, caller only). */
+            search_ref?: string | null;
         };
         CreateFriendRequestResponse: {
             request: components["schemas"]["SentRequestView"];
@@ -838,6 +865,28 @@ export interface components {
         RequestList: {
             /** @description Newest first, at most 100. */
             items: components["schemas"]["RequestItemView"][];
+        };
+        /** @description Body of `POST /v1/users/search`. */
+        SearchRequest: {
+            /**
+             * @description The exact handle, case-insensitive, with or without a leading `@`. Partial input never
+             *     matches anything.
+             * @example @mai.cat
+             */
+            handle: string;
+        };
+        SearchResponse: {
+            result?: components["schemas"]["SearchResultView"] | null;
+        };
+        /** @description The one account found. */
+        SearchResultView: {
+            /** @example Mai */
+            display_name: string;
+            /**
+             * @description Pass as `search_ref` to `POST /v1/friend-requests` within 10 minutes. Opaque, and only valid
+             *     for the account that searched.
+             */
+            ref: string;
         };
         /** @description A request as its sender sees it: pending until accepted or expired. */
         SentRequestView: {
@@ -1445,7 +1494,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description NOT_FOUND or INVITE_EXPIRED. */
+            /** @description NOT_FOUND (unknown invite; foreign, forged or expired search ref) or INVITE_EXPIRED. */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -2375,6 +2424,75 @@ export interface operations {
             };
             /** @description RATE_LIMITED. */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    searchUsers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SearchRequest"];
+            };
+        };
+        responses: {
+            /** @description `{result: null}` or the one account found. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchResponse"];
+                };
+            };
+            /** @description VALIDATION_FAILED (body shape only; any string is searched). */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE, ACCOUNT_SUSPENDED or ATTESTATION_FAILED (enforce mode). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED (try later). */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description TEMPORARILY_UNAVAILABLE (rate limit store down; fails closed). */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
