@@ -3,15 +3,17 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use api::client_config::ClientConfig;
-use api::config::{AttestationConfig, Config};
+use api::config::{AttestationConfig, Config, MailConfig, MailTransport};
 use api::state::{AppState, ProfileSettings};
 use attestation::apple::AppAttestVerifier;
 use attestation::play::PlayIntegrityVerifier;
 use identity::apple::{
     AppleClientSecretSigner, AppleHttpClient, AppleTokenClient, UnconfiguredAppleClient,
 };
+use identity::mail::{Mailer, PostmarkMailer, SmtpMailer, UnconfiguredMailer};
 use identity::oidc::{IdTokenVerifier, JwksSettings, ProviderSpec, VerifierSettings};
 use identity::{AttestationService, IdentityService, ProfileRules, ProviderSignIn, SessionPolicy};
+use identity::{MAGIC_LINK_JOB, MagicLinkJob, MagicLinkTemplate};
 use platform::clock::{SharedClock, SystemClock};
 use platform::crypto::FieldCipher;
 use platform::idempotency::{IdempotencySettings, IdempotencyStore};
@@ -43,8 +45,7 @@ async fn main() -> anyhow::Result<()> {
             return Ok(());
         }
         Some("worker") => {
-            run_worker(pool).await;
-            return Ok(());
+            return run_worker(&config, pool).await;
         }
         Some(other) => {
             anyhow::bail!("unknown command {other:?} (expected no argument, `migrate` or `worker`)")
@@ -155,8 +156,26 @@ fn attestation_service(config: &AttestationConfig) -> anyhow::Result<Attestation
 
 /// The worker process role: job lanes plus periodic platform maintenance. Job handlers are
 /// registered here as their modules arrive.
-async fn run_worker(pool: sqlx::PgPool) {
+async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
     let clock: SharedClock = Arc::new(SystemClock);
+    let cipher = Arc::new(
+        FieldCipher::from_base64(1, config.data_encryption_key.expose())
+            .context("invalid API_DATA_ENCRYPTION_KEY")?,
+    );
+    let identity = Arc::new(IdentityService::new(
+        pool.clone(),
+        None,
+        Arc::clone(&clock),
+        SessionPolicy::default(),
+    ));
+    let magic_links = MagicLinkJob {
+        identity: Arc::clone(&identity),
+        cipher,
+        mailer: mailer(&config.mail)?,
+        template: MagicLinkTemplate {
+            link_url: config.mail.magic_link_url.clone(),
+        },
+    };
     let queue = Arc::new(JobQueue::new(pool.clone(), Arc::clone(&clock)));
     let idempotency = Arc::new(IdempotencyStore::new(
         pool.clone(),
@@ -166,6 +185,12 @@ async fn run_worker(pool: sqlx::PgPool) {
     // Subscribers register here as modules start publishing events.
     let relay = Arc::new(OutboxRelay::new(pool, clock));
     let worker = Worker::new(queue, WorkerSettings::default())
+        .handle(MAGIC_LINK_JOB, Arc::new(magic_links))
+        .periodic(
+            "identity.magic_links.purge",
+            std::time::Duration::from_secs(3600),
+            Arc::new(MagicLinkPurge(identity)),
+        )
         .periodic(
             "idempotency.purge",
             std::time::Duration::from_secs(3600),
@@ -183,6 +208,43 @@ async fn run_worker(pool: sqlx::PgPool) {
     });
     worker.run(stopped).await;
     signal.abort();
+    Ok(())
+}
+
+/// The mail adapter from config (T-22).
+fn mailer(config: &MailConfig) -> anyhow::Result<Arc<dyn Mailer>> {
+    Ok(match &config.transport {
+        MailTransport::None => {
+            tracing::warn!("API_MAIL_TRANSPORT=none: magic-link emails are not sent");
+            Arc::new(UnconfiguredMailer)
+        }
+        MailTransport::Smtp { host, port } => {
+            tracing::warn!(%host, port, "plain SMTP mail transport (local development only)");
+            Arc::new(SmtpMailer::new(host.clone(), *port, config.from.clone()))
+        }
+        MailTransport::Postmark { server_token } => Arc::new(PostmarkMailer::new(
+            identity::oidc::provider_http_client()?,
+            server_token.clone(),
+            config.from.clone(),
+        )),
+    })
+}
+
+/// Deletes magic links older than 24 hours.
+struct MagicLinkPurge(Arc<IdentityService>);
+
+impl PeriodicTask for MagicLinkPurge {
+    fn run(&self) -> PeriodicFuture {
+        let identity = Arc::clone(&self.0);
+        Box::pin(async move {
+            let purged = identity
+                .purge_magic_links()
+                .await
+                .map_err(|e| e.to_string())?;
+            tracing::info!(event = "identity.magic_links.purged", purged);
+            Ok(())
+        })
+    }
 }
 
 /// Deletes Idempotency-Key rows past their 24 h retention.

@@ -100,6 +100,17 @@ store down → 503. `authorization_code` is exchanged with Apple (client secret 
 refresh token stored encrypted in `auth_identities.apple_refresh_token_enc`; best effort (sign-in does not fail if Apple's
 token endpoint does), skipped until the team key is configured.
 
+`POST /v1/auth/email/start` (T-22, none, limits `auth.email.start` 5/15 min per IP + `auth.email.start.email` 5/15 min per
+hashed email, both fail closed) `{email, code_challenge, code_challenge_method?: "S256"}` → **202, empty body** for every
+well-formed request; malformed email/challenge or extra fields → 400 `VALIDATION_FAILED`; over a limit → 429 `RATE_LIMITED` (same
+body for existing and unknown emails). The handler never looks up the account: it stores one `magic_links` row (token SHA-256,
+PKCE challenge, 15 min) and enqueues one `identity.magic_link.send` job (payload = link id only) in the same transaction, so
+response and latency do not depend on whether the email exists or on the mail provider. The job sends
+`{API_MAGIC_LINK_URL}#token=<43-char token>` (fragment: never sent to the web host) and clears the encrypted delivery data. Mail
+port: `API_MAIL_TRANSPORT` = `none` (default) | `smtp` (Mailpit, local only) | `postmark` (`API_POSTMARK_SERVER_TOKEN`; adapter
+written against Postmark's documented API, not yet run against the real service). Verify (in-app confirm with the PKCE verifier)
+is T-23.
+
 `POST /v1/auth/google` `{id_token, nonce, device?}`: same contract, limit and errors as Apple, with the same nonce scheme (the
 app gives Google `hex SHA-256(nonce)` as the sign-in nonce). `iss` = `https://accounts.google.com` or `accounts.google.com`,
 `aud` ∈ `API_GOOGLE_CLIENT_IDS` (a token issued for another client id → 401), keys from Google's cached JWKS

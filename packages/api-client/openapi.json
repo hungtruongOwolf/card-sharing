@@ -322,6 +322,70 @@
         }
       }
     },
+    "/v1/auth/email/start": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Request an email magic link. Auth: none. Always 202 for a well-formed request, whether or not\nthe email has an account (no enumeration, AC-1.2); the email is sent asynchronously. The link\nworks once, for 15 minutes, and only together with this device's PKCE verifier.",
+        "operationId": "startEmailSignIn",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailStartRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "If the address can receive email, a sign-in link is on its way."
+          },
+          "400": {
+            "description": "VALIDATION_FAILED (malformed email or challenge, unknown fields).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED: more than 5 requests in 15 minutes from this IP or for this email (same body either way).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "TEMPORARILY_UNAVAILABLE (rate-limit store down; fails closed).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "none",
+          "rateLimit": "auth.email.start",
+          "role": "guest",
+          "versionGate": true
+        }
+      }
+    },
     "/v1/auth/google": {
       "post": {
         "tags": [
@@ -1625,6 +1689,36 @@
           },
           "platform": {
             "$ref": "#/components/schemas/DevicePlatform"
+          }
+        },
+        "additionalProperties": false
+      },
+      "EmailStartRequest": {
+        "type": "object",
+        "description": "Body of `POST /v1/auth/email/start`.",
+        "required": [
+          "email",
+          "code_challenge"
+        ],
+        "properties": {
+          "code_challenge": {
+            "type": "string",
+            "description": "PKCE S256 challenge: base64url (no padding) of SHA-256 of a random verifier the app keeps\non this device (43 characters). Verifying the link (T-23) needs that verifier.",
+            "maxLength": 43,
+            "minLength": 43
+          },
+          "code_challenge_method": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Only `S256` is supported (default)."
+          },
+          "email": {
+            "type": "string",
+            "example": "cat@example.com",
+            "maxLength": 320,
+            "minLength": 3
           }
         },
         "additionalProperties": false
