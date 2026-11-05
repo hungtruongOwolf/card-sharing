@@ -9,6 +9,7 @@ mod model;
 pub mod oidc;
 mod profile;
 mod service;
+mod sessions;
 mod sign_in;
 #[cfg(any(test, feature = "test-support"))]
 pub mod testing;
@@ -24,5 +25,6 @@ pub use service::{
     AccessError, AccountSummary, DeviceInfo, IdentityService, IssuedSession, Platform, Provider,
     RefreshError, RevokeReason, SessionPolicy, SessionPrincipal, StoreError, VerifiedIdentity,
 };
+pub use sessions::SessionInfo;
 pub use sign_in::{ProviderSignIn, SignInError, SignInRequest, SignedIn, apple_refresh_token_aad};
 pub use token::{SecretToken, TokenHash};

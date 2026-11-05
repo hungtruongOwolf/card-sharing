@@ -4,7 +4,7 @@ use utoipa::{Modify, OpenApi};
 use utoipa_axum::routes;
 
 use crate::access::{ApiRouter, RoutePolicy};
-use crate::routes::{app_config, auth, health, me};
+use crate::routes::{app_config, auth, health, me, sessions};
 use crate::state::AppState;
 use platform::problem::ProblemDetails;
 
@@ -23,6 +23,7 @@ Every operation carries `x-policy` (auth kind, role, attestation) from its deny-
     tags(
         (name = health::TAG, description = "Operational probes"),
         (name = auth::TAG, description = "Sign-in and session lifecycle (ADR-0004)"),
+        (name = sessions::TAG, description = "The caller's device sessions (AC-1.4)"),
         (name = me::TAG, description = "The caller's own account and onboarding"),
         (name = app_config::TAG, description = "Public client configuration")
     )
@@ -95,6 +96,18 @@ pub fn router() -> ApiRouter<AppState> {
         .route(
             RoutePolicy::onboarding_or_session().limited("sessions.current.delete"),
             routes!(auth::delete_current_session),
+        )
+        .route(
+            RoutePolicy::session().limited("sessions.list"),
+            routes!(sessions::list_sessions),
+        )
+        .route(
+            RoutePolicy::session().limited("sessions.revoke"),
+            routes!(sessions::revoke_session),
+        )
+        .route(
+            RoutePolicy::session().limited("sessions.revoke_all"),
+            routes!(sessions::revoke_all_sessions),
         )
         .undocumented_policy(
             &Method::GET,

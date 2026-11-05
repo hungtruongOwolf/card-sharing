@@ -18,6 +18,8 @@ pub enum AuditAction {
     SignIn,
     /// A consumed refresh token was replayed; the session family was revoked.
     RefreshReuse,
+    /// One device session was revoked by its owner from the session list.
+    SessionRevoked,
     /// "Log out everywhere".
     LogoutAll,
     /// The age gate refused an account (no DOB or age is recorded).
@@ -31,6 +33,7 @@ impl AuditAction {
         match self {
             Self::SignIn => "auth.sign_in",
             Self::RefreshReuse => "auth.refresh_reuse",
+            Self::SessionRevoked => "auth.session_revoked",
             Self::LogoutAll => "auth.logout_all",
             Self::AgeRefused => "auth.age_refused",
             Self::HandleChanged => "profile.handle_changed",
@@ -138,6 +141,7 @@ mod tests {
         for action in [
             AuditAction::SignIn,
             AuditAction::RefreshReuse,
+            AuditAction::SessionRevoked,
             AuditAction::LogoutAll,
             AuditAction::AgeRefused,
             AuditAction::HandleChanged,
