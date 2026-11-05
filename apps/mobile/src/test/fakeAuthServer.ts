@@ -4,7 +4,10 @@
  * It mirrors crates/identity/src/service.rs (T-18) rather than a happy-path stub: opaque access tokens that
  * expire, single-use refresh tokens with generations, a 30 s grace for a retry of the immediately previous
  * token while its successor is unused, reuse detection that revokes the family, and the same 401 codes
- * (`UNAUTHENTICATED`, `SESSION_EXPIRED`, `SESSION_REVOKED`). Requests are intercepted at the network
+ * (`UNAUTHENTICATED`, `SESSION_EXPIRED`, `SESSION_REVOKED`). Session management mirrors apps/api/src/routes/
+ * sessions.rs (T-24): `GET /v1/sessions` lists the live sessions, most recently used first; `DELETE /v1/sessions/{id}`
+ * answers the same 404 for a missing, revoked or malformed id; `POST /v1/sessions/revoke-all` ends every session
+ * including the caller's. The fake has one account, so every family belongs to the caller. Requests are intercepted at the network
  * boundary (the injected `fetch`), the same seam MSW would use.
  */
 
@@ -17,8 +20,20 @@ interface RefreshToken {
   consumedAt: number | null;
 }
 
+/** What `GET /v1/sessions` reports about a device session (crates/identity, T-24). */
+export interface DeviceMeta {
+  clientLabel?: string | null;
+  ipCountry?: string | null;
+  /** Epoch milliseconds; defaults to the issue time. */
+  lastSeenAt?: number;
+}
+
 interface Family {
   id: number;
+  /** Public session id (`SessionView.id`). */
+  sessionId: string;
+  meta: Required<DeviceMeta>;
+  createdAt: number;
   revoked: boolean;
   accessToken: string;
   accessExpiresAt: number;
@@ -65,9 +80,17 @@ export class FakeAuthServer {
   }
 
   /** Mints a session as a sign-in route would and returns the token pair body. */
-  issue() {
+  issue(meta: DeviceMeta = {}) {
+    const id = this.families.length + 1;
     const family: Family = {
-      id: this.families.length + 1,
+      id,
+      sessionId: `00000000-0000-4000-8000-${String(id).padStart(12, '0')}`,
+      meta: {
+        clientLabel: meta.clientLabel ?? null,
+        ipCountry: meta.ipCountry ?? null,
+        lastSeenAt: meta.lastSeenAt ?? this.nowMs,
+      },
+      createdAt: this.nowMs,
       revoked: false,
       accessToken: this.token('access'),
       accessExpiresAt: this.nowMs + ACCESS_TTL_MS,
@@ -107,6 +130,13 @@ export class FakeAuthServer {
     return this.families[familyId - 1]?.revoked ?? false;
   }
 
+  /** Public session id of a family, as listed by `GET /v1/sessions`. */
+  sessionId(familyId = 1): string {
+    const family = this.families[familyId - 1];
+    if (!family) throw new Error(`no session ${familyId}`);
+    return family.sessionId;
+  }
+
   readonly fetch: typeof fetch = async (input, init) => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
     const path = url.startsWith(this.baseUrl) ? url.slice(this.baseUrl.length) : url;
@@ -142,8 +172,38 @@ export class FakeAuthServer {
       resolved.revoked = true;
       return new Response(null, { status: 204 });
     }
+    resolved.meta.lastSeenAt = this.nowMs;
+    if (method === 'GET' && path === '/v1/sessions') return json(this.listSessions(resolved));
+    if (method === 'POST' && path === '/v1/sessions/revoke-all') {
+      this.revokeAll();
+      return new Response(null, { status: 204 });
+    }
+    const revoke = method === 'DELETE' ? /^\/v1\/sessions\/([^/]+)$/.exec(path) : null;
+    if (revoke) {
+      const target = this.families.find(
+        (f) => !f.revoked && f.sessionId === decodeURIComponent(revoke[1] ?? ''),
+      );
+      if (!target) return problem(404, 'NOT_FOUND');
+      target.revoked = true;
+      return new Response(null, { status: 204 });
+    }
     return problem(404, 'NOT_FOUND');
   };
+
+  private listSessions(caller: Family) {
+    const sessions = this.families
+      .filter((f) => !f.revoked)
+      .sort((a, b) => b.meta.lastSeenAt - a.meta.lastSeenAt)
+      .map((f) => ({
+        id: f.sessionId,
+        client_label: f.meta.clientLabel,
+        ip_country: f.meta.ipCountry,
+        created_at: new Date(f.createdAt).toISOString(),
+        last_seen_at: new Date(f.meta.lastSeenAt).toISOString(),
+        is_current: f === caller,
+      }));
+    return { sessions };
+  }
 
   private token(kind: string): string {
     this.counter += 1;

@@ -86,6 +86,10 @@ missing, malformed, already revoked or another account's → the same 404 `NOT_F
 (`sessions.revoke_all`, 10/h, fails open so logout works while Redis is down) → 204; every session of the account (incl. the
 current one and widget tokens) is revoked in one statement and cached lookups are evicted, so all access and refresh tokens stop
 working at once. Both writes are audited (`auth.session_revoked`, `auth.logout_all`).
+Mobile client (#197): Settings → Signed-in devices (`apps/mobile/src/features/sessions`) lists the rows (malformed rows dropped),
+revokes any device but the current one (that one logs out instead; a 404 reads as "already signed out"), and "Log out everywhere"
+asks for a confirm, then `AuthClient.signOutEverywhere()` clears the secure store only after the 204 (or a 401 `SESSION_REVOKED`), so
+a failed call never pretends the other devices were signed out.
 
 `POST /v1/auth/apple` (none, limit `auth.signin` 10/min per IP, fails closed) `{id_token, nonce, authorization_code?, device?:
 {id, platform: ios|android, app_version}}` → 200 token pair (same shape as refresh). New account → `pending_age` + onboarding
