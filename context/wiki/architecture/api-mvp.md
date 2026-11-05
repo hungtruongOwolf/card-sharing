@@ -79,6 +79,11 @@ store down → 503. `authorization_code` is exchanged with Apple (client secret 
 refresh token stored encrypted in `auth_identities.apple_refresh_token_enc`; best effort (sign-in does not fail if Apple's
 token endpoint does), skipped until the team key is configured.
 
+`POST /v1/auth/google` `{id_token, nonce, device?}`: same contract, limit and errors as Apple, with the same nonce scheme (the
+app gives Google `hex SHA-256(nonce)` as the sign-in nonce). `iss` = `https://accounts.google.com` or `accounts.google.com`,
+`aud` ∈ `API_GOOGLE_CLIENT_IDS` (a token issued for another client id → 401), keys from Google's cached JWKS
+(`https://www.googleapis.com/oauth2/v3/certs`). The same email as an Apple account creates a separate account (AC-1.3).
+
 `GET /v1/me` → `{account: {id, status}, onboarding: {step: age|profile|done}, policy: {min_age, ai_effects, ads, ai_label}}`
 (policy = strictest of the signals stored at sign-up and the current IP country; the profile block arrives with the profile
 ticket). `GET /v1/config` → `{min_app_version, limits, flags, kill_switches}` from `config/client.yaml`, `Cache-Control: public,

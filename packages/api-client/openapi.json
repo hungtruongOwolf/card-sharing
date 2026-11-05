@@ -163,6 +163,97 @@
         }
       }
     },
+    "/v1/auth/google": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Sign in with Google. Auth: none (the ID token is the credential). Creates the account on first\nsign-in (status `pending_age`, onboarding session); never links accounts by email (AC-1.3), so\nthe same email as an Apple account is a separate account.",
+        "operationId": "signInWithGoogle",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleSignInRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Signed in: an onboarding session for a new or unfinished account, a full session otherwise. Call GET /v1/me for the onboarding step.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenPair"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED (unknown fields are rejected).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED: invalid, expired, forged or misaddressed ID token (including a token for another client id), nonce mismatch, or a replayed nonce.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ACCOUNT_SUSPENDED: the account may not sign in (suspended, banned or deletion pending).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "TEMPORARILY_UNAVAILABLE: provider not configured or unreachable, or a fail-closed store is down.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "none",
+          "rateLimit": "auth.signin",
+          "role": "guest",
+          "versionGate": true
+        }
+      }
+    },
     "/v1/auth/refresh": {
       "post": {
         "tags": [
@@ -731,6 +822,40 @@
           },
           "platform": {
             "$ref": "#/components/schemas/DevicePlatform"
+          }
+        },
+        "additionalProperties": false
+      },
+      "GoogleSignInRequest": {
+        "type": "object",
+        "description": "Body of `POST /v1/auth/google`. The account is derived from the verified token only.",
+        "required": [
+          "id_token",
+          "nonce"
+        ],
+        "properties": {
+          "device": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/DeviceRequest",
+                "description": "The signing-in device. Recommended: device-scoped limits and cooldowns use it."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id_token": {
+            "type": "string",
+            "description": "Google ID token (JWS) from the native Google sign-in.",
+            "maxLength": 8192,
+            "minLength": 1
+          },
+          "nonce": {
+            "type": "string",
+            "description": "The raw nonce the app generated for this sign-in (16 to 256 visible ASCII characters,\nsingle use). The app passes `lowercase hex SHA-256(nonce)` to Google as the sign-in nonce;\nthe token's `nonce` claim must match.",
+            "maxLength": 256,
+            "minLength": 16
           }
         },
         "additionalProperties": false

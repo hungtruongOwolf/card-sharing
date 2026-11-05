@@ -58,6 +58,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/auth/google": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign in with Google. Auth: none (the ID token is the credential). Creates the account on first
+         *     sign-in (status `pending_age`, onboarding session); never links accounts by email (AC-1.3), so
+         *     the same email as an Apple account is a separate account.
+         */
+        post: operations["signInWithGoogle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/auth/refresh": {
         parameters: {
             query?: never;
@@ -252,6 +273,18 @@ export interface components {
             id: string;
             platform: components["schemas"]["DevicePlatform"];
         };
+        /** @description Body of `POST /v1/auth/google`. The account is derived from the verified token only. */
+        GoogleSignInRequest: {
+            device?: components["schemas"]["DeviceRequest"] | null;
+            /** @description Google ID token (JWS) from the native Google sign-in. */
+            id_token: string;
+            /**
+             * @description The raw nonce the app generated for this sign-in (16 to 256 visible ASCII characters,
+             *     single use). The app passes `lowercase hex SHA-256(nonce)` to Google as the sign-in nonce;
+             *     the token's `nonce` claim must match.
+             */
+            nonce: string;
+        };
         HealthResponse: {
             /** @example ok */
             status: string;
@@ -423,6 +456,75 @@ export interface operations {
                 };
             };
             /** @description UNAUTHENTICATED: invalid, expired, forged or misaddressed ID token, nonce mismatch, or a replayed nonce. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ACCOUNT_SUSPENDED: the account may not sign in (suspended, banned or deletion pending). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description TEMPORARILY_UNAVAILABLE: provider not configured or unreachable, or a fail-closed store is down. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    signInWithGoogle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoogleSignInRequest"];
+            };
+        };
+        responses: {
+            /** @description Signed in: an onboarding session for a new or unfinished account, a full session otherwise. Call GET /v1/me for the onboarding step. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenPair"];
+                };
+            };
+            /** @description VALIDATION_FAILED (unknown fields are rejected). */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description UNAUTHENTICATED: invalid, expired, forged or misaddressed ID token (including a token for another client id), nonce mismatch, or a replayed nonce. */
             401: {
                 headers: {
                     [name: string]: unknown;

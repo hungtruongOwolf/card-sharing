@@ -50,6 +50,7 @@ pub fn test_config() -> Config {
         ip_country_header: Some(http::HeaderName::from_static(TEST_COUNTRY_HEADER)),
         client_config_path: "unused-in-tests".into(),
         apple_client_ids: vec![APPLE_CLIENT_ID.to_owned()],
+        google_client_ids: vec![GOOGLE_CLIENT_ID.to_owned()],
         auth_clock_skew: Duration::from_secs(60),
         apple_signing: None,
     }
@@ -58,6 +59,9 @@ pub fn test_config() -> Config {
 /// `aud` the test app accepts in Apple ID tokens.
 pub const APPLE_CLIENT_ID: &str = "app.cardsharing.test";
 pub const APPLE_ISSUER: &str = "https://appleid.apple.com";
+/// `aud` the test app accepts in Google ID tokens.
+pub const GOOGLE_CLIENT_ID: &str = "123-test.apps.googleusercontent.com";
+pub const GOOGLE_ISSUER: &str = "https://accounts.google.com";
 
 /// Header the tests use as the trusted IP-country header.
 pub const TEST_COUNTRY_HEADER: &str = "x-test-ip-country";
@@ -183,6 +187,22 @@ impl TestEnv {
         TestRsaKey::shared().sign(&self.apple_claims(subject, raw_nonce))
     }
 
+    /// A Google ID token for `subject`, minted now (env clock) for `raw_nonce`.
+    pub fn google_id_token(&self, subject: &str, raw_nonce: &str) -> String {
+        TestRsaKey::shared().sign(&self.google_claims(subject, raw_nonce))
+    }
+
+    /// Standard Google ID-token claims (edit them to build invalid tokens).
+    pub fn google_claims(&self, subject: &str, raw_nonce: &str) -> Value {
+        id_token_claims(
+            GOOGLE_ISSUER,
+            GOOGLE_CLIENT_ID,
+            subject,
+            raw_nonce,
+            platform::clock::Clock::now(self.clock.as_ref()).unix_timestamp(),
+        )
+    }
+
     /// Standard Apple ID-token claims (edit them to build invalid tokens).
     pub fn apple_claims(&self, subject: &str, raw_nonce: &str) -> Value {
         id_token_claims(
@@ -242,21 +262,26 @@ pub fn test_sign_in(
     apple_tokens: Arc<FakeAppleTokens>,
     cipher: Arc<FieldCipher>,
 ) -> ProviderSignIn {
-    let apple = IdTokenVerifier::new(
-        ProviderSpec {
-            jwks_url: jwks.url.clone(),
-            ..ProviderSpec::apple()
-        },
-        VerifierSettings {
-            client_ids: test_config().apple_client_ids,
-            clock_skew: time::Duration::seconds(60),
-            jwks: JwksSettings::default(),
-        },
-        insecure_test_http_client().unwrap(),
-        clock,
-    )
-    .unwrap();
-    ProviderSignIn::new(identity, apple_tokens, cipher).with_verifier(apple)
+    let verifier = |spec: ProviderSpec, client_ids: Vec<String>| {
+        IdTokenVerifier::new(
+            ProviderSpec {
+                jwks_url: jwks.url.clone(),
+                ..spec
+            },
+            VerifierSettings {
+                client_ids,
+                clock_skew: time::Duration::seconds(60),
+                jwks: JwksSettings::default(),
+            },
+            insecure_test_http_client().unwrap(),
+            clock.clone(),
+        )
+        .unwrap()
+    };
+    let config = test_config();
+    ProviderSignIn::new(identity, apple_tokens, cipher)
+        .with_verifier(verifier(ProviderSpec::apple(), config.apple_client_ids))
+        .with_verifier(verifier(ProviderSpec::google(), config.google_client_ids))
 }
 
 /// Stand-in for Apple's token endpoint: answers the next exchange with `next` (or `invalid_grant`)

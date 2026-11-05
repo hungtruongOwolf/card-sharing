@@ -73,6 +73,10 @@ pub fn router() -> ApiRouter<AppState> {
             routes!(auth::sign_in_apple),
         )
         .route(
+            RoutePolicy::public().limited("auth.signin"),
+            routes!(auth::sign_in_google),
+        )
+        .route(
             RoutePolicy::public().limited("auth.refresh"),
             routes!(auth::refresh),
         )

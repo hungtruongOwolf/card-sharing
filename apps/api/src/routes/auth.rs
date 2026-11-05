@@ -1,5 +1,5 @@
-//! Sign-in and session endpoints (ADR-0004): Apple sign-in (T-19), refresh-token rotation and
-//! logout (T-18).
+//! Sign-in and session endpoints (ADR-0004): Apple (T-19) and Google (T-20) sign-in,
+//! refresh-token rotation and logout (T-18).
 
 use axum::Json;
 use axum::extract::State;
@@ -171,6 +171,59 @@ pub async fn sign_in_apple(
         signals: sign_up_signals(&state, &headers),
     };
     sign_in(&state, Provider::Apple, request).await
+}
+
+/// Body of `POST /v1/auth/google`. The account is derived from the verified token only.
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct GoogleSignInRequest {
+    /// Google ID token (JWS) from the native Google sign-in.
+    #[schema(min_length = 1, max_length = 8192)]
+    pub id_token: String,
+    /// The raw nonce the app generated for this sign-in (16 to 256 visible ASCII characters,
+    /// single use). The app passes `lowercase hex SHA-256(nonce)` to Google as the sign-in nonce;
+    /// the token's `nonce` claim must match.
+    #[schema(min_length = 16, max_length = 256)]
+    pub nonce: String,
+    /// The signing-in device. Recommended: device-scoped limits and cooldowns use it.
+    #[serde(default)]
+    pub device: Option<DeviceRequest>,
+}
+
+/// Sign in with Google. Auth: none (the ID token is the credential). Creates the account on first
+/// sign-in (status `pending_age`, onboarding session); never links accounts by email (AC-1.3), so
+/// the same email as an Apple account is a separate account.
+#[utoipa::path(
+    post,
+    path = "/v1/auth/google",
+    tag = TAG,
+    operation_id = "signInWithGoogle",
+    security(()),
+    request_body = GoogleSignInRequest,
+    responses(
+        (status = OK, description = "Signed in: an onboarding session for a new or unfinished account, a full session otherwise. Call GET /v1/me for the onboarding step.", body = TokenPair),
+        (status = BAD_REQUEST, description = "VALIDATION_FAILED (unknown fields are rejected).", body = ProblemDetails),
+        (status = UNAUTHORIZED, description = "UNAUTHENTICATED: invalid, expired, forged or misaddressed ID token (including a token for another client id), nonce mismatch, or a replayed nonce.", body = ProblemDetails),
+        (status = FORBIDDEN, description = "ACCOUNT_SUSPENDED: the account may not sign in (suspended, banned or deletion pending).", body = ProblemDetails),
+        (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED.", body = ProblemDetails),
+        (status = SERVICE_UNAVAILABLE, description = "TEMPORARILY_UNAVAILABLE: provider not configured or unreachable, or a fail-closed store is down.", body = ProblemDetails),
+    )
+)]
+pub async fn sign_in_google(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    body: ValidJson<GoogleSignInRequest>,
+) -> Result<Json<TokenPair>, ApiError> {
+    let body = body.0;
+    check_token_and_nonce(&body.id_token, &body.nonce)?;
+    let request = SignInRequest {
+        id_token: body.id_token,
+        raw_nonce: body.nonce,
+        authorization_code: None,
+        device: body.device.map(DeviceRequest::into_info).transpose()?,
+        signals: sign_up_signals(&state, &headers),
+    };
+    sign_in(&state, Provider::Google, request).await
 }
 
 /// Region signals recorded on a new account: the trusted edge's IP country (SR-24).

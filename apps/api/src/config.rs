@@ -53,6 +53,9 @@ pub struct Config {
     /// bundle id; a Services ID if web sign-in is ever added). Empty (default) = Apple sign-in
     /// answers 503.
     pub apple_client_ids: Vec<String>,
+    /// `API_GOOGLE_CLIENT_IDS` — comma-separated `aud` values accepted in Google ID tokens (the
+    /// OAuth client ids our apps request tokens for). Empty (default) = Google sign-in answers 503.
+    pub google_client_ids: Vec<String>,
     /// `API_AUTH_CLOCK_SKEW_SECS` — tolerance for ID-token `exp` / `nbf` / `iat`. Default 60,
     /// allowed 0..=300.
     pub auth_clock_skew: Duration,
@@ -126,6 +129,7 @@ impl Config {
             .optional("API_CLIENT_CONFIG_PATH")
             .map_or_else(|| PathBuf::from("config/client.yaml"), PathBuf::from);
         let apple_client_ids = client_ids(env, "API_APPLE_CLIENT_IDS")?;
+        let google_client_ids = client_ids(env, "API_GOOGLE_CLIENT_IDS")?;
         let auth_clock_skew_secs = env.in_range("API_AUTH_CLOCK_SKEW_SECS", 60, 0..=300)?;
         let apple_signing = apple_signing(env)?;
 
@@ -145,6 +149,7 @@ impl Config {
             ip_country_header,
             client_config_path,
             apple_client_ids,
+            google_client_ids,
             auth_clock_skew: Duration::from_secs(auth_clock_skew_secs),
             apple_signing,
         })
@@ -299,6 +304,7 @@ mod tests {
     fn sign_in_settings_default_to_disabled_and_validate() {
         let config = load(&[]).unwrap();
         assert!(config.apple_client_ids.is_empty());
+        assert!(config.google_client_ids.is_empty());
         assert!(config.apple_signing.is_none());
         assert_eq!(config.auth_clock_skew, Duration::from_secs(60));
 
@@ -318,6 +324,15 @@ mod tests {
 
         assert!(load(&[("API_AUTH_CLOCK_SKEW_SECS", "301")]).is_err());
         assert!(load(&[("API_APPLE_CLIENT_IDS", "has space")]).is_err());
+        let config = load(&[(
+            "API_GOOGLE_CLIENT_IDS",
+            "123-abc.apps.googleusercontent.com",
+        )])
+        .unwrap();
+        assert_eq!(
+            config.google_client_ids,
+            ["123-abc.apps.googleusercontent.com"]
+        );
     }
 
     #[test]
