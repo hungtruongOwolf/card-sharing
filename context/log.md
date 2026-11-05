@@ -106,3 +106,8 @@
 - New page content-safety: free hash services (Arachnid Shield, PhotoDNA, NCMEC) need vetting + a legal entity; Thorn Safer
   deferred (~$30.7k/yr). Nudity: self-hosted Marqo ViT-tiny (Apache-2.0) on server + phone; NudeNet rejected (AGPL).
 - ADR-0005 links to it; EM decisions (entity, counsel, eval data, FP/recall, vendor second opinion) due 2026-11-18 in status.
+
+## [2026-11-05] decision | T-33 follow-ups
+- T-33 (ec24ee0) and backend T-10/T-11/T-13/T-18/T-27 pushed; CI green at abb8daf. gitleaks now allowlists container image
+  references via .gitleaks.toml instead of per-finding fingerprints.
+- EM: tree snapshots accepted (pixel screenshots later); brand fonts ship with T-21; contrast colour fixes approved.

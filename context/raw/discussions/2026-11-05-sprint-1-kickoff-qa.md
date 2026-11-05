@@ -19,3 +19,10 @@ Facts found while starting:
   repository public"). CI therefore cannot be made a required check yet.
 - `pnpm audit --prod` reports 2 high advisories, both transitive via Expo with no compatible fix (decode-uri-component via
   expo-router > query-string@7; zod@3 via @expo/cli).
+
+## Follow-up Q&A after T-33 (same day)
+| Question | EM answer |
+|---|---|
+| Tree snapshots instead of pixel screenshots for UI tests | Snapshots now, pixel screenshots later (once device builds exist) |
+| When to bundle brand fonts (OFL) | With the next mobile ticket (T-21), to pay the slow install only once |
+| Contrast fixes: light link/focus #3E7FA8 → #336C91; new `accent.onMustard` for dark mode | Approved |
