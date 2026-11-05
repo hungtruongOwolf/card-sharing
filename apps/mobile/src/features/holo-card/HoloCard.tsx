@@ -10,11 +10,11 @@ import {
   withSpring,
 } from 'react-native-reanimated';
 
+import { HOLO_SKSL } from '@card-sharing/shaders';
 import { radius, spring } from '@card-sharing/tokens';
 
 import { t } from '../../i18n';
 import { Text } from '../../ui';
-import { HOLO_SKSL } from './holoShader';
 
 // Compiled once per process; null means the SkSL failed to compile.
 const holoEffect = Skia.RuntimeEffect.Make(HOLO_SKSL);
