@@ -81,6 +81,10 @@ pub enum ApiError {
     /// The first request with this Idempotency-Key is still running: retry later.
     #[error("idempotency key in progress")]
     IdempotencyInProgress,
+    /// A `style` block references an unknown registry id or version, or a param out of range
+    /// (SR-28). No detail is given.
+    #[error("unknown registry id")]
+    UnknownRegistryId,
     /// Resource missing, or the caller may not know it exists (object-level denials use this
     /// too, so "forbidden" and "missing" are indistinguishable).
     #[error("resource not found")]
@@ -122,7 +126,9 @@ impl ApiError {
             | Self::AgeAlreadySubmitted => StatusCode::FORBIDDEN,
             Self::NotFound => StatusCode::NOT_FOUND,
             Self::HandleTaken | Self::IdempotencyInProgress => StatusCode::CONFLICT,
-            Self::IdempotencyKeyReused => StatusCode::UNPROCESSABLE_ENTITY,
+            Self::IdempotencyKeyReused | Self::UnknownRegistryId => {
+                StatusCode::UNPROCESSABLE_ENTITY
+            }
             Self::HandleChangeCooldown { .. } => StatusCode::TOO_MANY_REQUESTS,
             Self::MethodNotAllowed => StatusCode::METHOD_NOT_ALLOWED,
             Self::RequestTimeout => StatusCode::REQUEST_TIMEOUT,
@@ -149,6 +155,7 @@ impl ApiError {
             Self::NotFound => "NOT_FOUND",
             Self::HandleTaken => "HANDLE_TAKEN",
             Self::IdempotencyKeyReused => "IDEMPOTENCY_KEY_REUSED",
+            Self::UnknownRegistryId => "UNKNOWN_REGISTRY_ID",
             Self::IdempotencyInProgress => "IDEMPOTENCY_IN_PROGRESS",
             Self::HandleChangeCooldown { .. } => "HANDLE_CHANGE_COOLDOWN",
             Self::MethodNotAllowed => "METHOD_NOT_ALLOWED",
@@ -250,6 +257,7 @@ mod tests {
             ApiError::UpgradeRequired,
             ApiError::NotFound,
             ApiError::IdempotencyKeyReused,
+            ApiError::UnknownRegistryId,
             ApiError::IdempotencyInProgress,
             ApiError::MethodNotAllowed,
             ApiError::RequestTimeout,

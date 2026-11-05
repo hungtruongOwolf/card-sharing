@@ -7,6 +7,7 @@ use platform::idempotency::{IdempotencySettings, IdempotencyStore};
 use platform::rate_limit::RateLimiter;
 use platform::text::TextFilter;
 use policy::{CountryCode, PolicyService};
+use registry::Registry;
 
 use crate::access::SessionResolver;
 use crate::client_config::ClientConfig;
@@ -28,6 +29,8 @@ pub struct AppState {
     /// Device attestation verifiers (T-35) and how failures are treated.
     pub attestation: Arc<AttestationService>,
     pub attestation_mode: AttestationMode,
+    /// Effects registry the API was built with (T-60): validates card `style` blocks.
+    pub registry: Arc<Registry>,
     /// Minor status from the encrypted DOB (and OS age signals when enabled).
     pub age: Arc<AgeService>,
     /// Resolves bearer tokens for the access-policy gate (identity sessions by default).
@@ -57,6 +60,12 @@ impl AppState {
         let policy = Arc::new(policy);
         let field_cipher = Arc::new(field_cipher);
         Self {
+            registry: Arc::new(Registry::embedded().unwrap_or_else(|err| {
+                // The JSON is embedded at compile time and checked by tests; an empty registry
+                // refuses every style (fails closed) instead of crashing.
+                tracing::error!(error = %err, "embedded effects registry is invalid");
+                Registry::empty()
+            })),
             attestation: Arc::new(AttestationService::new(None, None)),
             attestation_mode: AttestationMode::LogOnly,
             age: Arc::new(AgeService::new(
@@ -98,6 +107,18 @@ impl AppState {
             enabled,
         ));
         self
+    }
+
+    /// Validates a card `style` block against the registry; returns it normalized (defaults
+    /// filled in). Any problem is 422 `UNKNOWN_REGISTRY_ID` without detail.
+    pub fn validate_style(
+        &self,
+        style: &serde_json::Value,
+    ) -> Result<serde_json::Value, platform::problem::ApiError> {
+        self.registry.validate_style(style).map_err(|err| {
+            tracing::info!(error = %err, "style block rejected");
+            platform::problem::ApiError::UnknownRegistryId
+        })
     }
 
     pub fn with_sign_in(mut self, sign_in: Arc<ProviderSignIn>) -> Self {

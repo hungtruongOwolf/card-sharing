@@ -1,0 +1,16 @@
+[package]
+name = "registry"
+version = "0.1.0"
+description = "Server copy of the effects registry (ids, versions, param ranges) and card style validation (T-60, SR-28)"
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

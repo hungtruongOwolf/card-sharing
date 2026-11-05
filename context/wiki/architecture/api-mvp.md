@@ -224,6 +224,9 @@ reservation); same 400/403 rules. Before the age gate both routes → 403 `ONBOA
 US-23 (export) is on-device; the server only supplies the owner's own media via `GET /v1/cards/{id}` / `/v1/me/cards`.
 US-7, US-8, US-10, US-11, US-21 are on-device by design (AC-7.5: nothing uploaded before send); their server touchpoints are the
 `style` block of `POST /v1/cards` (validated against the registry, unknown ids → 422) and kill switches in `GET /v1/config`.
+Implemented (T-60): `AppState::validate_style` (registry embedded from `packages/effects-registry/generated/registry.json`, rules in
+[[effects-catalog]]) returns the normalized style or 422 `UNKNOWN_REGISTRY_ID` (no detail); the card route calls it when it lands.
+Kill switches are not enforced server-side yet.
 
 ### Safety, moderation, privacy, notifications
 | Method | Path | Purpose | Auth | Role | Object rule | Rate limit | Idem. | US |
