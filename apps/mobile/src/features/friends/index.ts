@@ -17,3 +17,7 @@ export {
   type SearchResult,
 } from './friendsApi';
 export { newIdempotencyKey } from './idempotencyKey';
+export { FriendsScreen, type FriendsScreenProps } from './FriendsScreen';
+export { RequestsScreen, type RequestsScreenProps } from './RequestsScreen';
+export { BLOCKS_QUERY_KEY, FRIENDS_QUERY_KEY, REQUESTS_QUERY_KEY } from './shared';
+export { useFriendsApi } from './useFriendsApi';
