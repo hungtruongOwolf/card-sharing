@@ -33,3 +33,11 @@ pulled forward from M3 (T-64, T-63, T-69) landed in [[sprint-2]].
 - [ ] Every sprint-3 ticket above is merged with CI green and its issue closed, or explicitly carried over.
 - [ ] Handle-search timing test passes (KS p > 0.05, identical bytes for found / not found / not findable).
 - [ ] Wiki facts updated (api-mvp, data-model) and the sprint progress recorded here.
+
+## Progress
+| Ticket | PR | Commit | Notes |
+|---|---|---|---|
+| #197 mobile sessions settings (list, revoke, log out everywhere) | #215 | a6ac299 | Revoking another device has no confirm; only "Log out everywhere" asks |
+| #212 editor polish (drag sliders, thumbnails, tile states) | #218 | 45b24a8 | One drag = one undo step; mask-needing styles stay hidden on whole-photo cards |
+| T-48 invite landing page | | | Waits for T-37/T-38 invite endpoints |
+| T-44 find a friend by handle | | | Waits for T-43 and T-40 |

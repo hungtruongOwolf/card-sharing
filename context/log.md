@@ -199,3 +199,8 @@
 - T-64 #203 (7ff52e4), T-63 #210 (03b2c55, replaced #206), T-69 #214 (b5cabbf); #66, #65, #71 closed. Follow-ups #211,
   #212, #213. Open EM questions: term lists shipped in the app bundle (#213); default style (die-cut with a subject,
   "Photo" without).
+
+## [2026-11-05] progress | Sprint 3 app lane, first batch
+- #197 sessions settings #215 (a6ac299), #212 editor polish #218 (45b24a8); both issues closed. T-48 and T-44 wait for
+  the backend invite, request and search endpoints. Defaults taken (EM may revisit): no confirm for revoking another
+  device; locked tiles visible but not selectable until an unlock flow exists; "new" badge from the registry tag only.
