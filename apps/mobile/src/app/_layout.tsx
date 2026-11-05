@@ -17,9 +17,13 @@ import {
 } from '../features/onboarding';
 import { ThemeProvider, ToastProvider, useTheme } from '../ui';
 
-/** Route of each phase. Exactly one is reachable at a time (src/features/onboarding/phase.ts). */
+/**
+ * Routes of each phase. Only the current phase's routes are reachable (src/features/onboarding/phase.ts);
+ * the first one listed is where the phase lands.
+ */
 const ROUTES: readonly (readonly [Exclude<OnboardingPhase, 'loading' | 'error'>, string])[] = [
   ['home', 'index'],
+  ['home', 'holo-lab'],
   ['signIn', 'onboarding/sign-in'],
   ['refused', 'onboarding/refused'],
   ['birthDate', 'onboarding/birth-date'],
