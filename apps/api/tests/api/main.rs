@@ -25,6 +25,7 @@ mod profile;
 mod rate_limit;
 mod registry_style;
 mod request_answers;
+mod request_caps;
 mod session_management;
 mod sessions;
 mod sign_in;

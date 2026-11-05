@@ -1466,7 +1466,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description RATE_LIMITED. */
+            /** @description RATE_LIMITED (also: 20 open requests or 30 sent in 24 hours; Retry-After). */
             429: {
                 headers: {
                     [name: string]: unknown;

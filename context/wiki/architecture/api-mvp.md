@@ -211,6 +211,15 @@ direction is answered too; publishes `social.friendship_created {request_id, sen
 not a pending request to the caller (accept / decline) or an open request from the caller (cancel), including malformed ids,
 → the same 404 `NOT_FOUND`.
 
+Caps and expiry (T-41, `config/social.yaml`): sending a request checks the sender's own limits first, whatever the target (so
+a block is never revealed by a cap that stops applying): own friend count at `friends.max` → 409 `FRIEND_LIMIT_REACHED`;
+`requests.max_pending` (20) open requests → 429 `RATE_LIMITED` with `Retry-After` = until the oldest open one expires;
+`requests.daily_max` (30) created in the last 24 hours (any status, so cancel-and-resend does not help) → 429 with `Retry-After`
+= until the oldest leaves the window. The target's friend cap is checked only when there is no block. Requests past
+`expires_at` (14 days) vanish from both lists and from accept/decline/cancel immediately; the worker's `social.expire_requests`
+periodic task (every 10 min) marks them `expired` and deletes answered/expired requests and reset invites after
+`requests.retention_days` (30).
+
 ### Cards, feed, widget, reactions
 | Method | Path | Purpose | Auth | Role | Object rule | Rate limit | Idem. | US |
 |---|---|---|---|---|---|---|---|---|

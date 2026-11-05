@@ -6,12 +6,14 @@
 mod error;
 mod graph;
 mod invites;
+mod janitor;
 mod requests;
 mod service;
 mod settings;
 
 pub use error::{InviteError, SocialError};
 pub use invites::{INVITE_TOKEN_LEN, InvitePreview, MyInvite, ResolvedInvite};
+pub use janitor::{JanitorReport, SocialJanitor};
 pub use requests::{AnswerError, Direction, FriendSummary, RequestError, RequestItem, SentRequest};
 pub use service::SocialService;
 pub use settings::{SocialConfigError, SocialSettings};

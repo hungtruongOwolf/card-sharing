@@ -41,6 +41,10 @@ pub enum RequestError {
     /// Either side is at the friend cap (AC-5.2).
     #[error("friend limit reached")]
     FriendLimit,
+    /// The sender has `requests.max_pending` open requests or sent `requests.daily_max` in the last
+    /// 24 hours (AC-5.3).
+    #[error("request limit reached")]
+    RequestLimit { retry_after_secs: u64 },
     #[error(transparent)]
     Social(#[from] SocialError),
 }
@@ -68,6 +72,49 @@ struct OpenRow {
 }
 
 impl SocialService {
+    /// The sender's own friend cap, open-request cap and rolling 24-hour cap (AC-5.2, AC-5.3).
+    /// Runs under the pair lock, which includes the sender, so concurrent sends cannot overshoot.
+    async fn check_sender_limits(
+        &self,
+        tx: &mut sqlx::PgConnection,
+        from: Uuid,
+        now: OffsetDateTime,
+    ) -> Result<(), RequestError> {
+        if friend_count(&mut *tx, from).await? >= i64::from(self.settings.friends_max) {
+            return Err(RequestError::FriendLimit);
+        }
+        let (open, oldest_open): (i64, Option<OffsetDateTime>) = sqlx::query_as(
+            "SELECT count(*), min(expires_at) FROM social.friend_requests
+             WHERE from_user = $1 AND status = ANY($2) AND expires_at > $3",
+        )
+        .bind(from)
+        .bind(OPEN_STATUSES)
+        .bind(now)
+        .fetch_one(&mut *tx)
+        .await?;
+        if open >= i64::from(self.settings.requests_max_pending) {
+            return Err(RequestError::RequestLimit {
+                retry_after_secs: seconds_until(now, oldest_open.unwrap_or(now)),
+            });
+        }
+        let window_start = now - Duration::days(1);
+        let (sent, oldest_sent): (i64, Option<OffsetDateTime>) = sqlx::query_as(
+            "SELECT count(*), min(created_at) FROM social.friend_requests
+             WHERE from_user = $1 AND created_at > $2",
+        )
+        .bind(from)
+        .bind(window_start)
+        .fetch_one(&mut *tx)
+        .await?;
+        if sent >= i64::from(self.settings.requests_daily_max) {
+            let frees_at = oldest_sent.unwrap_or(now) + Duration::days(1);
+            return Err(RequestError::RequestLimit {
+                retry_after_secs: seconds_until(now, frees_at),
+            });
+        }
+        Ok(())
+    }
+
     /// Sends a friend request to the owner of `invite_token`.
     pub async fn request_from_invite(
         &self,
@@ -102,14 +149,15 @@ impl SocialService {
             });
         }
 
+        // Sender-side limits come first and apply whatever the target: a blocked target must not
+        // be distinguishable by a cap that suddenly stops applying.
+        self.check_sender_limits(&mut tx, from, now).await?;
         let blocked = blocked_either_way(&mut tx, from, to).await?;
         if !blocked {
             if are_friends(&mut tx, from, to).await? {
                 return Err(RequestError::AlreadyFriends);
             }
-            let max = i64::from(self.settings.friends_max);
-            if friend_count(&mut tx, from).await? >= max || friend_count(&mut tx, to).await? >= max
-            {
+            if friend_count(&mut tx, to).await? >= i64::from(self.settings.friends_max) {
                 return Err(RequestError::FriendLimit);
             }
         }
@@ -398,5 +446,25 @@ impl SocialService {
                 )
             })
             .collect())
+    }
+}
+
+/// Whole seconds from `now` until `at` (at least 1, for `Retry-After`).
+fn seconds_until(now: OffsetDateTime, at: OffsetDateTime) -> u64 {
+    u64::try_from((at - now).whole_seconds())
+        .unwrap_or(0)
+        .max(1)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn retry_after_is_at_least_one_second() {
+        let now = OffsetDateTime::UNIX_EPOCH;
+        assert_eq!(seconds_until(now, now), 1);
+        assert_eq!(seconds_until(now, now - Duration::hours(1)), 1);
+        assert_eq!(seconds_until(now, now + Duration::minutes(2)), 120);
     }
 }
