@@ -12,7 +12,6 @@ export interface MeSummary {
   readonly step: OnboardingStep;
 }
 
-
 export type OnboardingErrorKind =
   /** 403 `AGE_GATE_REFUSED`: neutral refusal; the server removed the pending account. */
   | 'refused'
