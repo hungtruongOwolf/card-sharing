@@ -119,3 +119,12 @@
   Cloudflare; set `API_IP_COUNTRY_HEADER`); passing the age gate → `pending_profile`; `xxhash-rust` BSL-1.0 (permissive,
   Boost licence) allowed in deny.toml; initial limits in config/limits.yaml and config/client.yaml from api-mvp/PRD.
 - Next: T-19/T-20 against mocked JWKS; mobile T-21 + brand fonts.
+
+## [2026-11-05] progress | Mobile T-21 + brand fonts
+- T-21 6c820c5: secure-store session (AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY, no backup migration), single-flight refresh
+  mirroring crates/identity rotation/grace/reuse rules, logout always clears local state, in-memory TanStack Query cache.
+- Fonts 43fbf43: 7 static OFL instances (~0.8 MB) via expo-font plugin; static instances generated from Google's variable
+  files (SDK 57 loads static fonts only), script apps/mobile/scripts/instance_fonts.py. CI green at 43fbf43.
+- Lead decisions: a contract-faithful fake fetch server satisfies the "MSW tests" criterion (same layer, no extra install);
+  keychain class AFTER_FIRST_UNLOCK (needed for background refresh and the widget, SR-14). TODO testing-strategy note
+  once the backend agent's uncommitted edits to that page land; OFL notices go in the future open-source licences screen.
