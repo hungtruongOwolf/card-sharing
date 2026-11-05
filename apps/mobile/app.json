@@ -28,6 +28,14 @@
         }
       ],
       [
+        "expo-image-picker",
+        {
+          "cameraPermission": "The camera lets you snap things and turn them into cards. Photos stay on your phone until you send a card.",
+          "photosPermission": "Choose photos you already have to turn them into cards.",
+          "microphonePermission": false
+        }
+      ],
+      [
         "expo-font",
         {
           "fonts": [
