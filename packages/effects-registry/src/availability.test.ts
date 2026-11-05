@@ -31,11 +31,22 @@ describe('resolveAvailability', () => {
   });
 
   it('offers the declared fallback when a capability is missing', () => {
-    expect(resolveAvailability(cutDiecut, noGms)).toEqual({
+    const tapTheEyes: EffectEntry = {
+      ...fxHolo,
+      platforms: {
+        ...fxHolo.platforms,
+        android: { min: 24, requires: ['animalPose'], fallback: 'userPoints' },
+      },
+    };
+    expect(resolveAvailability(tapTheEyes, noGms)).toEqual({
       status: 'fallback',
-      fallback: 'serverCutout',
-      missing: ['subjectMask'],
+      fallback: 'userPoints',
+      missing: ['animalPose'],
     });
+  });
+
+  it('hides mask-based cut styles without an on-device mask (no server fallback, AC-7.6)', () => {
+    expect(resolveAvailability(cutDiecut, noGms)).toEqual({ status: 'hidden', reason: 'requires' });
   });
 
   it('hides an entry without a fallback when a capability is missing', () => {
@@ -82,12 +93,17 @@ describe('resolveAvailability', () => {
 });
 
 describe('visibleEntries', () => {
-  it('lists available and fallback entries in registry order, minus killed ones', () => {
-    const shown = visibleEntries(ENTRIES, noGms, { kill_switches: { finishes: ['fx.holo'] } });
+  it('lists available entries in registry order, minus killed ones', () => {
+    const shown = visibleEntries(ENTRIES, iphone, { kill_switches: { finishes: ['fx.holo'] } });
     expect(shown.map(({ entry }) => entry.id)).toEqual([
       'cut.none',
       'cut.raw',
       'cut.diecut',
+      'fx.paper-lift',
+    ]);
+    expect(visibleEntries(ENTRIES, noGms).map(({ entry }) => entry.id)).toEqual([
+      'cut.none',
+      'fx.holo',
       'fx.paper-lift',
     ]);
   });

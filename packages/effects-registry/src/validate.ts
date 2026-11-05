@@ -16,6 +16,7 @@ import {
   type ParamSpec,
   type PlatformSupport,
 } from './schema';
+import { resolveParams } from './params';
 
 /**
  * Hand-written validation of registry entries (no schema library: zod is not a workspace dependency and the
@@ -125,6 +126,24 @@ export function validateEntry(entry: EffectEntry): string[] {
   const { minAppVersion } = entry.flags;
   if (minAppVersion !== undefined && !SEMVER_PATTERN.test(minAppVersion)) {
     errors.push('minAppVersion must be x.y.z');
+  }
+  errors.push(...presetErrors(entry));
+  return errors;
+}
+
+const PRESET_ID_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+
+function presetErrors(entry: EffectEntry): string[] {
+  const errors: string[] = [];
+  const ids = new Set<string>();
+  for (const preset of entry.presets ?? []) {
+    const at = `preset ${preset.id}`;
+    if (!PRESET_ID_PATTERN.test(preset.id)) errors.push(`${at}: id must be a slug`);
+    if (ids.has(preset.id)) errors.push(`${at}: duplicate preset id`);
+    ids.add(preset.id);
+    if (!I18N_KEY_PATTERN.test(preset.name)) errors.push(`${at}: not an i18n key: ${preset.name}`);
+    const result = resolveParams(entry, preset.params);
+    if (!result.ok) errors.push(...result.errors.map((error) => `${at}: ${error}`));
   }
   return errors;
 }

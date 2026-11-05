@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { cutDiecut } from './entries/cut.diecut';
-import { clampNumberParam, defaultParams, resolveParams } from './params';
+import { clampNumberParam, clampParams, defaultParams, resolveParams } from './params';
 import type { ParamSpec } from './schema';
 
 const borderWidth: ParamSpec = { type: 'number', min: 0.5, max: 6, default: 3, ui: 'slider' };
@@ -60,5 +60,19 @@ describe('clampNumberParam', () => {
 
   it('lists defaults', () => {
     expect(defaultParams(cutDiecut)).toEqual({ borderWidthPct: 3, color: '#FFFFFF' });
+  });
+});
+
+describe('clampParams', () => {
+  it('clamps numbers, defaults invalid values and drops unknown names', () => {
+    expect(clampParams(cutDiecut, { borderWidthPct: 40, color: 'red', glow: 1 })).toEqual({
+      borderWidthPct: 6,
+      color: '#FFFFFF',
+    });
+    expect(clampParams(cutDiecut, { borderWidthPct: 0.1, color: '#FF0000' })).toEqual({
+      borderWidthPct: 0.5,
+      color: '#FF0000',
+    });
+    expect(clampParams(cutDiecut, null)).toEqual({ borderWidthPct: 3, color: '#FFFFFF' });
   });
 });

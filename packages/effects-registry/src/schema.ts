@@ -65,8 +65,11 @@ export const CAPABILITIES = [
 ] as const;
 export type Capability = (typeof CAPABILITIES)[number];
 
-/** UX shown instead of hiding an entry when a requirement fails. */
-export const FALLBACKS = ['userPoints', 'serverCutout'] as const;
+/**
+ * UX shown instead of hiding an entry when a requirement fails. There is no server-cutout fallback in the MVP
+ * (prd-mvp AC-7.6: Android without Play services uses a bundled on-device model).
+ */
+export const FALLBACKS = ['userPoints'] as const;
 export type Fallback = (typeof FALLBACKS)[number];
 
 export const GPU_COSTS = ['S', 'M', 'L'] as const;
@@ -133,4 +136,15 @@ export interface EffectEntry {
    * Every entry can be switched off remotely through `/v1/config` kill switches.
    */
   flags: { featureFlag?: string; minAppVersion?: string };
+  /** Named param sets shown as picker tiles (e.g. a thick sticker border); UI only, stored items keep params. */
+  presets?: readonly Preset[];
+}
+
+export interface Preset {
+  /** Slug, unique within the entry. */
+  id: string;
+  /** i18n key. */
+  name: string;
+  /** Overrides on top of the defaults; must pass the entry's param rules. */
+  params: Readonly<Record<string, ParamValue>>;
 }

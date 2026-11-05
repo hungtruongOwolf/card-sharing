@@ -29,6 +29,7 @@ export default function HomeScreen() {
       <Text tone="muted">{t('home.hint')}</Text>
       <Button label={t('home.capture')} onPress={() => router.push('/capture')} />
       <Button label={t('holo.lab.open')} variant="ghost" onPress={() => router.push('/holo-lab')} />
+      <Button label={t('cutLab.open')} variant="ghost" onPress={() => router.push('/cut-lab')} />
       <View style={styles.actions}>
         <Button
           label={t('home.editCaption')}

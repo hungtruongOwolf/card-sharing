@@ -52,15 +52,27 @@ export const laserEyes: EffectEntry = {
 **Implemented (T-59, `packages/effects-registry`):** one file per entry in `src/entries/` plus one line in
 `src/entries/index.ts`; `validateRegistry` (run by tests) checks every entry and rejects duplicate ids. `tier` is a string
 (`'0'`, `'1'`, `'1b'`, `'2'`); `tags` (e.g. `finish`, `builtIn`) add picker listings. `platforms.*.requires` uses the
-capability vocabulary `subjectMask, faceLandmarks, animalPose, playServices, gyro`; `fallback` is `userPoints` or
-`serverCutout`. Every entry can be killed remotely: `resolveAvailability` merges all `/v1/config` `kill_switches` groups into
+capability vocabulary `subjectMask, faceLandmarks, animalPose, playServices, gyro`; `fallback` is `userPoints` only (no
+server-cutout fallback in the MVP, prd-mvp AC-7.6; mask-based cut styles are hidden on a device without an on-device mask,
+T-62). Every entry can be killed remotely: `resolveAvailability` merges all `/v1/config` `kill_switches` groups into
 one id set (ids are unique across kinds), then applies `flags.featureFlag` (dark until the config flag is `true`),
 `flags.minAppVersion`, OS minimum and capabilities. `resolveParams` is the strict param check the server mirrors (unknown
-name, wrong type, out of range → error; missing → default). The server view (ids, versions, kinds, stacking, param ranges)
+name, wrong type, out of range → error; missing → default); `clampParams` is the lenient UI/preview variant (numbers clamp,
+invalid → default). Optional `presets` (`{id, name, params}`) are UI-only picker tiles validated against the param rules;
+the "thick sticker" is the `cut.diecut` preset `thick` at `borderWidthPct: 6`, not a separate id. The server view (ids, versions, kinds, stacking, param ranges)
 is committed at `packages/effects-registry/generated/registry.json`; regenerate with
 `pnpm --filter @card-sharing/effects-registry export:json`, and a vitest file snapshot fails CI when it is stale (T-60
 consumes it). Shipped entries so far: `cut.none`, `cut.raw`, `cut.diecut`, `fx.holo`, `fx.paper-lift`; the other MVP
 entries land with their tickets.
+
+**Cut style rendering (T-62, `apps/mobile/src/features/cut-styles`):** `drawCutStyle(canvas, entry, params, scene)` draws
+on any `SkCanvas` (a `<Picture>` live, an offscreen surface for bakes and tests) through renderers keyed by `renderer.ref`:
+`clip:roundedRect` (`cut.none`), `mask:dstIn` (`cut.raw`: the feathered subject path in a layer, then the photo with SrcIn,
+equivalent to mask DstIn) and `contour:stroke` (`cut.diecut`: path fill + round-join stroke of 2 × border in the border
+colour, subject on top with a 0.75 px feather). A new cut style reusing a ref is an entry file only. The subject path comes
+from T-61 contours via `subjectPath` (`Skia.Path.MakeFromSVGString`). Tests render with CanvasKit WASM in jest
+(`@shopify/react-native-skia/jestEnv.js`), probe pixels and keep 8×8 golden signatures on the light and dark canvas. A dev
+screen `/cut-lab` previews every cut style, its presets and slider params on a synthetic subject until segmenters exist.
 
 Rules: adding an effect = add entry + shader/asset + tests (golden snapshot); removing = remove entry **and** migrate stored
 references (fallback to `fx.none`) + update this page ([[change-management]]). Device-capability routing hides entries whose
@@ -103,7 +115,7 @@ pose model downloaded on first use (Phase 2, [[ADR-0003-effects-tiers]]). Props 
 ### 3.2 Availability, cost, export, MVP
 | id | iOS | Android (fallback) | GPU live (est.) | Bake (est.) | Still | Loop clip | MVP |
 |---|---|---|---|---|---|---|---|
-| `cut.diecut` | 17+ | ML Kit; no GMS → server cutout | S (baked image) | 30–80 ms contour | ✓ | — | **✓** |
+| `cut.diecut` | 17+ | ML Kit; no GMS → bundled fallback model (prd-mvp AC-7.6) | S (baked image) | 30–80 ms contour | ✓ | — | **✓** |
 | `cut.torn` | 17+ | same as diecut | S (baked) | 40–100 ms | ✓ | — | MVP+ |
 | `fx.holo` | ✓ | ✓ (gyro on all) | M (≤3 live; ambient shimmer on all visible live cards, EM 2026-11-05; T-52 estimate ~1.1 ms GPU/frame for 3 cards on mid-range, low-end tier maxLive 1 + scale 0.75, unmeasured) | — (still = fixed tilt) | ✓ | 2 s tilt sweep, seamless | **✓** |
 | `fx.laser-eyes` | people + cats/dogs (Vision) | people ✓ (ML Kit face); pets → mask heuristic / tap-the-eyes | M | 40 ms | ✓ | 2 s pulse, seamless | **✓** |

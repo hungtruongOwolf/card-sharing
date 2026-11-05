@@ -67,3 +67,24 @@ export function clampNumberParam(spec: ParamSpec, value: number): number {
   const clamped = Math.min(spec.max, Math.max(spec.min, value));
   return spec.type === 'integer' ? Math.round(clamped) : clamped;
 }
+
+/**
+ * Lenient version of {@link resolveParams} for UI state and previews: numbers clamp into range, other invalid or
+ * missing values take their defaults, unknown names are dropped. Never use it to accept data from the network.
+ */
+export function clampParams(entry: EffectEntry, input: unknown): Record<string, ParamValue> {
+  const given =
+    input !== null && typeof input === 'object' && !Array.isArray(input)
+      ? (input as Record<string, unknown>)
+      : {};
+  const params: Record<string, ParamValue> = {};
+  for (const [name, spec] of Object.entries(entry.params)) {
+    const value = given[name];
+    if ((spec.type === 'number' || spec.type === 'integer') && typeof value === 'number') {
+      params[name] = clampNumberParam(spec, value);
+    } else {
+      params[name] = checkValue(spec, value) ? (value as ParamValue) : spec.default;
+    }
+  }
+  return params;
+}
