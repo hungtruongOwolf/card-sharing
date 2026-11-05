@@ -16,7 +16,10 @@ mod token;
 
 pub use age_gate::{AgeGateError, AgeOutcome, AgeSubmission, age_on};
 pub use model::{AccountStatus, RegionSignals, SessionScope, UnknownValue};
-pub use profile::{Profile, ProfileConfigError, ProfileError, ProfileRules, ProfileUpdate};
+pub use profile::{
+    HandleError, HandleRules, Profile, ProfileConfigError, ProfileError, ProfileRules,
+    ProfileUpdate, normalize_handle,
+};
 pub use service::{
     AccessError, AccountSummary, DeviceInfo, IdentityService, IssuedSession, Platform, Provider,
     RefreshError, RevokeReason, SessionPolicy, SessionPrincipal, StoreError, VerifiedIdentity,
