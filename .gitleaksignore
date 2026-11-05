@@ -9,3 +9,6 @@ d45bdc590acd89042bb1e255aa48baeca6c739fe:infra/docker-compose.yml:generic-api-ke
 # .gitleaksignore lines 3 and 5 in commit 4c1855d: earlier comments quoted the two matches above (no secret)
 4c1855d856df0591386f50d26bafcab2428b5797:.gitleaksignore:generic-api-key:3
 4c1855d856df0591386f50d26bafcab2428b5797:.gitleaksignore:generic-api-key:5
+# T-19 test fixtures: a dummy config value in a unit test, and a PEM wrapper around a key generated at test runtime.
+40dddd664eaa30087c2ff713240a73a8f1e705bb:apps/api/src/config.rs:generic-api-key:329
+40dddd664eaa30087c2ff713240a73a8f1e705bb:crates/identity/src/apple.rs:private-key:325
