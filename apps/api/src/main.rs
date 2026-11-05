@@ -12,13 +12,16 @@ use identity::oidc::{IdTokenVerifier, JwksSettings, ProviderSpec, VerifierSettin
 use identity::{IdentityService, ProfileRules, ProviderSignIn, SessionPolicy};
 use platform::clock::{SharedClock, SystemClock};
 use platform::crypto::FieldCipher;
+use platform::idempotency::{IdempotencySettings, IdempotencyStore};
+use platform::jobs::{JobQueue, PeriodicFuture, PeriodicTask, Worker, WorkerSettings};
 use platform::rate_limit::{RateLimitConfig, RateLimiter};
 use platform::text::TextFilter;
 use policy::PolicyService;
 use tokio::net::TcpListener;
 
 /// `api` serves HTTP; `api migrate` applies database migrations and exits (run it from the
-/// deploy pipeline before rolling out a new version).
+/// deploy pipeline before rolling out a new version); `api worker` runs the job worker
+/// (ADR-0006) until SIGTERM.
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let config = Config::from_env().context("invalid configuration")?;
@@ -36,8 +39,12 @@ async fn main() -> anyhow::Result<()> {
             tracing::info!("migrations applied");
             return Ok(());
         }
+        Some("worker") => {
+            run_worker(pool).await;
+            return Ok(());
+        }
         Some(other) => {
-            anyhow::bail!("unknown command {other:?} (expected no argument or `migrate`)")
+            anyhow::bail!("unknown command {other:?} (expected no argument, `migrate` or `worker`)")
         }
     }
 
@@ -99,6 +106,44 @@ async fn main() -> anyhow::Result<()> {
 
     tracing::info!("shut down cleanly");
     Ok(())
+}
+
+/// The worker process role: job lanes plus periodic platform maintenance. Job handlers are
+/// registered here as their modules arrive.
+async fn run_worker(pool: sqlx::PgPool) {
+    let clock: SharedClock = Arc::new(SystemClock);
+    let queue = Arc::new(JobQueue::new(pool.clone(), Arc::clone(&clock)));
+    let idempotency = Arc::new(IdempotencyStore::new(
+        pool,
+        clock,
+        IdempotencySettings::default(),
+    ));
+    let worker = Worker::new(queue, WorkerSettings::default()).periodic(
+        "idempotency.purge",
+        std::time::Duration::from_secs(3600),
+        Arc::new(IdempotencyPurge(idempotency)),
+    );
+    let (stop, stopped) = tokio::sync::watch::channel(false);
+    let signal = tokio::spawn(async move {
+        shutdown_signal().await;
+        let _ = stop.send(true);
+    });
+    worker.run(stopped).await;
+    signal.abort();
+}
+
+/// Deletes Idempotency-Key rows past their 24 h retention.
+struct IdempotencyPurge(Arc<IdempotencyStore>);
+
+impl PeriodicTask for IdempotencyPurge {
+    fn run(&self) -> PeriodicFuture {
+        let store = Arc::clone(&self.0);
+        Box::pin(async move {
+            let purged = store.purge_expired().await.map_err(|e| e.to_string())?;
+            tracing::info!(event = "idempotency.purged", purged);
+            Ok(())
+        })
+    }
 }
 
 /// Apple (T-19) and Google (T-20) sign-in: ID-token verifiers with cached JWKS, plus the Apple

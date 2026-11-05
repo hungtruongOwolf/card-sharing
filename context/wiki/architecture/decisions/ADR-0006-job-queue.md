@@ -2,7 +2,7 @@
 title: ADR-0006 Job queue & domain events (Postgres + outbox)
 type: decision
 status: accepted
-updated: 2026-11-04
+updated: 2026-11-05
 sources: [raw/discussions/2026-11-04-infra-qa.md, raw/discussions/2026-11-04-security-qa.md]
 related: [[overview]], [[data-model]], [[ADR-0005-media-pipeline]], [[ADR-0002-cross-platform-stack]], [[change-management]]
 ---
@@ -40,3 +40,21 @@ jobs (14-day request expiry, 7-day invitation expiry, 7-day grace, 30-day hold e
   (mitigated by NOTIFY + leases); revisit at > 1k jobs/s or if a module needs cross-service streaming.
 - Follow-ups: metrics (depth, oldest age per lane, dead count); runbook for replaying dead jobs; Phase 2 realtime board fan-out
   uses Redis pub/sub for ephemeral broadcast only — durable state stays in Postgres.
+
+## Implementation notes (T-15, 2026-11-05)
+- **In-house**, `crates/platform/src/jobs` (`migrations/20261107000002_platform_jobs.sql`). No crate was adopted: we need
+  same-transaction enqueue on our own schema, global unique keys, fenced leases and the injected clock. The "`JobQueue` trait"
+  of the decision is the concrete `platform::jobs::JobQueue` type plus the free function `enqueue(executor, job, now)` (pass the
+  business transaction); a trait can be extracted if a second backend ever appears.
+- `unique_key` is globally unique while the row exists (done rows are purged after 7 d, dead after 30 d). `max_attempts`
+  defaults to 10. Backoff: 10 s doubling per attempt, capped at 1 h, scaled by jitter to 50–100 %.
+- Claim: `UPDATE … WHERE id = (SELECT … FOR UPDATE SKIP LOCKED)` filtered by lane, `run_at <= now` **and the kinds the worker has
+  handlers for** (a rolling deploy never hands a new kind to an old worker). Completion and failure are fenced by `locked_by`
+  (random per process) + attempt number, so a worker whose lease was taken over cannot overwrite the result.
+- Lease 5 min (handler timeout = lease). Maintenance every 30 s puts expired leases back in the queue (or dead when out of
+  attempts), purges old rows and logs `jobs.stats` gauges per lane (depth, oldest due age, running, dead) until a metrics backend
+  exists. A dead letter logs `event = "job.dead"` at error level (alert source). A handler panic fails the attempt.
+- Wake-up: an `AFTER INSERT` trigger sends `NOTIFY platform_jobs, '<lane>'` (delivered on commit); workers `LISTEN` through
+  `sqlx::postgres::PgListener` and also poll every 5 s.
+- Process role: `api worker` (same binary). Slots per lane: critical 4, default 2, bulk 1 (`WorkerSettings`). Periodic tasks
+  register with `Worker::periodic` (today: the hourly Idempotency-Key purge).
