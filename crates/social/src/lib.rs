@@ -8,6 +8,7 @@ mod graph;
 mod invites;
 mod janitor;
 mod requests;
+mod search;
 mod service;
 mod settings;
 
@@ -17,5 +18,6 @@ pub use janitor::{JanitorReport, SocialJanitor};
 pub use requests::{
     AnswerError, Direction, FriendSummary, RequestError, RequestHint, RequestItem, SentRequest,
 };
+pub use search::SearchHit;
 pub use service::SocialService;
 pub use settings::{SocialConfigError, SocialSettings};

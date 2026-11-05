@@ -18,10 +18,26 @@ use crate::error::{InviteError, SocialError};
 use crate::graph::{
     are_friends, blocked_either_way, friend_count, lock_pair, mutual_friend_count, ordered,
 };
+use crate::invites::ResolvedInvite;
 use crate::service::SocialService;
 
 /// Statuses that look pending to the sender (declines and drops are silent).
 pub(crate) const OPEN_STATUSES: &[&str] = &["pending", "declined", "dropped"];
+
+/// Where a request came from.
+enum Source {
+    Invite(ResolvedInvite),
+    Search,
+}
+
+impl Source {
+    fn as_str(&self) -> &'static str {
+        match self {
+            Self::Invite(_) => "invite",
+            Self::Search => "search",
+        }
+    }
+}
 
 /// What the sender learns about a request it sent: always "pending" until it expires.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -39,6 +55,9 @@ pub enum RequestError {
     /// The caller's own invite.
     #[error("cannot send a friend request to yourself")]
     SelfRequest,
+    /// The search ref is not valid for this caller (foreign, forged or expired).
+    #[error("search ref not found")]
+    RefNotFound,
     #[error("already friends")]
     AlreadyFriends,
     /// Either side is at the friend cap (AC-5.2).
@@ -125,10 +144,36 @@ impl SocialService {
         invite_token: &str,
     ) -> Result<SentRequest, RequestError> {
         let invite = self.resolve_invite(invite_token).await?;
-        let to = invite.owner_id;
-        if to == from {
+        if invite.owner_id == from {
             return Err(RequestError::SelfRequest);
         }
+        self.create_request(from, invite.owner_id, Source::Invite(invite), false)
+            .await
+    }
+
+    /// Sends a friend request to the account behind a search `ref` minted for `from`. A ref that
+    /// is foreign, forged or expired is `RefNotFound`; a target that became hidden since the
+    /// search (findable off, block, age) gets the same 201 and the request is dropped.
+    pub async fn request_from_search(
+        &self,
+        from: Uuid,
+        search_ref: &str,
+    ) -> Result<SentRequest, RequestError> {
+        let to = self
+            .open_ref(from, search_ref)
+            .ok_or(RequestError::RefNotFound)?;
+        let visible = self.target_still_findable(from, to).await?;
+        self.create_request(from, to, Source::Search, !visible)
+            .await
+    }
+
+    async fn create_request(
+        &self,
+        from: Uuid,
+        to: Uuid,
+        source: Source,
+        hidden: bool,
+    ) -> Result<SentRequest, RequestError> {
         let now = self.clock.now();
         let mut tx = self.pool.begin().await?;
         lock_pair(&mut tx, from, to).await?;
@@ -155,7 +200,7 @@ impl SocialService {
         // Sender-side limits come first and apply whatever the target: a blocked target must not
         // be distinguishable by a cap that suddenly stops applying.
         self.check_sender_limits(&mut tx, from, now).await?;
-        let blocked = blocked_either_way(&mut tx, from, to).await?;
+        let blocked = hidden || blocked_either_way(&mut tx, from, to).await?;
         if !blocked {
             if are_friends(&mut tx, from, to).await? {
                 return Err(RequestError::AlreadyFriends);
@@ -164,17 +209,19 @@ impl SocialService {
                 return Err(RequestError::FriendLimit);
             }
         }
-        // Counted inside this transaction, so concurrent requests cannot pass a minor's cap.
-        let consumed = sqlx::query(
-            "UPDATE social.invites SET use_count = use_count + 1
-             WHERE id = $1 AND revoked_at IS NULL AND ($2::INT IS NULL OR use_count < $2)",
-        )
-        .bind(invite.invite_id)
-        .bind(invite.max_uses)
-        .execute(&mut *tx)
-        .await?;
-        if consumed.rows_affected() == 0 {
-            return Err(RequestError::InviteExpired);
+        if let Source::Invite(invite) = &source {
+            // Counted inside this transaction, so concurrent requests cannot pass a minor's cap.
+            let consumed = sqlx::query(
+                "UPDATE social.invites SET use_count = use_count + 1
+                 WHERE id = $1 AND revoked_at IS NULL AND ($2::INT IS NULL OR use_count < $2)",
+            )
+            .bind(invite.invite_id)
+            .bind(invite.max_uses)
+            .execute(&mut *tx)
+            .await?;
+            if consumed.rows_affected() == 0 {
+                return Err(RequestError::InviteExpired);
+            }
         }
 
         let id = Uuid::now_v7();
@@ -182,11 +229,12 @@ impl SocialService {
         let status = if blocked { "dropped" } else { "pending" };
         sqlx::query(
             "INSERT INTO social.friend_requests (id, from_user, to_user, source, status, created_at, expires_at)
-             VALUES ($1, $2, $3, 'invite', $4, $5, $6)",
+             VALUES ($1, $2, $3, $4, $5, $6, $7)",
         )
         .bind(id)
         .bind(from)
         .bind(to)
+        .bind(source.as_str())
         .bind(status)
         .bind(now)
         .bind(expires_at)

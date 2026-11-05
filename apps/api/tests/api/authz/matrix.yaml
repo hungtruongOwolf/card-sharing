@@ -149,3 +149,9 @@ routes:
     path: /v1/friend-requests/0192f0c1-7c1e-7a3b-9d2e-123456789abc
     missing_path: /v1/friend-requests/0192f0c1-7c1e-7a3b-9d2e-000000000000
     expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }
+
+  # Handle search (T-43). Every outcome is a 200; hidden accounts, refs and timing are in
+  # tests/api/user_search.rs.
+  - route: POST /v1/users/search
+    body: { handle: $HANDLE }
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 200, suspended: 403 }

@@ -691,7 +691,7 @@
         "tags": [
           "social"
         ],
-        "summary": "Send a friend request to the owner of an invite. Auth: ses + att; `Idempotency-Key` required.",
+        "summary": "Send a friend request to the owner of an invite or to a handle-search result. Auth: ses + att;\n`Idempotency-Key` required.",
         "description": "The inviter must accept before a friendship exists. A request between accounts with a block\n(either way) gets the same 201 and is never delivered. Repeating a request returns the open\none.",
         "operationId": "createFriendRequest",
         "requestBody": {
@@ -746,7 +746,7 @@
             }
           },
           "404": {
-            "description": "NOT_FOUND or INVITE_EXPIRED.",
+            "description": "NOT_FOUND (unknown invite; foreign, forged or expired search ref) or INVITE_EXPIRED.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2021,6 +2021,100 @@
           "versionGate": true
         }
       }
+    },
+    "/v1/users/search": {
+      "post": {
+        "tags": [
+          "social"
+        ],
+        "summary": "Find a friend by exact handle. Auth: ses + att.",
+        "description": "At most one result, only on an exact case-insensitive match. Accounts under the region's\ndiscovery age, accounts that turned \"Findable by handle\" off, blocks either way and your own\nhandle all answer exactly like a handle nobody has (same body, same latency class). Limited\nper account (10/min, 30/day), per device and per IP; over a limit the answer is a generic\n\"try later\" (429).",
+        "operationId": "searchUsers",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "`{result: null}` or the one account found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED (body shape only; any string is searched).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE, ACCOUNT_SUSPENDED or ATTESTATION_FAILED (enforce mode).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED (try later).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "TEMPORARILY_UNAVAILABLE (rate limit store down; fails closed).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": true,
+          "auth": "ses",
+          "rateLimit": "users.search",
+          "role": "user",
+          "versionGate": true
+        }
+      }
     }
   },
   "components": {
@@ -2350,14 +2444,21 @@
       },
       "CreateFriendRequest": {
         "type": "object",
-        "description": "Body of `POST /v1/friend-requests`.",
-        "required": [
-          "invite_token"
-        ],
+        "description": "Body of `POST /v1/friend-requests`: exactly one of `invite_token` and `search_ref`.",
         "properties": {
           "invite_token": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Token of the invite the caller opened."
+          },
+          "search_ref": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`ref` of a handle-search result the caller got (10 minutes, caller only)."
           }
         },
         "additionalProperties": false
@@ -2869,6 +2970,55 @@
               "$ref": "#/components/schemas/RequestItemView"
             },
             "description": "Newest first, at most 100."
+          }
+        }
+      },
+      "SearchRequest": {
+        "type": "object",
+        "description": "Body of `POST /v1/users/search`.",
+        "required": [
+          "handle"
+        ],
+        "properties": {
+          "handle": {
+            "type": "string",
+            "description": "The exact handle, case-insensitive, with or without a leading `@`. Partial input never\nmatches anything.",
+            "example": "@mai.cat"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SearchResponse": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SearchResultView",
+                "description": "`null` = \"No one found\": the same for a missing handle and for any hidden account."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "SearchResultView": {
+        "type": "object",
+        "description": "The one account found.",
+        "required": [
+          "ref",
+          "display_name"
+        ],
+        "properties": {
+          "display_name": {
+            "type": "string",
+            "example": "Mai"
+          },
+          "ref": {
+            "type": "string",
+            "description": "Pass as `search_ref` to `POST /v1/friend-requests` within 10 minutes. Opaque, and only valid\nfor the account that searched."
           }
         }
       },

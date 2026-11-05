@@ -35,6 +35,10 @@ pub struct AccessState {
     pub attestation_mode: AttestationMode,
 }
 
+/// The client IP of the current request as the access layer saw it (`None` when unknown).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ClientIp(pub Option<IpAddr>);
+
 /// Where the client IP comes from. Only trust a header that the edge proxy always overwrites.
 #[derive(Debug, Clone, Default)]
 pub enum ClientIpSource {
@@ -108,6 +112,9 @@ pub async fn enforce(
     if let Err(err) = authorize(&policy, principal.as_ref()) {
         return err.into_response();
     }
+    // Handlers that apply extra per-IP limits read it (same source as the route limit).
+    let client_ip = ClientIp(access.client_ip.client_ip(&request));
+    request.extensions_mut().insert(client_ip);
     if let Some(limit) = policy.rate_limit {
         let subject = Subject {
             account: principal.as_ref().map(|p| AccountSubject {

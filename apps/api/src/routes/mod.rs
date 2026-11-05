@@ -7,3 +7,4 @@ pub mod health;
 pub mod invites;
 pub mod me;
 pub mod sessions;
+pub mod user_search;
