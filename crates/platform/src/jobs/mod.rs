@@ -428,7 +428,7 @@ mod tests {
 
     #[test]
     fn backoff_doubles_with_jitter_and_caps() {
-        assert_eq!(backoff(1, 1.0 - f64::EPSILON).whole_seconds(), 9);
+        assert_eq!(backoff(1, 0.9), Duration::seconds_f64(9.5));
         assert_eq!(backoff(1, 0.0), Duration::seconds(5));
         assert_eq!(backoff(2, 0.0), Duration::seconds(10));
         assert_eq!(backoff(3, 0.0), Duration::seconds(20));
