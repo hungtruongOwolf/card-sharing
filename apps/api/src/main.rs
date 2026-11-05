@@ -1,6 +1,11 @@
+use std::net::SocketAddr;
+use std::sync::Arc;
+
 use anyhow::Context;
 use api::config::Config;
 use api::state::AppState;
+use platform::clock::{SharedClock, SystemClock};
+use platform::rate_limit::{RateLimitConfig, RateLimiter};
 use policy::PolicyService;
 use tokio::net::TcpListener;
 
@@ -16,7 +21,18 @@ async fn main() -> anyhow::Result<()> {
         "region policy config loaded"
     );
 
-    let app = api::app(AppState::new(policy), &config);
+    let limits = RateLimitConfig::from_path(&config.limits_config_path)
+        .context("failed to load rate limit config")?;
+    let (_, _, route_policies) = api::openapi::router().finish();
+    limits
+        .ensure_defined(route_policies.rate_limits())
+        .context("rate limit config does not cover every route")?;
+    let redis = platform::cache::connect_lazy(&config.redis_url).context("invalid REDIS_URL")?;
+    let clock: SharedClock = Arc::new(SystemClock);
+    let limiter = RateLimiter::with_redis(limits, redis, clock);
+
+    let app = api::app(AppState::new(policy, limiter), &config)
+        .into_make_service_with_connect_info::<SocketAddr>();
     let listener = TcpListener::bind(config.bind_addr)
         .await
         .with_context(|| format!("failed to bind {}", config.bind_addr))?;

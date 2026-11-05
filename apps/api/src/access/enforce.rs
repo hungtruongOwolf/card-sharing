@@ -1,12 +1,14 @@
 //! Enforcement middleware: runs on every matched route (installed with `route_layer`).
 
+use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 
-use axum::extract::{MatchedPath, Request, State};
+use axum::extract::{ConnectInfo, MatchedPath, Request, State};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
-use http::{HeaderMap, header};
+use http::{HeaderMap, HeaderName, header};
 use platform::problem::ApiError;
+use platform::rate_limit::{AccountSubject, Decision, RateLimiter, Subject};
 
 use super::caller::SessionResolver;
 use super::policy::{PolicyTable, authorize};
@@ -16,6 +18,34 @@ use super::policy::{PolicyTable, authorize};
 pub struct AccessState {
     pub policies: Arc<PolicyTable>,
     pub sessions: Arc<dyn SessionResolver>,
+    pub limiter: Arc<RateLimiter>,
+    pub client_ip: ClientIpSource,
+}
+
+/// Where the client IP comes from. Only trust a header that the edge proxy always overwrites.
+#[derive(Debug, Clone, Default)]
+pub enum ClientIpSource {
+    /// The TCP peer address (`ConnectInfo`). Correct when nothing proxies the API.
+    #[default]
+    Peer,
+    /// A header set by the trusted edge proxy, e.g. `fly-client-ip`.
+    Header(HeaderName),
+}
+
+impl ClientIpSource {
+    pub fn client_ip(&self, request: &Request) -> Option<IpAddr> {
+        match self {
+            Self::Peer => request
+                .extensions()
+                .get::<ConnectInfo<SocketAddr>>()
+                .map(|info| info.0.ip()),
+            Self::Header(name) => request
+                .headers()
+                .get(name)
+                .and_then(|value| value.to_str().ok())
+                .and_then(|value| value.trim().parse().ok()),
+        }
+    }
 }
 
 /// Looks up the route policy, authenticates the caller when the policy needs it, authorizes,
@@ -59,10 +89,37 @@ pub async fn enforce(
     if let Err(err) = authorize(&policy, principal.as_ref()) {
         return err.into_response();
     }
+    if let Some(limit) = policy.rate_limit {
+        let subject = Subject {
+            account: principal.as_ref().map(|p| AccountSubject {
+                id: p.account_id,
+                created_at: p.account_created_at,
+            }),
+            device: principal.as_ref().and_then(|p| p.device_id),
+            ip: access.client_ip.client_ip(&request),
+        };
+        if let Err(err) = rate_limit(&access.limiter, limit, &subject).await {
+            return err.into_response();
+        }
+    }
     if let Some(principal) = principal {
         request.extensions_mut().insert(principal);
     }
     next.run(request).await
+}
+
+async fn rate_limit(limiter: &RateLimiter, limit: &str, subject: &Subject) -> Result<(), ApiError> {
+    match limiter.check(limit, subject).await {
+        Ok(Decision::Allowed) => Ok(()),
+        Ok(Decision::Limited { retry_after_secs }) => {
+            Err(ApiError::RateLimited { retry_after_secs })
+        }
+        Ok(Decision::Unavailable) => Err(ApiError::Unavailable {
+            retry_after_secs: 5,
+        }),
+        // Startup validates every name, so this is a bug: fail closed.
+        Err(err) => Err(ApiError::internal(err)),
+    }
 }
 
 /// `None` when no `Authorization` header is present; an error for a malformed header.

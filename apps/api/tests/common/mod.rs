@@ -1,6 +1,7 @@
 //! Shared helpers for the API integration tests.
 #![allow(dead_code, clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
+use std::sync::Arc;
 use std::time::Duration;
 
 use api::config::{Config, LogFormat};
@@ -8,11 +9,15 @@ use axum::Router;
 use axum::body::{Body, Bytes};
 use http::{Request, Response, StatusCode};
 use http_body_util::BodyExt;
+use platform::clock::SystemClock;
+use platform::config::Secret;
+use platform::rate_limit::{RateLimitConfig, RateLimiter};
 use policy::PolicyService;
 use serde_json::Value;
 use tower::ServiceExt;
 
 pub const POLICY_YAML: &str = include_str!("../../../../config/policy/regions.yaml");
+pub const LIMITS_YAML: &str = include_str!("../../../../config/limits.yaml");
 
 pub fn test_config() -> Config {
     Config {
@@ -22,6 +27,34 @@ pub fn test_config() -> Config {
         body_limit_bytes: 64 * 1024,
         policy_config_path: "unused-in-tests".into(),
         log_format: LogFormat::Json,
+        redis_url: Secret::new("redis://127.0.0.1:1/0"),
+        limits_config_path: "unused-in-tests".into(),
+        client_ip_header: None,
+    }
+}
+
+pub fn limits_config() -> RateLimitConfig {
+    RateLimitConfig::from_yaml_str(LIMITS_YAML).unwrap()
+}
+
+/// Limiter backed by per-process memory (no Redis needed).
+pub fn memory_limiter() -> RateLimiter {
+    RateLimiter::in_memory(limits_config(), Arc::new(SystemClock))
+}
+
+/// Integration-test service URL from the environment. Missing → `None` (test skipped), unless
+/// `REQUIRE_INTEGRATION_TESTS=1` (set in CI), where a missing URL fails the test.
+pub fn service_url(key: &str) -> Option<String> {
+    match std::env::var(key) {
+        Ok(url) if !url.trim().is_empty() => Some(url),
+        _ => {
+            assert!(
+                std::env::var("REQUIRE_INTEGRATION_TESTS").as_deref() != Ok("1"),
+                "{key} must be set when REQUIRE_INTEGRATION_TESTS=1"
+            );
+            eprintln!("skipping: {key} not set (see context/wiki/engineering/testing-strategy.md)");
+            None
+        }
     }
 }
 

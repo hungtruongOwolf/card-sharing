@@ -30,6 +30,12 @@ Request DTOs use `deny_unknown_fields`; any body problem is 400 `VALIDATION_FAIL
 content type). Authenticated routes reject before the body is parsed. `onb`-only routes called with a full session → 403 `FORBIDDEN`.
 
 Rate limits are config (`limits.*`); `u`=per user, `d`=per device, `ip`=per IP. 429 carries `Retry-After`.
+Implemented (T-13): limits live in `config/limits.yaml`, one named limit per route policy (`RoutePolicy::limited("auth.signin")`,
+published as `x-policy.rateLimit`); startup fails if a route names a missing limit. Token buckets in Redis/Valkey (Lua, atomic);
+scope `user` keys by account, falling back to device then client IP; `new_account_requests` applies for accounts younger than
+`new_account.days` (7); optional `global` bucket = circuit breaker. Redis down: `on_store_failure: closed` limits (auth, search)
+return 503 `TEMPORARILY_UNAVAILABLE` + `Retry-After`; `open` limits fall back to a per-instance memory bucket. Client IP = TCP peer,
+or the header named by `API_CLIENT_IP_HEADER` (e.g. `fly-client-ip`) when a trusted proxy sets it.
 
 ## Endpoints
 ### Identity & onboarding

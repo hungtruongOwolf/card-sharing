@@ -68,6 +68,9 @@ pub enum ApiError {
     MethodNotAllowed,
     #[error("request timed out")]
     RequestTimeout,
+    /// The caller exhausted a rate limit.
+    #[error("rate limited")]
+    RateLimited { retry_after_secs: u64 },
     /// A dependency is down and the route fails closed.
     #[error("temporarily unavailable")]
     Unavailable { retry_after_secs: u64 },
@@ -93,6 +96,7 @@ impl ApiError {
             Self::NotFound => StatusCode::NOT_FOUND,
             Self::MethodNotAllowed => StatusCode::METHOD_NOT_ALLOWED,
             Self::RequestTimeout => StatusCode::REQUEST_TIMEOUT,
+            Self::RateLimited { .. } => StatusCode::TOO_MANY_REQUESTS,
             Self::Unavailable { .. } => StatusCode::SERVICE_UNAVAILABLE,
             Self::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
@@ -111,6 +115,7 @@ impl ApiError {
             Self::NotFound => "NOT_FOUND",
             Self::MethodNotAllowed => "METHOD_NOT_ALLOWED",
             Self::RequestTimeout => "REQUEST_TIMEOUT",
+            Self::RateLimited { .. } => "RATE_LIMITED",
             Self::Unavailable { .. } => "TEMPORARILY_UNAVAILABLE",
             Self::Internal(_) => "INTERNAL",
         }
@@ -118,7 +123,9 @@ impl ApiError {
 
     fn retry_after_secs(&self) -> Option<u64> {
         match self {
-            Self::Unavailable { retry_after_secs } => Some(*retry_after_secs),
+            Self::RateLimited { retry_after_secs } | Self::Unavailable { retry_after_secs } => {
+                Some(*retry_after_secs)
+            }
             _ => None,
         }
     }
@@ -193,6 +200,9 @@ mod tests {
             ApiError::OnboardingIncomplete,
             ApiError::AccountSuspended,
             ApiError::Unavailable {
+                retry_after_secs: 1,
+            },
+            ApiError::RateLimited {
                 retry_after_secs: 1,
             },
             ApiError::NotFound,

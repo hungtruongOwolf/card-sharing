@@ -16,6 +16,7 @@ use tower::ServiceExt;
 
 const ALLOWED_ORIGIN: &str = "https://app.example.test";
 const POLICY_YAML: &str = include_str!("../../../config/policy/regions.yaml");
+const LIMITS_YAML: &str = include_str!("../../../config/limits.yaml");
 
 fn test_config() -> Config {
     Config {
@@ -25,12 +26,20 @@ fn test_config() -> Config {
         body_limit_bytes: 1024,
         policy_config_path: "unused-in-tests".into(),
         log_format: LogFormat::Json,
+        redis_url: platform::config::Secret::new("redis://127.0.0.1:1/0"),
+        limits_config_path: "unused-in-tests".into(),
+        client_ip_header: None,
     }
 }
 
 fn app() -> Router {
     let policy = PolicyService::from_yaml_str(POLICY_YAML).unwrap();
-    api::app(AppState::new(policy), &test_config())
+    let limits = platform::rate_limit::RateLimitConfig::from_yaml_str(LIMITS_YAML).unwrap();
+    let limiter = platform::rate_limit::RateLimiter::in_memory(
+        limits,
+        std::sync::Arc::new(platform::clock::SystemClock),
+    );
+    api::app(AppState::new(policy, limiter), &test_config())
 }
 
 async fn send(router: Router, request: Request<Body>) -> Response<Body> {

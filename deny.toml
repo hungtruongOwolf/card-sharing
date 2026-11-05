@@ -21,6 +21,9 @@ allow = [
   "Unicode-3.0",
   "Zlib",
 ]
+# Narrow, reviewed exceptions. BSL-1.0 (Boost) is OSI-approved and permissive (no attribution needed
+# in binaries); xxhash-rust is a mandatory dependency of the redis client (T-13).
+exceptions = [{ crate = "xxhash-rust", allow = ["BSL-1.0"] }]
 
 [licenses.private]
 # Our own crates are `publish = false` and UNLICENSED.

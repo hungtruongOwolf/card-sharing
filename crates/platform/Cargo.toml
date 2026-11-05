@@ -10,7 +10,11 @@ license.workspace = true
 [dependencies]
 axum.workspace = true
 http.workspace = true
+redis.workspace = true
+# Selects the ring crypto provider for redis' rustls (rediss:// URLs).
+rustls.workspace = true
 serde.workspace = true
+serde_norway.workspace = true
 thiserror.workspace = true
 time.workspace = true
 tokio.workspace = true

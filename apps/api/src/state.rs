@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use platform::rate_limit::RateLimiter;
 use policy::PolicyService;
 
 use crate::access::{DenyAllResolver, SessionResolver};
@@ -11,14 +12,16 @@ pub struct AppState {
     pub policy: Arc<PolicyService>,
     /// Resolves bearer tokens for the access-policy gate.
     pub sessions: Arc<dyn SessionResolver>,
+    pub limiter: Arc<RateLimiter>,
 }
 
 impl AppState {
     /// State with no session store: every bearer token is rejected.
-    pub fn new(policy: PolicyService) -> Self {
+    pub fn new(policy: PolicyService, limiter: RateLimiter) -> Self {
         Self {
             policy: Arc::new(policy),
             sessions: Arc::new(DenyAllResolver),
+            limiter: Arc::new(limiter),
         }
     }
 

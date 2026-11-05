@@ -35,6 +35,7 @@
         "x-policy": {
           "attestation": false,
           "auth": "none",
+          "rateLimit": null,
           "role": "guest"
         }
       }
@@ -64,6 +65,7 @@
         "x-policy": {
           "attestation": false,
           "auth": "none",
+          "rateLimit": null,
           "role": "guest"
         }
       }

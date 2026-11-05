@@ -14,7 +14,7 @@ mod router;
 pub use caller::{
     Caller, DenyAllResolver, Principal, ResolveError, ResolveFuture, SessionResolver,
 };
-pub use enforce::{AccessState, enforce};
+pub use enforce::{AccessState, ClientIpSource, enforce};
 pub use json::ValidJson;
 pub use policy::{AuthKind, PolicyTable, Role, RoutePolicy, authorize};
 pub use router::{ApiRouter, documented_operations};
