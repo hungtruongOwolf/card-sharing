@@ -123,6 +123,8 @@ pub async fn signed_in_again(env: &TestEnv, user: &User) -> User {
         token: session.access_token.expose().to_owned(),
         ..user.clone()
     }
+}
+
 /// The caller's invite token (creates the invite).
 pub async fn invite_token(env: &TestEnv, user: &User) -> String {
     let response = call(env, "GET", "/v1/me/invite", user, None).await;
