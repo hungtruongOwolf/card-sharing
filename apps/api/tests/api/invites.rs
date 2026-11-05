@@ -166,7 +166,8 @@ async fn a_minors_invite_expires_after_seven_days() {
         env.state.social.resolve_invite(&token).await,
         Err(InviteError::Expired)
     ));
-    // The owner gets a fresh link instead of the dead one.
+    // The owner gets a fresh link instead of the dead one (new session: a week has passed).
+    let teen = signed_in_again(&env, &teen).await;
     let fresh = token_of(&invite_url(&env, &teen, "GET", "/v1/me/invite").await);
     assert_ne!(fresh, token);
     assert!(env.state.social.resolve_invite(&fresh).await.is_ok());

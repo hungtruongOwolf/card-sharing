@@ -114,3 +114,13 @@ pub async fn call(
 pub fn token_of(url: &str) -> String {
     url.rsplit('/').next().unwrap().to_owned()
 }
+
+/// The same account with a new session at the current (manual) clock time, after the clock moved
+/// past the access-token lifetime.
+pub async fn signed_in_again(env: &TestEnv, user: &User) -> User {
+    let session = env.identity.start_session(user.id, None).await.unwrap();
+    User {
+        token: session.access_token.expose().to_owned(),
+        ..user.clone()
+    }
+}
