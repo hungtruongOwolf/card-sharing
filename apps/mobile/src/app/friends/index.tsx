@@ -10,6 +10,7 @@ export default function FriendsRoute() {
     <FriendsScreen
       api={api}
       onOpenRequests={() => router.push('/friends/requests')}
+      onOpenInvite={() => router.push('/friends/invite')}
       onBack={() => (router.canGoBack() ? router.back() : router.replace('/'))}
     />
   );
