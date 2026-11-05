@@ -364,6 +364,19 @@ export const en = {
   'privacy.unblock': 'Unblock',
   'privacy.unblock.a11y': 'Unblock {name}',
   'privacy.unblocked': '{name} unblocked',
+  'friends.find.open': 'Find by handle',
+  'find.title': 'Find a friend',
+  'find.intro': 'Type their exact handle. Only people who allow it can be found.',
+  'find.field.label': 'Handle',
+  'find.field.placeholder': '@mai.cat',
+  'find.field.format': 'Handles are 3–20 letters, numbers, dots or underscores.',
+  'find.search': 'Search',
+  'find.none': 'No one found. Check the handle, or share your invite link instead.',
+  'find.send': 'Send friend request',
+  'find.send.a11y': 'Send a friend request to {name}',
+  'find.sent': 'Request sent. You’ll be friends once {name} accepts.',
+  'find.error.tryLater': 'Too many searches. Please try again later.',
+  'find.error.expired': 'This search result expired. Search again.',
 } as const;
 
 export type MessageKey = keyof typeof en;

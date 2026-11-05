@@ -11,6 +11,7 @@ export default function FriendsRoute() {
       api={api}
       onOpenRequests={() => router.push('/friends/requests')}
       onOpenInvite={() => router.push('/friends/invite')}
+      onOpenFind={() => router.push('/friends/find')}
       onBack={() => (router.canGoBack() ? router.back() : router.replace('/'))}
     />
   );

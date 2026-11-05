@@ -23,6 +23,7 @@ async function setup(scheme: 'light' | 'dark' = 'light', extra?: (s: FakeSocialS
         api={api}
         onOpenRequests={() => undefined}
         onOpenInvite={() => undefined}
+        onOpenFind={() => undefined}
         onBack={() => undefined}
       />
     ),
@@ -103,6 +104,7 @@ describe('FriendsScreen', () => {
           api={api}
           onOpenRequests={() => undefined}
           onOpenInvite={() => undefined}
+          onOpenFind={() => undefined}
           onBack={() => undefined}
         />
       ),
