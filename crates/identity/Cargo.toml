@@ -7,13 +7,28 @@ rust-version.workspace = true
 publish.workspace = true
 license.workspace = true
 
+[features]
+# Test helpers for other crates' tests: locally generated RSA keys, ID-token minting and a mock
+# JWKS HTTP server. Never enabled in production builds.
+test-support = ["dep:num-bigint", "dep:axum"]
+
 [dependencies]
 platform.workspace = true
 policy.workspace = true
 
 base64.workspace = true
+bytes.workspace = true
+form_urlencoded.workspace = true
 getrandom.workspace = true
+http.workspace = true
+http-body-util.workspace = true
+hyper-rustls.workspace = true
+hyper-util.workspace = true
+jsonwebtoken.workspace = true
 redis.workspace = true
+ring.workspace = true
+rustls.workspace = true
+rustls-native-certs.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
@@ -22,6 +37,15 @@ thiserror.workspace = true
 time.workspace = true
 tracing.workspace = true
 uuid.workspace = true
+
+axum = { workspace = true, optional = true }
+num-bigint = { workspace = true, optional = true }
+tokio = { workspace = true, features = ["sync", "time"] }
+
+[dev-dependencies]
+# Same as the `test-support` feature, for this crate's own unit tests.
+axum = { workspace = true, features = ["form"] }
+num-bigint.workspace = true
 
 [lints]
 workspace = true

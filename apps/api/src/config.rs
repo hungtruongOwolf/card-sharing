@@ -49,6 +49,25 @@ pub struct Config {
     pub ip_country_header: Option<HeaderName>,
     /// `API_CLIENT_CONFIG_PATH` — default `config/client.yaml`.
     pub client_config_path: PathBuf,
+    /// `API_APPLE_CLIENT_IDS` — comma-separated `aud` values accepted in Apple ID tokens (the iOS
+    /// bundle id; a Services ID if web sign-in is ever added). Empty (default) = Apple sign-in
+    /// answers 503.
+    pub apple_client_ids: Vec<String>,
+    /// `API_AUTH_CLOCK_SKEW_SECS` — tolerance for ID-token `exp` / `nbf` / `iat`. Default 60,
+    /// allowed 0..=300.
+    pub auth_clock_skew: Duration,
+    /// `API_APPLE_TEAM_ID` + `API_APPLE_KEY_ID` + `API_APPLE_PRIVATE_KEY` (the `.p8` key, PEM;
+    /// secret) — all three or none. Used to exchange Apple authorization codes for refresh
+    /// tokens (revoked on account deletion). Unset = exchange skipped.
+    pub apple_signing: Option<AppleSigningConfig>,
+}
+
+/// The team's Sign in with Apple key (see [`Config::apple_signing`]).
+#[derive(Debug, Clone)]
+pub struct AppleSigningConfig {
+    pub team_id: String,
+    pub key_id: String,
+    pub private_key: Secret,
 }
 
 const MAX_BODY_LIMIT_BYTES: usize = 64 * 1024 * 1024;
@@ -106,6 +125,9 @@ impl Config {
         let client_config_path = env
             .optional("API_CLIENT_CONFIG_PATH")
             .map_or_else(|| PathBuf::from("config/client.yaml"), PathBuf::from);
+        let apple_client_ids = client_ids(env, "API_APPLE_CLIENT_IDS")?;
+        let auth_clock_skew_secs = env.in_range("API_AUTH_CLOCK_SKEW_SECS", 60, 0..=300)?;
+        let apple_signing = apple_signing(env)?;
 
         Ok(Self {
             bind_addr,
@@ -122,7 +144,51 @@ impl Config {
             client_ip_header,
             ip_country_header,
             client_config_path,
+            apple_client_ids,
+            auth_clock_skew: Duration::from_secs(auth_clock_skew_secs),
+            apple_signing,
         })
+    }
+}
+
+/// Comma-separated OAuth client ids: non-empty, no whitespace, at most 255 characters each.
+fn client_ids<F: Fn(&str) -> Option<String>>(
+    env: &Env<F>,
+    key: &'static str,
+) -> Result<Vec<String>, ConfigError> {
+    let Some(raw) = env.optional(key) else {
+        return Ok(Vec::new());
+    };
+    raw.split(',')
+        .map(str::trim)
+        .filter(|id| !id.is_empty())
+        .map(|id| {
+            if id.len() > 255 || id.contains(char::is_whitespace) {
+                Err(invalid(key, format!("{id:?} is not a client id")))
+            } else {
+                Ok(id.to_owned())
+            }
+        })
+        .collect()
+}
+
+fn apple_signing<F: Fn(&str) -> Option<String>>(
+    env: &Env<F>,
+) -> Result<Option<AppleSigningConfig>, ConfigError> {
+    let team_id = env.optional("API_APPLE_TEAM_ID");
+    let key_id = env.optional("API_APPLE_KEY_ID");
+    let private_key = env.optional("API_APPLE_PRIVATE_KEY");
+    match (team_id, key_id, private_key) {
+        (None, None, None) => Ok(None),
+        (Some(team_id), Some(key_id), Some(private_key)) => Ok(Some(AppleSigningConfig {
+            team_id,
+            key_id,
+            private_key: Secret::new(private_key),
+        })),
+        _ => Err(invalid(
+            "API_APPLE_PRIVATE_KEY",
+            "API_APPLE_TEAM_ID, API_APPLE_KEY_ID and API_APPLE_PRIVATE_KEY must be set together",
+        )),
     }
 }
 
@@ -227,6 +293,44 @@ mod tests {
         let config = load(&[("API_CLIENT_IP_HEADER", "Fly-Client-IP")]).unwrap();
         assert_eq!(config.client_ip_header.unwrap().as_str(), "fly-client-ip");
         assert!(load(&[("API_CLIENT_IP_HEADER", "bad header")]).is_err());
+    }
+
+    #[test]
+    fn sign_in_settings_default_to_disabled_and_validate() {
+        let config = load(&[]).unwrap();
+        assert!(config.apple_client_ids.is_empty());
+        assert!(config.apple_signing.is_none());
+        assert_eq!(config.auth_clock_skew, Duration::from_secs(60));
+
+        let config = load(&[
+            (
+                "API_APPLE_CLIENT_IDS",
+                "app.cardsharing.ios, app.cardsharing.web",
+            ),
+            ("API_AUTH_CLOCK_SKEW_SECS", "30"),
+        ])
+        .unwrap();
+        assert_eq!(
+            config.apple_client_ids,
+            ["app.cardsharing.ios", "app.cardsharing.web"]
+        );
+        assert_eq!(config.auth_clock_skew, Duration::from_secs(30));
+
+        assert!(load(&[("API_AUTH_CLOCK_SKEW_SECS", "301")]).is_err());
+        assert!(load(&[("API_APPLE_CLIENT_IDS", "has space")]).is_err());
+    }
+
+    #[test]
+    fn apple_signing_needs_all_three_values_and_hides_the_key() {
+        assert!(load(&[("API_APPLE_TEAM_ID", "TEAM")]).is_err());
+        let config = load(&[
+            ("API_APPLE_TEAM_ID", "TEAM"),
+            ("API_APPLE_KEY_ID", "KEY"),
+            ("API_APPLE_PRIVATE_KEY", "hunter2-private-key"),
+        ])
+        .unwrap();
+        assert_eq!(config.apple_signing.as_ref().unwrap().team_id, "TEAM");
+        assert!(!format!("{config:?}").contains("hunter2"));
     }
 
     #[test]

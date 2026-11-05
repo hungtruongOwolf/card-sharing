@@ -42,7 +42,7 @@ impl Default for SessionPolicy {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Provider {
     Apple,
     Google,
@@ -246,10 +246,12 @@ impl IdentityService {
     }
 
     /// Returns the account of a verified identity, creating it (status `pending_age`) on first
-    /// sign-in. `created` tells the caller whether this is a new account.
+    /// sign-in. `created` tells the caller whether this is a new account. `signals` (the region
+    /// signals seen at sign-up, SR-24) are stored only on a new account.
     pub async fn find_or_create_account(
         &self,
         identity: &VerifiedIdentity,
+        signals: &RegionSignals,
     ) -> Result<(Uuid, bool), StoreError> {
         if let Some(account_id) = self.find_account(identity).await? {
             return Ok((account_id, false));
@@ -258,10 +260,12 @@ impl IdentityService {
         let account_id = new_id();
         let mut tx = self.pool.begin().await?;
         sqlx::query(
-            "INSERT INTO identity.accounts (id, status, created_at, updated_at) VALUES ($1, 'pending_age', $2, $2)",
+            "INSERT INTO identity.accounts (id, status, region_signals, created_at, updated_at)
+             VALUES ($1, 'pending_age', $3, $2, $2)",
         )
         .bind(account_id)
         .bind(now)
+        .bind(sqlx::types::Json(signals))
         .execute(&mut *tx)
         .await?;
         let inserted = sqlx::query(
@@ -384,7 +388,10 @@ impl IdentityService {
         .transpose()
     }
 
-    async fn account_status(&self, account_id: Uuid) -> Result<AccountStatus, StoreError> {
+    pub(crate) async fn account_status(
+        &self,
+        account_id: Uuid,
+    ) -> Result<AccountStatus, StoreError> {
         let status: String =
             sqlx::query_scalar("SELECT status FROM identity.accounts WHERE id = $1")
                 .bind(account_id)

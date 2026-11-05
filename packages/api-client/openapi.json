@@ -72,6 +72,97 @@
         }
       }
     },
+    "/v1/auth/apple": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Sign in with Apple. Auth: none (the ID token is the credential). Creates the account on first\nsign-in (status `pending_age`, onboarding session); never links accounts by email (AC-1.3).",
+        "operationId": "signInWithApple",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppleSignInRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Signed in: an onboarding session for a new or unfinished account, a full session otherwise. Call GET /v1/me for the onboarding step.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenPair"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED (unknown fields are rejected).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED: invalid, expired, forged or misaddressed ID token, nonce mismatch, or a replayed nonce.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ACCOUNT_SUSPENDED: the account may not sign in (suspended, banned or deletion pending).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "TEMPORARILY_UNAVAILABLE: provider not configured or unreachable, or a fail-closed store is down.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "none",
+          "rateLimit": "auth.signin",
+          "role": "guest",
+          "versionGate": true
+        }
+      }
+    },
     "/v1/auth/refresh": {
       "post": {
         "tags": [
@@ -524,6 +615,49 @@
           }
         }
       },
+      "AppleSignInRequest": {
+        "type": "object",
+        "description": "Body of `POST /v1/auth/apple`. The account is derived from the verified token only.",
+        "required": [
+          "id_token",
+          "nonce"
+        ],
+        "properties": {
+          "authorization_code": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "One-time authorization code from the same sheet. The server exchanges it for an Apple\nrefresh token (kept encrypted, revoked on account deletion). Optional.",
+            "maxLength": 1024,
+            "minLength": 1
+          },
+          "device": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/DeviceRequest",
+                "description": "The signing-in device. Recommended: device-scoped limits and cooldowns use it."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id_token": {
+            "type": "string",
+            "description": "Apple identity token (JWS) from the native Sign in with Apple sheet.",
+            "maxLength": 8192,
+            "minLength": 1
+          },
+          "nonce": {
+            "type": "string",
+            "description": "The raw nonce the app generated for this sign-in (16 to 256 visible ASCII characters,\nsingle use). The app passes `lowercase hex SHA-256(nonce)` to Apple; the token's `nonce`\nclaim must match.",
+            "maxLength": 256,
+            "minLength": 16
+          }
+        },
+        "additionalProperties": false
+      },
       "ClientLimits": {
         "type": "object",
         "description": "Product limits shown by the app. The server enforces its own copies.",
@@ -565,6 +699,38 @@
             "type": "integer",
             "format": "int32",
             "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "DevicePlatform": {
+        "type": "string",
+        "enum": [
+          "ios",
+          "android"
+        ]
+      },
+      "DeviceRequest": {
+        "type": "object",
+        "description": "The device a session is issued to. `id` is a UUID the app generates once per install.",
+        "required": [
+          "id",
+          "platform",
+          "app_version"
+        ],
+        "properties": {
+          "app_version": {
+            "type": "string",
+            "example": "1.0.0",
+            "maxLength": 32,
+            "minLength": 1
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "platform": {
+            "$ref": "#/components/schemas/DevicePlatform"
           }
         },
         "additionalProperties": false

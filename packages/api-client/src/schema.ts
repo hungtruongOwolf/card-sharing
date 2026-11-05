@@ -38,6 +38,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/auth/apple": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign in with Apple. Auth: none (the ID token is the credential). Creates the account on first
+         *     sign-in (status `pending_age`, onboarding session); never links accounts by email (AC-1.3).
+         */
+        post: operations["signInWithApple"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/auth/refresh": {
         parameters: {
             query?: never;
@@ -190,6 +210,23 @@ export interface components {
              */
             min_app_version: string;
         };
+        /** @description Body of `POST /v1/auth/apple`. The account is derived from the verified token only. */
+        AppleSignInRequest: {
+            /**
+             * @description One-time authorization code from the same sheet. The server exchanges it for an Apple
+             *     refresh token (kept encrypted, revoked on account deletion). Optional.
+             */
+            authorization_code?: string | null;
+            device?: components["schemas"]["DeviceRequest"] | null;
+            /** @description Apple identity token (JWS) from the native Sign in with Apple sheet. */
+            id_token: string;
+            /**
+             * @description The raw nonce the app generated for this sign-in (16 to 256 visible ASCII characters,
+             *     single use). The app passes `lowercase hex SHA-256(nonce)` to Apple; the token's `nonce`
+             *     claim must match.
+             */
+            nonce: string;
+        };
         /** @description Product limits shown by the app. The server enforces its own copies. */
         ClientLimits: {
             /** Format: int32 */
@@ -204,6 +241,16 @@ export interface components {
             friends_max: number;
             /** Format: int32 */
             pins_per_board_max: number;
+        };
+        /** @enum {string} */
+        DevicePlatform: "ios" | "android";
+        /** @description The device a session is issued to. `id` is a UUID the app generates once per install. */
+        DeviceRequest: {
+            /** @example 1.0.0 */
+            app_version: string;
+            /** Format: uuid */
+            id: string;
+            platform: components["schemas"]["DevicePlatform"];
         };
         HealthResponse: {
             /** @example ok */
@@ -340,6 +387,75 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReadinessResponse"];
+                };
+            };
+        };
+    };
+    signInWithApple: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppleSignInRequest"];
+            };
+        };
+        responses: {
+            /** @description Signed in: an onboarding session for a new or unfinished account, a full session otherwise. Call GET /v1/me for the onboarding step. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenPair"];
+                };
+            };
+            /** @description VALIDATION_FAILED (unknown fields are rejected). */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description UNAUTHENTICATED: invalid, expired, forged or misaddressed ID token, nonce mismatch, or a replayed nonce. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ACCOUNT_SUSPENDED: the account may not sign in (suspended, banned or deletion pending). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description TEMPORARILY_UNAVAILABLE: provider not configured or unreachable, or a fail-closed store is down. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
         };
