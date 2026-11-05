@@ -128,3 +128,8 @@
 - Lead decisions: a contract-faithful fake fetch server satisfies the "MSW tests" criterion (same layer, no extra install);
   keychain class AFTER_FIRST_UNLOCK (needed for background refresh and the widget, SR-14). TODO testing-strategy note
   once the backend agent's uncommitted edits to that page land; OFL notices go in the future open-source licences screen.
+
+## [2026-11-05] chore | Close finished sprint-1 issues
+- EM noticed finished tickets stayed open (commits used `Refs`). Closed #4, #12-#15, #20-#23, #29, #30, #35, #138, #139 with
+  commit links; follow-ups #172 (branch protection, needs GitHub Pro) and #173 (real Apple/Google provider tests).
+- conventions: completing commits end with `Closes #<issue>`.

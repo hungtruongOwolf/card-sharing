@@ -2,7 +2,7 @@
 title: Engineering Conventions
 type: guide
 status: accepted
-updated: 2026-11-04
+updated: 2026-11-05
 related: [[security-baseline]], [[testing-strategy]], [[overview]], [[change-management]]
 ---
 # Engineering Conventions
@@ -37,6 +37,9 @@ decided is written down.
 ## Git workflow
 - Trunk-based: short-lived branches `feat/…`, `fix/…`, `chore/…`, `refactor/…`.
 - **Conventional Commits**: `feat(cards): allow sharing via link`.
+- **Issue links:** the commit (or PR) that completes a ticket ends with `Closes #<issue>` so GitHub closes it on push to
+  `main`; partial work uses `Refs #<issue>`. Deferred parts of a ticket become their own follow-up issue, linked from the
+  closing comment. Whoever lands the last commit of a ticket checks the issue is closed.
 - PR ≤ ~400 changed lines; description = what / why / how tested / screenshots.
 - CI must be green (lint, type-check, tests, security audit) before merge. Squash merge.
 
