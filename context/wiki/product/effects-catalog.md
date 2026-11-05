@@ -64,14 +64,16 @@ invalid → default). Optional `presets` (`{id, name, params}`) are UI-only pick
 the "thick sticker" is the `cut.diecut` preset `thick` at `borderWidthPct: 6`, not a separate id. The server view (ids, versions, kinds, stacking, param ranges)
 is committed at `packages/effects-registry/generated/registry.json`; regenerate with
 `pnpm --filter @card-sharing/effects-registry export:json`, and a vitest file snapshot fails CI when it is stale (T-60
-consumes it). Shipped entries so far: `cut.none`, `cut.raw`, `cut.diecut`, `fx.holo`, `fx.paper-lift`; the other MVP
+consumes it). Shipped entries so far: `cut.none`, `cut.raw`, `cut.diecut`, `cut.torn`, `cut.shape.rounded-square`, `cut.shape.circle`,
+`cut.shape.heart`, `fx.holo`, `fx.paper-lift`; the other MVP
 entries land with their tickets.
 
 **Cut style rendering (T-62, `apps/mobile/src/features/cut-styles`):** `drawCutStyle(canvas, entry, params, scene)` draws
 on any `SkCanvas` (a `<Picture>` live, an offscreen surface for bakes and tests) through renderers keyed by `renderer.ref`:
 `clip:roundedRect` (`cut.none`), `mask:dstIn` (`cut.raw`: the feathered subject path in a layer, then the photo with SrcIn,
 equivalent to mask DstIn) and `contour:stroke` (`cut.diecut`: path fill + round-join stroke of 2 × border in the border
-colour, subject on top with a 0.75 px feather). A new cut style reusing a ref is an entry file only. The subject path comes
+colour, subject on top with a 0.75 px feather); T-63 adds `shape:roundedSquare`, `shape:circle`, `shape:heart`
+(`shapeCuts.ts`) and `torn:paper` (`tornCut.ts`), which need no mask. A new cut style reusing a ref is an entry file only. The subject path comes
 from T-61 contours via `subjectPath` (`Skia.Path.MakeFromSVGString`). Tests render with CanvasKit WASM in jest
 (`@shopify/react-native-skia/jestEnv.js`), probe pixels and keep 8×8 golden signatures on the light and dark canvas. A dev
 screen `/cut-lab` previews every cut style, its presets and slider params on a synthetic subject until segmenters exist.
@@ -135,7 +137,7 @@ pose model downloaded on first use (Phase 2, [[ADR-0003-effects-tiers]]). Props 
 | id | iOS | Android (fallback) | GPU live (est.) | Bake (est.) | Still | Loop clip | MVP |
 |---|---|---|---|---|---|---|---|
 | `cut.diecut` | 17+ | ML Kit; no GMS → bundled fallback model (prd-mvp AC-7.6) | S (baked image) | 30–80 ms contour | ✓ | — | **✓** |
-| `cut.torn` | 17+ | same as diecut | S (baked) | 40–100 ms | ✓ | — | MVP+ |
+| `cut.torn` | ✓ (on the subject with a mask, whole photo without) | ✓ | S (baked) | 40–100 ms | ✓ | — | **✓** (PRD AC-10.1, T-63) |
 | `fx.holo` | ✓ | ✓ (gyro on all) | M (≤3 live; ambient shimmer on all visible live cards, EM 2026-11-05; T-52 estimate ~1.1 ms GPU/frame for 3 cards on mid-range, low-end tier maxLive 1 + scale 0.75, unmeasured) | — (still = fixed tilt) | ✓ | 2 s tilt sweep, seamless | **✓** |
 | `fx.laser-eyes` | people + cats/dogs (Vision) | people ✓ (ML Kit face); pets → mask heuristic / tap-the-eyes | M | 40 ms | ✓ | 2 s pulse, seamless | **✓** |
 | `fx.fire-breath` | people + cats/dogs | people ✓; pets → tap-the-mouth | L (particles) | 60 ms (frozen frame) | ✓ | 2–3 s, seamless | **✓** |
@@ -170,7 +172,7 @@ Export rules:
 | 8 | `prop.crown` family | Fast, funny, works for people & pets; seeds prop packs |
 | 9 | `fx.sparkles` | Subject-agnostic delight (food, objects) |
 | 10 | `overlay.speech` | Meme captions = humour without AI; later fed by Tier 1b captions |
-Fast-follow (cheap, MVP+): `cut.torn`, `fx.halftone`, `fx.deep-fried`. Phase 2: `fx.glitch`, `layout.photobooth` (needs capture mode).
+Fast-follow (cheap, MVP+): `fx.halftone`, `fx.deep-fried`. Phase 2: `fx.glitch`, `layout.photobooth` (needs capture mode).
 
 ## 4. Cut styles in the registry (from [[subject-cutout]])
 All derive from the 8-bit mask (source of truth); one `cutStyle` per item; result baked once.
@@ -179,9 +181,9 @@ All derive from the 8-bit mask (source of truth); one `cutStyle` per item; resul
 | `cut.none` | Plain rectangular photo | Clip to rounded rect | image | radius | S | MVP |
 | `cut.raw` | Subject only, no border | Mask `DstIn` + edge cleanup | mask | feather | S | MVP |
 | `cut.diecut` | White/colour die-cut border | Vector contour stroke (§3.1 #1) | mask, contour | `borderWidthPct` 0.5–6 (def 3% bbox diag), `color` | S baked | MVP |
-| `cut.torn` | Torn paper scrap | Discrete path effect / displacement | mask, contour | `roughness`, `seed`, `paper` (white/kraft/grid) | S baked | MVP+ |
+| `cut.torn` | Torn paper scrap | Seeded discrete path effect on the paper fill; with a mask the paper is the contour grown by 4.5 % (fill ∪ round stroke) under the cutout, without one the photo itself is torn out on a paper rim | image, contour (optional) | `roughness` 0.2–1, `seed` (hidden, 1–9999), `paper` white/kraft/grid | S baked | MVP (T-63) |
 | `cut.wobble` | Hand scissor-cut | Low-frequency noise offset on smoothed contour, fixed seed | mask, contour | `amplitude`, `seed` | S baked | MVP+ |
-| `cut.shape.circle` / `.heart` / `.star` | Shape-clipped photo | SVG path clip, optional ∩ subject outline | image (mask opt.) | `shape`, `fit` | S | MVP (circle, heart) |
+| `cut.shape.circle` / `.heart` / `.rounded-square` | Shape-clipped photo | Photo cropped to cover a centred square (96 % of the short side), clipped to the shape; optional border | image (no mask) | `borderWidthPct` 0–6 (def 2 % of the side), `color`; rounded square `cornerRadiusPct` 4–30 (def 18) | S | MVP (T-63); `.star` later |
 | `cut.shape.ticket` / `.scallop` | Ticket stub / scalloped badge | `Path1D` stamping on edge | image | `notchSize` | S | MVP+ |
 | `frame.polaroid` | Instant-photo frame | see §3 #11 | image, mask | `popOut`, `captionArea` | S | MVP |
 | `fx.paper-lift` | Drop shadow / lift | Shadow image filter, animated on drag | mask/contour | `height` 0–3 | S | MVP |

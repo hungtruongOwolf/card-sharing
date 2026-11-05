@@ -22,6 +22,10 @@ describe('shipped registry', () => {
       'cut.none',
       'cut.raw',
       'cut.diecut',
+      'cut.torn',
+      'cut.shape.rounded-square',
+      'cut.shape.circle',
+      'cut.shape.heart',
     ]);
     expect(registry.byTag('finish').map((e) => e.id)).toEqual(['fx.holo', 'fx.paper-lift']);
     expect(registry.get('fx.holo')?.renderer).toEqual({ type: 'sksl', ref: 'holo' });
@@ -32,6 +36,31 @@ describe('shipped registry', () => {
     const extended = createRegistry([...ENTRIES, thick]);
     expect(validateRegistry(extended.entries)).toEqual([]);
     expect(extended.byKind('cutStyle').map((e) => e.id)).toContain('cut.example-thick');
+  });
+});
+
+describe('launch cut styles (AC-10.1)', () => {
+  it('ships at least 6 cut styles counting the thick sticker preset', () => {
+    const tiles = registry
+      .byKind('cutStyle')
+      .flatMap((entry) => (entry.presets?.length ? entry.presets : [entry]));
+    expect(tiles.length).toBeGreaterThanOrEqual(6);
+  });
+
+  it('offers torn paper and the shape cuts without a subject mask (EM 2026-11-05)', () => {
+    for (const id of [
+      'cut.torn',
+      'cut.shape.rounded-square',
+      'cut.shape.circle',
+      'cut.shape.heart',
+    ]) {
+      const entry = registry.get(id)!;
+      expect([id, entry.platforms.ios.requires, entry.platforms.android.requires]).toEqual([
+        id,
+        [],
+        [],
+      ]);
+    }
   });
 });
 
