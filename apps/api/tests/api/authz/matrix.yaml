@@ -1,0 +1,47 @@
+# Authorization matrix (SR-5): machine-readable copy of the permissions matrix in
+# context/wiki/product/prd-mvp.md and the auth column of context/wiki/architecture/api-mvp.md.
+#
+# One row per registered route (method + route template, exactly as in OpenAPI). The harness
+# (apps/api/tests/authz_matrix.rs) fails when a registered route has no row, or a row names a
+# route that does not exist. Every cell runs against the real API with fresh fixture users.
+#
+# Roles available today (more join with the social, cards and boards tickets: owner, friend,
+# non_friend, collaborator, minor, moderator):
+#   guest               no token
+#   onboarding_age      onboarding session, account pending_age
+#   onboarding_profile  onboarding session, account pending_profile (age gate passed)
+#   user                full session, account active
+#   suspended           session of a suspended account
+#
+# Placeholders in `body`: "$REFRESH_TOKEN" = the role's own refresh token (guest: a random one),
+# "$ADULT_DOB" = a date of birth 30 years ago.
+# A cell expecting 404 must give `missing_path` (same route, nonexistent id): the harness
+# asserts the denial body is byte-identical to the missing-id body, so ids cannot be probed.
+version: 1
+
+routes:
+  - route: GET /healthz
+    expect: { guest: 200, onboarding_age: 200, onboarding_profile: 200, user: 200, suspended: 200 }
+
+  - route: GET /readyz
+    expect: { guest: 200, onboarding_age: 200, onboarding_profile: 200, user: 200, suspended: 200 }
+
+  - route: GET /openapi.json
+    expect: { guest: 200, onboarding_age: 200, onboarding_profile: 200, user: 200, suspended: 200 }
+
+  - route: GET /v1/config
+    expect: { guest: 200, onboarding_age: 200, onboarding_profile: 200, user: 200, suspended: 200 }
+
+  - route: POST /v1/auth/refresh
+    body: { refresh_token: $REFRESH_TOKEN }
+    expect: { guest: 401, onboarding_age: 200, onboarding_profile: 200, user: 200, suspended: 401 }
+
+  - route: DELETE /v1/sessions/current
+    expect: { guest: 401, onboarding_age: 204, onboarding_profile: 204, user: 204, suspended: 403 }
+
+  - route: GET /v1/me
+    expect: { guest: 401, onboarding_age: 200, onboarding_profile: 200, user: 200, suspended: 403 }
+
+  - route: POST /v1/me/age
+    body: { birth_date: $ADULT_DOB }
+    expect: { guest: 401, onboarding_age: 200, onboarding_profile: 403, user: 403, suspended: 403 }

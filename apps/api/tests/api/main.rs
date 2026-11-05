@@ -8,6 +8,7 @@ mod common;
 
 mod access;
 mod age_gate;
+mod authz_matrix;
 mod http;
 mod me;
 mod rate_limit;

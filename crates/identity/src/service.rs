@@ -223,6 +223,7 @@ struct RefreshRow {
     idle_expires_at: OffsetDateTime,
     absolute_expires_at: OffsetDateTime,
     access_token_hash: Vec<u8>,
+    status: String,
 }
 
 impl IdentityService {
@@ -445,8 +446,10 @@ impl IdentityService {
         // Lock the session row: concurrent refreshes of one family are serialized.
         let row: Option<RefreshRow> = sqlx::query_as(
             "SELECT rt.session_id, rt.generation, rt.consumed_at, s.account_id, s.revoked_at,
-                    s.idle_expires_at, s.absolute_expires_at, s.access_token_hash
-             FROM identity.refresh_tokens rt JOIN identity.sessions s ON s.id = rt.session_id
+                    s.idle_expires_at, s.absolute_expires_at, s.access_token_hash, a.status
+             FROM identity.refresh_tokens rt
+             JOIN identity.sessions s ON s.id = rt.session_id
+             JOIN identity.accounts a ON a.id = s.account_id
              WHERE rt.token_hash = $1
              FOR UPDATE OF s",
         )
@@ -454,7 +457,15 @@ impl IdentityService {
         .fetch_optional(&mut *tx)
         .await?;
         let row = row.ok_or(RefreshError::Unknown)?;
-        if row.revoked_at.is_some() || now >= row.idle_expires_at || now >= row.absolute_expires_at
+        let blocked = matches!(
+            row.status.parse::<AccountStatus>(),
+            Ok(AccountStatus::Suspended | AccountStatus::Banned | AccountStatus::DeletionPending)
+                | Err(_)
+        );
+        if blocked
+            || row.revoked_at.is_some()
+            || now >= row.idle_expires_at
+            || now >= row.absolute_expires_at
         {
             return Err(RefreshError::Revoked);
         }
