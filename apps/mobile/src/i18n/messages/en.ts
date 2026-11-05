@@ -124,6 +124,23 @@ export const en = {
   'onboarding.camera.openSettings': 'Open Settings',
   'onboarding.camera.library': 'Choose from your photos',
   'onboarding.camera.notNow': 'Not now',
+
+  // Effect registry copy (packages/effects-registry entries reference these keys; a test checks them).
+  'effects.cut.none.name': 'Photo',
+  'effects.cut.none.description': 'The whole photo with soft rounded corners.',
+  'effects.cut.none.a11y': 'as a photo',
+  'effects.cut.raw.name': 'Cutout',
+  'effects.cut.raw.description': 'Just the subject, no border.',
+  'effects.cut.raw.a11y': 'cut out without a border',
+  'effects.cut.diecut.name': 'Sticker',
+  'effects.cut.diecut.description': 'The subject with a die-cut sticker border.',
+  'effects.cut.diecut.a11y': 'as a sticker with a border',
+  'effects.fx.holo.name': 'Holo',
+  'effects.fx.holo.description': 'Rainbow foil that shifts as you tilt your phone.',
+  'effects.fx.holo.a11y': 'with a holographic foil',
+  'effects.fx.paperLift.name': 'Paper lift',
+  'effects.fx.paperLift.description': 'A soft shadow, as if the sticker lifts off the page.',
+  'effects.fx.paperLift.a11y': 'lifted off the page',
 } as const;
 
 export type MessageKey = keyof typeof en;

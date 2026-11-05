@@ -1,0 +1,20 @@
+export * from './schema';
+export { ID_PATTERN, validateEntry, validateRegistry } from './validate';
+export { clampNumberParam, defaultParams, resolveParams, type ParamsResult } from './params';
+export {
+  compareVersions,
+  killedIds,
+  resolveAvailability,
+  visibleEntries,
+  type Availability,
+  type DeviceContext,
+  type HiddenReason,
+  type RemoteRegistryConfig,
+} from './availability';
+export { createRegistry, registry, type Registry } from './registry';
+export {
+  SERVER_REGISTRY_SCHEMA_VERSION,
+  serverRegistryJson,
+  toServerRegistry,
+} from './registryJson';
+export { ENTRIES } from './entries';
