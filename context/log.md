@@ -138,3 +138,9 @@
 - T-30 1057432 pushed (CI green, #32 closed). T-31 test run killed by low memory; EM chose low-RAM mode (1 build job, 1 test thread).
 - EM: handle changes are free for 24 h after the first claim; 30-day cooldown after that (T-32). Seed term list in
   config/text_filter.yaml must be owned and extended by moderation before launch.
+
+## [2026-11-05] progress | T-31, T-32 landed; profile + handle complete
+- T-31 80d547b (PUT /v1/me/profile, #33 closed). T-32 via PR #174 squash 17f505b (handles with 24 h grace + 30-day
+  cooldown + reservation; #34 closed). T-32 Rust tests ran in CI because the local machine ran out of resources; the
+  API client came from the CI contract job and was re-checked locally. CI green on main.
+- EM: merge PRs without asking once CI is green (development phase); self-review stands in for human review.
