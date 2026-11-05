@@ -106,3 +106,11 @@ routes:
   - route: PUT /v1/me/handle
     body: { handle: $HANDLE }
     expect: { guest: 401, onboarding_age: 403, onboarding_profile: 200, user: 200, suspended: 403 }
+
+  # Invites (T-37). Only the caller's own invite exists on these routes (no id); another user's link
+  # and reset isolation are in tests/api/invites.rs.
+  - route: GET /v1/me/invite
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 200, suspended: 403 }
+
+  - route: POST /v1/me/invite/reset
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 200, suspended: 403 }

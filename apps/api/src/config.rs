@@ -53,6 +53,8 @@ pub struct Config {
     pub text_filter_config_path: PathBuf,
     /// `API_PROFILE_CONFIG_PATH` — default `config/profile.yaml` (display name and handle rules).
     pub profile_config_path: PathBuf,
+    /// `API_SOCIAL_CONFIG_PATH` — default `config/social.yaml` (invite links, friend caps, search).
+    pub social_config_path: PathBuf,
     /// `API_APPLE_CLIENT_IDS` — comma-separated `aud` values accepted in Apple ID tokens (the iOS
     /// bundle id; a Services ID if web sign-in is ever added). Empty (default) = Apple sign-in
     /// answers 503.
@@ -202,6 +204,9 @@ impl Config {
         let profile_config_path = env
             .optional("API_PROFILE_CONFIG_PATH")
             .map_or_else(|| PathBuf::from("config/profile.yaml"), PathBuf::from);
+        let social_config_path = env
+            .optional("API_SOCIAL_CONFIG_PATH")
+            .map_or_else(|| PathBuf::from("config/social.yaml"), PathBuf::from);
         let apple_client_ids = client_ids(env, "API_APPLE_CLIENT_IDS")?;
         let google_client_ids = client_ids(env, "API_GOOGLE_CLIENT_IDS")?;
         let auth_clock_skew_secs = env.in_range("API_AUTH_CLOCK_SKEW_SECS", 60, 0..=300)?;
@@ -227,6 +232,7 @@ impl Config {
             client_config_path,
             text_filter_config_path,
             profile_config_path,
+            social_config_path,
             apple_client_ids,
             google_client_ids,
             auth_clock_skew: Duration::from_secs(auth_clock_skew_secs),

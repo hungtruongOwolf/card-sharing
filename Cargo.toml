@@ -15,6 +15,7 @@ identity = { path = "crates/identity" }
 registry = { path = "crates/registry" }
 platform = { path = "crates/platform" }
 policy = { path = "crates/policy" }
+social = { path = "crates/social" }
 
 # external — keep versions here so every crate uses the same ones
 # AES key unwrap (RFC 3394) for Play Integrity JWE tokens (ring has no raw AES).

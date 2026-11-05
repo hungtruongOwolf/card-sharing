@@ -99,6 +99,16 @@ limits:
     requests: 10
     per_secs: 3600
     on_store_failure: closed
+  invites.read: # GET /v1/me/invite
+    scope: user
+    requests: 30
+    per_secs: 3600
+    on_store_failure: open
+  invites.reset: # POST /v1/me/invite/reset (AC-4.3)
+    scope: user
+    requests: 5
+    per_secs: 86400
+    on_store_failure: open
   config.read: # GET /v1/config (CDN cached; this only bounds cache misses)
     scope: ip
     requests: 120

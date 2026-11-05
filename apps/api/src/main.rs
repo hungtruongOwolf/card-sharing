@@ -85,6 +85,8 @@ async fn main() -> anyhow::Result<()> {
         rules: ProfileRules::from_path(&config.profile_config_path)
             .context("failed to load profile config")?,
     };
+    let social = social::SocialSettings::from_path(&config.social_config_path)
+        .context("failed to load social config")?;
     let state = AppState::new(
         policy,
         limiter,
@@ -95,6 +97,7 @@ async fn main() -> anyhow::Result<()> {
     )
     .with_ip_country_header(config.ip_country_header.clone())
     .with_os_age_signals(config.os_age_signals_enabled)
+    .with_social_settings(social)
     .with_attestation(
         attestation_service(&config.attestation)?,
         config.attestation.mode,

@@ -1030,6 +1030,132 @@
         }
       }
     },
+    "/v1/me/invite": {
+      "get": {
+        "tags": [
+          "social"
+        ],
+        "summary": "Get (or create) my invite link. Auth: ses.",
+        "operationId": "getMyInvite",
+        "responses": {
+          "200": {
+            "description": "The caller's live invite link (the same until reset).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InviteResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "invites.read",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
+    "/v1/me/invite/reset": {
+      "post": {
+        "tags": [
+          "social"
+        ],
+        "summary": "Reset my invite link: the old link answers \"invite expired\" from now on. Auth: ses.",
+        "operationId": "resetMyInvite",
+        "responses": {
+          "200": {
+            "description": "The new invite link.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InviteResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "invites.reset",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
     "/v1/me/profile": {
       "put": {
         "tags": [
@@ -1797,6 +1923,20 @@
           }
         }
       },
+      "InviteResponse": {
+        "type": "object",
+        "description": "My personal invite link. Share it as a link or QR code.",
+        "required": [
+          "url"
+        ],
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "`<share host>/i/<token>`; the token is 128 random bits (22 base64url characters).",
+            "example": "https://cardsharing.app/i/3q2-7wAAAAAAAAAAAAAAAA"
+          }
+        }
+      },
       "KillSwitches": {
         "type": "object",
         "description": "Registry ids switched off remotely; the app hides them and the server rejects them.",
@@ -2165,6 +2305,10 @@
     {
       "name": "me",
       "description": "The caller's own account and onboarding"
+    },
+    {
+      "name": "social",
+      "description": "Invites, friend requests, friends, blocks and handle search (US-4, US-5, US-5a, US-6, US-26)"
     },
     {
       "name": "config",

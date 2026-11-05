@@ -114,6 +114,12 @@ fails to decrypt.
 | `invites` | `owner_id PK FK`; `token_hash BYTEA UNIQUE`; `created_at`; `rotated_at`; `expires_at NULL` (+7 d when the owner is under 18, `invites.minor_ttl`); `max_uses INT NULL` (minors: `invites.minor_max_uses`); `use_count INT DEFAULT 0` (incremented in the friend-request tx; at cap or past expiry ⇒ `INVITE_EXPIRED`, AC-4.4) | — | S | Replaced on reset |
 | `blocks` | `blocker_id FK`, `blocked_id FK`, PK both; `created_at` | `(blocked_id)` | I | Until unblock / deletion |
 
+Invites as implemented (T-37, `migrations/20261109000001_social_invites.sql`): `invites(id PK, owner_id FK CASCADE,
+token_hash BYTEA UNIQUE (SHA-256), token_enc BYTEA, created_at, revoked_at NULL)` with one live row per owner (partial UNIQUE
+`(owner_id) WHERE revoked_at IS NULL`). A reset revokes the live row and inserts a new one, so an old token is recognised and
+answers `INVITE_EXPIRED` instead of a plain 404. `token_enc` = the raw token encrypted with the field cipher (associated data =
+owner id) so `GET /v1/me/invite` can return the same link again; lookups only ever use the hash.
+
 The "adult · no mutual friends" hint on a minor's incoming request (AC-5.5) is computed at read time (recipient is a minor ∧
 sender is an adult ∧ no mutual friends); nothing extra is stored. Minor status always comes from
 `identity::AgeService::is_minor(ids)` (decrypts DOB, Redis cache 24 h), never from a client flag.

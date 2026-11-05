@@ -4,7 +4,7 @@ use utoipa::{Modify, OpenApi};
 use utoipa_axum::routes;
 
 use crate::access::{ApiRouter, RoutePolicy};
-use crate::routes::{age_signal, app_config, attestation, auth, health, me, sessions};
+use crate::routes::{age_signal, app_config, attestation, auth, health, invites, me, sessions};
 use crate::state::AppState;
 use platform::problem::ProblemDetails;
 
@@ -26,6 +26,7 @@ Every operation carries `x-policy` (auth kind, role, attestation) from its deny-
         (name = attestation::TAG, description = "Device attestation challenges and keys (SR-13)"),
         (name = sessions::TAG, description = "The caller's device sessions (AC-1.4)"),
         (name = me::TAG, description = "The caller's own account and onboarding"),
+        (name = invites::TAG, description = "Invites, friend requests, friends, blocks and handle search (US-4, US-5, US-5a, US-6, US-26)"),
         (name = app_config::TAG, description = "Public client configuration")
     )
 )]
@@ -125,6 +126,14 @@ pub fn router() -> ApiRouter<AppState> {
         .route(
             RoutePolicy::onboarding_or_session().limited("attestation.register"),
             routes!(attestation::register_apple_key),
+        )
+        .route(
+            RoutePolicy::session().limited("invites.read"),
+            routes!(invites::get_my_invite),
+        )
+        .route(
+            RoutePolicy::session().limited("invites.reset"),
+            routes!(invites::reset_my_invite),
         )
         .undocumented_policy(
             &Method::GET,
