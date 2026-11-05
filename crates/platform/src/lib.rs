@@ -7,6 +7,7 @@
 //! - [`config`]: typed environment configuration helpers that fail fast at startup.
 //! - [`request_id`]: `X-Request-Id` middleware and the per-request id.
 //! - [`crypto`]: AEAD encryption for personal-data columns (DOB, provider tokens).
+//! - [`idempotency`]: Idempotency-Key store (replay, reuse detection, leases).
 //! - [`cache`]: lazy Redis/Valkey connection (caches and buckets only, never durable data).
 //! - [`rate_limit`]: layered token-bucket rate limiter with limits from config.
 //! - [`text`]: sanitizer and term filter for names, handles and captions (SR-28).
@@ -15,6 +16,7 @@ pub mod cache;
 pub mod clock;
 pub mod config;
 pub mod crypto;
+pub mod idempotency;
 pub mod ids;
 pub mod problem;
 pub mod rate_limit;

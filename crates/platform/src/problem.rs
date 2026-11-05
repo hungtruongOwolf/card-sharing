@@ -72,6 +72,12 @@ pub enum ApiError {
     /// The handle was changed too recently.
     #[error("handle change cooldown")]
     HandleChangeCooldown { retry_after_secs: u64 },
+    /// The Idempotency-Key was already used with a different request.
+    #[error("idempotency key reused")]
+    IdempotencyKeyReused,
+    /// The first request with this Idempotency-Key is still running: retry later.
+    #[error("idempotency key in progress")]
+    IdempotencyInProgress,
     /// Resource missing, or the caller may not know it exists (object-level denials use this
     /// too, so "forbidden" and "missing" are indistinguishable).
     #[error("resource not found")]
@@ -111,7 +117,8 @@ impl ApiError {
             | Self::AgeGateRefused
             | Self::AgeAlreadySubmitted => StatusCode::FORBIDDEN,
             Self::NotFound => StatusCode::NOT_FOUND,
-            Self::HandleTaken => StatusCode::CONFLICT,
+            Self::HandleTaken | Self::IdempotencyInProgress => StatusCode::CONFLICT,
+            Self::IdempotencyKeyReused => StatusCode::UNPROCESSABLE_ENTITY,
             Self::HandleChangeCooldown { .. } => StatusCode::TOO_MANY_REQUESTS,
             Self::MethodNotAllowed => StatusCode::METHOD_NOT_ALLOWED,
             Self::RequestTimeout => StatusCode::REQUEST_TIMEOUT,
@@ -136,6 +143,8 @@ impl ApiError {
             Self::AgeAlreadySubmitted => "AGE_ALREADY_SUBMITTED",
             Self::NotFound => "NOT_FOUND",
             Self::HandleTaken => "HANDLE_TAKEN",
+            Self::IdempotencyKeyReused => "IDEMPOTENCY_KEY_REUSED",
+            Self::IdempotencyInProgress => "IDEMPOTENCY_IN_PROGRESS",
             Self::HandleChangeCooldown { .. } => "HANDLE_CHANGE_COOLDOWN",
             Self::MethodNotAllowed => "METHOD_NOT_ALLOWED",
             Self::RequestTimeout => "REQUEST_TIMEOUT",
@@ -234,6 +243,8 @@ mod tests {
             },
             ApiError::UpgradeRequired,
             ApiError::NotFound,
+            ApiError::IdempotencyKeyReused,
+            ApiError::IdempotencyInProgress,
             ApiError::MethodNotAllowed,
             ApiError::RequestTimeout,
             ApiError::internal("boom"),

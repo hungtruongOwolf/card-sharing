@@ -7,6 +7,7 @@
 
 mod caller;
 mod enforce;
+mod idempotency;
 mod json;
 mod policy;
 mod router;
@@ -15,6 +16,7 @@ pub use caller::{
     Caller, DenyAllResolver, Principal, ResolveError, ResolveFuture, SessionResolver,
 };
 pub use enforce::{AccessState, ClientIpSource, enforce};
+pub use idempotency::{IDEMPOTENCY_KEY_HEADER, IDEMPOTENT_REPLAYED_HEADER};
 pub use json::ValidJson;
-pub use policy::{AuthKind, PolicyTable, Role, RoutePolicy, authorize};
+pub use policy::{AuthKind, Idempotency, PolicyTable, Role, RoutePolicy, authorize};
 pub use router::{ApiRouter, documented_operations};

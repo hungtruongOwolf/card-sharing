@@ -274,6 +274,12 @@ on `code`); `requestId` equals the `X-Request-Id` response header. Generic codes
 - **Idempotency-Key** (UUID, required where marked): stored 24 h per `(user, route, key)` with request hash; replay returns the stored
   response; same key + different body → 422 `IDEMPOTENCY_KEY_REUSED`; concurrent → 409 `IDEMPOTENCY_IN_PROGRESS`. The offline outbox
   reuses the key on every retry (no duplicate cards, AC-13.3). Board ops use `op_id` instead.
+  Implemented (T-14, `platform::idempotency` + `apps/api/src/access/idempotency.rs`): a route opts in with
+  `RoutePolicy::idempotency(Required | Optional)` (published as `x-policy.idempotency`; authenticated routes only, keys are
+  scoped by account, so another account reusing a key gets its own fresh execution). Missing (when required) or non-UUID key →
+  400 `VALIDATION_FAILED`. Request hash = SHA-256 of method, path + query and body. Stored: 2xx/4xx responses except 409 and
+  429 (≤ 64 KiB); a 5xx, 409 or 429 frees the key so the retry runs again. Replays carry `Idempotent-Replayed: true`. A running
+  request holds a 60 s lease (fencing `lease_id`); a crashed attempt frees the key when the lease ends.
 - **Concurrency:** pins carry `version`; boards carry `version` (also `ETag`). Pin ops send `base_version`; board PATCH sends `base_version`.
 - **Signed URLs:** issued only inside DTOs of an endpoint that just passed the object check; CDN-verified signature over path + expiry
   (+ viewer id for audit), TTL 10 min app/web, 5 min staff, 24 h export ZIP; keys are random (no ids in paths). `expires_at` returned so
