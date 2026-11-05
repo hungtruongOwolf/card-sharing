@@ -8,6 +8,7 @@ tools/
 pnpm-lock.yaml
 packages/api-client/openapi.json
 packages/api-client/src/schema.ts
+packages/effects-registry/generated/
 **/next-env.d.ts
 
 # build output

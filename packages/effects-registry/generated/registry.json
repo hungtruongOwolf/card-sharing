@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "entries": [
+    {
+      "id": "cut.diecut",
+      "version": 1,
+      "kind": "cutStyle",
+      "stackable": false,
+      "conflicts_with": [],
+      "params": {
+        "borderWidthPct": {
+          "type": "number",
+          "min": 0.5,
+          "max": 6,
+          "default": 3
+        },
+        "color": {
+          "type": "color",
+          "default": "#FFFFFF"
+        }
+      }
+    },
+    {
+      "id": "cut.none",
+      "version": 1,
+      "kind": "cutStyle",
+      "stackable": false,
+      "conflicts_with": [],
+      "params": {
+        "cornerRadiusPct": {
+          "type": "number",
+          "min": 0,
+          "max": 12,
+          "default": 4
+        }
+      }
+    },
+    {
+      "id": "cut.raw",
+      "version": 1,
+      "kind": "cutStyle",
+      "stackable": false,
+      "conflicts_with": [],
+      "params": {
+        "featherPx": {
+          "type": "number",
+          "min": 0,
+          "max": 2,
+          "default": 0.75
+        }
+      }
+    },
+    {
+      "id": "fx.holo",
+      "version": 1,
+      "kind": "filter",
+      "stackable": true,
+      "conflicts_with": [],
+      "params": {
+        "intensity": {
+          "type": "number",
+          "min": 0,
+          "max": 1,
+          "default": 0.8
+        }
+      }
+    },
+    {
+      "id": "fx.paper-lift",
+      "version": 1,
+      "kind": "filter",
+      "stackable": true,
+      "conflicts_with": [],
+      "params": {
+        "height": {
+          "type": "number",
+          "min": 0,
+          "max": 3,
+          "default": 1
+        }
+      }
+    }
+  ]
+}

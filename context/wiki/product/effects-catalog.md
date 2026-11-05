@@ -22,7 +22,7 @@ baked still, plus an optional short loop for time-driven effects. Cost figures a
 | `tier` | `0 \| 1 \| 1b \| 2` | From [[ADR-0003-effects-tiers]] |
 | `inputs` | set of `image, mask, contour, faceLandmarks, animalPose, bodyPose, gyro, time, touch, text, multiPhoto` | Pipeline computes only what is required |
 | `anchor` | `none \| bbox \| head \| eyes \| mouth \| top \| userPoints` | For props; `userPoints` = manual fallback |
-| `params` | JSON Schema (zod in TS) `{name, type, min, max, default, ui}` | e.g. `borderWidthPct: 0.5–6, default 3` |
+| `params` | `ParamSpec` per name: `number`/`integer` `{min, max, default}`, `boolean`, `color` (`#RRGGBB`), `enum` `{values}`, plus `ui` | e.g. `borderWidthPct: 0.5–6, default 3`; validated by a hand-written validator (no zod dependency, T-59) |
 | `renderer` | `{type: sksl \| imageFilter \| pathEffect \| particles \| anchoredAsset \| skottie \| layout \| composite, ref}` | `ref` = shader in `packages/shaders`, asset id, or composite of other ids. Rive only for UI chrome (renders outside the Skia canvas → not exportable) |
 | `layer` | `under \| subject \| over \| frame` | Composition order: cutStyle → filter(s) → under/over overlays & props → frame |
 | `stackable` | bool + `conflictsWith: id[]` | e.g. only one `cutStyle`, one `frame` |
@@ -49,6 +49,19 @@ export const laserEyes: EffectEntry = {
   motion: { reduced: 'static' }, unlock: 'free', a11yLabel: 'with laser eyes',
 };
 ```
+**Implemented (T-59, `packages/effects-registry`):** one file per entry in `src/entries/` plus one line in
+`src/entries/index.ts`; `validateRegistry` (run by tests) checks every entry and rejects duplicate ids. `tier` is a string
+(`'0'`, `'1'`, `'1b'`, `'2'`); `tags` (e.g. `finish`, `builtIn`) add picker listings. `platforms.*.requires` uses the
+capability vocabulary `subjectMask, faceLandmarks, animalPose, playServices, gyro`; `fallback` is `userPoints` or
+`serverCutout`. Every entry can be killed remotely: `resolveAvailability` merges all `/v1/config` `kill_switches` groups into
+one id set (ids are unique across kinds), then applies `flags.featureFlag` (dark until the config flag is `true`),
+`flags.minAppVersion`, OS minimum and capabilities. `resolveParams` is the strict param check the server mirrors (unknown
+name, wrong type, out of range → error; missing → default). The server view (ids, versions, kinds, stacking, param ranges)
+is committed at `packages/effects-registry/generated/registry.json`; regenerate with
+`pnpm --filter @card-sharing/effects-registry export:json`, and a vitest file snapshot fails CI when it is stale (T-60
+consumes it). Shipped entries so far: `cut.none`, `cut.raw`, `cut.diecut`, `fx.holo`, `fx.paper-lift`; the other MVP
+entries land with their tickets.
+
 Rules: adding an effect = add entry + shader/asset + tests (golden snapshot); removing = remove entry **and** migrate stored
 references (fallback to `fx.none`) + update this page ([[change-management]]). Device-capability routing hides entries whose
 `requires` fail and shows the `fallback` UX instead.
