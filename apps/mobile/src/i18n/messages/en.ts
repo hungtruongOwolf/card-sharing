@@ -38,6 +38,33 @@ export const en = {
 
   'holo.label': 'Holographic sample card',
   'holo.unavailable': 'Card effect unavailable',
+  'holo.lab.open': 'Open holo lab',
+  'holo.lab.title': 'Holo lab',
+  'holo.lab.hint': 'Tilt the phone to move the foil. Press a card to squish it.',
+  'holo.lab.cardLabel': 'Holographic test card',
+  'holo.lab.summary':
+    '{live, number} live, {baked, number} baked · shader fill {fill, number} megapixels per frame',
+  'holo.lab.reducedMotion': 'Reduced motion is on: static sheen, no tilt, no springs.',
+  'holo.lab.noGyro': 'No gravity sensor on this device, so tilt stays at rest.',
+  'holo.lab.bakeMs': 'Last bake took {ms, number} ms',
+  'holo.lab.knob.cards': 'Cards',
+  'holo.lab.knob.maxLive': 'Live cards at most (maxLive)',
+  'holo.lab.knob.scale': 'Live resolution scale',
+  'holo.lab.knob.columns': 'Columns',
+  'holo.lab.option': '{value, number}',
+  'holo.lab.toggle': '{name}: {state, select, on {on} other {off}}',
+  'holo.lab.toggle.ambient': 'Ambient animation',
+  'holo.lab.toggle.reducedMotion': 'Force reduced motion',
+  'holo.lab.toggle.skiaDebug': 'Skia debug',
+  'holo.lab.toggle.capture': 'Frame-time capture',
+
+  'perf.overlay.title': 'Frame time',
+  'perf.overlay.waiting': 'Collecting the first second…',
+  'perf.overlay.live':
+    'Last second: {fps, number} fps · p95 {p95, number} ms · dropped {dropped, number}%',
+  'perf.overlay.session':
+    'Session {seconds, number} s, {frames, number} frames: p50 {p50, number} ms · p95 {p95, number} ms · p99 {p99, number} ms · max {max, number} ms · dropped {dropped, number}%',
+  'perf.overlay.reset': 'Reset',
 
   'onboarding.loading': 'Loading',
   'onboarding.error.title': 'Something went wrong',
