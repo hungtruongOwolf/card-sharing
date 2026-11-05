@@ -31,6 +31,13 @@ only test device is an iPhone (no Mac, no Android phone).
 Lanes: backend (T-10 → T-11 → T-13 → T-18 → T-27 → T-28 → T-12, then T-19/T-20), mobile (T-33, then T-21/T-34),
 research (T-136, T-137). Memory-bound machine: one Rust build at a time.
 
+## Progress (2026-11-05)
+| Done (CI green, issue closed) | Open |
+|---|---|
+| T-2, T-10, T-11, T-12, T-13, T-18, T-19, T-20, T-21 (+ brand fonts), T-27, T-28, T-33, T-34, T-136, T-137 | T-30/T-31/T-32 (profile + handle endpoints the onboarding flow needs; pulled in from M1), T-52, T-126 |
+
+Deferred by the kickoff adjustments: T-4..T-7, T-9, T-50, T-51, T-89. Follow-ups: #172 branch protection, #173 real-provider sign-in.
+
 ## Sprint goal
 > A tester installs the staging build, signs in with Apple or Google, is refused or admitted by the region age gate (EU 16 / default 13
 > from config), and lands on the camera-permission step. Every API route is deny-by-default and covered by the authz harness.
