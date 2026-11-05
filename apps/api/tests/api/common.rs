@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use api::client_config::ClientConfig;
 use api::config::{Config, LogFormat};
-use api::state::AppState;
+use api::state::{AppState, ProfileSettings};
 use axum::Router;
 use axum::body::{Body, Bytes};
 use http::{Request, Response, StatusCode};
@@ -16,14 +16,15 @@ use identity::oidc::{
 };
 use identity::testing::{MockJwks, TestRsaKey, id_token_claims};
 use identity::{
-    DeviceInfo, IdentityService, IssuedSession, Platform, Provider, ProviderSignIn, SessionPolicy,
-    VerifiedIdentity,
+    DeviceInfo, IdentityService, IssuedSession, Platform, ProfileRules, Provider, ProviderSignIn,
+    SessionPolicy, VerifiedIdentity,
 };
 use platform::cache::ConnectionManager;
 use platform::clock::{ManualClock, SystemClock};
 use platform::config::Secret;
 use platform::crypto::FieldCipher;
 use platform::rate_limit::{RateLimitConfig, RateLimiter};
+use platform::text::TextFilter;
 use policy::PolicyService;
 use serde_json::Value;
 use sqlx::postgres::PgPoolOptions;
@@ -49,6 +50,8 @@ pub fn test_config() -> Config {
         client_ip_header: None,
         ip_country_header: Some(http::HeaderName::from_static(TEST_COUNTRY_HEADER)),
         client_config_path: "unused-in-tests".into(),
+        text_filter_config_path: "unused-in-tests".into(),
+        profile_config_path: "unused-in-tests".into(),
         apple_client_ids: vec![APPLE_CLIENT_ID.to_owned()],
         google_client_ids: vec![GOOGLE_CLIENT_ID.to_owned()],
         auth_clock_skew: Duration::from_secs(60),
@@ -70,6 +73,16 @@ pub const CLIENT_YAML: &str = include_str!("../../../../config/client.yaml");
 /// Test-only data key (32 zero bytes).
 pub fn field_cipher() -> FieldCipher {
     FieldCipher::from_base64(1, "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=").unwrap()
+}
+
+pub const TEXT_FILTER_YAML: &str = include_str!("../../../../config/text_filter.yaml");
+pub const PROFILE_YAML: &str = include_str!("../../../../config/profile.yaml");
+
+pub fn profile_settings() -> ProfileSettings {
+    ProfileSettings {
+        text_filter: TextFilter::from_yaml_str(TEXT_FILTER_YAML).unwrap(),
+        rules: ProfileRules::from_yaml_str(PROFILE_YAML).unwrap(),
+    }
 }
 
 pub fn client_config() -> ClientConfig {
@@ -111,6 +124,7 @@ pub fn offline_state() -> AppState {
         offline_identity(),
         client_config(),
         field_cipher(),
+        profile_settings(),
     )
     .with_ip_country_header(test_config().ip_country_header)
 }
@@ -158,6 +172,7 @@ impl TestEnv {
             Arc::clone(&identity),
             client_config(),
             field_cipher(),
+            profile_settings(),
         )
         .with_ip_country_header(test_config().ip_country_header);
         let jwks = MockJwks::start(vec![TestRsaKey::shared().jwk()]).await;

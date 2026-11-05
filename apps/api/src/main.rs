@@ -4,15 +4,16 @@ use std::sync::Arc;
 use anyhow::Context;
 use api::client_config::ClientConfig;
 use api::config::Config;
-use api::state::AppState;
+use api::state::{AppState, ProfileSettings};
 use identity::apple::{
     AppleClientSecretSigner, AppleHttpClient, AppleTokenClient, UnconfiguredAppleClient,
 };
 use identity::oidc::{IdTokenVerifier, JwksSettings, ProviderSpec, VerifierSettings};
-use identity::{IdentityService, ProviderSignIn, SessionPolicy};
+use identity::{IdentityService, ProfileRules, ProviderSignIn, SessionPolicy};
 use platform::clock::{SharedClock, SystemClock};
 use platform::crypto::FieldCipher;
 use platform::rate_limit::{RateLimitConfig, RateLimiter};
+use platform::text::TextFilter;
 use policy::PolicyService;
 use tokio::net::TcpListener;
 
@@ -67,8 +68,21 @@ async fn main() -> anyhow::Result<()> {
         .context("failed to load client config")?;
     let field_cipher = FieldCipher::from_base64(1, config.data_encryption_key.expose())
         .context("invalid API_DATA_ENCRYPTION_KEY")?;
-    let state = AppState::new(policy, limiter, Arc::clone(&identity), client, field_cipher)
-        .with_ip_country_header(config.ip_country_header.clone());
+    let profile = ProfileSettings {
+        text_filter: TextFilter::from_path(&config.text_filter_config_path)
+            .context("failed to load text filter config")?,
+        rules: ProfileRules::from_path(&config.profile_config_path)
+            .context("failed to load profile config")?,
+    };
+    let state = AppState::new(
+        policy,
+        limiter,
+        Arc::clone(&identity),
+        client,
+        field_cipher,
+        profile,
+    )
+    .with_ip_country_header(config.ip_country_header.clone());
     let sign_in = sign_in_service(&config, identity, Arc::clone(&state.field_cipher), clock)?;
     let state = state.with_sign_in(Arc::new(sign_in));
 

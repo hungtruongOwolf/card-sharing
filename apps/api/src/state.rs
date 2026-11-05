@@ -1,14 +1,21 @@
 use std::sync::Arc;
 
 use http::{HeaderMap, HeaderName};
-use identity::{IdentityService, ProviderSignIn};
+use identity::{IdentityService, ProfileRules, ProviderSignIn};
 use platform::crypto::FieldCipher;
 use platform::rate_limit::RateLimiter;
+use platform::text::TextFilter;
 use policy::{CountryCode, PolicyService};
 
 use crate::access::SessionResolver;
 use crate::client_config::ClientConfig;
 use crate::identity_adapter::IdentitySessions;
+
+/// Rules for user-written profile text (config/text_filter.yaml, config/profile.yaml).
+pub struct ProfileSettings {
+    pub text_filter: TextFilter,
+    pub rules: ProfileRules,
+}
 
 /// Shared, cheaply clonable application state. Domain services are added here as
 /// their crates come online; handlers depend on services, never on raw infrastructure.
@@ -20,6 +27,7 @@ pub struct AppState {
     pub sessions: Arc<dyn SessionResolver>,
     pub limiter: Arc<RateLimiter>,
     pub client: Arc<ClientConfig>,
+    pub profile: Arc<ProfileSettings>,
     /// Encrypts personal-data columns (DOB).
     pub field_cipher: Arc<FieldCipher>,
     /// Header carrying the client's IP country, set by a trusted edge (e.g. `cf-ipcountry`).
@@ -35,6 +43,7 @@ impl AppState {
         identity: Arc<IdentityService>,
         client: ClientConfig,
         field_cipher: FieldCipher,
+        profile: ProfileSettings,
     ) -> Self {
         Self {
             policy: Arc::new(policy),
@@ -43,6 +52,7 @@ impl AppState {
             limiter: Arc::new(limiter),
             client: Arc::new(client),
             field_cipher: Arc::new(field_cipher),
+            profile: Arc::new(profile),
             ip_country_header: None,
             sign_in: None,
         }

@@ -1,0 +1,7 @@
+# Profile rules (US-3, AC-3.2) — see crates/identity/src/profile.rs and context/wiki/architecture/api-mvp.md.
+# Lengths count grapheme clusters of the sanitized text (platform::text, config/text_filter.yaml).
+version: 1
+
+display_name:
+  min_graphemes: 2
+  max_graphemes: 30 # the database allows at most 30 (30 clusters x 16 code points)

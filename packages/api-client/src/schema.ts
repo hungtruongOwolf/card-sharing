@@ -151,6 +151,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set my display name. Auth: onb/ses (after the age gate).
+         * @description The name is sanitized (NFC, invisible and bidi characters removed, whitespace collapsed,
+         *     combining marks capped) and checked against the term lists; the stored form is returned.
+         */
+        put: operations["updateProfile"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/sessions/current": {
         parameters: {
             query?: never;
@@ -304,6 +325,8 @@ export interface components {
              *     the current request). The app renders only what these allow.
              */
             policy: components["schemas"]["PolicyView"];
+            /** @description What the caller has set so far (empty fields before the profile step). */
+            profile: components["schemas"]["ProfileView"];
         };
         /** @enum {string} */
         OnboardingStep: "age" | "profile" | "done";
@@ -343,6 +366,29 @@ export interface components {
              * @example about:blank
              */
             type: string;
+        };
+        /** @description Body of `PUT /v1/me/profile`. The account is always the caller's; no id is accepted. */
+        ProfileRequest: {
+            /**
+             * @description 2-30 characters (grapheme clusters) after sanitizing; not unique, never searchable.
+             * @example Mai
+             */
+            display_name: string;
+        };
+        /** @description Result of a profile write: the account status and onboarding step after it, and the profile. */
+        ProfileResponse: {
+            onboarding: components["schemas"]["OnboardingView"];
+            profile: components["schemas"]["ProfileView"];
+            /** @example pending_profile */
+            status: string;
+        };
+        /**
+         * @description The caller's own profile. Display names are stored sanitized (what is returned is what
+         *     others will see).
+         */
+        ProfileView: {
+            /** @example Mai */
+            display_name?: string | null;
         };
         ReadinessChecks: {
             /**
@@ -749,6 +795,66 @@ export interface operations {
             };
             /** @description TEMPORARILY_UNAVAILABLE (fails closed). */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    updateProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProfileRequest"];
+            };
+        };
+        responses: {
+            /** @description Saved; the response carries the stored (sanitized) name. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileResponse"];
+                };
+            };
+            /** @description VALIDATION_FAILED (length, filtered term, unknown field). */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE (age gate not passed) or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

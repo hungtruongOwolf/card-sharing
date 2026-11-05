@@ -51,6 +51,7 @@ fn app(limiter: RateLimiter) -> Router {
             offline_identity(),
             client_config(),
             field_cipher(),
+            profile_settings(),
         ),
         &config,
     )

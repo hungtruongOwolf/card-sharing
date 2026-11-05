@@ -1,4 +1,4 @@
-//! Identity module: accounts, auth identities, sessions and the age gate.
+//! Identity module: accounts, auth identities, sessions, the age gate and the own profile.
 //! Owns the `identity` Postgres schema (migrations/*_identity_*.sql); other modules reach it only
 //! through this crate's public types (context/wiki/architecture/overview.md §3).
 
@@ -7,6 +7,7 @@ pub mod apple;
 mod cache;
 mod model;
 pub mod oidc;
+mod profile;
 mod service;
 mod sign_in;
 #[cfg(any(test, feature = "test-support"))]
@@ -15,6 +16,7 @@ mod token;
 
 pub use age_gate::{AgeGateError, AgeOutcome, AgeSubmission, age_on};
 pub use model::{AccountStatus, RegionSignals, SessionScope, UnknownValue};
+pub use profile::{Profile, ProfileConfigError, ProfileError, ProfileRules, ProfileUpdate};
 pub use service::{
     AccessError, AccountSummary, DeviceInfo, IdentityService, IssuedSession, Platform, Provider,
     RefreshError, RevokeReason, SessionPolicy, SessionPrincipal, StoreError, VerifiedIdentity,

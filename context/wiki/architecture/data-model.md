@@ -74,6 +74,10 @@ can share a phone). `auth_identities.email` is `TEXT` (no `citext` extension; ne
 `{"store": "US", "ip": "DE", "declared": "US"}` (ISO alpha-2, each optional). A session's `scope` is `onboarding` until the account
 is `active`; authorization also checks the account status, and status changes evict the account's cached sessions.
 
+Profiles (T-31, `migrations/20261106000001_identity_profiles.sql`): one row per account, created by the first profile write;
+`display_name TEXT NULL` (sanitized by `platform::text`; the CHECK is a storage bound of 480 code points = 30 clusters × 16,
+the grapheme rule lives in the app). `avatar_media_id` and `findable_by_handle` are added by the media and discovery tickets.
+
 Age-gate refusal stores **nothing** in Postgres: the pending account is deleted and a 24 h cooldown key
 `agegate:{sha256(device_id)}` / `agegate:{sha256(provider:subject)}` lives in Redis only (AC-2.1). Implemented (T-28) as
 `agegate:d:<hex>` and `agegate:i:<hex>`; `birth_date_enc` = XChaCha20-Poly1305 (`platform::crypto::FieldCipher`, key

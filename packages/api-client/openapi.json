@@ -523,6 +523,90 @@
         }
       }
     },
+    "/v1/me/profile": {
+      "put": {
+        "tags": [
+          "me"
+        ],
+        "summary": "Set my display name. Auth: onb/ses (after the age gate).",
+        "description": "The name is sanitized (NFC, invisible and bidi characters removed, whitespace collapsed,\ncombining marks capped) and checked against the term lists; the stored form is returned.",
+        "operationId": "updateProfile",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Saved; the response carries the stored (sanitized) name.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED (length, filtered term, unknown field).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE (age gate not passed) or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "onb/ses",
+          "rateLimit": "me.profile.update",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
     "/v1/sessions/current": {
       "delete": {
         "tags": [
@@ -914,6 +998,7 @@
         "required": [
           "account",
           "onboarding",
+          "profile",
           "policy"
         ],
         "properties": {
@@ -926,6 +1011,10 @@
           "policy": {
             "$ref": "#/components/schemas/PolicyView",
             "description": "Region rules that apply to this account (strictest of the signals stored at sign-up and\nthe current request). The app renders only what these allow."
+          },
+          "profile": {
+            "$ref": "#/components/schemas/ProfileView",
+            "description": "What the caller has set so far (empty fields before the profile step)."
           }
         }
       },
@@ -1017,6 +1106,55 @@
             "type": "string",
             "description": "URI reference identifying the problem type (`about:blank` = see `status` and `code`).",
             "example": "about:blank"
+          }
+        }
+      },
+      "ProfileRequest": {
+        "type": "object",
+        "description": "Body of `PUT /v1/me/profile`. The account is always the caller's; no id is accepted.",
+        "required": [
+          "display_name"
+        ],
+        "properties": {
+          "display_name": {
+            "type": "string",
+            "description": "2-30 characters (grapheme clusters) after sanitizing; not unique, never searchable.",
+            "example": "Mai"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProfileResponse": {
+        "type": "object",
+        "description": "Result of a profile write: the account status and onboarding step after it, and the profile.",
+        "required": [
+          "status",
+          "onboarding",
+          "profile"
+        ],
+        "properties": {
+          "onboarding": {
+            "$ref": "#/components/schemas/OnboardingView"
+          },
+          "profile": {
+            "$ref": "#/components/schemas/ProfileView"
+          },
+          "status": {
+            "type": "string",
+            "example": "pending_profile"
+          }
+        }
+      },
+      "ProfileView": {
+        "type": "object",
+        "description": "The caller's own profile. Display names are stored sanitized (what is returned is what\nothers will see).",
+        "properties": {
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "Mai"
           }
         }
       },

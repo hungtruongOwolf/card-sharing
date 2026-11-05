@@ -58,3 +58,9 @@ routes:
   - route: POST /v1/me/age
     body: { birth_date: $ADULT_DOB }
     expect: { guest: 401, onboarding_age: 200, onboarding_profile: 403, user: 403, suspended: 403 }
+
+  # Profile writes need the age gate passed (pending_age -> 403 ONBOARDING_INCOMPLETE). No account id is
+  # accepted; the other-user and validation cases are in tests/api/profile.rs.
+  - route: PUT /v1/me/profile
+    body: { display_name: Matrix Cat }
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 200, user: 200, suspended: 403 }

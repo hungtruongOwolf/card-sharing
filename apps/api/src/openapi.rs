@@ -69,6 +69,10 @@ pub fn router() -> ApiRouter<AppState> {
             routes!(me::submit_age),
         )
         .route(
+            RoutePolicy::onboarding_or_session().limited("me.profile.update"),
+            routes!(me::update_profile),
+        )
+        .route(
             RoutePolicy::public().limited("auth.signin"),
             routes!(auth::sign_in_apple),
         )
