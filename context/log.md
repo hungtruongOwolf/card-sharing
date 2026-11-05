@@ -85,3 +85,11 @@
 - Added mvp-plan (M0–M9, ~18 weeks to closed beta, critical path identity → friends → media scan gate → send/read →
   per-viewer boards → moderation → deletion → store release), sprint-1 (18 tickets, 7 spikes), backlog.json (169 tickets,
   every Must/Should US and SR-1..SR-37 traced). Generator committed at tools/planning/ (gen.py, tickets.py, templates).
+
+## [2026-11-04] decision | Symlink-free pnpm layout (repo stays on exFAT E:)
+- EM rejected the VHDX/D: dev-drive approach and moving the repo to C:; libraries may live on C:, work stays on E:.
+- pnpm-workspace.yaml: `nodeLinker: hoisted` + `packageImportMethod: copy`. Store stays in the default per-user location on C:.
+- pnpm symlinks workspace deps under every option tried (`workspace:`, `file:`, `injected`, `injectWorkspacePackages`;
+  verified in a minimal repro), so apps no longer declare internal packages: they import them via tsconfig `paths`
+  (honoured by Next.js, Expo/Metro, tsc, dependency-cruiser). turbo.json `globalDependencies` covers packages/* for caching.
+- README + status.md updated; supersedes the "move repo to NTFS" note above.

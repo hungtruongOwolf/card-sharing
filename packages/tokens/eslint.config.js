@@ -1,3 +1,3 @@
-import library from '@card-sharing/eslint-config/library';
+import library from '../eslint-config/library.js';
 
 export default library;

@@ -27,8 +27,12 @@ infra/            docker-compose for local services
 - For running the mobile app on a device: a development build (`npx expo run:ios|android` or EAS).
   Expo Go cannot load the native Skia/Reanimated versions used here unless they match its bundle.
 
-> **Windows note:** keep the repo on an **NTFS** drive. pnpm needs symlinks/junctions and Cargo
-> needs hard links; exFAT/FAT drives cannot provide them and `pnpm install` fails with `EISDIR`.
+> **Install layout:** the workspace uses a symlink-free layout (`nodeLinker: hoisted`,
+> `packageImportMethod: copy` in `pnpm-workspace.yaml`), so it also works on drives without symlinks/hard
+> links (e.g. exFAT). The pnpm store stays in its default per-user location. Internal packages (`packages/*`)
+> are not npm dependencies of the apps: apps import them through tsconfig `paths`, so edits show up immediately.
+> To add a new internal package, add its path mapping to `tsconfig.base.json` and `apps/mobile/tsconfig.json`.
+> On exFAT, Cargo only warns that it cannot hard-link its incremental cache; builds still work.
 
 ## First run
 

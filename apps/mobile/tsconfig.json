@@ -4,7 +4,11 @@
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    "paths": {
+      "@card-sharing/tokens": ["../../packages/tokens/src/index.ts"],
+      "@card-sharing/api-client": ["../../packages/api-client/src/index.ts"]
+    }
   },
   "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"]
 }

@@ -3,6 +3,15 @@ packages:
   - apps/web
   - packages/*
 
+# Symlink-free install layout. Works on filesystems without symlinks/hard links (e.g. exFAT external
+# drives) and is the layout Expo recommends for pnpm with React Native / Metro.
+# The package store stays in the default per-user location (on the system drive); node_modules get real copies.
+# Internal packages are NOT declared as dependencies (pnpm always symlinks workspace packages, even with `file:` or
+# `injected`). Apps import them through tsconfig `paths` (tsconfig.base.json, apps/mobile/tsconfig.json), which Next.js,
+# Expo/Metro, tsc and dependency-cruiser all honour; turbo.json `globalDependencies` keeps caches correct.
+nodeLinker: hoisted
+packageImportMethod: copy
+
 # pnpm 10 blocks dependency lifecycle scripts by default; allow-list only what is needed.
 onlyBuiltDependencies:
   # copies prebuilt Skia native libs into the package (required for iOS/Android builds)

@@ -25,8 +25,10 @@ related: [[roadmap]], [[ADR-0002-cross-platform-stack]], [[vision]]
 3. Week-1 spike: Skia web perf, holo shader, cutout module, Tier-0 hero effects.
 
 ## Environment notes
-- Repo lives on **E: (exFAT)**: no symlinks/hard links → `pnpm install` fails there (EISDIR) and cargo warns about incremental cache.
-  **Move the repo to an NTFS drive** for local JS work. CI (Linux) is unaffected.
+- Repo lives on **E: (exFAT)**: no symlinks/hard links. Solved without moving the repo: pnpm uses a symlink-free
+  layout (`nodeLinker: hoisted`, `packageImportMethod: copy`); the store stays on C:. Internal packages are imported via
+  tsconfig `paths`, not declared as dependencies (pnpm always symlinks workspace deps). Cargo only warns about its
+  incremental cache. CI (Linux) uses the same layout.
 - Versions in use: Expo SDK 57 (one behind latest 58), RN 0.86, react-native-skia 2.6.2 (SDK-bundled; research doc's 3.x not on npm latest),
   Reanimated 4.5, Next.js 16.4, TypeScript 6.0, Axum 0.8, utoipa 6.
 - Local object storage image is the community fork `pgsty/minio` (official image unavailable) — supply-chain call pending EM (alt: RustFS).

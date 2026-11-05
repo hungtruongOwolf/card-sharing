@@ -10,7 +10,6 @@
     "typecheck": "next typegen && tsc --noEmit"
   },
   "dependencies": {
-    "@card-sharing/tokens": "workspace:*",
     "next": "16.4.5",
     "react": "19.2.3",
     "react-dom": "19.2.3"
