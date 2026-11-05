@@ -33,6 +33,11 @@ export default function HomeScreen() {
       <Button label={t('cutLab.open')} variant="ghost" onPress={() => router.push('/cut-lab')} />
       <Button label={t('friends.open')} variant="ghost" onPress={() => router.push('/friends')} />
       <Button
+        label={t('privacy.open')}
+        variant="ghost"
+        onPress={() => router.push('/settings/privacy')}
+      />
+      <Button
         label={t('sessions.open')}
         variant="ghost"
         onPress={() => router.push('/settings/sessions')}
