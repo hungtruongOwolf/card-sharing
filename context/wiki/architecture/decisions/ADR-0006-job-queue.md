@@ -58,3 +58,16 @@ jobs (14-day request expiry, 7-day invitation expiry, 7-day grace, 30-day hold e
   `sqlx::postgres::PgListener` and also poll every 5 s.
 - Process role: `api worker` (same binary). Slots per lane: critical 4, default 2, bulk 1 (`WorkerSettings`). Periodic tasks
   register with `Worker::periodic` (today: the hourly Idempotency-Key purge).
+
+## Implementation notes (T-16, 2026-11-05)
+- `crates/platform/src/outbox.rs` (`migrations/20261107000003_platform_outbox.sql`): `publish(executor, event, now)` in the
+  business transaction; `id` is a `BIGINT` identity (relay order); `trace_id` = the request id when published from a request.
+- **No PII:** `validate_payload` accepts only an object whose `snake_case` keys contain no PII-like word (email, name, birth,
+  dob, token, secret, password, caption, phone, address, ip, text, title, note, message, url, location) and whose values are
+  UUIDs, arrays of UUIDs (≤ 100), integers, booleans or lowercase codes (`[a-z0-9_.]`, ≤ 64 chars). The audit log reuses it.
+- **Relay** (`OutboxRelay`, worker periodic task every 1 s): in one transaction it locks a batch of unpublished events
+  (`FOR UPDATE SKIP LOCKED`, by id) of the topics it has subscribers for, enqueues one job per matching `Subscriber` with
+  `unique_key = event_id:subscriber` and marks them published. A crash rolls everything back; the unique key keeps delivery
+  exactly-once per (event, subscriber) even if an event is relayed twice. Events of topics no subscriber knows stay unpublished
+  (a rolling deploy never drops them). Published events are purged after 7 d. Subscriber names are part of the dedupe key and
+  must never change.

@@ -14,6 +14,7 @@ mod http;
 mod idempotency;
 mod jobs;
 mod me;
+mod outbox;
 mod profile;
 mod rate_limit;
 mod sessions;
