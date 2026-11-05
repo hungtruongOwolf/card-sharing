@@ -29,7 +29,7 @@ pub use magic_link::{
 pub use model::{AccountStatus, RegionSignals, SessionScope, UnknownValue};
 pub use profile::{
     HandleError, HandleRules, Profile, ProfileConfigError, ProfileError, ProfileRules,
-    ProfileUpdate, normalize_handle,
+    ProfileUpdate, PublicProfile, normalize_handle,
 };
 pub use service::{
     AccessError, AccountSummary, DeviceInfo, IdentityService, IssuedSession, Platform, Provider,

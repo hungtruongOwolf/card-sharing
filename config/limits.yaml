@@ -109,6 +109,16 @@ limits:
     requests: 5
     per_secs: 86400
     on_store_failure: open
+  invites.preview: # GET /v1/invites/{token} (per client IP: token guessing, SR-20)
+    scope: ip
+    requests: 30
+    per_secs: 60
+    on_store_failure: closed
+  friend_requests.create: # POST /v1/friend-requests (the 30/day product cap is enforced in the service, T-41)
+    scope: user
+    requests: 30
+    per_secs: 86400
+    on_store_failure: closed
   config.read: # GET /v1/config (CDN cached; this only bounds cache misses)
     scope: ip
     requests: 120

@@ -599,6 +599,216 @@
         }
       }
     },
+    "/v1/friend-requests": {
+      "post": {
+        "tags": [
+          "social"
+        ],
+        "summary": "Send a friend request to the owner of an invite. Auth: ses + att; `Idempotency-Key` required.",
+        "description": "The inviter must accept before a friendship exists. A request between accounts with a block\n(either way) gets the same 201 and is never delivered. Repeating a request returns the open\none.",
+        "operationId": "createFriendRequest",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateFriendRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Sent (or already open). Identical for silently dropped requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateFriendRequestResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED (also: your own invite).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE, ACCOUNT_SUSPENDED or ATTESTATION_FAILED (enforce mode).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND or INVITE_EXPIRED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "ALREADY_FRIENDS, FRIEND_LIMIT_REACHED or IDEMPOTENCY_IN_PROGRESS.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "IDEMPOTENCY_KEY_REUSED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": true,
+          "auth": "ses",
+          "idempotency": "required",
+          "rateLimit": "friend_requests.create",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
+    "/v1/invites/{token}": {
+      "get": {
+        "tags": [
+          "social"
+        ],
+        "summary": "Preview an invite before adding the inviter. Auth: ses; rate-limited per client IP.",
+        "description": "Unknown tokens, suspended inviters and blocks (either way) all answer the same 404\n`NOT_FOUND`; a reset, expired or used-up invite answers 404 `INVITE_EXPIRED`.",
+        "operationId": "previewInvite",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "description": "The token part of an invite link (22 characters).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The inviter's display name (no avatar for a minor's invite).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitePreviewResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND (unknown) or INVITE_EXPIRED (reset, expired or used up).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "TEMPORARILY_UNAVAILABLE (rate limit store down; fails closed).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "invites.preview",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
     "/v1/me": {
       "get": {
         "tags": [
@@ -1787,6 +1997,31 @@
         },
         "additionalProperties": false
       },
+      "CreateFriendRequest": {
+        "type": "object",
+        "description": "Body of `POST /v1/friend-requests`.",
+        "required": [
+          "invite_token"
+        ],
+        "properties": {
+          "invite_token": {
+            "type": "string",
+            "description": "Token of the invite the caller opened."
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreateFriendRequestResponse": {
+        "type": "object",
+        "required": [
+          "request"
+        ],
+        "properties": {
+          "request": {
+            "$ref": "#/components/schemas/SentRequestView"
+          }
+        }
+      },
       "DevicePlatform": {
         "type": "string",
         "enum": [
@@ -1923,6 +2158,22 @@
           }
         }
       },
+      "InvitePreviewResponse": {
+        "type": "object",
+        "required": [
+          "inviter",
+          "is_self"
+        ],
+        "properties": {
+          "inviter": {
+            "$ref": "#/components/schemas/InviterView"
+          },
+          "is_self": {
+            "type": "boolean",
+            "description": "The caller opened their own invite (\"That's you!\"); sending a request is refused."
+          }
+        }
+      },
       "InviteResponse": {
         "type": "object",
         "description": "My personal invite link. Share it as a link or QR code.",
@@ -1942,6 +2193,19 @@
             "type": "string",
             "description": "`<share host>/i/<token>`; the token is 128 random bits (22 base64url characters).",
             "example": "https://cardsharing.app/i/3q2-7wAAAAAAAAAAAAAAAA"
+          }
+        }
+      },
+      "InviterView": {
+        "type": "object",
+        "description": "The inviter as shown before sending a request.",
+        "required": [
+          "display_name"
+        ],
+        "properties": {
+          "display_name": {
+            "type": "string",
+            "example": "Mai"
           }
         }
       },
@@ -2200,6 +2464,30 @@
           }
         },
         "additionalProperties": false
+      },
+      "SentRequestView": {
+        "type": "object",
+        "description": "A request as its sender sees it: pending until accepted or expired.",
+        "required": [
+          "id",
+          "status",
+          "expires_at"
+        ],
+        "properties": {
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "description": "Always `pending` for the sender (declines and blocks are silent).",
+            "example": "pending"
+          }
+        }
       },
       "SessionList": {
         "type": "object",

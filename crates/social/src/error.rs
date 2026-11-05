@@ -12,6 +12,8 @@ pub enum SocialError {
     /// The identity module (age, account) failed.
     #[error("identity error: {0}")]
     Identity(String),
+    #[error("outbox error: {0}")]
+    Outbox(#[from] platform::outbox::OutboxError),
     #[error("corrupt row: {0}")]
     Corrupt(String),
 }

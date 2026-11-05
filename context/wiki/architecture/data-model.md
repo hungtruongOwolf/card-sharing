@@ -123,6 +123,13 @@ owner id) so `GET /v1/me/invite` can return the same link again; lookups only ev
 from region policy when the owner is a minor at issue time; on every use the tighter of the stored limits and the current minor
 rule (from issue time) applies.
 
+Requests, friendships and blocks as implemented (T-39, `20261109000003_social_friend_requests.sql`): `friend_requests` adds
+`created_at` and `responded_at`; a request is **open** while `pending`, `declined` or `dropped` and unexpired, because declines and
+drops are silent (the sender sees "pending" until expiry, and it keeps its slot under the sender's pending cap). The pair dedupe
+index is `UNIQUE(from_user, to_user) WHERE status IN ('pending','declined','dropped')`; only `pending` rows reach the recipient.
+`friendships` and `blocks` as above, with `CHECK` against self-edges. Pair writes take `pg_advisory_xact_lock` on both accounts
+(key = the random tail of the UUIDv7, locked in key order).
+
 The "adult · no mutual friends" hint on a minor's incoming request (AC-5.5) is computed at read time (recipient is a minor ∧
 sender is an adult ∧ no mutual friends); nothing extra is stored. Minor status always comes from
 `identity::AgeService::is_minor(ids)` (decrypts DOB, Redis cache 24 h), never from a client flag.

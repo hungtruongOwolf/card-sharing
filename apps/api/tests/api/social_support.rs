@@ -123,4 +123,56 @@ pub async fn signed_in_again(env: &TestEnv, user: &User) -> User {
         token: session.access_token.expose().to_owned(),
         ..user.clone()
     }
+/// The caller's invite token (creates the invite).
+pub async fn invite_token(env: &TestEnv, user: &User) -> String {
+    let response = call(env, "GET", "/v1/me/invite", user, None).await;
+    assert_eq!(response.status(), http::StatusCode::OK);
+    token_of(json_body(response).await["url"].as_str().unwrap())
+}
+
+/// `POST /v1/friend-requests` from an invite token, with a fresh Idempotency-Key.
+pub async fn request_via_invite(env: &TestEnv, from: &User, token: &str) -> Response<Body> {
+    let request = Request::post("/v1/friend-requests")
+        .header("authorization", format!("Bearer {}", from.token))
+        .header("content-type", "application/json")
+        .header("idempotency-key", Uuid::now_v7().to_string())
+        .body(Body::from(
+            serde_json::json!({ "invite_token": token }).to_string(),
+        ))
+        .unwrap();
+    send(&env.router, request).await
+}
+
+/// Writes a friendship row directly (canonical order).
+pub async fn make_friends(env: &TestEnv, a: Uuid, b: Uuid) {
+    let (low, high) = if a < b { (a, b) } else { (b, a) };
+    sqlx::query("INSERT INTO social.friendships (user_a, user_b, created_at) VALUES ($1, $2, $3)")
+        .bind(low)
+        .bind(high)
+        .bind(env.clock.now())
+        .execute(env.identity.pool())
+        .await
+        .unwrap();
+}
+
+/// Writes a block row directly (`blocker` blocks `blocked`).
+pub async fn block(env: &TestEnv, blocker: Uuid, blocked: Uuid) {
+    sqlx::query(
+        "INSERT INTO social.blocks (blocker_id, blocked_id, created_at) VALUES ($1, $2, $3)",
+    )
+    .bind(blocker)
+    .bind(blocked)
+    .bind(env.clock.now())
+    .execute(env.identity.pool())
+    .await
+    .unwrap();
+}
+
+/// Status of the request with this id.
+pub async fn request_status(env: &TestEnv, id: &str) -> String {
+    sqlx::query_scalar("SELECT status FROM social.friend_requests WHERE id = $1::uuid")
+        .bind(id)
+        .fetch_one(env.identity.pool())
+        .await
+        .unwrap()
 }
