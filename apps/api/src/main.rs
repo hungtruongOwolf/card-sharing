@@ -14,6 +14,7 @@ use platform::clock::{SharedClock, SystemClock};
 use platform::crypto::FieldCipher;
 use platform::idempotency::{IdempotencySettings, IdempotencyStore};
 use platform::jobs::{JobQueue, PeriodicFuture, PeriodicTask, Worker, WorkerSettings};
+use platform::outbox::{OutboxRelay, RelayTask};
 use platform::rate_limit::{RateLimitConfig, RateLimiter};
 use platform::text::TextFilter;
 use policy::PolicyService;
@@ -114,15 +115,23 @@ async fn run_worker(pool: sqlx::PgPool) {
     let clock: SharedClock = Arc::new(SystemClock);
     let queue = Arc::new(JobQueue::new(pool.clone(), Arc::clone(&clock)));
     let idempotency = Arc::new(IdempotencyStore::new(
-        pool,
-        clock,
+        pool.clone(),
+        Arc::clone(&clock),
         IdempotencySettings::default(),
     ));
-    let worker = Worker::new(queue, WorkerSettings::default()).periodic(
-        "idempotency.purge",
-        std::time::Duration::from_secs(3600),
-        Arc::new(IdempotencyPurge(idempotency)),
-    );
+    // Subscribers register here as modules start publishing events.
+    let relay = Arc::new(OutboxRelay::new(pool, clock));
+    let worker = Worker::new(queue, WorkerSettings::default())
+        .periodic(
+            "idempotency.purge",
+            std::time::Duration::from_secs(3600),
+            Arc::new(IdempotencyPurge(idempotency)),
+        )
+        .periodic(
+            "outbox.relay",
+            std::time::Duration::from_secs(1),
+            Arc::new(RelayTask(relay)),
+        );
     let (stop, stopped) = tokio::sync::watch::channel(false);
     let signal = tokio::spawn(async move {
         shutdown_signal().await;
