@@ -222,6 +222,12 @@ returned. Visibility is one batched query per read (`CardAccess::visible_to` + f
 Validation: caption ≤ 80 chars (grapheme count) + profanity filter; display name 2–30; handle `^[a-z0-9._]{3,20}$`; `recipient_ids` ≤ 20,
 unique; pin `scale` 0.1–10, `x/y` within board bounds, `z_key` ≤ 32 chars `[0-9A-Za-z]`; ≤ 50 ops per batch; registry ids must exist
 and be enabled; unknown JSON fields rejected (`deny_unknown_fields`).
+Implemented (T-30): `platform::text::TextFilter` (terms in `config/text_filter.yaml`) sanitizes every name/caption/title before
+it is counted or stored: NFC, control/bidi/zero-width/invisible characters removed (a ZWJ survives only inside an emoji or Indic
+cluster), whitespace collapsed to one space and trimmed, combining marks capped per grapheme (zalgo), over-long clusters dropped.
+Lengths are grapheme clusters of the sanitized text. Term matching folds case, accents, compatibility forms, Cyrillic/Greek
+look-alikes, leetspeak, spelled-out (`f.u.c.k`) and stretched spellings; `words` terms match whole words only (no Scunthorpe
+problem). A match is 400 `VALIDATION_FAILED` without naming the term.
 
 ## Errors (RFC 9457 `application/problem+json`)
 `{ "type": "https://…/errors/<code>", "title", "status", "detail", "code", "requestId" }` — no SQL, stack traces or other users' data.

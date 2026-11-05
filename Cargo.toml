@@ -53,6 +53,9 @@ tower = { version = "0.5.3", features = ["timeout", "util"] }
 tower-http = { version = "0.7.1", features = ["cors", "trace", "set-header", "limit", "catch-panic"] }
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter", "json", "fmt"] }
+# Shared text filter (platform::text): NFC/NFKD and grapheme clusters.
+unicode-normalization = "0.1.26"
+unicode-segmentation = "1.12"
 utoipa = { version = "6.0.0", features = ["axum_extras"] }
 utoipa-axum = "0.3.0"
 uuid = { version = "1.29.0", features = ["v7", "serde"] }
