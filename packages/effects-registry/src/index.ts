@@ -1,6 +1,12 @@
 export * from './schema';
 export { ID_PATTERN, validateEntry, validateRegistry } from './validate';
-export { clampNumberParam, defaultParams, resolveParams, type ParamsResult } from './params';
+export {
+  clampNumberParam,
+  clampParams,
+  defaultParams,
+  resolveParams,
+  type ParamsResult,
+} from './params';
 export {
   compareVersions,
   killedIds,

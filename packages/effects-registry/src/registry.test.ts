@@ -35,6 +35,35 @@ describe('shipped registry', () => {
   });
 });
 
+describe('die-cut presets', () => {
+  it('offers the classic and thick sticker borders', () => {
+    expect(cutDiecut.presets?.map((p) => [p.id, p.params.borderWidthPct])).toEqual([
+      ['classic', 3],
+      ['thick', 6],
+    ]);
+  });
+
+  it.each([
+    [
+      'out-of-range params',
+      { id: 'huge', name: 'effects.x.y', params: { borderWidthPct: 9 } },
+      /invalid value/,
+    ],
+    ['unknown params', { id: 'odd', name: 'effects.x.y', params: { glow: 1 } }, /unknown param/],
+    ['a non-slug id', { id: 'Big One', name: 'effects.x.y', params: {} }, /slug/],
+    ['plain-text names', { id: 'plain', name: 'Thick', params: {} }, /i18n key/],
+  ])('rejects presets with %s', (_label, preset, message) => {
+    expect(validateEntry(withChanges({ presets: [preset] })).join('\n')).toMatch(message);
+  });
+
+  it('rejects duplicate preset ids', () => {
+    const preset = { id: 'same', name: 'effects.x.y', params: {} };
+    expect(validateEntry(withChanges({ presets: [preset, preset] })).join('\n')).toMatch(
+      /duplicate/,
+    );
+  });
+});
+
 describe('validateRegistry', () => {
   it('rejects duplicate ids', () => {
     expect(validateRegistry([cutDiecut, cutDiecut])).toContain('cut.diecut: duplicate id');

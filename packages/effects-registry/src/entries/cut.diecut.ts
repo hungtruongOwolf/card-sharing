@@ -3,7 +3,8 @@ import { NEEDS_SUBJECT_MASK } from './platforms';
 
 /**
  * Vinyl sticker with a white (or colour) border: mask -> contour -> round-join stroke under the subject
- * (effects-catalog.md §3.1 #1). Border width is a percentage of the subject's bounding-box diagonal.
+ * (effects-catalog.md §3.1 #1). Border width is a percentage of the subject's bounding-box diagonal; the
+ * "thick sticker" is a preset at the 6 % maximum, not a separate id.
  */
 export const cutDiecut: EffectEntry = {
   id: 'cut.diecut',
@@ -30,4 +31,8 @@ export const cutDiecut: EffectEntry = {
   motion: { reduced: 'none' },
   unlock: 'free',
   flags: {},
+  presets: [
+    { id: 'classic', name: 'effects.cut.diecut.preset.classic', params: { borderWidthPct: 3 } },
+    { id: 'thick', name: 'effects.cut.diecut.preset.thick', params: { borderWidthPct: 6 } },
+  ],
 };

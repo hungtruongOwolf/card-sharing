@@ -1,0 +1,71 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`cut style renderers matches the golden signatures on the dark canvas 1`] = `
+{
+  "cut.diecut": [
+    "1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff",
+    "1a1512ff 1a1512ff 1a1512ff fdfeffff fdfeffff 1a1512ff 1a1512ff 1a1512ff",
+    "1a1512ff 1a1512ff 3366ccff 3366ccff 3366ccff 3366ccff 1a1512ff 1a1512ff",
+    "1a1512ff fcfdfeff 3366ccff 3366ccff 3366ccff 3366ccff ffffffff 1a1512ff",
+    "1a1512ff fbfcfeff 3366ccff 3366ccff 3366ccff 3366ccff cbcac9ff 1a1512ff",
+    "1a1512ff 1a1512ff 3366ccff 3366ccff 3366ccff 3366ccff 1a1512ff 1a1512ff",
+    "1a1512ff 1a1512ff 1a1512ff ffffffff ffffffff 1a1512ff 1a1512ff 1a1512ff",
+    "1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff",
+  ],
+  "cut.none": [
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+  ],
+  "cut.raw": [
+    "1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff",
+    "1a1512ff 1a1512ff 1a1512ff 1a1614ff 1a1614ff 1a1512ff 1a1512ff 1a1512ff",
+    "1a1512ff 1a1512ff 3366ccff 3366ccff 3366ccff 3366ccff 1a1512ff 1a1512ff",
+    "1a1512ff 1b1715ff 3366ccff 3366ccff 3366ccff 3366ccff 1a1512ff 1a1512ff",
+    "1a1512ff 1a1716ff 3366ccff 3366ccff 3366ccff 3366ccff 1a1512ff 1a1512ff",
+    "1a1512ff 1a1512ff 3366ccff 3366ccff 3366ccff 3366ccff 1a1512ff 1a1512ff",
+    "1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff",
+    "1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff",
+  ],
+}
+`;
+
+exports[`cut style renderers matches the golden signatures on the light canvas 1`] = `
+{
+  "cut.diecut": [
+    "f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff",
+    "f6efe3ff f6efe3ff f6efe3ff fdfeffff fdfeffff f6efe3ff f6efe3ff f6efe3ff",
+    "f6efe3ff f6efe3ff 3366ccff 3366ccff 3366ccff 3366ccff f6efe3ff f6efe3ff",
+    "f6efe3ff fcfdfeff 3366ccff 3366ccff 3366ccff 3366ccff ffffffff f6efe3ff",
+    "f6efe3ff fbfcfeff 3366ccff 3366ccff 3366ccff 3366ccff fdfbf9ff f6efe3ff",
+    "f6efe3ff f6efe3ff 3366ccff 3366ccff 3366ccff 3366ccff f6efe3ff f6efe3ff",
+    "f6efe3ff f6efe3ff f6efe3ff ffffffff ffffffff f6efe3ff f6efe3ff f6efe3ff",
+    "f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff",
+  ],
+  "cut.none": [
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+  ],
+  "cut.raw": [
+    "f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff",
+    "f6efe3ff f6efe3ff f6efe3ff f4eee3ff f4eee3ff f6efe3ff f6efe3ff f6efe3ff",
+    "f6efe3ff f6efe3ff 3366ccff 3366ccff 3366ccff 3366ccff f6efe3ff f6efe3ff",
+    "f6efe3ff f3ede2ff 3366ccff 3366ccff 3366ccff 3366ccff f6efe3ff f6efe3ff",
+    "f6efe3ff f2ece3ff 3366ccff 3366ccff 3366ccff 3366ccff f6efe3ff f6efe3ff",
+    "f6efe3ff f6efe3ff 3366ccff 3366ccff 3366ccff 3366ccff f6efe3ff f6efe3ff",
+    "f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff",
+    "f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff",
+  ],
+}
+`;

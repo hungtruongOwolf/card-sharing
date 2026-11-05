@@ -126,6 +126,16 @@ export const en = {
   'onboarding.camera.library': 'Choose from your photos',
   'onboarding.camera.notNow': 'Not now',
 
+  'cutLab.open': 'Open cut lab',
+  'cutLab.title': 'Cut lab',
+  'cutLab.hint':
+    'Every cut style from the registry on a sample subject. Pick a style, a preset or nudge a value.',
+  'cutLab.previewLabel': 'Sample subject {style}',
+  'cutLab.unavailable': 'Preview unavailable',
+  'cutLab.param': '{name}: {value, number}',
+  'cutLab.decrease': 'Decrease {name}',
+  'cutLab.increase': 'Increase {name}',
+
   'capture.title': 'Make a card',
   'capture.body':
     'Snap something with the camera, or pick a photo you already have. Photos stay on your phone until you send a card.',
@@ -154,6 +164,8 @@ export const en = {
   'effects.cut.diecut.name': 'Sticker',
   'effects.cut.diecut.description': 'The subject with a die-cut sticker border.',
   'effects.cut.diecut.a11y': 'as a sticker with a border',
+  'effects.cut.diecut.preset.classic': 'Classic border',
+  'effects.cut.diecut.preset.thick': 'Thick sticker',
   'effects.fx.holo.name': 'Holo',
   'effects.fx.holo.description': 'Rainbow foil that shifts as you tilt your phone.',
   'effects.fx.holo.a11y': 'with a holographic foil',

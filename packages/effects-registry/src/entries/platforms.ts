@@ -12,11 +12,11 @@ export const ALL_DEVICES: EffectEntry['platforms'] = {
 };
 
 /**
- * Needs an on-device subject mask (Vision on iOS 17+, ML Kit with Play services on Android);
- * without one the app offers the server cutout (subject-cutout.md).
+ * Needs an on-device subject mask: Vision on iOS 17+, ML Kit or the bundled fallback model on Android
+ * (prd-mvp AC-7.6). No server fallback in the MVP, so devices without a mask do not show the entry.
  */
 export const NEEDS_SUBJECT_MASK: EffectEntry['platforms'] = {
-  ios: { min: APP_MIN_IOS, requires: ['subjectMask'], fallback: 'serverCutout' },
-  android: { min: APP_MIN_ANDROID, requires: ['subjectMask'], fallback: 'serverCutout' },
+  ios: { min: APP_MIN_IOS, requires: ['subjectMask'] },
+  android: { min: APP_MIN_ANDROID, requires: ['subjectMask'] },
   webPreview: 'baked',
 };
