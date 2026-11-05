@@ -2,11 +2,18 @@
 //! 128-bit random token. Lookups use the SHA-256 of the token; the raw token is also kept
 //! encrypted (field cipher, bound to the owner) so the owner can fetch the same link again. A
 //! reset revokes the live invite (its token then answers "expired") and issues a new one.
+//!
+//! Minors (AC-4.4): an invite whose owner is a minor expires `invites.minor_ttl_days` after it was
+//! issued and accepts at most `invites.minor_max_uses` friend requests (region policy). The rule
+//! is stored at issue time and re-applied on every use from the owner's current minor status, so
+//! an account that becomes a minor later (OS age signal) is protected too, and the limits of an
+//! invite issued to a minor stay after the owner turns 18.
 
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+use policy::{InvitePolicy, PolicyContext};
 use sha2::{Digest, Sha256};
-use time::OffsetDateTime;
+use time::{Duration, OffsetDateTime};
 use uuid::Uuid;
 
 use crate::error::{InviteError, SocialError};
@@ -21,6 +28,8 @@ pub struct MyInvite {
     pub token: String,
     pub url: String,
     pub created_at: OffsetDateTime,
+    /// Set for minors' invites (AC-4.4); `None` = does not expire on its own.
+    pub expires_at: Option<OffsetDateTime>,
 }
 
 /// A usable invite, as seen by someone holding its token.
@@ -28,19 +37,63 @@ pub struct MyInvite {
 pub struct ResolvedInvite {
     pub invite_id: Uuid,
     pub owner_id: Uuid,
+    /// Use cap in force right now (stored, or the minor rule), for the friend-request transaction.
+    pub max_uses: Option<i32>,
+}
+
+/// Expiry and use cap of one invite.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) struct Limits {
+    pub expires_at: Option<OffsetDateTime>,
+    pub max_uses: Option<i32>,
+}
+
+impl Limits {
+    /// Limits for an invite issued at `issued_at` under `minor_rule` (`None` for adults).
+    fn issued(issued_at: OffsetDateTime, minor_rule: Option<&InvitePolicy>) -> Self {
+        minor_rule.map_or_else(Self::default, |rule| Self {
+            expires_at: Some(issued_at + Duration::days(i64::from(rule.minor_ttl_days))),
+            max_uses: Some(i32::try_from(rule.minor_max_uses).unwrap_or(i32::MAX)),
+        })
+    }
+
+    /// The tighter of two limits, field by field.
+    fn tightest(self, other: Self) -> Self {
+        fn min<T: Ord>(a: Option<T>, b: Option<T>) -> Option<T> {
+            match (a, b) {
+                (Some(a), Some(b)) => Some(a.min(b)),
+                (a, b) => a.or(b),
+            }
+        }
+        Self {
+            expires_at: min(self.expires_at, other.expires_at),
+            max_uses: min(self.max_uses, other.max_uses),
+        }
+    }
+
+    fn usable(&self, use_count: i32, now: OffsetDateTime) -> bool {
+        self.expires_at.is_none_or(|at| now < at) && self.max_uses.is_none_or(|cap| use_count < cap)
+    }
 }
 
 #[derive(sqlx::FromRow)]
 struct LiveRow {
     token_enc: Vec<u8>,
     created_at: OffsetDateTime,
+    expires_at: Option<OffsetDateTime>,
+    max_uses: Option<i32>,
+    use_count: i32,
 }
 
 #[derive(sqlx::FromRow)]
 struct LookupRow {
     id: Uuid,
     owner_id: Uuid,
+    created_at: OffsetDateTime,
     revoked_at: Option<OffsetDateTime>,
+    expires_at: Option<OffsetDateTime>,
+    max_uses: Option<i32>,
+    use_count: i32,
 }
 
 pub(crate) fn token_hash(raw: &str) -> Vec<u8> {
@@ -69,38 +122,55 @@ pub(crate) fn well_formed(raw: &str) -> bool {
 }
 
 impl SocialService {
-    /// The caller's live invite, created on first use.
+    /// The caller's live invite. Created on first use, and replaced when the live one can no
+    /// longer be used (a minor's invite past its expiry or use cap).
     pub async fn my_invite(&self, owner_id: Uuid) -> Result<MyInvite, SocialError> {
-        if let Some(invite) = self.live_invite(owner_id).await? {
+        let minor_rule = self.minor_invite_rule(owner_id).await?;
+        if let Some(invite) = self.live_invite(owner_id, minor_rule.as_ref()).await? {
             return Ok(invite);
         }
+        let now = self.clock.now();
         let token = new_token()?;
-        // Two concurrent first calls: the partial unique index lets one insert win; both then
-        // read the winner.
+        let limits = Limits::issued(now, minor_rule.as_ref());
+        let mut tx = self.pool.begin().await?;
+        // A used-up live invite is revoked first. Two concurrent first calls: the partial unique
+        // index lets one insert win; both then read the winner.
         sqlx::query(
-            "INSERT INTO social.invites (id, owner_id, token_hash, token_enc, created_at)
-             VALUES ($1, $2, $3, $4, $5)
+            "UPDATE social.invites SET revoked_at = $2
+             WHERE owner_id = $1 AND revoked_at IS NULL
+               AND ((expires_at IS NOT NULL AND expires_at <= $2)
+                    OR (max_uses IS NOT NULL AND use_count >= max_uses))",
+        )
+        .bind(owner_id)
+        .bind(now)
+        .execute(&mut *tx)
+        .await?;
+        sqlx::query(
+            "INSERT INTO social.invites (id, owner_id, token_hash, token_enc, created_at, expires_at, max_uses)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)
              ON CONFLICT (owner_id) WHERE revoked_at IS NULL DO NOTHING",
         )
         .bind(Uuid::now_v7())
         .bind(owner_id)
         .bind(token_hash(&token))
-        .bind(
-            self.cipher
-                .encrypt(token.as_bytes(), &token_aad(owner_id))?,
-        )
-        .bind(self.clock.now())
-        .execute(&self.pool)
+        .bind(self.cipher.encrypt(token.as_bytes(), &token_aad(owner_id))?)
+        .bind(now)
+        .bind(limits.expires_at)
+        .bind(limits.max_uses)
+        .execute(&mut *tx)
         .await?;
-        self.live_invite(owner_id)
+        tx.commit().await?;
+        self.live_invite(owner_id, minor_rule.as_ref())
             .await?
-            .ok_or_else(|| SocialError::Corrupt("live invite vanished after insert".to_owned()))
+            .ok_or_else(|| SocialError::Corrupt("live invite unusable after insert".to_owned()))
     }
 
     /// Revokes the live invite (its token answers "expired" from now on) and issues a new one.
     pub async fn reset_invite(&self, owner_id: Uuid) -> Result<MyInvite, SocialError> {
+        let minor_rule = self.minor_invite_rule(owner_id).await?;
         let now = self.clock.now();
         let token = new_token()?;
+        let limits = Limits::issued(now, minor_rule.as_ref());
         let mut tx = self.pool.begin().await?;
         sqlx::query(
             "UPDATE social.invites SET revoked_at = $2
@@ -111,30 +181,31 @@ impl SocialService {
         .execute(&mut *tx)
         .await?;
         sqlx::query(
-            "INSERT INTO social.invites (id, owner_id, token_hash, token_enc, created_at)
-             VALUES ($1, $2, $3, $4, $5)",
+            "INSERT INTO social.invites (id, owner_id, token_hash, token_enc, created_at, expires_at, max_uses)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)",
         )
         .bind(Uuid::now_v7())
         .bind(owner_id)
         .bind(token_hash(&token))
-        .bind(
-            self.cipher
-                .encrypt(token.as_bytes(), &token_aad(owner_id))?,
-        )
+        .bind(self.cipher.encrypt(token.as_bytes(), &token_aad(owner_id))?)
         .bind(now)
+        .bind(limits.expires_at)
+        .bind(limits.max_uses)
         .execute(&mut *tx)
         .await?;
         tx.commit().await?;
-        Ok(self.invite_view(token, now))
+        Ok(self.invite_view(token, now, limits))
     }
 
-    /// Who issued `raw_token`, if it can still be used.
+    /// Who issued `raw_token`, if it can still be used: not reset, not past its expiry, under
+    /// its use cap (with the minor rule applied from the owner's current status).
     pub async fn resolve_invite(&self, raw_token: &str) -> Result<ResolvedInvite, InviteError> {
         if !well_formed(raw_token) {
             return Err(InviteError::NotFound);
         }
         let row: Option<LookupRow> = sqlx::query_as(
-            "SELECT id, owner_id, revoked_at FROM social.invites WHERE token_hash = $1",
+            "SELECT id, owner_id, created_at, revoked_at, expires_at, max_uses, use_count
+             FROM social.invites WHERE token_hash = $1",
         )
         .bind(token_hash(raw_token))
         .fetch_optional(&self.pool)
@@ -143,15 +214,51 @@ impl SocialService {
         if row.revoked_at.is_some() {
             return Err(InviteError::Expired);
         }
+        let minor_rule = self.minor_invite_rule(row.owner_id).await?;
+        let limits = Limits {
+            expires_at: row.expires_at,
+            max_uses: row.max_uses,
+        }
+        .tightest(Limits::issued(row.created_at, minor_rule.as_ref()));
+        if !limits.usable(row.use_count, self.clock.now()) {
+            return Err(InviteError::Expired);
+        }
         Ok(ResolvedInvite {
             invite_id: row.id,
             owner_id: row.owner_id,
+            max_uses: limits.max_uses,
         })
     }
 
-    async fn live_invite(&self, owner_id: Uuid) -> Result<Option<MyInvite>, SocialError> {
+    /// The region's minor invite rule when `owner_id` is a minor right now, else `None`.
+    async fn minor_invite_rule(&self, owner_id: Uuid) -> Result<Option<InvitePolicy>, SocialError> {
+        let status = self
+            .age
+            .status(owner_id, &PolicyContext::default())
+            .await
+            .map_err(|err| SocialError::Identity(err.to_string()))?;
+        if !status.is_minor {
+            return Ok(None);
+        }
+        let account = self
+            .identity
+            .account(owner_id)
+            .await
+            .map_err(|err| SocialError::Identity(err.to_string()))?
+            .ok_or_else(|| SocialError::Identity("invite owner not found".to_owned()))?;
+        let policy = self
+            .policy
+            .resolve_strictest(&[account.region_signals.context()]);
+        Ok(Some(policy.invites))
+    }
+
+    async fn live_invite(
+        &self,
+        owner_id: Uuid,
+        minor_rule: Option<&InvitePolicy>,
+    ) -> Result<Option<MyInvite>, SocialError> {
         let row: Option<LiveRow> = sqlx::query_as(
-            "SELECT token_enc, created_at FROM social.invites
+            "SELECT token_enc, created_at, expires_at, max_uses, use_count FROM social.invites
              WHERE owner_id = $1 AND revoked_at IS NULL",
         )
         .bind(owner_id)
@@ -160,17 +267,26 @@ impl SocialService {
         let Some(row) = row else {
             return Ok(None);
         };
+        let limits = Limits {
+            expires_at: row.expires_at,
+            max_uses: row.max_uses,
+        }
+        .tightest(Limits::issued(row.created_at, minor_rule));
+        if !limits.usable(row.use_count, self.clock.now()) {
+            return Ok(None);
+        }
         let plain = self.cipher.decrypt(&row.token_enc, &token_aad(owner_id))?;
         let token = String::from_utf8(plain)
             .map_err(|_| SocialError::Corrupt("invite token is not UTF-8".to_owned()))?;
-        Ok(Some(self.invite_view(token, row.created_at)))
+        Ok(Some(self.invite_view(token, row.created_at, limits)))
     }
 
-    fn invite_view(&self, token: String, created_at: OffsetDateTime) -> MyInvite {
+    fn invite_view(&self, token: String, created_at: OffsetDateTime, limits: Limits) -> MyInvite {
         MyInvite {
             url: format!("{}{token}", self.settings.invite_url_base),
             token,
             created_at,
+            expires_at: limits.expires_at,
         }
     }
 }
@@ -178,6 +294,13 @@ impl SocialService {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn rule() -> InvitePolicy {
+        InvitePolicy {
+            minor_ttl_days: 7,
+            minor_max_uses: 5,
+        }
+    }
 
     #[test]
     fn tokens_are_128_bit_base64url() {
@@ -199,5 +322,36 @@ mod tests {
     #[test]
     fn token_ciphertext_is_bound_to_its_owner() {
         assert_ne!(token_aad(Uuid::now_v7()), token_aad(Uuid::now_v7()));
+    }
+
+    #[test]
+    fn adult_invites_have_no_limits() {
+        let now = OffsetDateTime::UNIX_EPOCH;
+        let limits = Limits::issued(now, None);
+        assert_eq!(limits, Limits::default());
+        assert!(limits.usable(10_000, now + Duration::days(3650)));
+    }
+
+    #[test]
+    fn minor_invites_expire_after_the_ttl_and_at_the_use_cap() {
+        let issued = OffsetDateTime::UNIX_EPOCH;
+        let limits = Limits::issued(issued, Some(&rule()));
+        assert!(limits.usable(0, issued + Duration::days(7) - Duration::seconds(1)));
+        assert!(!limits.usable(0, issued + Duration::days(7)));
+        assert!(limits.usable(4, issued));
+        assert!(!limits.usable(5, issued));
+    }
+
+    #[test]
+    fn the_tightest_limit_wins_field_by_field() {
+        let issued = OffsetDateTime::UNIX_EPOCH;
+        let stored = Limits {
+            expires_at: Some(issued + Duration::days(3)),
+            max_uses: None,
+        };
+        let combined = stored.tightest(Limits::issued(issued, Some(&rule())));
+        assert_eq!(combined.expires_at, Some(issued + Duration::days(3)));
+        assert_eq!(combined.max_uses, Some(5));
+        assert_eq!(stored.tightest(Limits::default()), stored);
     }
 }

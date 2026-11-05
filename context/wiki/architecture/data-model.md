@@ -118,7 +118,10 @@ Invites as implemented (T-37, `migrations/20261109000001_social_invites.sql`): `
 token_hash BYTEA UNIQUE (SHA-256), token_enc BYTEA, created_at, revoked_at NULL)` with one live row per owner (partial UNIQUE
 `(owner_id) WHERE revoked_at IS NULL`). A reset revokes the live row and inserts a new one, so an old token is recognised and
 answers `INVITE_EXPIRED` instead of a plain 404. `token_enc` = the raw token encrypted with the field cipher (associated data =
-owner id) so `GET /v1/me/invite` can return the same link again; lookups only ever use the hash.
+owner id) so `GET /v1/me/invite` can return the same link again; lookups only ever use the hash. T-38
+(`20261109000002_social_invite_limits.sql`) adds `expires_at NULL`, `max_uses INT NULL` and `use_count INT DEFAULT 0`: set
+from region policy when the owner is a minor at issue time; on every use the tighter of the stored limits and the current minor
+rule (from issue time) applies.
 
 The "adult · no mutual friends" hint on a minor's incoming request (AC-5.5) is computed at read time (recipient is a minor ∧
 sender is an adult ∧ no mutual friends); nothing extra is stored. Minor status always comes from

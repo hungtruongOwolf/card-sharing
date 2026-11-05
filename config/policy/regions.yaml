@@ -12,6 +12,9 @@ default:
   adult_age: 18 # below this an account is a minor (minor protections, AgeService)
   discovery:
     min_age: 18 # handle search never returns younger accounts (US-5a)
+  invites: # personal invite links of minors (US-4 AC-4.4); strictest = smallest value
+    minor_ttl_days: 7
+    minor_max_uses: 5
   ai_effects:
     cloud_allowed: true
     people_in_photo: on_device_or_non_gemini # any | on_device_or_non_gemini | on_device_only

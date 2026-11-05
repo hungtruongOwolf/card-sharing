@@ -185,6 +185,9 @@ Implemented (T-37, `crates/social`, tag `social`): `GET /v1/me/invite` (limit `i
 (`invites.reset`, 5/day) → 200 `{url}` = `invites.url_base` from `config/social.yaml` + a 128-bit token (22 base64url chars).
 Both act on the caller's own invite only (no id in path or body). GET returns the same link until a reset; a reset revokes
 the live invite (its token then resolves as `INVITE_EXPIRED`) and issues a new one.
+Minor invites (T-38, AC-4.4): when the owner is a minor the invite also carries `expires_at` (issue time + region policy
+`invites.minor_ttl_days`, 7) and a use cap (`invites.minor_max_uses`); the response is `{url, expires_at}` (`expires_at` null
+for adults). Past the expiry or at the cap the token resolves as `INVITE_EXPIRED`, and `GET /v1/me/invite` issues a fresh link.
 
 ### Cards, feed, widget, reactions
 | Method | Path | Purpose | Auth | Role | Object rule | Rate limit | Idem. | US |

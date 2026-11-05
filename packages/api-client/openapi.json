@@ -1039,7 +1039,7 @@
         "operationId": "getMyInvite",
         "responses": {
           "200": {
-            "description": "The caller's live invite link (the same until reset).",
+            "description": "The caller's live invite link (the same until reset; a minor's used-up or expired link is replaced).",
             "content": {
               "application/json": {
                 "schema": {
@@ -1930,6 +1930,14 @@
           "url"
         ],
         "properties": {
+          "expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "When the link stops working on its own: set only for minors' invites (AC-4.4, region\npolicy; they also stop after a few uses). `null` = valid until reset."
+          },
           "url": {
             "type": "string",
             "description": "`<share host>/i/<token>`; the token is 128 random bits (22 base64url characters).",
