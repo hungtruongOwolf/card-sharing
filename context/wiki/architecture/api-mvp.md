@@ -271,7 +271,12 @@ privacy settings from `GET /v1/me`, and maps problem codes to typed kinds (`not_
 `friend_limit`, `not_allowed`, `invalid`, `rate_limited`, `unavailable`). A send carries one `Idempotency-Key` (UUIDv4) per
 logical action, reused on retry. No `X-Attestation` yet: the app has no attestation module and the server runs `log_only` in
 the beta. Tests run against `apps/mobile/src/test/fakeSocialServer.ts`, which mirrors the rules above (silent blocks, one 404,
-caps, identical search misses).
+caps, identical search misses). Screens (`apps/mobile/src/features/friends`): Friends (remove /
+block behind a confirm), Requests (accept / decline / block, outgoing always "pending", the AC-5.5 badge only when the
+server sends `hint`), Invite (QR + share + reset; minor expiry in days), in-app invite preview `cardsharing://i/<token>`
+(one neutral text for unknown / expired / malformed), Privacy (findable switch not offered when `can_be_findable` is false,
+copy gives no reason; blocked list), Find by handle (T-44: search only on submit, one "No one found" for every miss, the
+request goes out with the opaque `ref`, a silent drop looks like a sent request).
 
 ### Cards, feed, widget, reactions
 | Method | Path | Purpose | Auth | Role | Object rule | Rate limit | Idem. | US |

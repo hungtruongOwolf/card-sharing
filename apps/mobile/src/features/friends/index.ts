@@ -24,3 +24,4 @@ export { useFriendsApi } from './useFriendsApi';
 export { INVITE_QUERY_KEY, InviteScreen, type InviteScreenProps } from './InviteScreen';
 export { InvitePreviewScreen, type InvitePreviewScreenProps } from './InvitePreviewScreen';
 export { PRIVACY_QUERY_KEY, PrivacyScreen, type PrivacyScreenProps } from './PrivacyScreen';
+export { FindFriendScreen, searchableHandle, type FindFriendScreenProps } from './FindFriendScreen';
