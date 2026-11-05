@@ -20,7 +20,8 @@
       "@card-sharing/tokens": ["./packages/tokens/src/index.ts"],
       "@card-sharing/shaders": ["./packages/shaders/src/index.ts"],
       "@card-sharing/api-client": ["./packages/api-client/src/index.ts"],
-      "@card-sharing/effects-registry": ["./packages/effects-registry/src/index.ts"]
+      "@card-sharing/effects-registry": ["./packages/effects-registry/src/index.ts"],
+      "@card-sharing/canvas-engine": ["./packages/canvas-engine/src/index.ts"]
     }
   }
 }
