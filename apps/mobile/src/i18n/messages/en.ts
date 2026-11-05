@@ -320,6 +320,31 @@ export const en = {
   'friends.cancel': 'Cancel request',
   'friends.cancel.a11y': 'Cancel your request to {name}',
   'friends.cancelled': 'Request to {name} cancelled',
+  'friends.invite.open': 'Invite friends',
+  'invite.title': 'Your invite link',
+  'invite.intro':
+    'Share this link or let a friend scan the code. You’ll get a request and decide whether to accept.',
+  'invite.loading': 'Loading your invite link',
+  'invite.error.load': 'We couldn’t load your invite link. Check your connection and try again.',
+  'invite.qr.a11y': 'QR code of your invite link',
+  'invite.expires.days':
+    '{count, plural, one {This link works for # more day} other {This link works for # more days}}',
+  'invite.expires.soon': 'This link stops working in less than a day',
+  'invite.share': 'Share link',
+  'invite.share.message': 'Add me on card-sharing: {url}',
+  'invite.reset': 'Reset link',
+  'invite.reset.title': 'Reset your invite link?',
+  'invite.reset.body':
+    'Your current link and QR code stop working. Anyone who hasn’t used them yet will need the new link.',
+  'invite.reset.done': 'New invite link ready',
+  'invite.preview.screenTitle': 'Invite',
+  'invite.preview.loading': 'Opening invite',
+  'invite.preview.title': '{name} invited you',
+  'invite.preview.body': 'Send a friend request. You’ll be friends once they accept.',
+  'invite.preview.add': 'Send friend request',
+  'invite.preview.sent': 'Request sent. You’ll be friends once {name} accepts.',
+  'invite.preview.self': 'That’s you! Share this link with a friend instead.',
+  'invite.preview.unusable': 'This invite isn’t valid anymore. Ask your friend for a new link.',
 } as const;
 
 export type MessageKey = keyof typeof en;

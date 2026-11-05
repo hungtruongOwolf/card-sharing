@@ -18,6 +18,7 @@ import {
 export interface FriendsScreenProps {
   api: FriendsApi;
   onOpenRequests: () => void;
+  onOpenInvite: () => void;
   onBack: () => void;
 }
 
@@ -27,7 +28,7 @@ type Pending = { action: 'remove' | 'block'; person: Person } | null;
  * My friends (US-6, AC-26.2): remove or block a friend after a confirm. Both are silent to the other person
  * (the server sends nothing); the copy says so. A friend that is already gone refreshes the list.
  */
-export function FriendsScreen({ api, onOpenRequests, onBack }: FriendsScreenProps) {
+export function FriendsScreen({ api, onOpenRequests, onOpenInvite, onBack }: FriendsScreenProps) {
   const toast = useToast();
   const queryClient = useQueryClient();
   const [pending, setPending] = useState<Pending>(null);
@@ -61,6 +62,7 @@ export function FriendsScreen({ api, onOpenRequests, onBack }: FriendsScreenProp
   const name = pending?.person.displayName ?? '';
   return (
     <Screen title={t('friends.title')} testID="friends">
+      <Button block label={t('friends.invite.open')} onPress={onOpenInvite} />
       <Button
         block
         variant="secondary"

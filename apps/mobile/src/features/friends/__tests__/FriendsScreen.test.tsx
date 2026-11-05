@@ -18,7 +18,14 @@ const seed = (server: FakeSocialServer) => {
 async function setup(scheme: 'light' | 'dark' = 'light', extra?: (s: FakeSocialServer) => void) {
   let people!: ReturnType<typeof seed>;
   const rendered = await renderSocial(
-    (api) => <FriendsScreen api={api} onOpenRequests={() => undefined} onBack={() => undefined} />,
+    (api) => (
+      <FriendsScreen
+        api={api}
+        onOpenRequests={() => undefined}
+        onOpenInvite={() => undefined}
+        onBack={() => undefined}
+      />
+    ),
     {
       scheme,
       prepare: (server) => {
@@ -92,7 +99,12 @@ describe('FriendsScreen', () => {
   it('shows the empty state and a retry after a failed load', async () => {
     const { user } = await renderSocial(
       (api) => (
-        <FriendsScreen api={api} onOpenRequests={() => undefined} onBack={() => undefined} />
+        <FriendsScreen
+          api={api}
+          onOpenRequests={() => undefined}
+          onOpenInvite={() => undefined}
+          onBack={() => undefined}
+        />
       ),
       { prepare: (server) => server.overrides.set('GET /v1/friends', problem(503, 'UNAVAILABLE')) },
     );
