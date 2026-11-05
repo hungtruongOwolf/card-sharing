@@ -26,3 +26,9 @@ Facts found while starting:
 | Tree snapshots instead of pixel screenshots for UI tests | Snapshots now, pixel screenshots later (once device builds exist) |
 | When to bundle brand fonts (OFL) | With the next mobile ticket (T-21), to pay the slow install only once |
 | Contrast fixes: light link/focus #3E7FA8 → #336C91; new `accent.onMustard` for dark mode | Approved |
+
+## Follow-up Q&A during T-31/T-32 (same day)
+| Question | EM answer |
+|---|---|
+| How to run backend tests after a low-memory kill | Low-RAM mode now: 1 build job + 1 test thread |
+| Handle typo during onboarding vs 30-day change cooldown | Grace: free change for 24 h after the first claim; the 30-day cooldown applies after that |
