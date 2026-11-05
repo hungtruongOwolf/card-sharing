@@ -6,12 +6,13 @@
 use axum::Json;
 use axum::extract::rejection::QueryRejection;
 use axum::extract::{Path, Query, State};
-use http::StatusCode;
+use http::{HeaderMap, StatusCode};
 use platform::problem::{ApiError, ProblemDetails};
+use policy::PolicyContext;
 use serde::{Deserialize, Serialize};
 use social::{
-    AnswerError, Direction, FriendSummary, InviteError, InvitePreview, RequestError, RequestItem,
-    SentRequest,
+    AnswerError, Direction, FriendSummary, InviteError, InvitePreview, RequestError, RequestHint,
+    RequestItem, SentRequest,
 };
 use time::OffsetDateTime;
 use utoipa::ToSchema;
@@ -236,6 +237,17 @@ pub struct RequestItemView {
     #[serde(with = "time::serde::rfc3339")]
     #[schema(value_type = String, format = DateTime)]
     pub expires_at: OffsetDateTime,
+    /// Present only on incoming requests to a minor whose sender is an adult with no mutual
+    /// friends (AC-5.5). Never present for adult recipients.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(inline)]
+    pub hint: Option<HintView>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum HintView {
+    AdultNoMutualFriends,
 }
 
 impl From<RequestItem> for RequestItemView {
@@ -245,6 +257,9 @@ impl From<RequestItem> for RequestItemView {
             user: item.other.into(),
             created_at: item.created_at,
             expires_at: item.expires_at,
+            hint: item.hint.map(|hint| match hint {
+                RequestHint::AdultNoMutualFriends => HintView::AdultNoMutualFriends,
+            }),
         }
     }
 }
@@ -257,8 +272,9 @@ pub struct RequestList {
 
 /// My pending friend requests. Auth: ses.
 ///
-/// `incoming`: requests addressed to me that I have not answered. `outgoing`: requests I sent that
-/// are still open; they all show as pending (declines are silent).
+/// `incoming`: requests addressed to me that I have not answered; for a minor, a request from an
+/// adult with no mutual friends carries `hint: "adult_no_mutual_friends"`. `outgoing`: requests I
+/// sent that are still open; they all show as pending (declines are silent).
 #[utoipa::path(
     get,
     path = "/v1/friend-requests",
@@ -277,6 +293,7 @@ pub struct RequestList {
 pub async fn list_friend_requests(
     State(state): State<AppState>,
     caller: Caller,
+    headers: HeaderMap,
     query: Result<Query<ListQuery>, QueryRejection>,
 ) -> Result<Json<RequestList>, ApiError> {
     let Query(query) = query
@@ -287,7 +304,14 @@ pub async fn list_friend_requests(
     };
     let items = state
         .social
-        .list_requests(caller.0.account_id, direction)
+        .list_requests(
+            caller.0.account_id,
+            direction,
+            &PolicyContext {
+                ip_country: state.ip_country(&headers),
+                ..PolicyContext::default()
+            },
+        )
         .await
         .map_err(ApiError::internal)?;
     Ok(Json(RequestList {

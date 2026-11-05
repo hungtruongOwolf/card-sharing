@@ -9,12 +9,15 @@
 use std::collections::HashMap;
 
 use platform::outbox::{self, Event};
+use policy::PolicyContext;
 use serde_json::json;
 use time::{Duration, OffsetDateTime};
 use uuid::Uuid;
 
 use crate::error::{InviteError, SocialError};
-use crate::graph::{are_friends, blocked_either_way, friend_count, lock_pair, ordered};
+use crate::graph::{
+    are_friends, blocked_either_way, friend_count, lock_pair, mutual_friend_count, ordered,
+};
 use crate::service::SocialService;
 
 /// Statuses that look pending to the sender (declines and drops are silent).
@@ -220,6 +223,15 @@ pub struct RequestItem {
     pub other: FriendSummary,
     pub created_at: OffsetDateTime,
     pub expires_at: OffsetDateTime,
+    /// Only on incoming requests to a minor (AC-5.5); never on any list an adult sees.
+    pub hint: Option<RequestHint>,
+}
+
+/// A safety hint on an incoming request.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RequestHint {
+    /// The recipient is a minor; the sender is an adult and they have no friend in common.
+    AdultNoMutualFriends,
 }
 
 /// An account as its friends and requesters see it.
@@ -273,6 +285,7 @@ impl SocialService {
         &self,
         caller: Uuid,
         direction: Direction,
+        current: &PolicyContext,
     ) -> Result<Vec<RequestItem>, SocialError> {
         let now = self.clock.now();
         let rows: Vec<ListRow> = match direction {
@@ -300,17 +313,53 @@ impl SocialService {
         };
         let ids: Vec<Uuid> = rows.iter().map(|row| row.other).collect();
         let profiles = self.summaries(&ids).await?;
-        Ok(rows
-            .into_iter()
-            .filter_map(|row| {
-                profiles.get(&row.other).map(|other| RequestItem {
-                    id: row.id,
-                    other: other.clone(),
-                    created_at: row.created_at,
-                    expires_at: row.expires_at,
-                })
-            })
-            .collect())
+        let caller_is_minor =
+            direction == Direction::Incoming && self.is_minor(caller, current).await?;
+        let mut items = Vec::with_capacity(rows.len());
+        for row in rows {
+            let Some(other) = profiles.get(&row.other) else {
+                continue;
+            };
+            let hint = if caller_is_minor {
+                self.minor_hint(caller, row.other).await?
+            } else {
+                None
+            };
+            items.push(RequestItem {
+                id: row.id,
+                other: other.clone(),
+                created_at: row.created_at,
+                expires_at: row.expires_at,
+                hint,
+            });
+        }
+        Ok(items)
+    }
+
+    async fn is_minor(&self, account: Uuid, current: &PolicyContext) -> Result<bool, SocialError> {
+        Ok(self
+            .age
+            .status(account, current)
+            .await
+            .map_err(|err| SocialError::Identity(err.to_string()))?
+            .is_minor)
+    }
+
+    /// AC-5.5 for a minor `recipient`: the hint when `sender` is an adult with no mutual friend.
+    async fn minor_hint(
+        &self,
+        recipient: Uuid,
+        sender: Uuid,
+    ) -> Result<Option<RequestHint>, SocialError> {
+        // The sender's age is judged by their own stored region signals only.
+        if self.is_minor(sender, &PolicyContext::default()).await? {
+            return Ok(None);
+        }
+        let mut conn = self.pool.acquire().await?;
+        if mutual_friend_count(&mut conn, recipient, sender).await? > 0 {
+            return Ok(None);
+        }
+        Ok(Some(RequestHint::AdultNoMutualFriends))
     }
 
     /// Accepts a pending request addressed to the caller. The friend cap is re-checked under the

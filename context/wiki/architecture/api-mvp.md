@@ -211,6 +211,11 @@ direction is answered too; publishes `social.friendship_created {request_id, sen
 not a pending request to the caller (accept / decline) or an open request from the caller (cancel), including malformed ids,
 → the same 404 `NOT_FOUND`.
 
+Minor hint (T-42, AC-5.5): an incoming item carries `hint: "adult_no_mutual_friends"` when the caller is a minor
+(`AgeService::status` with the request's IP country) and the sender is an adult (judged by the sender's own stored signals)
+with no friend in common. The field is absent otherwise, so an adult never learns anything about a sender's age. Computed at
+read time; nothing is stored.
+
 Caps and expiry (T-41, `config/social.yaml`): sending a request checks the sender's own limits first, whatever the target (so
 a block is never revealed by a cap that stops applying): own friend count at `friends.max` → 409 `FRIEND_LIMIT_REACHED`;
 `requests.max_pending` (20) open requests → 429 `RATE_LIMITED` with `Retry-After` = until the oldest open one expires;
