@@ -14,6 +14,7 @@ export const en = {
   'common.close': 'Close',
   'common.dismiss': 'Dismiss',
   'common.undo': 'Undo',
+  'common.back': 'Back',
 
   'sheet.backdrop.label': 'Close sheet',
 
@@ -232,6 +233,34 @@ export const en = {
   'effects.param.paper.white': 'White',
   'effects.param.paper.kraft': 'Kraft',
   'effects.param.paper.grid': 'Grid',
+
+  // Settings → signed-in devices (AC-1.4).
+  'sessions.open': 'Signed-in devices',
+  'sessions.title': 'Signed-in devices',
+  'sessions.intro': 'Devices where you’re signed in. Sign out any you don’t recognise.',
+  'sessions.loading': 'Loading your devices',
+  'sessions.device.unknown': 'Unknown device',
+  'sessions.device.current': 'This device',
+  'sessions.device.country': 'Signed in from {country}',
+  'sessions.lastSeen.now': 'Active now',
+  'sessions.lastSeen.minutes':
+    '{count, plural, one {Active # minute ago} other {Active # minutes ago}}',
+  'sessions.lastSeen.hours': '{count, plural, one {Active # hour ago} other {Active # hours ago}}',
+  'sessions.lastSeen.days': '{count, plural, one {Active # day ago} other {Active # days ago}}',
+  'sessions.revoke': 'Sign out',
+  'sessions.revoke.a11y': 'Sign out {device}',
+  'sessions.revoked': 'Device signed out',
+  'sessions.alreadyGone': 'That device was already signed out',
+  'sessions.retry': 'Try again',
+  'sessions.error.load': 'We couldn’t load your devices. Check your connection and try again.',
+  'sessions.error.generic': 'That didn’t work. Please try again.',
+  'sessions.error.rateLimited': 'Too many tries. Please wait a bit and try again.',
+  'sessions.everywhere': 'Log out everywhere',
+  'sessions.everywhere.title': 'Log out everywhere?',
+  'sessions.everywhere.body':
+    'Every device, including this one, will be signed out. You’ll need to sign in again.',
+  'sessions.everywhere.confirm': 'Log out everywhere',
+  'sessions.everywhere.cancel': 'Cancel',
 } as const;
 
 export type MessageKey = keyof typeof en;

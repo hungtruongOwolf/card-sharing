@@ -93,6 +93,12 @@ export interface AuthClient {
   ): Promise<void>;
   /** Logs out: revokes the session on the server (best effort) and always clears the device. */
   signOut(): Promise<void>;
+  /**
+   * Logs out everywhere (`POST /v1/sessions/revoke-all`, AC-1.4). Unlike {@link signOut} this is not best
+   * effort: the device is cleared only once the server confirms (204) or has already ended the session, so
+   * a failure never pretends the other devices were signed out. Failures throw {@link AuthError}.
+   */
+  signOutEverywhere(): Promise<void>;
 }
 
 export interface SignInOptions {
@@ -342,6 +348,14 @@ export function createAuthClient(options: AuthClientOptions): AuthClient {
     await endSession('user');
   }
 
+  async function signOutEverywhere(): Promise<void> {
+    const response = await authorizedFetch('/v1/sessions/revoke-all', { method: 'POST' });
+    if (!response.ok) {
+      throw new AuthError('unavailable', response.status, await problemCode(response));
+    }
+    await endSession('user');
+  }
+
   return {
     init,
     getState: () => state,
@@ -354,5 +368,6 @@ export function createAuthClient(options: AuthClientOptions): AuthClient {
     fetch: authorizedFetch,
     signInWithIdToken,
     signOut,
+    signOutEverywhere,
   };
 }
