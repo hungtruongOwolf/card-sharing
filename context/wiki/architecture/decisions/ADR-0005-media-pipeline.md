@@ -34,7 +34,7 @@ pages show resized **watermarked** derivatives only (AC-24.5); EXIF stripped; �
   `legal-hold` (CSAM evidence, restricted IAM, object lock), `exports` (24 h lifecycle). Object keys are random 128-bit, no ids/names.
 - **Upload:** `POST /v1/media` streams (≤ 10 MB, magic bytes PNG/JPEG/WebP/HEIC) into `quarantine`, dedupes `(owner, sha256, kind)`.
 - **`media.process` job:** decode in a sandboxed, resource-limited task → re-encode (WebP/PNG, strip EXIF/metadata) → derivatives
-  (`feed_1080`, `widget_512`, `thumb_256`) → **hash match via `HashMatcher` port** on the decoded image → move to `clean`, mark media
+  (`feed_1080`, `widget_512`, `thumb_256`) → **hash match via `HashMatcher` port** on the decoded image (provider options and proposed port changes: [[content-safety]]) → move to `clean`, mark media
   `clean`, then `cards.deliver`. Unavailable matcher ⇒ retry with backoff, card held (never delivered unscanned); match ⇒ block card,
   suspend account, copy to `legal-hold`, open `csam_incident`, queue report. Avatars, masks and originals go through the same gate.
 - **Nudity/sexual-content classifier (AC-28.3, D1):** step after the hash match, via a `ContentClassifier` port, on every card render
