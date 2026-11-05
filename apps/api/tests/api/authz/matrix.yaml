@@ -172,3 +172,18 @@ routes:
     path: /v1/friends/0192f0c1-7c1e-7a3b-9d2e-123456789abc
     missing_path: /v1/friends/0192f0c1-7c1e-7a3b-9d2e-000000000000
     expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }
+
+  # Blocks (T-47). An unrelated or missing account is the same 404 (no existence oracle); relation
+  # rules and silence are in tests/api/blocks.rs.
+  - route: POST /v1/blocks
+    body: { user_id: 0192f0c1-7c1e-7a3b-9d2e-123456789abc }
+    missing_path: /v1/blocks
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }
+
+  - route: GET /v1/blocks
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 200, suspended: 403 }
+
+  - route: DELETE /v1/blocks/{userId}
+    path: /v1/blocks/0192f0c1-7c1e-7a3b-9d2e-123456789abc
+    missing_path: /v1/blocks/0192f0c1-7c1e-7a3b-9d2e-000000000000
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }

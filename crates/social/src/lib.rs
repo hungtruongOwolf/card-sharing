@@ -3,6 +3,7 @@
 //! only through this crate's public types (context/wiki/architecture/overview.md §3). Account
 //! data (profiles, age) comes from `identity` through its public services, never by SQL.
 
+mod blocks;
 mod error;
 mod friends;
 mod graph;
@@ -13,6 +14,7 @@ mod search;
 mod service;
 mod settings;
 
+pub use blocks::BlockedAccount;
 pub use error::{InviteError, SocialError};
 pub use friends::FRIENDSHIP_REMOVED;
 pub use invites::{INVITE_TOKEN_LEN, InvitePreview, MyInvite, ResolvedInvite};
