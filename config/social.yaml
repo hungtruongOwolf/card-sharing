@@ -7,3 +7,11 @@ invites:
   # Personal invite links are `<url_base><token>`. Local web by default; deployments point it at the
   # share domain (the web landing page /i/<token>, T-48).
   url_base: 'http://localhost:3000/i/'
+
+friends:
+  # Friend cap per account (AC-5.2): checked when a request is sent and again when it is accepted.
+  max: 20
+
+requests:
+  # Unanswered requests expire after this many days (AC-5.4).
+  ttl_days: 14

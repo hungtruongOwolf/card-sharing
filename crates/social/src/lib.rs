@@ -4,11 +4,14 @@
 //! data (profiles, age) comes from `identity` through its public services, never by SQL.
 
 mod error;
+mod graph;
 mod invites;
+mod requests;
 mod service;
 mod settings;
 
 pub use error::{InviteError, SocialError};
-pub use invites::{INVITE_TOKEN_LEN, MyInvite, ResolvedInvite};
+pub use invites::{INVITE_TOKEN_LEN, InvitePreview, MyInvite, ResolvedInvite};
+pub use requests::{RequestError, SentRequest};
 pub use service::SocialService;
 pub use settings::{SocialConfigError, SocialSettings};

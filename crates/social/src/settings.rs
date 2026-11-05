@@ -27,6 +27,20 @@ pub enum SocialConfigError {
 struct RawConfig {
     version: u32,
     invites: RawInvites,
+    friends: RawFriends,
+    requests: RawRequests,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawFriends {
+    max: u16,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawRequests {
+    ttl_days: u16,
 }
 
 #[derive(Debug, Deserialize)]
@@ -40,6 +54,10 @@ struct RawInvites {
 pub struct SocialSettings {
     /// Invite links are this prefix followed by the token (ends with `/`).
     pub invite_url_base: String,
+    /// Friend cap per account (AC-5.2), checked when a request is sent and when it is accepted.
+    pub friends_max: u16,
+    /// A request not answered within this many days expires (AC-5.4).
+    pub request_ttl_days: u16,
 }
 
 impl Default for SocialSettings {
@@ -47,6 +65,8 @@ impl Default for SocialSettings {
     fn default() -> Self {
         Self {
             invite_url_base: "http://localhost:3000/i/".to_owned(),
+            friends_max: 20,
+            request_ttl_days: 14,
         }
     }
 }
@@ -64,8 +84,15 @@ impl SocialSettings {
                 "invites.url_base must be an http(s) URL ending with '/'".to_owned(),
             ));
         }
+        if raw.friends.max == 0 || raw.requests.ttl_days == 0 {
+            return Err(SocialConfigError::Invalid(
+                "friends.max and requests.ttl_days must be at least 1".to_owned(),
+            ));
+        }
         Ok(Self {
             invite_url_base: base,
+            friends_max: raw.friends.max,
+            request_ttl_days: raw.requests.ttl_days,
         })
     }
 
@@ -95,7 +122,9 @@ mod tests {
     #[test]
     fn url_base_must_be_http_and_end_with_a_slash() {
         for base in ["ftp://x/i/", "https://x/i", "javascript:alert(1)/"] {
-            let yaml = format!("version: 1\ninvites:\n  url_base: \"{base}\"\n");
+            let yaml = format!(
+                "version: 1\ninvites:\n  url_base: \"{base}\"\nfriends:\n  max: 20\nrequests:\n  ttl_days: 14\n"
+            );
             assert!(SocialSettings::from_yaml_str(&yaml).is_err(), "{base}");
         }
     }

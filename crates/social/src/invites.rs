@@ -17,6 +17,7 @@ use time::{Duration, OffsetDateTime};
 use uuid::Uuid;
 
 use crate::error::{InviteError, SocialError};
+use crate::graph::blocked_either_way;
 use crate::service::SocialService;
 
 /// Length of a raw invite token: 16 random bytes, base64url without padding.
@@ -39,6 +40,16 @@ pub struct ResolvedInvite {
     pub owner_id: Uuid,
     /// Use cap in force right now (stored, or the minor rule), for the friend-request transaction.
     pub max_uses: Option<i32>,
+}
+
+/// What someone holding a token may see before sending a request (US-5): the inviter's display
+/// name only. No avatar for now (it joins with the media pipeline and will stay hidden for minors'
+/// invites, AC-4.4), no handle, no id.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InvitePreview {
+    pub display_name: String,
+    /// The caller opened their own invite ("That's you!").
+    pub is_self: bool,
 }
 
 /// Expiry and use cap of one invite.
@@ -214,6 +225,15 @@ impl SocialService {
         if row.revoked_at.is_some() {
             return Err(InviteError::Expired);
         }
+        // A suspended, banned or deleted owner's invite looks like it never existed.
+        let visible = self
+            .identity
+            .public_profiles(&[row.owner_id])
+            .await
+            .map_err(|err| SocialError::Identity(err.to_string()))?;
+        if !visible.contains_key(&row.owner_id) {
+            return Err(InviteError::NotFound);
+        }
         let minor_rule = self.minor_invite_rule(row.owner_id).await?;
         let limits = Limits {
             expires_at: row.expires_at,
@@ -227,6 +247,33 @@ impl SocialService {
             invite_id: row.id,
             owner_id: row.owner_id,
             max_uses: limits.max_uses,
+        })
+    }
+
+    /// The preview `caller` sees for `raw_token`. A block between the two (either way) answers
+    /// exactly like an unknown token.
+    pub async fn invite_preview(
+        &self,
+        caller: Uuid,
+        raw_token: &str,
+    ) -> Result<InvitePreview, InviteError> {
+        let invite = self.resolve_invite(raw_token).await?;
+        let mut conn = self.pool.acquire().await?;
+        if blocked_either_way(&mut conn, caller, invite.owner_id).await? {
+            return Err(InviteError::NotFound);
+        }
+        drop(conn);
+        let profiles = self
+            .identity
+            .public_profiles(&[invite.owner_id])
+            .await
+            .map_err(|err| SocialError::Identity(err.to_string()))?;
+        let profile = profiles
+            .get(&invite.owner_id)
+            .ok_or(InviteError::NotFound)?;
+        Ok(InvitePreview {
+            display_name: profile.display_name.clone(),
+            is_self: invite.owner_id == caller,
         })
     }
 

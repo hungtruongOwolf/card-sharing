@@ -189,6 +189,17 @@ Minor invites (T-38, AC-4.4): when the owner is a minor the invite also carries 
 `invites.minor_ttl_days`, 7) and a use cap (`invites.minor_max_uses`); the response is `{url, expires_at}` (`expires_at` null
 for adults). Past the expiry or at the cap the token resolves as `INVITE_EXPIRED`, and `GET /v1/me/invite` issues a fresh link.
 
+Friend requests from invites (T-39): `GET /v1/invites/{token}` (ses, limit `invites.preview` 30/min per client IP, fails
+closed) → `{inviter: {display_name}, is_self}` (no handle, id or avatar; the avatar joins with the media pipeline and stays
+hidden for minors' invites). Unknown token, inviter not `active`, or a block either way → the same 404 `NOT_FOUND`; reset,
+expired or used-up → 404 `INVITE_EXPIRED`. `POST /v1/friend-requests` (ses + att, `Idempotency-Key` required, limit
+`friend_requests.create` 30/day per user, fails closed) `{invite_token}` → 201 `{request: {id, status: "pending",
+expires_at}}` (14 days, `requests.ttl_days` in `config/social.yaml`). An open request in the same direction is returned again
+(pair dedupe). Own invite → 400 `VALIDATION_FAILED`; already friends → 409 `ALREADY_FRIENDS`; either side at `friends.max` (20)
+→ 409 `FRIEND_LIMIT_REACHED`. A block either way stores the request as `dropped` and answers the identical 201 (no event, never
+shown to the recipient). A minor's invite use is counted in the same transaction (conditional increment). A delivered request
+publishes `social.friend_request_created {request_id, recipient_id}` to the outbox.
+
 ### Cards, feed, widget, reactions
 | Method | Path | Purpose | Auth | Role | Object rule | Rate limit | Idem. | US |
 |---|---|---|---|---|---|---|---|---|
@@ -314,7 +325,7 @@ on `code`); `requestId` equals the `X-Request-Id` response header. Generic codes
 | 401 | `UNAUTHENTICATED`, `SESSION_EXPIRED` (access token: refresh and retry), `SESSION_REVOKED` (refresh reuse, logout everywhere, suspend), `REAUTH_REQUIRED` |
 | 403 | `ONBOARDING_INCOMPLETE`, `AGE_GATE_REFUSED` (neutral copy), `AGE_ALREADY_SUBMITTED` (DOB locked), `FORBIDDEN` (wrong session kind for the route), `ACCOUNT_SUSPENDED`, `POLICY_DISALLOWED` (e.g. public link < min age), `ATTESTATION_FAILED`, `MFA_REQUIRED` |
 | 404 | `NOT_FOUND` (also for every object-level denial, incl. non-pending/expired board invitations), `INVITE_EXPIRED` (reset, expired or use cap reached) |
-| 409 | `HANDLE_TAKEN`, `PIN_VERSION_CONFLICT` / `BOARD_VERSION_CONFLICT`, `IDEMPOTENCY_IN_PROGRESS`, `FRIEND_LIMIT_REACHED`, `BOARD_LIMIT_REACHED`, `PIN_LIMIT_REACHED`, `COLLABORATOR_LIMIT_REACHED` (members + pending invitations), `ALREADY_INVITED`, `CARD_HELD_FOR_REVIEW` (owner pins/links a held card), `APPEAL_ALREADY_FILED` |
+| 409 | `ALREADY_FRIENDS`, `HANDLE_TAKEN`, `PIN_VERSION_CONFLICT` / `BOARD_VERSION_CONFLICT`, `IDEMPOTENCY_IN_PROGRESS`, `FRIEND_LIMIT_REACHED`, `BOARD_LIMIT_REACHED`, `PIN_LIMIT_REACHED`, `COLLABORATOR_LIMIT_REACHED` (members + pending invitations), `ALREADY_INVITED`, `CARD_HELD_FOR_REVIEW` (owner pins/links a held card), `APPEAL_ALREADY_FILED` |
 | 413/415 | `MEDIA_TOO_LARGE`, `MEDIA_TYPE_UNSUPPORTED` |
 | 429 | `RATE_LIMITED`, `HANDLE_CHANGE_COOLDOWN`, `EXPORT_COOLDOWN`, `REINVITE_COOLDOWN` (generic "try later" copy on auth/search) |
 | 503 | `TEMPORARILY_UNAVAILABLE` (+ `Retry-After`) |

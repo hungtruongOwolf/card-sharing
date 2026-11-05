@@ -33,6 +33,9 @@ struct Row {
     path: Option<String>,
     #[serde(default)]
     missing_path: Option<String>,
+    /// Send a fresh `Idempotency-Key` (routes that require one).
+    #[serde(default)]
+    idempotency_key: bool,
     expect: BTreeMap<Role, u16>,
 }
 
@@ -200,11 +203,15 @@ fn request(
     fixture: &Fixture,
     body: Option<&Value>,
     request_id: Uuid,
+    idempotency_key: bool,
 ) -> Request<Body> {
     let mut builder = Request::builder()
         .method(method)
         .uri(path)
         .header("x-request-id", request_id.to_string());
+    if idempotency_key {
+        builder = builder.header("idempotency-key", Uuid::now_v7().to_string());
+    }
     if let Some(token) = &fixture.access_token {
         builder = builder.header("authorization", format!("Bearer {token}"));
     }
@@ -243,7 +250,14 @@ async fn every_matrix_cell_holds_against_the_real_api() {
             let request_id = Uuid::now_v7();
             let response = send(
                 &env.router,
-                request(&method, path, &fixture, body.as_ref(), request_id),
+                request(
+                    &method,
+                    path,
+                    &fixture,
+                    body.as_ref(),
+                    request_id,
+                    row.idempotency_key,
+                ),
             )
             .await;
             let status = response.status().as_u16();
@@ -259,7 +273,14 @@ async fn every_matrix_cell_holds_against_the_real_api() {
                 let missing_path = row.missing_path.as_deref().unwrap();
                 let missing = send(
                     &env.router,
-                    request(&method, missing_path, &fixture, body.as_ref(), request_id),
+                    request(
+                        &method,
+                        missing_path,
+                        &fixture,
+                        body.as_ref(),
+                        request_id,
+                        row.idempotency_key,
+                    ),
                 )
                 .await;
                 if body_bytes(missing).await != denied {

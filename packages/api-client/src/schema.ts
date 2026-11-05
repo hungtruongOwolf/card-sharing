@@ -171,6 +171,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/friend-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a friend request to the owner of an invite. Auth: ses + att; `Idempotency-Key` required.
+         * @description The inviter must accept before a friendship exists. A request between accounts with a block
+         *     (either way) gets the same 201 and is never delivered. Repeating a request returns the open
+         *     one.
+         */
+        post: operations["createFriendRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/invites/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview an invite before adding the inviter. Auth: ses; rate-limited per client IP.
+         * @description Unknown tokens, suspended inviters and blocks (either way) all answer the same 404
+         *     `NOT_FOUND`; a reset, expired or used-up invite answers 404 `INVITE_EXPIRED`.
+         */
+        get: operations["previewInvite"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me": {
         parameters: {
             query?: never;
@@ -524,6 +567,14 @@ export interface components {
             /** Format: int32 */
             pins_per_board_max: number;
         };
+        /** @description Body of `POST /v1/friend-requests`. */
+        CreateFriendRequest: {
+            /** @description Token of the invite the caller opened. */
+            invite_token: string;
+        };
+        CreateFriendRequestResponse: {
+            request: components["schemas"]["SentRequestView"];
+        };
         /** @enum {string} */
         DevicePlatform: "ios" | "android";
         /** @description The device a session is issued to. `id` is a UUID the app generates once per install. */
@@ -575,6 +626,11 @@ export interface components {
             /** @example ok */
             status: string;
         };
+        InvitePreviewResponse: {
+            inviter: components["schemas"]["InviterView"];
+            /** @description The caller opened their own invite ("That's you!"); sending a request is refused. */
+            is_self: boolean;
+        };
         /** @description My personal invite link. Share it as a link or QR code. */
         InviteResponse: {
             /**
@@ -588,6 +644,11 @@ export interface components {
              * @example https://cardsharing.app/i/3q2-7wAAAAAAAAAAAAAAAA
              */
             url: string;
+        };
+        /** @description The inviter as shown before sending a request. */
+        InviterView: {
+            /** @example Mai */
+            display_name: string;
         };
         /** @description Registry ids switched off remotely; the app hides them and the server rejects them. */
         KillSwitches: {
@@ -693,6 +754,18 @@ export interface components {
          */
         RefreshRequest: {
             refresh_token: string;
+        };
+        /** @description A request as its sender sees it: pending until accepted or expired. */
+        SentRequestView: {
+            /** Format: date-time */
+            expires_at: string;
+            /** Format: uuid */
+            id: string;
+            /**
+             * @description Always `pending` for the sender (declines and blocks are silent).
+             * @example pending
+             */
+            status: string;
         };
         SessionList: {
             sessions: components["schemas"]["SessionView"][];
@@ -1162,6 +1235,161 @@ export interface operations {
             };
             /** @description RATE_LIMITED. */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    createFriendRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateFriendRequest"];
+            };
+        };
+        responses: {
+            /** @description Sent (or already open). Identical for silently dropped requests. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreateFriendRequestResponse"];
+                };
+            };
+            /** @description VALIDATION_FAILED (also: your own invite). */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE, ACCOUNT_SUSPENDED or ATTESTATION_FAILED (enforce mode). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND or INVITE_EXPIRED. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ALREADY_FRIENDS, FRIEND_LIMIT_REACHED or IDEMPOTENCY_IN_PROGRESS. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description IDEMPOTENCY_KEY_REUSED. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    previewInvite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The token part of an invite link (22 characters). */
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The inviter's display name (no avatar for a minor's invite). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvitePreviewResponse"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND (unknown) or INVITE_EXPIRED (reset, expired or used up). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description TEMPORARILY_UNAVAILABLE (rate limit store down; fails closed). */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -3,8 +3,10 @@ use utoipa::openapi::security::{Http, HttpAuthScheme, SecurityScheme};
 use utoipa::{Modify, OpenApi};
 use utoipa_axum::routes;
 
-use crate::access::{ApiRouter, RoutePolicy};
-use crate::routes::{age_signal, app_config, attestation, auth, health, invites, me, sessions};
+use crate::access::{ApiRouter, Idempotency, RoutePolicy};
+use crate::routes::{
+    age_signal, app_config, attestation, auth, friend_requests, health, invites, me, sessions,
+};
 use crate::state::AppState;
 use platform::problem::ProblemDetails;
 
@@ -134,6 +136,17 @@ pub fn router() -> ApiRouter<AppState> {
         .route(
             RoutePolicy::session().limited("invites.reset"),
             routes!(invites::reset_my_invite),
+        )
+        .route(
+            RoutePolicy::session().limited("invites.preview"),
+            routes!(friend_requests::preview_invite),
+        )
+        .route(
+            RoutePolicy::session()
+                .limited("friend_requests.create")
+                .with_attestation()
+                .idempotency(Idempotency::Required),
+            routes!(friend_requests::create_friend_request),
         )
         .undocumented_policy(
             &Method::GET,

@@ -89,6 +89,16 @@ pub enum ApiError {
     /// too, so "forbidden" and "missing" are indistinguishable).
     #[error("resource not found")]
     NotFound,
+    /// The invite was reset, expired or reached its use cap (a 404 with its own code: the token
+    /// was real, which its holder already knows).
+    #[error("invite expired")]
+    InviteExpired,
+    /// The two accounts are already friends.
+    #[error("already friends")]
+    AlreadyFriends,
+    /// One side of a friendship is at the friend cap (AC-5.2).
+    #[error("friend limit reached")]
+    FriendLimitReached,
     #[error("method not allowed")]
     MethodNotAllowed,
     #[error("request timed out")]
@@ -124,8 +134,11 @@ impl ApiError {
             | Self::AttestationFailed
             | Self::AgeGateRefused
             | Self::AgeAlreadySubmitted => StatusCode::FORBIDDEN,
-            Self::NotFound => StatusCode::NOT_FOUND,
-            Self::HandleTaken | Self::IdempotencyInProgress => StatusCode::CONFLICT,
+            Self::NotFound | Self::InviteExpired => StatusCode::NOT_FOUND,
+            Self::HandleTaken
+            | Self::IdempotencyInProgress
+            | Self::AlreadyFriends
+            | Self::FriendLimitReached => StatusCode::CONFLICT,
             Self::IdempotencyKeyReused | Self::UnknownRegistryId => {
                 StatusCode::UNPROCESSABLE_ENTITY
             }
@@ -153,6 +166,9 @@ impl ApiError {
             Self::AgeGateRefused => "AGE_GATE_REFUSED",
             Self::AgeAlreadySubmitted => "AGE_ALREADY_SUBMITTED",
             Self::NotFound => "NOT_FOUND",
+            Self::InviteExpired => "INVITE_EXPIRED",
+            Self::AlreadyFriends => "ALREADY_FRIENDS",
+            Self::FriendLimitReached => "FRIEND_LIMIT_REACHED",
             Self::HandleTaken => "HANDLE_TAKEN",
             Self::IdempotencyKeyReused => "IDEMPOTENCY_KEY_REUSED",
             Self::UnknownRegistryId => "UNKNOWN_REGISTRY_ID",
@@ -256,6 +272,9 @@ mod tests {
             },
             ApiError::UpgradeRequired,
             ApiError::NotFound,
+            ApiError::InviteExpired,
+            ApiError::AlreadyFriends,
+            ApiError::FriendLimitReached,
             ApiError::IdempotencyKeyReused,
             ApiError::UnknownRegistryId,
             ApiError::IdempotencyInProgress,

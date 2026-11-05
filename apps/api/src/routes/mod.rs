@@ -2,6 +2,7 @@ pub mod age_signal;
 pub mod app_config;
 pub mod attestation;
 pub mod auth;
+pub mod friend_requests;
 pub mod health;
 pub mod invites;
 pub mod me;

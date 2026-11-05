@@ -20,6 +20,7 @@
 # "$CODE_CHALLENGE" = a fresh PKCE S256 challenge.
 # `path` (optional) is the concrete path to call when the route has parameters; "$SESSION_ID" = the
 # role's own session id (guest: a random id).
+# `idempotency_key: true` sends a fresh Idempotency-Key with every request (routes that require one).
 # A cell expecting 404 must give `missing_path` (same route, nonexistent id): the harness
 # asserts the denial body is byte-identical to the missing-id body, so ids cannot be probed.
 version: 1
@@ -114,3 +115,16 @@ routes:
 
   - route: POST /v1/me/invite/reset
     expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 200, suspended: 403 }
+
+  # Friend requests (T-39). An unknown token is the same 404 for every caller; expired, self, blocked
+  # (silent 201), caps and attestation are in tests/api/friend_requests.rs.
+  - route: GET /v1/invites/{token}
+    path: /v1/invites/AAAAAAAAAAAAAAAAAAAAAA
+    missing_path: /v1/invites/BBBBBBBBBBBBBBBBBBBBBB
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }
+
+  - route: POST /v1/friend-requests
+    body: { invite_token: AAAAAAAAAAAAAAAAAAAAAA }
+    missing_path: /v1/friend-requests
+    idempotency_key: true
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }

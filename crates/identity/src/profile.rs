@@ -219,6 +219,13 @@ pub struct Profile {
     pub handle: Option<String>,
 }
 
+/// What other users may see of an active account (friends, requests, invite previews).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PublicProfile {
+    pub display_name: String,
+    pub handle: Option<String>,
+}
+
 /// Result of a profile write: the account status after it, and the profile.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProfileUpdate {
@@ -284,6 +291,34 @@ impl IdentityService {
         .fetch_optional(&self.pool)
         .await?;
         Ok(row.map(Profile::from).unwrap_or_default())
+    }
+
+    /// Public profiles of the given accounts. Only `active` accounts with a display name are
+    /// returned: a missing id means "not visible" (pending, suspended, banned, deleted).
+    pub async fn public_profiles(
+        &self,
+        account_ids: &[Uuid],
+    ) -> Result<std::collections::HashMap<Uuid, PublicProfile>, StoreError> {
+        let rows: Vec<(Uuid, String, Option<String>)> = sqlx::query_as(
+            "SELECT p.account_id, p.display_name, p.handle
+             FROM identity.profiles p JOIN identity.accounts a ON a.id = p.account_id
+             WHERE p.account_id = ANY($1) AND a.status = 'active' AND p.display_name IS NOT NULL",
+        )
+        .bind(account_ids)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows
+            .into_iter()
+            .map(|(id, display_name, handle)| {
+                (
+                    id,
+                    PublicProfile {
+                        display_name,
+                        handle,
+                    },
+                )
+            })
+            .collect())
     }
 
     /// Sets the display name after sanitizing and filtering it. Returns the stored form.
