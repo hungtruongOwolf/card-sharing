@@ -147,6 +147,8 @@ struct Placeholders {
     apple_id_token: String,
     google_id_token: String,
     handle: String,
+    email: String,
+    code_challenge: String,
 }
 
 impl Placeholders {
@@ -161,6 +163,11 @@ impl Placeholders {
             google_id_token: env.google_id_token(&subject, &nonce),
             // The random tail of a UUIDv7 (the leading bits are a timestamp).
             handle: format!("mx{}", &Uuid::now_v7().simple().to_string()[20..]),
+            email: format!("matrix-{}@example.com", Uuid::now_v7().simple()),
+            code_challenge: base64::Engine::encode(
+                &base64::engine::general_purpose::URL_SAFE_NO_PAD,
+                Uuid::now_v7().as_bytes().repeat(2),
+            ),
             nonce,
         }
     }
@@ -173,6 +180,8 @@ fn substitute(value: &Value, values: &Placeholders) -> Value {
         Value::String(s) if s == "$NONCE" => Value::String(values.nonce.clone()),
         Value::String(s) if s == "$APPLE_ID_TOKEN" => Value::String(values.apple_id_token.clone()),
         Value::String(s) if s == "$HANDLE" => Value::String(values.handle.clone()),
+        Value::String(s) if s == "$EMAIL" => Value::String(values.email.clone()),
+        Value::String(s) if s == "$CODE_CHALLENGE" => Value::String(values.code_challenge.clone()),
         Value::String(s) if s == "$GOOGLE_ID_TOKEN" => {
             Value::String(values.google_id_token.clone())
         }

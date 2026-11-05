@@ -42,7 +42,7 @@ uuid.workspace = true
 
 axum = { workspace = true, optional = true }
 num-bigint = { workspace = true, optional = true }
-tokio = { workspace = true, features = ["sync", "time"] }
+tokio = { workspace = true, features = ["sync", "time", "net", "io-util"] }
 
 [dev-dependencies]
 # Same as the `test-support` feature, for this crate's own unit tests.

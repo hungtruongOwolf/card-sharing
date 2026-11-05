@@ -95,6 +95,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/auth/email/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request an email magic link. Auth: none. Always 202 for a well-formed request, whether or not
+         *     the email has an account (no enumeration, AC-1.2); the email is sent asynchronously. The link
+         *     works once, for 15 minutes, and only together with this device's PKCE verifier.
+         */
+        post: operations["startEmailSignIn"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/auth/google": {
         parameters: {
             query?: never;
@@ -478,6 +499,18 @@ export interface components {
             /** Format: uuid */
             id: string;
             platform: components["schemas"]["DevicePlatform"];
+        };
+        /** @description Body of `POST /v1/auth/email/start`. */
+        EmailStartRequest: {
+            /**
+             * @description PKCE S256 challenge: base64url (no padding) of SHA-256 of a random verifier the app keeps
+             *     on this device (43 characters). Verifying the link (T-23) needs that verifier.
+             */
+            code_challenge: string;
+            /** @description Only `S256` is supported (default). */
+            code_challenge_method?: string | null;
+            /** @example cat@example.com */
+            email: string;
         };
         /** @description Body of `POST /v1/auth/google`. The account is derived from the verified token only. */
         GoogleSignInRequest: {
@@ -873,6 +906,55 @@ export interface operations {
                 };
             };
             /** @description TEMPORARILY_UNAVAILABLE: provider not configured or unreachable, or a fail-closed store is down. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    startEmailSignIn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailStartRequest"];
+            };
+        };
+        responses: {
+            /** @description If the address can receive email, a sign-in link is on its way. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description VALIDATION_FAILED (malformed email or challenge, unknown fields). */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED: more than 5 requests in 15 minutes from this IP or for this email (same body either way). */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description TEMPORARILY_UNAVAILABLE (rate-limit store down; fails closed). */
             503: {
                 headers: {
                     [name: string]: unknown;

@@ -16,6 +16,7 @@ mod handle;
 mod http;
 mod idempotency;
 mod jobs;
+mod magic_link;
 mod me;
 mod outbox;
 mod profile;

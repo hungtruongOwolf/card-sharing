@@ -16,7 +16,8 @@
 # Placeholders in `body`: "$REFRESH_TOKEN" = the role's own refresh token (guest: a random one),
 # "$ADULT_DOB" = a date of birth 30 years ago, "$NONCE" = a fresh raw nonce, "$APPLE_ID_TOKEN" = an
 # Apple ID token for a new subject and that nonce, signed by the mock JWKS key, "$GOOGLE_ID_TOKEN" = the
-# same for Google, "$HANDLE" = a fresh random valid handle.
+# same for Google, "$HANDLE" = a fresh random valid handle, "$EMAIL" = a fresh address,
+# "$CODE_CHALLENGE" = a fresh PKCE S256 challenge.
 # `path` (optional) is the concrete path to call when the route has parameters; "$SESSION_ID" = the
 # role's own session id (guest: a random id).
 # A cell expecting 404 must give `missing_path` (same route, nonexistent id): the harness
@@ -46,6 +47,11 @@ routes:
   - route: POST /v1/auth/google
     body: { id_token: $GOOGLE_ID_TOKEN, nonce: $NONCE }
     expect: { guest: 200, onboarding_age: 200, onboarding_profile: 200, user: 200, suspended: 200 }
+
+  # Magic links (T-22): always 202, no account information. Limits and delivery: tests/api/magic_link.rs.
+  - route: POST /v1/auth/email/start
+    body: { email: $EMAIL, code_challenge: $CODE_CHALLENGE }
+    expect: { guest: 202, onboarding_age: 202, onboarding_profile: 202, user: 202, suspended: 202 }
 
   - route: POST /v1/auth/refresh
     body: { refresh_token: $REFRESH_TOKEN }

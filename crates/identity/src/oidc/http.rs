@@ -117,6 +117,29 @@ impl ProviderHttp {
         self.send(request, limit).await
     }
 
+    /// POST `application/json` with extra headers (e.g. a provider API token).
+    pub async fn post_json(
+        &self,
+        url: &str,
+        headers: &[(&str, &str)],
+        body: Vec<u8>,
+        limit: usize,
+    ) -> Result<ProviderResponse, String> {
+        let mut builder = Request::builder()
+            .method(Method::POST)
+            .uri(url)
+            .header(header::ACCEPT, "application/json")
+            .header(header::USER_AGENT, USER_AGENT)
+            .header(header::CONTENT_TYPE, "application/json");
+        for (name, value) in headers {
+            builder = builder.header(*name, *value);
+        }
+        let request = builder
+            .body(Full::new(Bytes::from(body)))
+            .map_err(|err| err.to_string())?;
+        self.send(request, limit).await
+    }
+
     /// Sends a request; redirects are not followed (hyper never does).
     async fn send(
         &self,

@@ -95,6 +95,11 @@ NULL` (set when a key attestation passed); `sign_count` (last assertion counter,
 it. `devices.attest_key_id` is set on registration. Challenges live in Redis only: `att:ch:<sha256(challenge)>` → account id,
 5 min, `GETDEL` on use.
 
+Magic links (T-22, `migrations/20261108000003_identity_magic_links.sql`): `magic_links(id, email_hash BYTEA(32)` (SHA-256 of the
+trimmed, lowercased email), `token_hash UNIQUE`, `pkce_challenge BYTEA(32)` (S256), `delivery_enc BYTEA NULL` (the address and the raw link secret, sealed with XChaCha20-Poly1305 bound to the link id;
+cleared by the delivery job), `sent_at`, `expires_at` (15 min), `used_at`
+(T-23), `created_at)`; purged after 24 h by the worker. Indexes `(email_hash, created_at)`, `(created_at)`.
+
 Age-gate refusal stores **nothing** in Postgres: the pending account is deleted and a 24 h cooldown key
 `agegate:{sha256(device_id)}` / `agegate:{sha256(provider:subject)}` lives in Redis only (AC-2.1). Implemented (T-28) as
 `agegate:d:<hex>` and `agegate:i:<hex>`; `birth_date_enc` = XChaCha20-Poly1305 (`platform::crypto::FieldCipher`, key

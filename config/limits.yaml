@@ -21,6 +21,17 @@ limits:
     per_secs: 60
     on_store_failure: closed
     global: { requests: 3000, per_secs: 60 }
+  auth.email.start: # POST /v1/auth/email/start, per IP (AC-1.2: 5 per 15 min)
+    scope: ip
+    requests: 5
+    per_secs: 900
+    on_store_failure: closed
+    global: { requests: 2000, per_secs: 60 }
+  auth.email.start.email: # same route, keyed by the hashed email (checked in the handler)
+    scope: user
+    requests: 5
+    per_secs: 900
+    on_store_failure: closed
   auth.refresh: # POST /v1/auth/refresh (30/h per device; anonymous callers fall back to IP)
     scope: device
     requests: 30
