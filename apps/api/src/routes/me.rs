@@ -33,6 +33,17 @@ pub struct MeResponse {
     /// Region rules that apply to this account (strictest of the signals stored at sign-up and
     /// the current request). The app renders only what these allow.
     pub policy: PolicyView,
+    pub settings: SettingsView,
+}
+
+/// The caller's privacy settings, as they apply right now.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct SettingsView {
+    /// Whether others can find me by exact handle. Always `false` under the region's discovery
+    /// age (the toggle cannot be turned on then).
+    pub findable_by_handle: bool,
+    /// Whether this account may turn `findable_by_handle` on (false under the discovery age).
+    pub can_be_findable: bool,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -172,6 +183,7 @@ pub async fn get_me(
         ip_country: state.ip_country(&headers),
         ..PolicyContext::default()
     };
+    let settings = settings_view(&state, account.id, &current).await?;
     let policy = state
         .policy
         .resolve_strictest(&[account.region_signals.context(), current]);
@@ -185,7 +197,88 @@ pub async fn get_me(
         },
         profile: profile.into(),
         policy: policy.into(),
+        settings,
     }))
+}
+
+async fn settings_view(
+    state: &AppState,
+    account_id: Uuid,
+    current: &PolicyContext,
+) -> Result<SettingsView, ApiError> {
+    let can_be_findable = state
+        .age
+        .status(account_id, current)
+        .await
+        .map_err(ApiError::internal)?
+        .discoverable;
+    let stored = state
+        .identity
+        .findable_by_handle(account_id)
+        .await
+        .map_err(ApiError::internal)?;
+    Ok(SettingsView {
+        findable_by_handle: stored && can_be_findable,
+        can_be_findable,
+    })
+}
+
+/// Body of `PATCH /v1/me/settings`.
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SettingsRequest {
+    /// Let others find me by exact handle (adults only).
+    pub findable_by_handle: bool,
+}
+
+/// Change my privacy settings. Auth: ses.
+///
+/// Turning "Findable by handle" on needs the region's discovery age (`discovery.min_age`): below
+/// it the answer is 403 `POLICY_DISALLOWED`. Turning it off is always allowed and takes effect on
+/// the next search (the standard "no one found").
+#[utoipa::path(
+    patch,
+    path = "/v1/me/settings",
+    tag = TAG,
+    operation_id = "updateSettings",
+    security(("bearer" = [])),
+    request_body = SettingsRequest,
+    responses(
+        (status = OK, description = "The settings now in force.", body = SettingsView),
+        (status = BAD_REQUEST, description = "VALIDATION_FAILED.", body = ProblemDetails),
+        (status = UNAUTHORIZED, description = "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.", body = ProblemDetails),
+        (status = FORBIDDEN, description = "POLICY_DISALLOWED (under the discovery age), ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.", body = ProblemDetails),
+        (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED.", body = ProblemDetails),
+    )
+)]
+pub async fn update_settings(
+    State(state): State<AppState>,
+    caller: Caller,
+    headers: HeaderMap,
+    body: ValidJson<SettingsRequest>,
+) -> Result<Json<SettingsView>, ApiError> {
+    let account_id = caller.0.account_id;
+    let current = PolicyContext {
+        ip_country: state.ip_country(&headers),
+        ..PolicyContext::default()
+    };
+    let findable = body.0.findable_by_handle;
+    if findable {
+        let status = state
+            .age
+            .status(account_id, &current)
+            .await
+            .map_err(ApiError::internal)?;
+        if !status.discoverable {
+            return Err(ApiError::PolicyDisallowed);
+        }
+    }
+    state
+        .identity
+        .set_findable_by_handle(account_id, findable)
+        .await
+        .map_err(ApiError::internal)?;
+    Ok(Json(settings_view(&state, account_id, &current).await?))
 }
 
 /// Body of `POST /v1/me/age`. Country hints can only make the policy stricter.

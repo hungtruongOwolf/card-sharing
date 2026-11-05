@@ -231,6 +231,12 @@ expired ref → 404 `NOT_FOUND`; a target that became hidden since the search �
 (`tests/api/user_search.rs`): 1,000 searches for a minor's handle vs 1,000 missing handles, interleaved, two-sample KS p > 0.05
 (one retry, since p ≤ 0.05 happens 5% of the time under identical distributions) and identical bytes.
 
+Findable by handle (T-45): `PATCH /v1/me/settings` (ses, limit `me.settings.update`) `{findable_by_handle}` → 200
+`{findable_by_handle, can_be_findable}` (the values in force). Turning it on under the region's `discovery.min_age` → 403
+`POLICY_DISALLOWED`; turning it off is always allowed. `GET /v1/me` gains the same `settings` object (`findable_by_handle` is
+always false under the discovery age). Search's handle lookup only matches findable accounts (same single query, so the miss
+is the standard one), and a request from a ref whose target turned it off is silently dropped.
+
 Caps and expiry (T-41, `config/social.yaml`): sending a request checks the sender's own limits first, whatever the target (so
 a block is never revealed by a cap that stops applying): own friend count at `friends.max` → 409 `FRIEND_LIMIT_REACHED`;
 `requests.max_pending` (20) open requests → 429 `RATE_LIMITED` with `Retry-After` = until the oldest open one expires;
