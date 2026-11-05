@@ -67,6 +67,13 @@ erDiagram
 | `devices` | `id` (client-generated); `account_id FK CASCADE`; `platform CHECK (ios, android)`; `app_version`; `attest_key_id NULL`; `last_seen_at` | `(account_id)` | I | 90 d inactive |
 | `staff_members` | `account_id PK FK`; `role CHECK (moderator, admin)`; `mfa_secret_enc` / `webauthn_credentials JSONB`; `disabled_at` | — | S | Employment + 2 y |
 
+Implementation notes (T-18, `migrations/20261105000001_identity_init.sql`): migrations live in `migrations/` at the repo root,
+named `<timestamp>_<module>_<description>.sql`, applied by `api migrate`; each file touches only its module's schema and revokes
+`anon`/`authenticated` (Supabase) on it. `devices` uses PK `(account_id, id)` because device ids are client-generated (two accounts
+can share a phone). `auth_identities.email` is `TEXT` (no `citext` extension; never used for lookups or linking). `region_signals` =
+`{"store": "US", "ip": "DE", "declared": "US"}` (ISO alpha-2, each optional). A session's `scope` is `onboarding` until the account
+is `active`; authorization also checks the account status, and status changes evict the account's cached sessions.
+
 Age-gate refusal stores **nothing** in Postgres: the pending account is deleted and a 24 h cooldown key
 `agegate:{sha256(device_id)}` / `agegate:{sha256(provider:subject)}` lives in Redis only (AC-2.1).
 

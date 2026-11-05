@@ -62,6 +62,10 @@ or the header named by `API_CLIENT_IP_HEADER` (e.g. `fly-client-ip`) when a trus
 | GET | /v1/config | Limits, feature flags, registry kill switches (cut styles, finishes, effects, reactions) | none/ses | — | public, no user data | CDN cached | yes | US-10, US-11, US-21 |
 | POST | /v1/devices | Register device (client UUID, platform, app version) | onb/ses | user | own device ids | 10/day u | yes | US-31 |
 
+Implemented so far: `POST /v1/auth/refresh` `{refresh_token}` → `{token_type: "Bearer", access_token, access_expires_at, refresh_token}`
+(unknown token → 401 `UNAUTHENTICATED`; reused / revoked / idle- or absolute-expired family → 401 `SESSION_REVOKED`; a retry of the
+previous token within 30 s while its successor is unused is accepted); `DELETE /v1/sessions/current` → 204.
+
 ### Media
 | Method | Path | Purpose | Auth | Role | Object rule | Rate limit | Idem. | US |
 |---|---|---|---|---|---|---|---|---|

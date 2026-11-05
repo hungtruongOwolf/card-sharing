@@ -29,6 +29,10 @@ pub struct Config {
     pub policy_config_path: PathBuf,
     /// `API_LOG_FORMAT` — `json` (default) or `pretty`.
     pub log_format: LogFormat,
+    /// `DATABASE_URL` — required. Postgres connection string (TLS required in shared environments).
+    pub database_url: Secret,
+    /// `API_DB_MAX_CONNECTIONS` — default 10, allowed 1..=100.
+    pub db_max_connections: u32,
     /// `REDIS_URL` — required. `redis://` locally, `rediss://` (TLS) in shared environments.
     pub redis_url: Secret,
     /// `API_LIMITS_CONFIG_PATH` — default `config/limits.yaml` (relative to the CWD).
@@ -82,6 +86,8 @@ impl Config {
             }
         };
 
+        let database_url = env.required_secret("DATABASE_URL")?;
+        let db_max_connections = env.in_range("API_DB_MAX_CONNECTIONS", 10, 1..=100)?;
         let redis_url = env.required_secret("REDIS_URL")?;
         let limits_config_path = env
             .optional("API_LIMITS_CONFIG_PATH")
@@ -105,6 +111,8 @@ impl Config {
             body_limit_bytes,
             policy_config_path,
             log_format,
+            database_url,
+            db_max_connections,
             redis_url,
             limits_config_path,
             client_ip_header,
@@ -141,10 +149,14 @@ mod tests {
 
     use super::*;
 
-    const REDIS: (&str, &str) = ("REDIS_URL", "redis://127.0.0.1:6379/0");
+    const REQUIRED: [(&str, &str); 2] = [
+        ("REDIS_URL", "redis://127.0.0.1:6379/0"),
+        ("DATABASE_URL", "postgres://app@127.0.0.1:5432/app"),
+    ];
 
     fn load(pairs: &[(&str, &str)]) -> Result<Config, ConfigError> {
-        let env: HashMap<String, String> = std::iter::once(&REDIS)
+        let env: HashMap<String, String> = REQUIRED
+            .iter()
             .chain(pairs.iter())
             .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
             .collect();
@@ -164,14 +176,26 @@ mod tests {
     }
 
     #[test]
-    fn missing_redis_url_aborts_with_the_key_name() {
-        let err = Config::from_lookup(|_| None).unwrap_err();
-        assert!(err.to_string().contains("REDIS_URL"), "{err}");
+    fn missing_required_urls_abort_with_the_key_name() {
+        for (missing, _) in REQUIRED {
+            let err = Config::from_lookup(|key| {
+                REQUIRED
+                    .iter()
+                    .find(|(k, _)| *k == key && *k != missing)
+                    .map(|(_, v)| (*v).to_owned())
+            })
+            .unwrap_err();
+            assert!(err.to_string().contains(missing), "{err}");
+        }
     }
 
     #[test]
-    fn redis_url_is_not_printed_by_debug() {
-        let config = load(&[("REDIS_URL", "redis://:hunter2@localhost:6379")]).unwrap();
+    fn connection_urls_are_not_printed_by_debug() {
+        let config = load(&[
+            ("REDIS_URL", "redis://:hunter2@localhost:6379"),
+            ("DATABASE_URL", "postgres://app:hunter2@localhost/app"),
+        ])
+        .unwrap();
         assert!(!format!("{config:?}").contains("hunter2"));
     }
 

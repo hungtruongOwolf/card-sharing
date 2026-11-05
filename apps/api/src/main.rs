@@ -4,15 +4,35 @@ use std::sync::Arc;
 use anyhow::Context;
 use api::config::Config;
 use api::state::AppState;
+use identity::{IdentityService, SessionPolicy};
 use platform::clock::{SharedClock, SystemClock};
 use platform::rate_limit::{RateLimitConfig, RateLimiter};
 use policy::PolicyService;
 use tokio::net::TcpListener;
 
+/// `api` serves HTTP; `api migrate` applies database migrations and exits (run it from the
+/// deploy pipeline before rolling out a new version).
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let config = Config::from_env().context("invalid configuration")?;
     api::telemetry::init(config.log_format).context("failed to initialise logging")?;
+
+    let pool = api::db::connect_lazy(&config.database_url, config.db_max_connections)
+        .context("invalid DATABASE_URL")?;
+    match std::env::args().nth(1).as_deref() {
+        None => {}
+        Some("migrate") => {
+            api::db::MIGRATOR
+                .run(&pool)
+                .await
+                .context("database migration failed")?;
+            tracing::info!("migrations applied");
+            return Ok(());
+        }
+        Some(other) => {
+            anyhow::bail!("unknown command {other:?} (expected no argument or `migrate`)")
+        }
+    }
 
     let policy = PolicyService::from_path(&config.policy_config_path)
         .context("failed to load region policy config")?;
@@ -29,9 +49,15 @@ async fn main() -> anyhow::Result<()> {
         .context("rate limit config does not cover every route")?;
     let redis = platform::cache::connect_lazy(&config.redis_url).context("invalid REDIS_URL")?;
     let clock: SharedClock = Arc::new(SystemClock);
-    let limiter = RateLimiter::with_redis(limits, redis, clock);
+    let limiter = RateLimiter::with_redis(limits, redis.clone(), Arc::clone(&clock));
+    let identity = Arc::new(IdentityService::new(
+        pool,
+        Some(redis),
+        clock,
+        SessionPolicy::default(),
+    ));
 
-    let app = api::app(AppState::new(policy, limiter), &config)
+    let app = api::app(AppState::new(policy, limiter, identity), &config)
         .into_make_service_with_connect_info::<SocketAddr>();
     let listener = TcpListener::bind(config.bind_addr)
         .await

@@ -69,6 +69,121 @@
           "role": "guest"
         }
       }
+    },
+    "/v1/auth/refresh": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Rotate a refresh token. Auth: none (the refresh token in the body is the credential).",
+        "operationId": "refreshSession",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "New token pair; the presented refresh token is now used up.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenPair"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED (unknown fields are rejected).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED (unknown token) or SESSION_REVOKED (reused, revoked or ended session: sign in again).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "TEMPORARILY_UNAVAILABLE (rate-limit store down; auth fails closed).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "none",
+          "rateLimit": "auth.refresh",
+          "role": "guest"
+        }
+      }
+    },
+    "/v1/sessions/current": {
+      "delete": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Log out this device: revokes the current session (and its widget token). Auth: onb/ses.",
+        "operationId": "deleteCurrentSession",
+        "responses": {
+          "204": {
+            "description": "Session revoked; its tokens stop working immediately."
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "onb/ses",
+          "rateLimit": "sessions.current.delete",
+          "role": "user"
+        }
+      }
     }
   },
   "components": {
@@ -162,6 +277,49 @@
             "example": "ready"
           }
         }
+      },
+      "RefreshRequest": {
+        "type": "object",
+        "description": "Body of `POST /v1/auth/refresh`. Only the refresh token: the session (and therefore the\naccount) is derived from it, never from a client-supplied id.",
+        "required": [
+          "refresh_token"
+        ],
+        "properties": {
+          "refresh_token": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      },
+      "TokenPair": {
+        "type": "object",
+        "description": "A new access + refresh token pair. Store both in the device's secure storage only.",
+        "required": [
+          "token_type",
+          "access_token",
+          "access_expires_at",
+          "refresh_token"
+        ],
+        "properties": {
+          "access_expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "access_token": {
+            "type": "string",
+            "description": "Opaque, 10 minutes. Send as `Authorization: Bearer <access_token>`."
+          },
+          "refresh_token": {
+            "type": "string",
+            "description": "Opaque, single use. Replaying a used one signs out the whole session."
+          },
+          "token_type": {
+            "type": "string",
+            "example": "Bearer"
+          }
+        }
       }
     },
     "securitySchemes": {
@@ -175,6 +333,10 @@
     {
       "name": "ops",
       "description": "Operational probes"
+    },
+    {
+      "name": "auth",
+      "description": "Sign-in and session lifecycle (ADR-0004)"
     }
   ]
 }
