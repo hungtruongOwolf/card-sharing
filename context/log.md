@@ -133,3 +133,8 @@
 - EM noticed finished tickets stayed open (commits used `Refs`). Closed #4, #12-#15, #20-#23, #29, #30, #35, #138, #139 with
   commit links; follow-ups #172 (branch protection, needs GitHub Pro) and #173 (real Apple/Google provider tests).
 - conventions: completing commits end with `Closes #<issue>`.
+
+## [2026-11-05] decision | Handle grace window; low-RAM test mode
+- T-30 1057432 pushed (CI green, #32 closed). T-31 test run killed by low memory; EM chose low-RAM mode (1 build job, 1 test thread).
+- EM: handle changes are free for 24 h after the first claim; 30-day cooldown after that (T-32). Seed term list in
+  config/text_filter.yaml must be owned and extended by moderation before launch.
