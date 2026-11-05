@@ -163,6 +163,16 @@ async fn unblock_lifts_the_block_but_not_the_friendship() {
         block_via_api(&env, &alice, bob.id).await,
         StatusCode::NO_CONTENT
     );
+    // Only the blocker can lift it.
+    let by_bob = call(
+        &env,
+        "DELETE",
+        &format!("/v1/blocks/{}", alice.id),
+        &bob,
+        None,
+    )
+    .await;
+    assert_problem(by_bob, StatusCode::NOT_FOUND, "NOT_FOUND").await;
 
     let response = call(
         &env,
@@ -175,7 +185,6 @@ async fn unblock_lifts_the_block_but_not_the_friendship() {
     assert_eq!(response.status(), StatusCode::NO_CONTENT);
     assert!(items(&env, &alice, "/v1/blocks").await.is_empty());
     assert!(items(&env, &alice, "/v1/friends").await.is_empty());
-    // Only the blocker can lift it; anything else is 404.
     let again = call(
         &env,
         "DELETE",
@@ -185,28 +194,7 @@ async fn unblock_lifts_the_block_but_not_the_friendship() {
     )
     .await;
     assert_problem(again, StatusCode::NOT_FOUND, "NOT_FOUND").await;
-    assert_eq!(
-        block_via_api(&env, &alice, bob.id).await,
-        StatusCode::NO_CONTENT
-    );
-    let by_bob = call(
-        &env,
-        "DELETE",
-        &format!("/v1/blocks/{}", alice.id),
-        &bob,
-        None,
-    )
-    .await;
-    assert_problem(by_bob, StatusCode::NOT_FOUND, "NOT_FOUND").await;
     // After unblocking, a new request reaches Alice again.
-    call(
-        &env,
-        "DELETE",
-        &format!("/v1/blocks/{}", bob.id),
-        &alice,
-        None,
-    )
-    .await;
     let token = invite_token(&env, &alice).await;
     let id = json_body(request_via_invite(&env, &bob, &token).await).await["request"]["id"]
         .as_str()
