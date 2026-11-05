@@ -6,4 +6,4 @@ version: 1
 invites:
   # Personal invite links are `<url_base><token>`. Local web by default; deployments point it at the
   # share domain (the web landing page /i/<token>, T-48).
-  url_base: "http://localhost:3000/i/"
+  url_base: 'http://localhost:3000/i/'
