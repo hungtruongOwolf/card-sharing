@@ -157,3 +157,5 @@
 - Estimates only (no device): ~170 GPU cycles/px, 3 cards ≈ 0.97 MP/frame ≈ 1.1 ms on mid-range. Defaults maxLive 3 /
   low-end 1 + scale 0.75 / hot 0. Go: p95 ≤ 17.5 ms and ≤ 1 % dropped. Raw: raw/research/2026-11-05-holo-spike.md.
 - #54 stays open for on-device numbers. Follow-ups #181 tiers/pausing, #182 board-scene spike, #183 shader CI, #184 mask clip.
+- EM after T-52: borrow an Android phone for the measurement; ambient shimmer on ALL visible live cards (spike default was
+  focused-only, so battery/thermal cost must be measured in scene E/G); thin-film look approved for now.
