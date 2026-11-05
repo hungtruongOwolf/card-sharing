@@ -92,7 +92,7 @@ pose model downloaded on first use (Phase 2, [[ADR-0003-effects-tiers]]). Props 
 |---|---|---|---|---|---|---|---|
 | `cut.diecut` | 17+ | ML Kit; no GMS → server cutout | S (baked image) | 30–80 ms contour | ✓ | — | **✓** |
 | `cut.torn` | 17+ | same as diecut | S (baked) | 40–100 ms | ✓ | — | MVP+ |
-| `fx.holo` | ✓ | ✓ (gyro on all) | M (live only when focused, ≤3) | — (still = fixed tilt) | ✓ | 2 s tilt sweep, seamless | **✓** |
+| `fx.holo` | ✓ | ✓ (gyro on all) | M (live only when focused, ≤3; T-52 estimate ~1.1 ms GPU/frame for 3 cards on mid-range, low-end tier maxLive 1 + scale 0.75, unmeasured) | — (still = fixed tilt) | ✓ | 2 s tilt sweep, seamless | **✓** |
 | `fx.laser-eyes` | people + cats/dogs (Vision) | people ✓ (ML Kit face); pets → mask heuristic / tap-the-eyes | M | 40 ms | ✓ | 2 s pulse, seamless | **✓** |
 | `fx.fire-breath` | people + cats/dogs | people ✓; pets → tap-the-mouth | L (particles) | 60 ms (frozen frame) | ✓ | 2–3 s, seamless | **✓** |
 | `prop.crown` family | people + cats/dogs | people ✓; pets → top-of-mask anchor, user adjusts | S | 10 ms | ✓ | — (optional bob loop) | **✓** |
