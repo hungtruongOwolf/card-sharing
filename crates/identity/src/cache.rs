@@ -34,6 +34,11 @@ impl SessionCache {
         Self { redis }
     }
 
+    /// The shared Redis connection (age-gate cooldown keys live next to the session cache).
+    pub(crate) fn redis(&self) -> Option<ConnectionManager> {
+        self.redis.clone()
+    }
+
     fn key(hash_hex: &str) -> String {
         format!("sess:{hash_hex}")
     }

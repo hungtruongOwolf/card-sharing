@@ -7,6 +7,7 @@ use api::config::Config;
 use api::state::AppState;
 use identity::{IdentityService, SessionPolicy};
 use platform::clock::{SharedClock, SystemClock};
+use platform::crypto::FieldCipher;
 use platform::rate_limit::{RateLimitConfig, RateLimiter};
 use policy::PolicyService;
 use tokio::net::TcpListener;
@@ -60,7 +61,9 @@ async fn main() -> anyhow::Result<()> {
 
     let client = ClientConfig::from_path(&config.client_config_path)
         .context("failed to load client config")?;
-    let state = AppState::new(policy, limiter, identity, client)
+    let field_cipher = FieldCipher::from_base64(1, config.data_encryption_key.expose())
+        .context("invalid API_DATA_ENCRYPTION_KEY")?;
+    let state = AppState::new(policy, limiter, identity, client, field_cipher)
         .with_ip_country_header(config.ip_country_header.clone());
 
     let app = api::app(state, &config).into_make_service_with_connect_info::<SocketAddr>();

@@ -75,7 +75,10 @@ can share a phone). `auth_identities.email` is `TEXT` (no `citext` extension; ne
 is `active`; authorization also checks the account status, and status changes evict the account's cached sessions.
 
 Age-gate refusal stores **nothing** in Postgres: the pending account is deleted and a 24 h cooldown key
-`agegate:{sha256(device_id)}` / `agegate:{sha256(provider:subject)}` lives in Redis only (AC-2.1).
+`agegate:{sha256(device_id)}` / `agegate:{sha256(provider:subject)}` lives in Redis only (AC-2.1). Implemented (T-28) as
+`agegate:d:<hex>` and `agegate:i:<hex>`; `birth_date_enc` = XChaCha20-Poly1305 (`platform::crypto::FieldCipher`, key
+`API_DATA_ENCRYPTION_KEY`, key id byte for rotation) with the account id as associated data, so a ciphertext copied to another row
+fails to decrypt.
 
 ### `social` (owner: social)
 | Table | Columns | Indexes | Class | Retention |

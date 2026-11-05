@@ -65,6 +65,10 @@ pub fn router() -> ApiRouter<AppState> {
             routes!(me::get_me),
         )
         .route(
+            RoutePolicy::onboarding().limited("me.age"),
+            routes!(me::submit_age),
+        )
+        .route(
             RoutePolicy::public().limited("auth.refresh"),
             routes!(auth::refresh),
         )

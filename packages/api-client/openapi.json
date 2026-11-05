@@ -247,6 +247,100 @@
         }
       }
     },
+    "/v1/me/age": {
+      "post": {
+        "tags": [
+          "me"
+        ],
+        "summary": "Submit the date of birth once. Auth: onb (account in `pending_age` only).",
+        "description": "Refusal is neutral: 403 `AGE_GATE_REFUSED` with no threshold or region in the body; the\npending account is deleted and the same device / sign-in identity is refused for 24 h.",
+        "operationId": "submitAge",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Admitted; continue with the profile step.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "AGE_GATE_REFUSED (neutral; account removed), AGE_ALREADY_SUBMITTED (DOB is locked) or FORBIDDEN (not an onboarding session).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "TEMPORARILY_UNAVAILABLE (fails closed).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "onb",
+          "rateLimit": "me.age",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
     "/v1/sessions/current": {
       "delete": {
         "tags": [
@@ -315,6 +409,54 @@
           },
           "rewarded": {
             "type": "boolean"
+          }
+        }
+      },
+      "AgeRequest": {
+        "type": "object",
+        "description": "Body of `POST /v1/me/age`. Country hints can only make the policy stricter.",
+        "required": [
+          "birth_date"
+        ],
+        "properties": {
+          "birth_date": {
+            "type": "string",
+            "format": "date",
+            "description": "ISO 8601 calendar date, e.g. `2010-05-01`.",
+            "example": "2010-05-01"
+          },
+          "declared_country": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Country the user says they live in (ISO 3166-1 alpha-2), if asked.",
+            "example": "US"
+          },
+          "store_country": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "App store storefront country reported by the OS (a hint, never trusted to loosen rules).",
+            "example": "US"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AgeResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "onboarding"
+        ],
+        "properties": {
+          "onboarding": {
+            "$ref": "#/components/schemas/OnboardingView"
+          },
+          "status": {
+            "type": "string",
+            "example": "pending_profile"
           }
         }
       },

@@ -16,6 +16,7 @@ use identity::{
 use platform::cache::ConnectionManager;
 use platform::clock::{ManualClock, SystemClock};
 use platform::config::Secret;
+use platform::crypto::FieldCipher;
 use platform::rate_limit::{RateLimitConfig, RateLimiter};
 use policy::PolicyService;
 use serde_json::Value;
@@ -36,6 +37,7 @@ pub fn test_config() -> Config {
         log_format: LogFormat::Json,
         database_url: Secret::new("postgres://unused@127.0.0.1:1/unused"),
         db_max_connections: 2,
+        data_encryption_key: Secret::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="),
         redis_url: Secret::new("redis://127.0.0.1:1/0"),
         limits_config_path: "unused-in-tests".into(),
         client_ip_header: None,
@@ -47,6 +49,11 @@ pub fn test_config() -> Config {
 /// Header the tests use as the trusted IP-country header.
 pub const TEST_COUNTRY_HEADER: &str = "x-test-ip-country";
 pub const CLIENT_YAML: &str = include_str!("../../../../config/client.yaml");
+
+/// Test-only data key (32 zero bytes).
+pub fn field_cipher() -> FieldCipher {
+    FieldCipher::from_base64(1, "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=").unwrap()
+}
 
 pub fn client_config() -> ClientConfig {
     ClientConfig::from_yaml_str(CLIENT_YAML).unwrap()
@@ -86,6 +93,7 @@ pub fn offline_state() -> AppState {
         memory_limiter(),
         offline_identity(),
         client_config(),
+        field_cipher(),
     )
     .with_ip_country_header(test_config().ip_country_header)
 }
@@ -128,6 +136,7 @@ impl TestEnv {
             memory_limiter(),
             Arc::clone(&identity),
             client_config(),
+            field_cipher(),
         )
         .with_ip_country_header(test_config().ip_country_header);
         let router = api::build(routes, state.clone(), &test_config());
@@ -142,18 +151,32 @@ impl TestEnv {
 
     /// A new account (status `pending_age`) signed in on a new device.
     pub async fn signed_in_user(&self) -> (Uuid, IssuedSession) {
+        self.signed_in_on(Uuid::now_v7()).await
+    }
+
+    /// A new account signed in on the given device.
+    pub async fn signed_in_on(&self, device_id: Uuid) -> (Uuid, IssuedSession) {
         let identity = VerifiedIdentity {
             provider: Provider::Apple,
             subject: format!("test-{}", Uuid::now_v7()),
             email: None,
         };
+        self.signed_in_as(&identity, device_id).await
+    }
+
+    /// Signs `identity` in (creating its account if needed) on the given device.
+    pub async fn signed_in_as(
+        &self,
+        identity: &VerifiedIdentity,
+        device_id: Uuid,
+    ) -> (Uuid, IssuedSession) {
         let (account_id, _) = self
             .identity
-            .find_or_create_account(&identity)
+            .find_or_create_account(identity)
             .await
             .unwrap();
         let device = DeviceInfo {
-            id: Uuid::now_v7(),
+            id: device_id,
             platform: Platform::Ios,
             app_version: "1.0.0".to_owned(),
         };
