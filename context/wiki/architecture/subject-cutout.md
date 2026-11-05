@@ -3,21 +3,27 @@ title: Subject cutout (sticker) pipeline
 type: concept
 status: proposed
 updated: 2026-11-05
-sources: [raw/research/2026-11-04-subject-cutout.md]
+sources: [raw/research/2026-11-04-subject-cutout.md, raw/discussions/2026-11-05-sprint-1-kickoff-qa.md]
 related: [[ADR-0003-effects-tiers]], [[ADR-0002-cross-platform-stack]], [[genai-effects]], [[security-baseline]]
 ---
 # Subject cutout pipeline
 **TL;DR:** Segment on-device (free, private) → store an 8-bit **mask** as source of truth → render
-any cut style with Skia from the mask. Server BiRefNet as fallback.
+any cut style with Skia from the mask. **MVP fallback (EM decision 2026-11-05):** no server cutout; devices without
+on-device cutout (iOS < 17, Android without the bundled model) make **whole-photo cards** with mask-free shape cuts
+(rounded square, circle, heart, torn edge), and subject cutout styles appear only where a mask exists. Server BiRefNet
+stays a post-MVP option.
 
-| Platform | Primary | Fallback |
+| Platform | Primary | MVP fallback |
 |---|---|---|
-| iOS 17+ | Apple Vision `VNGenerateForegroundInstanceMaskRequest` (multi-instance, any subject) | server |
-| Android | ML Kit Subject Segmentation (beta; needs Play services) | server (Huawei etc.) |
+| iOS 17+ | Apple Vision `VNGenerateForegroundInstanceMaskRequest` (multi-instance, any subject) | iOS < 17: whole-photo card |
+| Android | ML Kit Subject Segmentation (beta; needs Play services) | bundled model (AC-7.6); else whole-photo card |
 | Web (WebGPU) | BiRefNet_lite (MIT) via transformers.js in a Web Worker; SlimSAM for tap-to-select | server |
 | Server | self-hosted BiRefNet (MIT, < $0.001/img on busy GPU); SAM 2.1 for point prompts | paid API (Bria via fal ~$0.018, Photoroom ~$0.02) |
 
 - Custom Expo Module (est. 3–5 dev-days) returning masks + instance map as file URIs; `expo-segmentation` as reference.
+  The app consumes it through the `MaskSource` seam (`apps/mobile/src/features/editor/maskSource.ts`, T-64): `maskFor(photo)`
+  resolves a mask with the photo's aspect ratio, or `null` for a whole-photo card (unsupported device, no subject, or a
+  failed segmentation).
 - Tap-to-select subject; brush/eraser refinement with undo.
 - **Cut styles** from mask: die-cut white border (mask → vector contour → smooth → round-join stroke),
   torn paper (path jitter / noise displacement), shapes (clip paths), drop shadow, shine shaders.

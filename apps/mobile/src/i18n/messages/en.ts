@@ -154,6 +154,32 @@ export const en = {
   'capture.chooseAnother': 'Choose another photo',
   'capture.startOver': 'Start over',
 
+  'editor.title': 'Style your card',
+  'editor.loading': 'Getting your photo ready…',
+  'editor.error.title': 'We couldn’t open that photo',
+  'editor.error.body': 'Try taking it again or choose another photo.',
+  'editor.error.back': 'Back to photos',
+  'editor.undo': 'Undo',
+  'editor.redo': 'Redo',
+  'editor.preview.label': 'Your card, {style}',
+  'editor.preview.labelWithFinish': 'Your card, {style}, {finish}',
+  'editor.unavailable': 'No card styles are available right now.',
+  'editor.wholePhoto': 'Use whole photo',
+  'editor.wholePhoto.hint': 'Keeps the whole photo instead of cutting out the subject',
+  'editor.noSubject': 'This card uses the whole photo.',
+  'editor.tab.cut': 'Shape',
+  'editor.tab.finish': 'Finish',
+  'editor.finish.none': 'No finish',
+  'editor.next': 'Next',
+  'editor.param.value': '{label}: {value, number}',
+  'editor.param.decrease': 'Decrease {label}',
+  'editor.param.increase': 'Increase {label}',
+  'editor.color.white': 'White',
+  'editor.color.black': 'Black',
+  'editor.color.mustard': 'Mustard',
+  'editor.color.pink': 'Pink',
+  'editor.color.sky': 'Sky blue',
+
   // Effect registry copy (packages/effects-registry entries reference these keys; a test checks them).
   'effects.cut.none.name': 'Photo',
   'effects.cut.none.description': 'The whole photo with soft rounded corners.',
@@ -172,6 +198,12 @@ export const en = {
   'effects.fx.paperLift.name': 'Paper lift',
   'effects.fx.paperLift.description': 'A soft shadow, as if the sticker lifts off the page.',
   'effects.fx.paperLift.a11y': 'lifted off the page',
+  // Param labels (`effects.param.<name>`, enum values `effects.param.<name>.<value>`), shared across entries.
+  'effects.param.cornerRadiusPct': 'Corner roundness',
+  'effects.param.borderWidthPct': 'Border width',
+  'effects.param.color': 'Border colour',
+  'effects.param.intensity': 'Intensity',
+  'effects.param.height': 'Lift height',
 } as const;
 
 export type MessageKey = keyof typeof en;
