@@ -111,3 +111,11 @@
 - T-33 (ec24ee0) and backend T-10/T-11/T-13/T-18/T-27 pushed; CI green at abb8daf. gitleaks now allowlists container image
   references via .gitleaks.toml instead of per-finding fingerprints.
 - EM: tree snapshots accepted (pixel screenshots later); brand fonts ship with T-21; contrast colour fixes approved.
+
+## [2026-11-05] progress | Backend sprint-1 slice landed
+- T-10 00e4dd4, T-11 cc250f6, T-13 3e8df0c, T-18 11bf266, T-27 cfc6cd8, T-28 7ddf52a, T-12 6aa067d; CI green at 16fc746
+  (fixed a flaky age-gate assertion that a UUID requestId could match).
+- Lead defaults (reversible): production IP country from Cloudflare `CF-IPCountry` (ADR-0008 already fronts the API with
+  Cloudflare; set `API_IP_COUNTRY_HEADER`); passing the age gate → `pending_profile`; `xxhash-rust` BSL-1.0 (permissive,
+  Boost licence) allowed in deny.toml; initial limits in config/limits.yaml and config/client.yaml from api-mvp/PRD.
+- Next: T-19/T-20 against mocked JWKS; mobile T-21 + brand fonts.
