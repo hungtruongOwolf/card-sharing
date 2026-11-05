@@ -75,8 +75,8 @@ table `tokenTable()`; a component that renders a new foreground/background combi
 ### 3.2 Typography (all SIL OFL 1.1 via Google Fonts → commercial-safe, embeddable, bundle via `expo-font`)
 | Role | Font | Why |
 |---|---|---|
-| Display / headings | **Bricolage Grotesque** (variable, opsz) | Quirky, warm, editorial; reads "zine" not "corporate" |
-| UI / body | **DM Sans** (variable) | Highly legible at small sizes, friendly geometry |
+| Display / headings | **Bricolage Grotesque** (variable upstream; static instances bundled) | Quirky, warm, editorial; reads "zine" not "corporate" |
+| UI / body | **DM Sans** (variable upstream; static instances bundled) | Highly legible at small sizes, friendly geometry |
 | Hand-written accent | **Caveat** | Captions on cards, empty-state notes, "handwritten" stickers |
 | Meme caption | **Anton** | Impact-style meme text (Impact itself is not freely licensable) |
 | Label / ticket | **DM Mono** | Date stamps, ticket stubs, counters |
@@ -95,6 +95,25 @@ table `tokenTable()`; a component that renders a new foreground/background combi
 | `type.meme.lg` | 36 / 38 | 400, uppercase, 2 px ink stroke | Anton | Meme captions (canvas, scales with item) |
 | `type.mono.sm` | 12 / 16 | 500 | DM Mono | Date stamps |
 UI text supports Dynamic Type / font scale up to 200% (clamp display sizes at 1.3×); canvas text scales with the item, not the OS.
+
+**Bundled faces (2026-11-05, EM decision: ship with T-21).** Only the weights the type tokens use are embedded, at build
+time, by the `expo-font` config plugin (`apps/mobile/app.json`): Bricolage Grotesque SemiBold 600 / Bold 700, DM Sans
+Regular 400 / SemiBold 600, Caveat Medium 500, Anton Regular 400, DM Mono Medium 500 (~0.8 MB in total). Source: the
+official google/fonts repository (`ofl/<family>`). Expo SDK 57 supports only static font files (variable fonts arrive in
+SDK 58), so Bricolage, DM Sans and Caveat, which google/fonts ships as variable fonts only, are pinned to static instances
+with fontTools (`apps/mobile/scripts/instance_fonts.py`; optical size pinned per use: Bricolage SemiBold opsz 24, Bold
+opsz 36, DM Sans opsz 14). Anton and DM Mono are static upstream and copied unchanged.
+- **Licence:** all five are SIL Open Font License 1.1 with no Reserved Font Name, so derived instances keep their names.
+  Each family folder under `apps/mobile/assets/fonts/` carries its `OFL.txt`; the licence must stay next to the files and
+  be listed in the app's open-source notices. Fonts may be embedded in the app but not sold on their own.
+- **Naming:** each file is named after its PostScript name, which is also the `fontFamily` value, so one string resolves
+  on iOS (family read from the file) and Android (family = file name). With a brand face `fontWeight` is left unset (the
+  weight is in the file).
+- **Fallback:** `apps/mobile/src/ui/theme/fonts.ts` (`fontStyleFor`) is the single switch. It uses a face only when
+  `getLoadedFonts()` reports it; otherwise (Expo Go, a binary built before the fonts) text renders in the platform font
+  with the token weight. A unit test fails if a type token has no bundled face or a face is missing from `app.json` or
+  lacks its `OFL.txt`. Adding a weight: add it to `instance_fonts.py` (or copy the static file), `BRAND_FACES` and the
+  plugin list together.
 
 ### 3.3 Spacing (4 pt grid)
 | Token | `space.0` | `.1` | `.2` | `.3` | `.4` | `.5` | `.6` | `.8` | `.10` | `.12` | `.16` |
@@ -181,8 +200,8 @@ Rules: ≤1 haptic per 50 ms (coalesce during drags), never on scroll, global to
 `ThemeProvider`) and moves to `packages/ui` when a second consumer appears. Copy comes from the ICU message catalog
 `apps/mobile/src/i18n/messages/en.ts` via `t()` (dependency-free formatter: plural, select, number; plural fallback for Hermes,
 which lacks guaranteed `Intl.PluralRules`). ESLint rules `card-sharing/no-hardcoded-strings` and `card-sharing/rtl-safe-styles`
-(local plugin `apps/mobile/eslint/`) reject literal UI strings and left/right styles. Brand fonts are not bundled yet; text
-renders in the platform font until they are (`apps/mobile/src/ui/theme/fonts.ts`).
+(local plugin `apps/mobile/eslint/`) reject literal UI strings and left/right styles. Brand fonts are bundled (§3.2) and
+resolved through `apps/mobile/src/ui/theme/fonts.ts`, with the platform font as fallback until they are loaded.
 
 | Component | Variants | States | Notes |
 |---|---|---|---|

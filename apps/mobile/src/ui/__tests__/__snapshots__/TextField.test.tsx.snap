@@ -18,9 +18,8 @@ exports[`TextField (dark) matches the snapshot with hint and with error 1`] = `
         [
           {
             "color": "#F5EDE0",
-            "fontFamily": undefined,
+            "fontFamily": "DMSans-SemiBold",
             "fontSize": 14,
-            "fontWeight": "600",
             "lineHeight": 18,
             "textAlign": "auto",
             "textTransform": "none",
@@ -60,7 +59,7 @@ exports[`TextField (dark) matches the snapshot with hint and with error 1`] = `
             "borderColor": "rgba(245, 237, 224, 0.14)",
             "borderWidth": 1,
             "color": "#F5EDE0",
-            "fontFamily": undefined,
+            "fontFamily": "DMSans-Regular",
             "fontSize": 17,
             "minHeight": 48,
             "opacity": 1,
@@ -76,9 +75,8 @@ exports[`TextField (dark) matches the snapshot with hint and with error 1`] = `
         [
           {
             "color": "#B9AA9A",
-            "fontFamily": undefined,
+            "fontFamily": "DMSans-Regular",
             "fontSize": 15,
-            "fontWeight": "400",
             "lineHeight": 22,
             "textAlign": "auto",
             "textTransform": "none",
@@ -107,9 +105,8 @@ exports[`TextField (dark) matches the snapshot with hint and with error 1`] = `
         [
           {
             "color": "#F5EDE0",
-            "fontFamily": undefined,
+            "fontFamily": "DMSans-SemiBold",
             "fontSize": 14,
-            "fontWeight": "600",
             "lineHeight": 18,
             "textAlign": "auto",
             "textTransform": "none",
@@ -148,7 +145,7 @@ exports[`TextField (dark) matches the snapshot with hint and with error 1`] = `
             "borderColor": "#FF8A80",
             "borderWidth": 2,
             "color": "#F5EDE0",
-            "fontFamily": undefined,
+            "fontFamily": "DMSans-Regular",
             "fontSize": 17,
             "minHeight": 48,
             "opacity": 1,
@@ -164,9 +161,8 @@ exports[`TextField (dark) matches the snapshot with hint and with error 1`] = `
         [
           {
             "color": "#FF8A80",
-            "fontFamily": undefined,
+            "fontFamily": "DMSans-Regular",
             "fontSize": 15,
-            "fontWeight": "400",
             "lineHeight": 22,
             "textAlign": "auto",
             "textTransform": "none",
@@ -200,9 +196,8 @@ exports[`TextField (light) matches the snapshot with hint and with error 1`] = `
         [
           {
             "color": "#2B2320",
-            "fontFamily": undefined,
+            "fontFamily": "DMSans-SemiBold",
             "fontSize": 14,
-            "fontWeight": "600",
             "lineHeight": 18,
             "textAlign": "auto",
             "textTransform": "none",
@@ -242,7 +237,7 @@ exports[`TextField (light) matches the snapshot with hint and with error 1`] = `
             "borderColor": "rgba(43, 35, 32, 0.12)",
             "borderWidth": 1,
             "color": "#2B2320",
-            "fontFamily": undefined,
+            "fontFamily": "DMSans-Regular",
             "fontSize": 17,
             "minHeight": 48,
             "opacity": 1,
@@ -258,9 +253,8 @@ exports[`TextField (light) matches the snapshot with hint and with error 1`] = `
         [
           {
             "color": "#6B5E57",
-            "fontFamily": undefined,
+            "fontFamily": "DMSans-Regular",
             "fontSize": 15,
-            "fontWeight": "400",
             "lineHeight": 22,
             "textAlign": "auto",
             "textTransform": "none",
@@ -289,9 +283,8 @@ exports[`TextField (light) matches the snapshot with hint and with error 1`] = `
         [
           {
             "color": "#2B2320",
-            "fontFamily": undefined,
+            "fontFamily": "DMSans-SemiBold",
             "fontSize": 14,
-            "fontWeight": "600",
             "lineHeight": 18,
             "textAlign": "auto",
             "textTransform": "none",
@@ -330,7 +323,7 @@ exports[`TextField (light) matches the snapshot with hint and with error 1`] = `
             "borderColor": "#B3261E",
             "borderWidth": 2,
             "color": "#2B2320",
-            "fontFamily": undefined,
+            "fontFamily": "DMSans-Regular",
             "fontSize": 17,
             "minHeight": 48,
             "opacity": 1,
@@ -346,9 +339,8 @@ exports[`TextField (light) matches the snapshot with hint and with error 1`] = `
         [
           {
             "color": "#B3261E",
-            "fontFamily": undefined,
+            "fontFamily": "DMSans-Regular",
             "fontSize": 15,
-            "fontWeight": "400",
             "lineHeight": 22,
             "textAlign": "auto",
             "textTransform": "none",

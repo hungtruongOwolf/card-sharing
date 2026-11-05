@@ -5,7 +5,7 @@ import { MAX_FONT_SCALE, radius, space, typeStyle } from '@card-sharing/tokens';
 
 import { t } from '../i18n';
 import { Text } from './Text';
-import { fontFamilyFor } from './theme/fonts';
+import { fontStyleFor } from './theme/fonts';
 import { useTheme } from './theme/ThemeProvider';
 
 export interface TextFieldProps extends Omit<TextInputProps, 'style' | 'placeholderTextColor'> {
@@ -65,7 +65,7 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
             backgroundColor: c.surface.raised,
             borderColor,
             borderWidth: focused || error ? 2 : 1,
-            fontFamily: fontFamilyFor(body.family),
+            ...fontStyleFor(body.family, body.weight),
             fontSize: body.size,
             opacity: editable ? 1 : 0.6,
           },

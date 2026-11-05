@@ -121,9 +121,8 @@ exports[`Sheet (dark) matches the snapshot when open 1`] = `
             [
               {
                 "color": "#F5EDE0",
-                "fontFamily": undefined,
+                "fontFamily": "BricolageGrotesque-SemiBold",
                 "fontSize": 20,
-                "fontWeight": "600",
                 "lineHeight": 26,
                 "textAlign": "auto",
                 "textTransform": "none",
@@ -248,9 +247,8 @@ exports[`Sheet (dark) matches the snapshot when open 1`] = `
                   [
                     {
                       "color": "#F5EDE0",
-                      "fontFamily": undefined,
+                      "fontFamily": "DMSans-SemiBold",
                       "fontSize": 14,
-                      "fontWeight": "600",
                       "lineHeight": 18,
                       "textAlign": "auto",
                       "textTransform": "none",
@@ -274,9 +272,8 @@ exports[`Sheet (dark) matches the snapshot when open 1`] = `
           [
             {
               "color": "#F5EDE0",
-              "fontFamily": undefined,
+              "fontFamily": "DMSans-Regular",
               "fontSize": 15,
-              "fontWeight": "400",
               "lineHeight": 22,
               "textAlign": "auto",
               "textTransform": "none",
@@ -414,9 +411,8 @@ exports[`Sheet (light) matches the snapshot when open 1`] = `
             [
               {
                 "color": "#2B2320",
-                "fontFamily": undefined,
+                "fontFamily": "BricolageGrotesque-SemiBold",
                 "fontSize": 20,
-                "fontWeight": "600",
                 "lineHeight": 26,
                 "textAlign": "auto",
                 "textTransform": "none",
@@ -541,9 +537,8 @@ exports[`Sheet (light) matches the snapshot when open 1`] = `
                   [
                     {
                       "color": "#2B2320",
-                      "fontFamily": undefined,
+                      "fontFamily": "DMSans-SemiBold",
                       "fontSize": 14,
-                      "fontWeight": "600",
                       "lineHeight": 18,
                       "textAlign": "auto",
                       "textTransform": "none",
@@ -567,9 +562,8 @@ exports[`Sheet (light) matches the snapshot when open 1`] = `
           [
             {
               "color": "#2B2320",
-              "fontFamily": undefined,
+              "fontFamily": "DMSans-Regular",
               "fontSize": 15,
-              "fontWeight": "400",
               "lineHeight": 22,
               "textAlign": "auto",
               "textTransform": "none",
