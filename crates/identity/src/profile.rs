@@ -23,6 +23,7 @@
 use std::collections::BTreeSet;
 use std::path::Path;
 
+use platform::audit::{self, Actor, AuditAction, AuditEntry};
 use platform::text::{FieldRules, TextError, TextFilter};
 use serde::Deserialize;
 use time::{Duration, OffsetDateTime};
@@ -461,6 +462,12 @@ impl IdentityService {
             }
             Err(err) => return Err(err.into()),
         }
+        let entry = AuditEntry::new(Actor::User(account_id), AuditAction::HandleChanged)
+            .target("account", account_id)
+            .detail("first_claim", current.handle.is_none());
+        audit::record(&mut *tx, &entry, now)
+            .await
+            .map_err(StoreError::from)?;
 
         if let Some(old) = release_into_reservation {
             sqlx::query(

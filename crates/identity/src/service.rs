@@ -10,6 +10,7 @@
 //! All timestamps come from the injected clock (never the database's `now()`), so expiry and
 //! grace windows are testable.
 
+use platform::audit::{self, Actor, AuditAction, AuditEntry};
 use platform::cache::ConnectionManager;
 use platform::clock::SharedClock;
 use platform::ids::new_id;
@@ -152,6 +153,8 @@ pub enum StoreError {
     Randomness(#[from] RandomnessError),
     #[error("corrupt row: {0}")]
     Corrupt(String),
+    #[error("audit write failed: {0}")]
+    Audit(#[from] platform::outbox::OutboxError),
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -504,6 +507,11 @@ impl IdentityService {
             _ => {
                 let old_access = row.access_token_hash.clone();
                 revoke_in_tx(&mut tx, row.session_id, RevokeReason::RefreshReuse, now).await?;
+                let entry = AuditEntry::new(Actor::User(row.account_id), AuditAction::RefreshReuse)
+                    .target("session", row.session_id);
+                audit::record(&mut *tx, &entry, now)
+                    .await
+                    .map_err(StoreError::from)?;
                 tx.commit().await?;
                 self.cache.delete_raw(&old_access).await;
                 tracing::warn!(
@@ -581,6 +589,7 @@ impl IdentityService {
         reason: RevokeReason,
     ) -> Result<(), StoreError> {
         let now = self.clock.now();
+        let mut tx = self.pool.begin().await?;
         let hashes: Vec<Vec<u8>> = sqlx::query_scalar(
             "UPDATE identity.sessions SET revoked_at = $2, revoked_reason = $3
              WHERE account_id = $1 AND revoked_at IS NULL
@@ -589,8 +598,15 @@ impl IdentityService {
         .bind(account_id)
         .bind(now)
         .bind(reason.as_str())
-        .fetch_all(&self.pool)
+        .fetch_all(&mut *tx)
         .await?;
+        if reason == RevokeReason::LogoutAll {
+            let entry = AuditEntry::new(Actor::User(account_id), AuditAction::LogoutAll)
+                .target("account", account_id)
+                .detail("sessions", hashes.len());
+            audit::record(&mut *tx, &entry, now).await?;
+        }
+        tx.commit().await?;
         for hash in hashes {
             self.cache.delete_raw(&hash).await;
         }

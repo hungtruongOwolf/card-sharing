@@ -8,6 +8,7 @@ mod common;
 
 mod access;
 mod age_gate;
+mod audit;
 mod authz_matrix;
 mod handle;
 mod http;

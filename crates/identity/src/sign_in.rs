@@ -6,6 +6,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use platform::audit::{self, Actor, AuditAction, AuditEntry};
 use platform::crypto::FieldCipher;
 use redis::AsyncCommands;
 use redis::SetExpiry;
@@ -137,6 +138,11 @@ impl ProviderSignIn {
             .identity
             .start_session(account_id, request.device.as_ref())
             .await?;
+        let entry = AuditEntry::new(Actor::User(account_id), AuditAction::SignIn)
+            .target("session", session.session_id)
+            .detail("provider", provider.as_str())
+            .detail("new_account", created);
+        audit::record_or_log(self.identity.pool(), &entry, self.identity.clock.now()).await;
         tracing::info!(
             event = "auth.sign_in",
             provider = provider.as_str(),
