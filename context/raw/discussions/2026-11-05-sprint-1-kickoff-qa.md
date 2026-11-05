@@ -45,3 +45,10 @@ Facts found while starting:
 | How to get on-device holo frame-time numbers (only an iPhone available) | Borrow a mid-range Android phone; lead prepares the APK and test script |
 | Ambient holo animation when the phone is still | All visible cards shimmer (not only the focused one) |
 | Approve the new thin-film holo look as the shared base | Approve for now; fine-tune on a device later |
+
+## Follow-up Q&A during sprint 2 (same day)
+| Question | EM answer |
+|---|---|
+| Devices without on-device subject cutout (iOS < 17, Android without the bundled model) | Offer whole-photo card styles with mask-free shape cuts (rounded square, circle, heart, torn edge); subject cutout appears when the device supports it |
+| Next mobile work after the sprint-2 lane finished early | Card editor (T-64) + captions (T-69) |
+| Delete the merged leftover branch feat/t61-contours | Delete |

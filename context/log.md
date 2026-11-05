@@ -176,3 +176,9 @@
   PR #187 merged. Branch protection on main: 6 required checks, linear history, no force-push/deletion, admin bypass for
   wiki/log pushes (#172 closed). A transient GitHub error ("fatal error in commit_refs_rules") rejected pushes for a few
   minutes right after the visibility change.
+
+## [2026-11-05] progress | Sprint 2 mobile lane done; no-cutout fallback decided
+- T-61 #189 (e6f2e2a), T-53 #191 (8bb92d6), T-62 #198 (bb6cc7c); #63, #55, #64 closed. T-62 removed the T-59
+  `serverCutout` fallback (contradicted prd-mvp AC-7.6). Follow-ups #192 (capture timings), #199 (contour bake on device).
+- EM: devices without on-device cutout get whole-photo cards with mask-free shape cuts (T-63 shapes become the fallback,
+  pulled forward with T-64 editor and T-69 captions). Contour bake: segmenter resolution (~512²) off the JS thread first.
