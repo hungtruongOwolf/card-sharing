@@ -220,7 +220,7 @@ Handle search (T-43, SR-19, SR-23, threat A-11): `POST /v1/users/search` (ses + 
 `{result: {ref, display_name}}` (no id, handle, avatar or age). Exact, case-insensitive; one leading `@` allowed; anything that
 is not a full handle shape matches nothing. A missing handle, an account under the target's `discovery.min_age`, not `active`,
 blocked either way, or the caller's own handle all get the byte-identical `{"result":null}` with the same headers. One code
-path: the handle lookup, age check, block check and profile read run for every query (a nil id stands in for a missing handle),
+path: the handle lookup, age check, block check and profile read run for every query (for a missing handle they run on a decoy, the caller's own cached record, so both paths cost the same),
 and the handler pads every answer to the next multiple of `search.latency_floor_ms` (150 ms, `config/social.yaml`). Limits:
 route limit `users.search` (10/min + 30/day per account, 5/min for new accounts, fails closed) plus `users.search.device`
 (30/day) and `users.search.ip` (100/day) checked in the handler before the padded section (the access layer now passes the
