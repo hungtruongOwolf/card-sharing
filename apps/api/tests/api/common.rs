@@ -56,6 +56,11 @@ pub fn test_config() -> Config {
         google_client_ids: vec![GOOGLE_CLIENT_ID.to_owned()],
         auth_clock_skew: Duration::from_secs(60),
         apple_signing: None,
+        mail: api::config::MailConfig {
+            transport: api::config::MailTransport::None,
+            from: "no-reply@cardsharing.local".to_owned(),
+            magic_link_url: "https://links.cardsharing.test/auth/link".to_owned(),
+        },
         attestation: api::config::AttestationConfig {
             mode: api::config::AttestationMode::LogOnly,
             app_attest_app_ids: Vec::new(),

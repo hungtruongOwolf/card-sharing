@@ -95,6 +95,10 @@ pub fn router() -> ApiRouter<AppState> {
             routes!(auth::sign_in_google),
         )
         .route(
+            RoutePolicy::public().limited("auth.email.start"),
+            routes!(auth::start_email_sign_in),
+        )
+        .route(
             RoutePolicy::public().limited("auth.refresh"),
             routes!(auth::refresh),
         )

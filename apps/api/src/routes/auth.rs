@@ -5,10 +5,11 @@ use axum::Json;
 use axum::extract::State;
 use http::{HeaderMap, StatusCode};
 use identity::{
-    DeviceInfo, IssuedSession, Platform, Provider, RefreshError, RegionSignals, RevokeReason,
-    SignInError, SignInRequest,
+    DeviceInfo, IssuedSession, MagicLinkError, Platform, Provider, RefreshError, RegionSignals,
+    RevokeReason, SignInError, SignInRequest,
 };
 use platform::problem::{ApiError, ProblemDetails};
+use platform::rate_limit::{AccountSubject, Decision, Subject};
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use utoipa::ToSchema;
@@ -262,6 +263,94 @@ async fn sign_in(
         Err(SignInError::Store(err)) => Err(ApiError::internal(err)),
     }
 }
+
+/// Body of `POST /v1/auth/email/start`.
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct EmailStartRequest {
+    #[schema(min_length = 3, max_length = 320, example = "cat@example.com")]
+    pub email: String,
+    /// PKCE S256 challenge: base64url (no padding) of SHA-256 of a random verifier the app keeps
+    /// on this device (43 characters). Verifying the link (T-23) needs that verifier.
+    #[schema(min_length = 43, max_length = 43)]
+    pub code_challenge: String,
+    /// Only `S256` is supported (default).
+    #[serde(default)]
+    pub code_challenge_method: Option<String>,
+}
+
+/// Request an email magic link. Auth: none. Always 202 for a well-formed request, whether or not
+/// the email has an account (no enumeration, AC-1.2); the email is sent asynchronously. The link
+/// works once, for 15 minutes, and only together with this device's PKCE verifier.
+#[utoipa::path(
+    post,
+    path = "/v1/auth/email/start",
+    tag = TAG,
+    operation_id = "startEmailSignIn",
+    security(()),
+    request_body = EmailStartRequest,
+    responses(
+        (status = ACCEPTED, description = "If the address can receive email, a sign-in link is on its way."),
+        (status = BAD_REQUEST, description = "VALIDATION_FAILED (malformed email or challenge, unknown fields).", body = ProblemDetails),
+        (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED: more than 5 requests in 15 minutes from this IP or for this email (same body either way).", body = ProblemDetails),
+        (status = SERVICE_UNAVAILABLE, description = "TEMPORARILY_UNAVAILABLE (rate-limit store down; fails closed).", body = ProblemDetails),
+    )
+)]
+pub async fn start_email_sign_in(
+    State(state): State<AppState>,
+    body: ValidJson<EmailStartRequest>,
+) -> Result<StatusCode, ApiError> {
+    let body = body.0;
+    if body
+        .code_challenge_method
+        .as_deref()
+        .is_some_and(|method| method != "S256")
+    {
+        return Err(ApiError::Validation(
+            "code_challenge_method must be S256".to_owned(),
+        ));
+    }
+    let email = identity::normalize_email(&body.email)
+        .ok_or_else(|| ApiError::Validation("email is not a valid address".to_owned()))?;
+    // Second window, keyed by the email (hashed) so rotating IPs cannot flood one inbox.
+    let hash = identity::email_hash(&email);
+    let mut subject_id = [0u8; 16];
+    subject_id.copy_from_slice(&hash.as_bytes()[..16]);
+    let subject = Subject {
+        account: Some(AccountSubject {
+            id: Uuid::from_bytes(subject_id),
+            created_at: OffsetDateTime::UNIX_EPOCH,
+        }),
+        device: None,
+        ip: None,
+    };
+    match state.limiter.check(EMAIL_LIMIT, &subject).await {
+        Ok(Decision::Allowed) => {}
+        Ok(Decision::Limited { retry_after_secs }) => {
+            return Err(ApiError::RateLimited { retry_after_secs });
+        }
+        Ok(Decision::Unavailable) => {
+            return Err(ApiError::Unavailable {
+                retry_after_secs: 5,
+            });
+        }
+        Err(err) => return Err(ApiError::internal(err)),
+    }
+    state
+        .identity
+        .start_magic_link(&email, &body.code_challenge, &state.field_cipher)
+        .await
+        .map_err(|err| match err {
+            MagicLinkError::InvalidEmail | MagicLinkError::InvalidChallenge => {
+                ApiError::Validation("email or code_challenge is invalid".to_owned())
+            }
+            other => ApiError::internal(other),
+        })?;
+    Ok(StatusCode::ACCEPTED)
+}
+
+/// Per-email window of `POST /v1/auth/email/start` (config/limits.yaml).
+pub const EMAIL_LIMIT: &str = "auth.email.start.email";
 
 /// Rotate a refresh token. Auth: none (the refresh token in the body is the credential).
 #[utoipa::path(

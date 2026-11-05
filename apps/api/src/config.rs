@@ -72,6 +72,31 @@ pub struct Config {
     pub os_age_signals_enabled: bool,
     /// Device attestation (T-35): mode and per-platform verifier settings.
     pub attestation: AttestationConfig,
+    /// Outgoing email (T-22).
+    pub mail: MailConfig,
+}
+
+#[derive(Debug, Clone)]
+pub enum MailTransport {
+    /// No transport: magic-link jobs fail permanently (logged).
+    None,
+    /// Plain SMTP to a local catcher (Mailpit). Development only.
+    Smtp { host: String, port: u16 },
+    /// Postmark API.
+    Postmark { server_token: Secret },
+}
+
+#[derive(Debug, Clone)]
+pub struct MailConfig {
+    /// `API_MAIL_TRANSPORT` — `none` (default), `smtp` (with `API_SMTP_HOST`, default `127.0.0.1`,
+    /// and `API_SMTP_PORT`, default 1025 = Mailpit) or `postmark` (with
+    /// `API_POSTMARK_SERVER_TOKEN`, secret).
+    pub transport: MailTransport,
+    /// `API_MAIL_FROM` — sender address, default `no-reply@cardsharing.local`.
+    pub from: String,
+    /// `API_MAGIC_LINK_URL` — Universal/App Link base for magic links, default
+    /// `http://localhost:3000/auth/link` (local web). The token is appended as `#token=...`.
+    pub magic_link_url: String,
 }
 
 /// `att` add-on enforcement (EM 2026-11-04: log-only in beta, hard-fail at GA).
@@ -183,6 +208,7 @@ impl Config {
         let apple_signing = apple_signing(env)?;
         let os_age_signals_enabled = env.flag("API_OS_AGE_SIGNALS_ENABLED", false)?;
         let attestation = attestation_config(env)?;
+        let mail = mail_config(env)?;
 
         Ok(Self {
             bind_addr,
@@ -207,6 +233,7 @@ impl Config {
             apple_signing,
             os_age_signals_enabled,
             attestation,
+            mail,
         })
     }
 }
@@ -250,6 +277,52 @@ fn apple_signing<F: Fn(&str) -> Option<String>>(
             "API_APPLE_TEAM_ID, API_APPLE_KEY_ID and API_APPLE_PRIVATE_KEY must be set together",
         )),
     }
+}
+
+fn mail_config<F: Fn(&str) -> Option<String>>(env: &Env<F>) -> Result<MailConfig, ConfigError> {
+    let transport = match env.optional("API_MAIL_TRANSPORT").as_deref() {
+        None | Some("none") => MailTransport::None,
+        Some("smtp") => MailTransport::Smtp {
+            host: env
+                .optional("API_SMTP_HOST")
+                .unwrap_or_else(|| "127.0.0.1".to_owned()),
+            port: env.in_range("API_SMTP_PORT", 1025, 1..=65535)?,
+        },
+        Some("postmark") => MailTransport::Postmark {
+            server_token: env.required_secret("API_POSTMARK_SERVER_TOKEN")?,
+        },
+        Some(other) => {
+            return Err(invalid(
+                "API_MAIL_TRANSPORT",
+                format!("{other:?} must be none, smtp or postmark"),
+            ));
+        }
+    };
+    let from = env
+        .optional("API_MAIL_FROM")
+        .unwrap_or_else(|| "no-reply@cardsharing.local".to_owned());
+    if !identity::mail::valid_address(&from) {
+        return Err(invalid(
+            "API_MAIL_FROM",
+            format!("{from:?} is not an address"),
+        ));
+    }
+    let magic_link_url = env
+        .optional("API_MAGIC_LINK_URL")
+        .unwrap_or_else(|| "http://localhost:3000/auth/link".to_owned());
+    if !(magic_link_url.starts_with("https://") || magic_link_url.starts_with("http://localhost"))
+        || magic_link_url.contains(['#', '?', ' '])
+    {
+        return Err(invalid(
+            "API_MAGIC_LINK_URL",
+            "must be an https URL (or http://localhost) without query or fragment",
+        ));
+    }
+    Ok(MailConfig {
+        transport,
+        from,
+        magic_link_url,
+    })
 }
 
 fn attestation_config<F: Fn(&str) -> Option<String>>(
@@ -413,6 +486,23 @@ mod tests {
         );
         assert!(load(&[("API_ATTESTATION_MODE", "strict")]).is_err());
         assert!(load(&[("API_PLAY_INTEGRITY_PACKAGE_NAMES", "app.x")]).is_err());
+        assert!(matches!(
+            load(&[]).unwrap().mail.transport,
+            MailTransport::None
+        ));
+        assert!(
+            load(&[("API_MAIL_TRANSPORT", "postmark")]).is_err(),
+            "token required"
+        );
+        assert!(load(&[("API_MAGIC_LINK_URL", "http://evil.example/x")]).is_err());
+        assert!(
+            load(&[(
+                "API_MAIL_FROM",
+                "x
+Bcc: y@z.com"
+            )])
+            .is_err()
+        );
         assert!(
             load(&[("API_OS_AGE_SIGNALS_ENABLED", "true")])
                 .unwrap()
