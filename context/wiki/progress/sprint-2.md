@@ -40,5 +40,21 @@ Rust build at a time. Everything that needs a device, a store account, a domain 
 
 ## Exit checklist
 - [ ] Every sprint-2 ticket above is merged with CI green and its issue closed, or explicitly carried over.
-- [ ] Registry JSON consumed by the API; unknown style ids rejected (422 UNKNOWN_REGISTRY_ID).
+- [x] Registry JSON consumed by the API; unknown style ids rejected (422 UNKNOWN_REGISTRY_ID).
 - [ ] Wiki facts updated (api-mvp, data-model, effects-catalog) and the sprint progress recorded here.
+
+## Progress
+| Ticket | PR | Commit | Follow-ups |
+|---|---|---|---|
+| T-14 idempotency | #188 | e945d43 | |
+| T-15 job queue (ADR-0006, own queue on `platform.jobs`) | #190 | 665b729 | |
+| T-16 outbox (PII filter, exactly-once relay) | #193 | 65a88b1 | |
+| T-17 audit writer (insert/select-only role) | #195 | b6c229b | #194 off-box, keyed IP hash, 2-year purge |
+| T-24 sessions list/revoke/revoke-all | #196 | 61d935f | #197 mobile settings screen |
+| T-29 age service (daily status, OS signals flag off) | #200 | 876e9bb | KR thresholds are placeholders (legal L-3) |
+| T-35 attestation, log-only (`API_ATTESTATION_MODE`) | #202 | 5ca3c13 | #201 real devices/accounts, routes, enforce at GA |
+| T-22 magic link (Mailpit SMTP, Postmark adapter) | #207 | 3ef106a | #205 real Postmark; verify is T-23 |
+| T-60 registry validation | #209 | 9283758 | #208 server kill switches |
+| T-59, T-61, T-53, T-62 (mobile) | #187, #189, #191, #198 | | #192, #199 |
+
+Backend lane complete. Still open: mobile T-64 editor, T-63 shape cuts, T-69 captions (in progress).

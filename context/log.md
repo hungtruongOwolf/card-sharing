@@ -182,3 +182,11 @@
   `serverCutout` fallback (contradicted prd-mvp AC-7.6). Follow-ups #192 (capture timings), #199 (contour bake on device).
 - EM: devices without on-device cutout get whole-photo cards with mask-free shape cuts (T-63 shapes become the fallback,
   pulled forward with T-64 editor and T-69 captions). Contour bake: segmenter resolution (~512²) off the JS thread first.
+
+## [2026-11-05] progress | Sprint 2 backend lane done
+- T-15 #190, T-16 #193, T-17 #195, T-24 #196, T-29 #200, T-35 #202, T-22 #207 (replaced #204, whose branch history
+  tripped gitleaks), T-60 #209; all merged with 6 green checks, issues closed. Follow-ups #194, #197, #201, #205, #208.
+- Flags off by default: `API_ATTESTATION_MODE=log_only`, `API_OS_AGE_SIGNALS_ENABLED=false`; both wait on legal L-3 and
+  Apple/Google accounts. KR age thresholds (19) are placeholders pending legal review.
+- Windows note: a checkout that deletes a directory an editor (rust-analyzer) still holds leaves it "delete pending";
+  git pull fails until the editor releases it. Agents now work in `.worktrees/<lane>`.
