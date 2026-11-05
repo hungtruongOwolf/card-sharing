@@ -5,7 +5,11 @@ use anyhow::Context;
 use api::client_config::ClientConfig;
 use api::config::Config;
 use api::state::AppState;
-use identity::{IdentityService, SessionPolicy};
+use identity::apple::{
+    AppleClientSecretSigner, AppleHttpClient, AppleTokenClient, UnconfiguredAppleClient,
+};
+use identity::oidc::{IdTokenVerifier, JwksSettings, ProviderSpec, VerifierSettings};
+use identity::{IdentityService, ProviderSignIn, SessionPolicy};
 use platform::clock::{SharedClock, SystemClock};
 use platform::crypto::FieldCipher;
 use platform::rate_limit::{RateLimitConfig, RateLimiter};
@@ -55,7 +59,7 @@ async fn main() -> anyhow::Result<()> {
     let identity = Arc::new(IdentityService::new(
         pool,
         Some(redis),
-        clock,
+        Arc::clone(&clock),
         SessionPolicy::default(),
     ));
 
@@ -63,8 +67,10 @@ async fn main() -> anyhow::Result<()> {
         .context("failed to load client config")?;
     let field_cipher = FieldCipher::from_base64(1, config.data_encryption_key.expose())
         .context("invalid API_DATA_ENCRYPTION_KEY")?;
-    let state = AppState::new(policy, limiter, identity, client, field_cipher)
+    let state = AppState::new(policy, limiter, Arc::clone(&identity), client, field_cipher)
         .with_ip_country_header(config.ip_country_header.clone());
+    let sign_in = sign_in_service(&config, identity, Arc::clone(&state.field_cipher), clock)?;
+    let state = state.with_sign_in(Arc::new(sign_in));
 
     let app = api::app(state, &config).into_make_service_with_connect_info::<SocketAddr>();
     let listener = TcpListener::bind(config.bind_addr)
@@ -79,6 +85,50 @@ async fn main() -> anyhow::Result<()> {
 
     tracing::info!("shut down cleanly");
     Ok(())
+}
+
+/// Apple sign-in (T-19): ID-token verifier with cached JWKS, plus the code exchange when the
+/// team key is configured.
+fn sign_in_service(
+    config: &Config,
+    identity: Arc<IdentityService>,
+    cipher: Arc<FieldCipher>,
+    clock: SharedClock,
+) -> anyhow::Result<ProviderSignIn> {
+    let http = identity::oidc::provider_http_client()?;
+    let clock_skew = time::Duration::seconds(
+        i64::try_from(config.auth_clock_skew.as_secs()).context("clock skew out of range")?,
+    );
+    let settings = |client_ids: &[String]| VerifierSettings {
+        client_ids: client_ids.to_vec(),
+        clock_skew,
+        jwks: JwksSettings::default(),
+    };
+    let apple = IdTokenVerifier::new(
+        ProviderSpec::apple(),
+        settings(&config.apple_client_ids),
+        http.clone(),
+        Arc::clone(&clock),
+    )?;
+    if config.apple_client_ids.is_empty() {
+        tracing::warn!("API_APPLE_CLIENT_IDS is empty: Apple sign-in answers 503");
+    }
+    let apple_tokens: Arc<dyn AppleTokenClient> = match &config.apple_signing {
+        Some(signing) => {
+            let signer = AppleClientSecretSigner::new(
+                &signing.team_id,
+                &signing.key_id,
+                signing.private_key.expose(),
+            )
+            .context("invalid API_APPLE_PRIVATE_KEY")?;
+            Arc::new(AppleHttpClient::new(http, signer, clock))
+        }
+        None => {
+            tracing::warn!("Apple team key not configured: authorization codes are not exchanged");
+            Arc::new(UnconfiguredAppleClient)
+        }
+    };
+    Ok(ProviderSignIn::new(identity, apple_tokens, cipher).with_verifier(apple))
 }
 
 /// Resolves on Ctrl+C or SIGTERM (container stop). In-flight requests are drained;

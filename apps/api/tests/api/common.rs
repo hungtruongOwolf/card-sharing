@@ -10,8 +10,14 @@ use axum::Router;
 use axum::body::{Body, Bytes};
 use http::{Request, Response, StatusCode};
 use http_body_util::BodyExt;
+use identity::apple::{AppleTokenClient, AppleTokenError, AppleTokens, BoxFuture};
+use identity::oidc::{
+    IdTokenVerifier, JwksSettings, ProviderSpec, VerifierSettings, insecure_test_http_client,
+};
+use identity::testing::{MockJwks, TestRsaKey, id_token_claims};
 use identity::{
-    DeviceInfo, IdentityService, IssuedSession, Platform, Provider, SessionPolicy, VerifiedIdentity,
+    DeviceInfo, IdentityService, IssuedSession, Platform, Provider, ProviderSignIn, SessionPolicy,
+    VerifiedIdentity,
 };
 use platform::cache::ConnectionManager;
 use platform::clock::{ManualClock, SystemClock};
@@ -43,8 +49,15 @@ pub fn test_config() -> Config {
         client_ip_header: None,
         ip_country_header: Some(http::HeaderName::from_static(TEST_COUNTRY_HEADER)),
         client_config_path: "unused-in-tests".into(),
+        apple_client_ids: vec![APPLE_CLIENT_ID.to_owned()],
+        auth_clock_skew: Duration::from_secs(60),
+        apple_signing: None,
     }
 }
+
+/// `aud` the test app accepts in Apple ID tokens.
+pub const APPLE_CLIENT_ID: &str = "app.cardsharing.test";
+pub const APPLE_ISSUER: &str = "https://appleid.apple.com";
 
 /// Header the tests use as the trusted IP-country header.
 pub const TEST_COUNTRY_HEADER: &str = "x-test-ip-country";
@@ -106,6 +119,10 @@ pub struct TestEnv {
     pub identity: Arc<IdentityService>,
     pub clock: Arc<ManualClock>,
     pub redis: ConnectionManager,
+    /// Mock provider JWKS serving [`TestRsaKey::shared`].
+    pub jwks: MockJwks,
+    /// Fake for Apple's token endpoint.
+    pub apple_tokens: Arc<FakeAppleTokens>,
 }
 
 impl TestEnv {
@@ -139,6 +156,16 @@ impl TestEnv {
             field_cipher(),
         )
         .with_ip_country_header(test_config().ip_country_header);
+        let jwks = MockJwks::start(vec![TestRsaKey::shared().jwk()]).await;
+        let apple_tokens = Arc::new(FakeAppleTokens::default());
+        let sign_in = test_sign_in(
+            Arc::clone(&identity),
+            &jwks,
+            clock.clone(),
+            apple_tokens.clone(),
+            Arc::clone(&state.field_cipher),
+        );
+        let state = state.with_sign_in(Arc::new(sign_in));
         let router = api::build(routes, state.clone(), &test_config());
         Some(Self {
             router,
@@ -146,7 +173,25 @@ impl TestEnv {
             identity,
             clock,
             redis,
+            jwks,
+            apple_tokens,
         })
+    }
+
+    /// An Apple ID token for `subject`, minted now (env clock) for `raw_nonce`.
+    pub fn apple_id_token(&self, subject: &str, raw_nonce: &str) -> String {
+        TestRsaKey::shared().sign(&self.apple_claims(subject, raw_nonce))
+    }
+
+    /// Standard Apple ID-token claims (edit them to build invalid tokens).
+    pub fn apple_claims(&self, subject: &str, raw_nonce: &str) -> Value {
+        id_token_claims(
+            APPLE_ISSUER,
+            APPLE_CLIENT_ID,
+            subject,
+            raw_nonce,
+            platform::clock::Clock::now(self.clock.as_ref()).unix_timestamp(),
+        )
     }
 
     /// A new account (status `pending_age`) signed in on a new device.
@@ -172,7 +217,7 @@ impl TestEnv {
     ) -> (Uuid, IssuedSession) {
         let (account_id, _) = self
             .identity
-            .find_or_create_account(identity)
+            .find_or_create_account(identity, &Default::default())
             .await
             .unwrap();
         let device = DeviceInfo {
@@ -186,6 +231,75 @@ impl TestEnv {
             .await
             .unwrap();
         (account_id, session)
+    }
+}
+
+/// Provider sign-in wired to the mock JWKS and the fake Apple token endpoint.
+pub fn test_sign_in(
+    identity: Arc<IdentityService>,
+    jwks: &MockJwks,
+    clock: Arc<ManualClock>,
+    apple_tokens: Arc<FakeAppleTokens>,
+    cipher: Arc<FieldCipher>,
+) -> ProviderSignIn {
+    let apple = IdTokenVerifier::new(
+        ProviderSpec {
+            jwks_url: jwks.url.clone(),
+            ..ProviderSpec::apple()
+        },
+        VerifierSettings {
+            client_ids: test_config().apple_client_ids,
+            clock_skew: time::Duration::seconds(60),
+            jwks: JwksSettings::default(),
+        },
+        insecure_test_http_client().unwrap(),
+        clock,
+    )
+    .unwrap();
+    ProviderSignIn::new(identity, apple_tokens, cipher).with_verifier(apple)
+}
+
+/// Stand-in for Apple's token endpoint: answers the next exchange with `next` (or `invalid_grant`)
+/// and records the codes it saw.
+#[derive(Default)]
+pub struct FakeAppleTokens {
+    pub next: std::sync::Mutex<Option<(String, String)>>,
+    pub codes: std::sync::Mutex<Vec<(String, String)>>,
+}
+
+impl FakeAppleTokens {
+    /// The next exchange returns this refresh token and Apple ID token.
+    pub fn respond_with(&self, refresh_token: &str, id_token: &str) {
+        *self.next.lock().unwrap() = Some((refresh_token.to_owned(), id_token.to_owned()));
+    }
+}
+
+impl AppleTokenClient for FakeAppleTokens {
+    fn exchange_code<'a>(
+        &'a self,
+        client_id: &'a str,
+        code: &'a str,
+    ) -> BoxFuture<'a, Result<AppleTokens, AppleTokenError>> {
+        self.codes
+            .lock()
+            .unwrap()
+            .push((client_id.to_owned(), code.to_owned()));
+        let next = self.next.lock().unwrap().take();
+        Box::pin(async move {
+            next.map(|(refresh_token, id_token)| AppleTokens {
+                refresh_token,
+                id_token,
+            })
+            .ok_or_else(|| AppleTokenError::Rejected("invalid_grant".to_owned()))
+        })
+    }
+
+    fn revoke_refresh_token<'a>(
+        &'a self,
+        _: &'a str,
+        _: &'a str,
+    ) -> BoxFuture<'a, Result<(), AppleTokenError>> {
+        Box::pin(async { Ok(()) })
     }
 }
 

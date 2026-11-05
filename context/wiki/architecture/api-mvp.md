@@ -2,7 +2,7 @@
 title: API contract — MVP (/v1)
 type: spec
 status: proposed
-updated: 2026-11-04
+updated: 2026-11-05
 sources: [raw/discussions/2026-11-04-infra-qa.md, raw/discussions/2026-11-04-prd-design-qa.md, raw/discussions/2026-11-04-security-qa.md]
 related: [[prd-mvp]], [[overview]], [[data-model]], [[security-baseline]], [[ADR-0004-auth-sessions]], [[ADR-0005-media-pipeline]], [[ADR-0006-job-queue]], [[ADR-0007-board-sync]], [[region-policy]], [[threat-model-mvp]], [[effects-catalog]]
 ---
@@ -65,6 +65,19 @@ or the header named by `API_CLIENT_IP_HEADER` (e.g. `fly-client-ip`) when a trus
 Implemented so far: `POST /v1/auth/refresh` `{refresh_token}` → `{token_type: "Bearer", access_token, access_expires_at, refresh_token}`
 (unknown token → 401 `UNAUTHENTICATED`; reused / revoked / idle- or absolute-expired family → 401 `SESSION_REVOKED`; a retry of the
 previous token within 30 s while its successor is unused is accepted); `DELETE /v1/sessions/current` → 204.
+
+`POST /v1/auth/apple` (none, limit `auth.signin` 10/min per IP, fails closed) `{id_token, nonce, authorization_code?, device?:
+{id, platform: ios|android, app_version}}` → 200 token pair (same shape as refresh). New account → `pending_age` + onboarding
+session (`GET /v1/me` says `step: age`); the account is keyed by provider + `sub` only, never linked by email (AC-1.3); the
+trusted-edge IP country is stored in `region_signals` at sign-up. **Nonce:** the app generates a raw nonce (16–256 visible
+ASCII), gives Apple `lowercase hex SHA-256(nonce)`, and sends the raw value here; the token's `nonce` claim must equal the hash,
+and an accepted nonce is remembered in Redis until the token can no longer be accepted (replay → 401). Token checks: RS256 with
+a `kid` from Apple's cached JWKS, `iss` = `https://appleid.apple.com`, `aud` ∈ `API_APPLE_CLIENT_IDS`, `exp`/`nbf`/`iat` with
+`API_AUTH_CLOCK_SKEW_SECS` (default 60 s). Any token failure → 401 `UNAUTHENTICATED` (no reason in the body); unknown fields →
+400; suspended/banned/deletion-pending account → 403 `ACCOUNT_SUSPENDED`; provider not configured, JWKS unreachable or nonce
+store down → 503. `authorization_code` is exchanged with Apple (client secret = ES256 JWT from the team `.p8` key) and the
+refresh token stored encrypted in `auth_identities.apple_refresh_token_enc`; best effort (sign-in does not fail if Apple's
+token endpoint does), skipped until the team key is configured.
 
 `GET /v1/me` → `{account: {id, status}, onboarding: {step: age|profile|done}, policy: {min_age, ai_effects, ads, ai_label}}`
 (policy = strictest of the signals stored at sign-up and the current IP country; the profile block arrives with the profile

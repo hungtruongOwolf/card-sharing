@@ -219,11 +219,23 @@ async fn same_email_under_two_providers_is_two_accounts() {
         subject: format!("google-{}", Uuid::now_v7()),
         email,
     };
-    let (a, created_a) = env.identity.find_or_create_account(&apple).await.unwrap();
-    let (b, created_b) = env.identity.find_or_create_account(&google).await.unwrap();
+    let (a, created_a) = env
+        .identity
+        .find_or_create_account(&apple, &Default::default())
+        .await
+        .unwrap();
+    let (b, created_b) = env
+        .identity
+        .find_or_create_account(&google, &Default::default())
+        .await
+        .unwrap();
     assert!(created_a && created_b);
     assert_ne!(a, b, "no auto-linking by email (AC-1.3)");
-    let (again, created) = env.identity.find_or_create_account(&apple).await.unwrap();
+    let (again, created) = env
+        .identity
+        .find_or_create_account(&apple, &Default::default())
+        .await
+        .unwrap();
     assert_eq!((again, created), (a, false));
 }
 

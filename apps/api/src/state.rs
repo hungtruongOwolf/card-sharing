@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use http::{HeaderMap, HeaderName};
-use identity::IdentityService;
+use identity::{IdentityService, ProviderSignIn};
 use platform::crypto::FieldCipher;
 use platform::rate_limit::RateLimiter;
 use policy::{CountryCode, PolicyService};
@@ -24,6 +24,8 @@ pub struct AppState {
     pub field_cipher: Arc<FieldCipher>,
     /// Header carrying the client's IP country, set by a trusted edge (e.g. `cf-ipcountry`).
     pub ip_country_header: Option<HeaderName>,
+    /// Apple/Google sign-in. `None` = the sign-in routes answer 503 (offline tests).
+    pub sign_in: Option<Arc<ProviderSignIn>>,
 }
 
 impl AppState {
@@ -42,7 +44,13 @@ impl AppState {
             client: Arc::new(client),
             field_cipher: Arc::new(field_cipher),
             ip_country_header: None,
+            sign_in: None,
         }
+    }
+
+    pub fn with_sign_in(mut self, sign_in: Arc<ProviderSignIn>) -> Self {
+        self.sign_in = Some(sign_in);
+        self
     }
 
     pub fn with_ip_country_header(mut self, header: Option<HeaderName>) -> Self {

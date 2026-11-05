@@ -13,3 +13,4 @@ mod http;
 mod me;
 mod rate_limit;
 mod sessions;
+mod sign_in;

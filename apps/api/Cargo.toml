@@ -33,7 +33,9 @@ utoipa-axum.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]
-http-body-util = "0.1.5"
+http-body-util.workspace = true
+# Mock JWKS server, locally generated RSA keys and ID-token minting.
+identity = { workspace = true, features = ["test-support"] }
 
 [lints]
 workspace = true

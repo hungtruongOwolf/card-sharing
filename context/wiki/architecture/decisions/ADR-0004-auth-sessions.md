@@ -2,7 +2,7 @@
 title: ADR-0004 Authentication & sessions
 type: decision
 status: accepted
-updated: 2026-11-04
+updated: 2026-11-05
 sources: [raw/discussions/2026-11-04-infra-qa.md, raw/discussions/2026-11-04-security-qa.md]
 related: [[overview]], [[api-mvp]], [[data-model]], [[security-baseline]], [[prd-mvp]], [[ADR-0001-tech-stack]], [[threat-model-mvp]]
 ---
@@ -59,3 +59,20 @@ We will build **thin in-house auth** in the `identity` crate with **opaque serve
   (single in-flight refresh per device, otherwise a legit retry looks like reuse — allow a 30 s grace for the immediately previous token).
 - Follow-ups: passkeys for users (Phase 2); device attestation (`att`) rollout plan; Apple private-relay email handling; threat
   model entries in [[threat-model-mvp]].
+
+## Implementation notes (T-19/T-20, 2026-11-05)
+- **ID-token verification** (`crates/identity/src/oidc`): `jsonwebtoken` 11 for JWS parsing and `iss`/`aud` checks, with a
+  **ring-backed RS256-only crypto provider** — its built-in backends are `rust_crypto` (pulls `rsa`, RUSTSEC-2023-0071, no
+  fix; fails `cargo deny`) and `aws_lc_rs` (OpenSSL licence). `exp`/`nbf`/`iat` are checked against the injected clock with
+  `API_AUTH_CLOCK_SKEW_SECS`. Only RS256 headers with a `kid` are accepted.
+- **JWKS cache:** keys cached 1 h; an unknown `kid` refetches at most once per 30 s (a flood of fake `kid`s cannot hammer the
+  provider); a failed refetch keeps the previous keys usable for 24 h; single-flight fetch. Outbound HTTPS = hyper +
+  rustls/ring + OS roots, HTTPS only, no redirects, 5 s timeout, 64 KiB body cap.
+- **Nonce:** the token's `nonce` claim must be the lowercase hex SHA-256 of the raw nonce sent to our API (Apple's documented
+  pattern; used for Google too so the app has one flow). Accepted nonces are stored in Redis (`SET NX`, TTL = token lifetime
+  + 5 min); replay → 401; Redis down → 503 (fails closed).
+- **Blocked accounts:** sign-in into a suspended, banned or deletion-pending account → 403 `ACCOUNT_SUSPENDED` (no session).
+- **Apple code exchange** is a port (`AppleTokenClient`) with the real HTTP adapter (client secret = ES256 JWT signed with the
+  team `.p8` key via ring) and a fake in tests. Best effort: a failed exchange does not fail sign-in; the returned ID token
+  must verify and carry the same `sub` before its refresh token is stored (encrypted, AAD bound to the identity).
+  Real-provider runs wait for the Apple/Google developer accounts.

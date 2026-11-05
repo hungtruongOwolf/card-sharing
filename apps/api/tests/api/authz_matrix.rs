@@ -7,6 +7,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::common::*;
 use axum::body::Body;
 use http::{Method, Request, StatusCode};
+use identity::testing::random_nonce;
 use platform::clock::Clock;
 use serde::Deserialize;
 use serde_json::Value;
@@ -133,13 +134,37 @@ async fn fixture(env: &TestEnv, role: Role) -> Fixture {
     }
 }
 
-fn substitute(value: &Value, fixture: &Fixture, adult_dob: &str) -> Value {
+/// Values for the body placeholders of one cell.
+struct Placeholders {
+    refresh_token: String,
+    adult_dob: String,
+    nonce: String,
+    apple_id_token: String,
+}
+
+impl Placeholders {
+    /// Fresh per cell: a new provider subject and nonce, so sign-in cells never collide.
+    fn new(env: &TestEnv, fixture: &Fixture, adult_dob: &str) -> Self {
+        let nonce = random_nonce();
+        let subject = format!("matrix-{}", Uuid::now_v7());
+        Self {
+            refresh_token: fixture.refresh_token.clone(),
+            adult_dob: adult_dob.to_owned(),
+            apple_id_token: env.apple_id_token(&subject, &nonce),
+            nonce,
+        }
+    }
+}
+
+fn substitute(value: &Value, values: &Placeholders) -> Value {
     match value {
-        Value::String(s) if s == "$REFRESH_TOKEN" => Value::String(fixture.refresh_token.clone()),
-        Value::String(s) if s == "$ADULT_DOB" => Value::String(adult_dob.to_owned()),
+        Value::String(s) if s == "$REFRESH_TOKEN" => Value::String(values.refresh_token.clone()),
+        Value::String(s) if s == "$ADULT_DOB" => Value::String(values.adult_dob.clone()),
+        Value::String(s) if s == "$NONCE" => Value::String(values.nonce.clone()),
+        Value::String(s) if s == "$APPLE_ID_TOKEN" => Value::String(values.apple_id_token.clone()),
         Value::Object(map) => Value::Object(
             map.iter()
-                .map(|(k, v)| (k.clone(), substitute(v, fixture, adult_dob)))
+                .map(|(k, v)| (k.clone(), substitute(v, values)))
                 .collect(),
         ),
         other => other.clone(),
@@ -184,10 +209,8 @@ async fn every_matrix_cell_holds_against_the_real_api() {
         let (method, path) = split_route(&row.route);
         for (role, expected) in &row.expect {
             let fixture = fixture(&env, *role).await;
-            let body = row
-                .body
-                .as_ref()
-                .map(|b| substitute(b, &fixture, &adult_dob));
+            let placeholders = Placeholders::new(&env, &fixture, &adult_dob);
+            let body = row.body.as_ref().map(|b| substitute(b, &placeholders));
             let request_id = Uuid::now_v7();
             let response = send(
                 &env.router,

@@ -14,7 +14,8 @@
 #   suspended           session of a suspended account
 #
 # Placeholders in `body`: "$REFRESH_TOKEN" = the role's own refresh token (guest: a random one),
-# "$ADULT_DOB" = a date of birth 30 years ago.
+# "$ADULT_DOB" = a date of birth 30 years ago, "$NONCE" = a fresh raw nonce, "$APPLE_ID_TOKEN" = an
+# Apple ID token for a new subject and that nonce, signed by the mock JWKS key.
 # A cell expecting 404 must give `missing_path` (same route, nonexistent id): the harness
 # asserts the denial body is byte-identical to the missing-id body, so ids cannot be probed.
 version: 1
@@ -30,6 +31,12 @@ routes:
     expect: { guest: 200, onboarding_age: 200, onboarding_profile: 200, user: 200, suspended: 200 }
 
   - route: GET /v1/config
+    expect: { guest: 200, onboarding_age: 200, onboarding_profile: 200, user: 200, suspended: 200 }
+
+  # Sign-in ignores any bearer token: every caller gets a session for the identity in the ID token.
+  # Invalid tokens (401), replay, rate limit and unknown fields are covered in tests/api/sign_in.rs.
+  - route: POST /v1/auth/apple
+    body: { id_token: $APPLE_ID_TOKEN, nonce: $NONCE }
     expect: { guest: 200, onboarding_age: 200, onboarding_profile: 200, user: 200, suspended: 200 }
 
   - route: POST /v1/auth/refresh

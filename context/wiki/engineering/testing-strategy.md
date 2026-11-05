@@ -2,7 +2,7 @@
 title: Testing Strategy
 type: guide
 status: draft
-updated: 2026-11-04
+updated: 2026-11-05
 related: [[conventions]], [[security-baseline]]
 ---
 # Testing Strategy
@@ -28,6 +28,11 @@ Backend practice (implemented, sprint 1):
   join with their tickets). `authz_matrix.rs` fails on a route without a row (coverage report), a row for an unknown route, or
   any cell mismatch; a cell expecting 404 must name a `missing_path` and its body must be byte-identical to the missing-id body.
   Every new endpoint ticket adds its row.
+- **Provider sign-in (Apple/Google):** no developer accounts yet, so ID tokens are minted in tests. The `identity` crate's
+  `test-support` feature (`identity::testing`) provides locally generated RSA-2048 keys (test-only `num-bigint` code: the
+  `rsa` crate fails `cargo deny`), RS256 token signing, and `MockJwks`, a local JWKS HTTP server whose keys and status can
+  change mid-test (rotation, outage, fetch counting). `TestEnv` wires it in, plus a fake for Apple's token endpoint. Tests
+  against the real providers are deferred until the accounts exist.
 
 Rules:
 - Test behavior through public interfaces, not internals.
