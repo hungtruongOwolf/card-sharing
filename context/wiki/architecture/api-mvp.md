@@ -181,6 +181,11 @@ reservation); same 400/403 rules. Before the age gate both routes → 403 `ONBOA
 | POST | /v1/blocks | Block `{user_id}` (= unfriend + drop requests + hide pins) | ses | user | target related to caller (friend, request, card sender, co-member) else 404 | 30/h u | yes | US-26 AC-26.2 |
 | GET / DELETE | /v1/blocks, /v1/blocks/{userId} | List / unblock | ses | user | blocker = caller | 30/h u | yes | US-26 |
 
+Implemented (T-37, `crates/social`, tag `social`): `GET /v1/me/invite` (limit `invites.read`) and `POST /v1/me/invite/reset`
+(`invites.reset`, 5/day) → 200 `{url}` = `invites.url_base` from `config/social.yaml` + a 128-bit token (22 base64url chars).
+Both act on the caller's own invite only (no id in path or body). GET returns the same link until a reset; a reset revokes
+the live invite (its token then resolves as `INVITE_EXPIRED`) and issues a new one.
+
 ### Cards, feed, widget, reactions
 | Method | Path | Purpose | Auth | Role | Object rule | Rate limit | Idem. | US |
 |---|---|---|---|---|---|---|---|---|

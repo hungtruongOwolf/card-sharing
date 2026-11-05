@@ -14,6 +14,7 @@ identity.workspace = true
 platform.workspace = true
 registry.workspace = true
 policy.workspace = true
+social.workspace = true
 
 anyhow.workspace = true
 axum.workspace = true

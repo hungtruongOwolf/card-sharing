@@ -8,6 +8,7 @@ use platform::rate_limit::RateLimiter;
 use platform::text::TextFilter;
 use policy::{CountryCode, PolicyService};
 use registry::Registry;
+use social::{SocialService, SocialSettings};
 
 use crate::access::SessionResolver;
 use crate::client_config::ClientConfig;
@@ -33,6 +34,8 @@ pub struct AppState {
     pub registry: Arc<Registry>,
     /// Minor status from the encrypted DOB (and OS age signals when enabled).
     pub age: Arc<AgeService>,
+    /// Invites, friend requests, friendships, blocks and handle search.
+    pub social: Arc<SocialService>,
     /// Resolves bearer tokens for the access-policy gate (identity sessions by default).
     pub sessions: Arc<dyn SessionResolver>,
     pub limiter: Arc<RateLimiter>,
@@ -59,6 +62,17 @@ impl AppState {
     ) -> Self {
         let policy = Arc::new(policy);
         let field_cipher = Arc::new(field_cipher);
+        let age = Arc::new(AgeService::new(
+            Arc::clone(&identity),
+            Arc::clone(&policy),
+            Arc::clone(&field_cipher),
+            false,
+        ));
+        let social = Arc::new(SocialService::new(
+            &identity,
+            Arc::clone(&field_cipher),
+            SocialSettings::default(),
+        ));
         Self {
             registry: Arc::new(Registry::embedded().unwrap_or_else(|err| {
                 // The JSON is embedded at compile time and checked by tests; an empty registry
@@ -68,12 +82,8 @@ impl AppState {
             })),
             attestation: Arc::new(AttestationService::new(None, None)),
             attestation_mode: AttestationMode::LogOnly,
-            age: Arc::new(AgeService::new(
-                Arc::clone(&identity),
-                Arc::clone(&policy),
-                Arc::clone(&field_cipher),
-                false,
-            )),
+            age,
+            social,
             policy,
             sessions: Arc::new(IdentitySessions(Arc::clone(&identity))),
             idempotency: Arc::new(IdempotencyStore::new(
@@ -105,6 +115,17 @@ impl AppState {
             Arc::clone(&self.policy),
             Arc::clone(&self.field_cipher),
             enabled,
+        ));
+        let settings = self.social.settings().clone();
+        self.with_social_settings(settings)
+    }
+
+    /// Installs the social rules (`config/social.yaml`).
+    pub fn with_social_settings(mut self, settings: SocialSettings) -> Self {
+        self.social = Arc::new(SocialService::new(
+            &self.identity,
+            Arc::clone(&self.field_cipher),
+            settings,
         ));
         self
     }

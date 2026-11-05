@@ -1,0 +1,25 @@
+[package]
+name = "social"
+version = "0.1.0"
+description = "Invites, friend requests, friendships, blocks and exact-handle search (see context/wiki/architecture/data-model.md)"
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+identity.workspace = true
+platform.workspace = true
+
+base64.workspace = true
+getrandom.workspace = true
+serde.workspace = true
+serde_norway.workspace = true
+sha2.workspace = true
+sqlx.workspace = true
+thiserror.workspace = true
+time.workspace = true
+uuid.workspace = true
+
+[lints]
+workspace = true

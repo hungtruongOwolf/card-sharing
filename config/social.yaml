@@ -1,0 +1,9 @@
+# Social rules (US-4, US-5, US-5a, US-6) — see crates/social/src/settings.rs and
+# context/wiki/architecture/api-mvp.md. Minor-specific invite rules are region policy
+# (config/policy/regions.yaml `invites`), not here.
+version: 1
+
+invites:
+  # Personal invite links are `<url_base><token>`. Local web by default; deployments point it at the
+  # share domain (the web landing page /i/<token>, T-48).
+  url_base: 'http://localhost:3000/i/'

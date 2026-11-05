@@ -52,6 +52,7 @@ pub fn test_config() -> Config {
         client_config_path: "unused-in-tests".into(),
         text_filter_config_path: "unused-in-tests".into(),
         profile_config_path: "unused-in-tests".into(),
+        social_config_path: "unused-in-tests".into(),
         apple_client_ids: vec![APPLE_CLIENT_ID.to_owned()],
         google_client_ids: vec![GOOGLE_CLIENT_ID.to_owned()],
         auth_clock_skew: Duration::from_secs(60),
@@ -89,6 +90,11 @@ pub fn field_cipher() -> FieldCipher {
 
 pub const TEXT_FILTER_YAML: &str = include_str!("../../../../config/text_filter.yaml");
 pub const PROFILE_YAML: &str = include_str!("../../../../config/profile.yaml");
+pub const SOCIAL_YAML: &str = include_str!("../../../../config/social.yaml");
+
+pub fn social_settings() -> social::SocialSettings {
+    social::SocialSettings::from_yaml_str(SOCIAL_YAML).unwrap()
+}
 
 pub fn profile_settings() -> ProfileSettings {
     ProfileSettings {
@@ -187,7 +193,8 @@ impl TestEnv {
             profile_settings(),
         )
         .with_ip_country_header(test_config().ip_country_header)
-        .with_os_age_signals(test_config().os_age_signals_enabled);
+        .with_os_age_signals(test_config().os_age_signals_enabled)
+        .with_social_settings(social_settings());
         let jwks = MockJwks::start(vec![TestRsaKey::shared().jwk()]).await;
         let apple_tokens = Arc::new(FakeAppleTokens::default());
         let sign_in = test_sign_in(

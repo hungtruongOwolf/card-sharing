@@ -72,6 +72,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_norway",
+ "social",
  "sqlx",
  "thiserror",
  "time",
@@ -1850,6 +1851,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d0d5d4b1981b8bbbb7aed204cae5726d683d5d6ac7e74ec54122ea28f315e7c8"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "social"
+version = "0.1.0"
+dependencies = [
+ "base64 0.23.1",
+ "getrandom 0.4.3",
+ "identity",
+ "platform",
+ "serde",
+ "serde_norway",
+ "sha2 0.11.1",
+ "sqlx",
+ "thiserror",
+ "time",
+ "uuid",
 ]
 
 [[package]]
