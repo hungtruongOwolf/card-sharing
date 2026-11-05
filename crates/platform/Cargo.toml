@@ -9,6 +9,9 @@ license.workspace = true
 
 [dependencies]
 axum.workspace = true
+base64.workspace = true
+chacha20poly1305.workspace = true
+getrandom.workspace = true
 http.workspace = true
 redis.workspace = true
 # Selects the ring crypto provider for redis' rustls (rediss:// URLs).

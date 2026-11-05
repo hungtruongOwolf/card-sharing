@@ -27,6 +27,9 @@ fn test_config() -> Config {
         log_format: LogFormat::Json,
         database_url: platform::config::Secret::new("postgres://unused@127.0.0.1:1/unused"),
         db_max_connections: 2,
+        data_encryption_key: platform::config::Secret::new(
+            "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        ),
         redis_url: platform::config::Secret::new("redis://127.0.0.1:1/0"),
         limits_config_path: "unused-in-tests".into(),
         client_ip_header: None,
@@ -55,8 +58,13 @@ fn app() -> Router {
         "../../../../config/client.yaml"
     ))
     .unwrap();
+    let cipher = platform::crypto::FieldCipher::from_base64(
+        1,
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+    )
+    .unwrap();
     api::app(
-        AppState::new(policy, limiter, identity, client),
+        AppState::new(policy, limiter, identity, client, cipher),
         &test_config(),
     )
 }

@@ -7,6 +7,7 @@
 mod common;
 
 mod access;
+mod age_gate;
 mod http;
 mod me;
 mod rate_limit;

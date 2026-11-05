@@ -73,6 +73,11 @@ max-age=300`, byte-identical for every caller. Min-version gate: `X-App-Version`
 `UPGRADE_REQUIRED`; malformed → 400; absent → allowed (web, tools). Exempt: `/v1/config`, probes, `/openapi.json`
 (`x-policy.versionGate: false`). IP country comes only from the header named by `API_IP_COUNTRY_HEADER` (trusted edge).
 
+`POST /v1/me/age` (onb, account `pending_age`, limit `me.age` 5/day per device) `{birth_date: "YYYY-MM-DD", declared_country?,
+store_country?}` → 200 `{status: "pending_profile", onboarding: {step: "profile"}}` or 403 `AGE_GATE_REFUSED` (no detail, account
+deleted, 24 h cooldown); second submission → 403 `AGE_ALREADY_SUBMITTED`; cooldown store down → 503 (fails closed). Passing the
+gate moves the account to `pending_profile` (profile step), not `active`.
+
 ### Media
 | Method | Path | Purpose | Auth | Role | Object rule | Rate limit | Idem. | US |
 |---|---|---|---|---|---|---|---|---|
@@ -210,7 +215,7 @@ on `code`); `requestId` equals the `X-Request-Id` response header. Generic codes
 |---|---|
 | 400/422 | `VALIDATION_FAILED` (with `errors[]` field paths), `UNKNOWN_REGISTRY_ID`, `IDEMPOTENCY_KEY_REUSED` |
 | 401 | `UNAUTHENTICATED`, `SESSION_EXPIRED` (access token: refresh and retry), `SESSION_REVOKED` (refresh reuse, logout everywhere, suspend), `REAUTH_REQUIRED` |
-| 403 | `ONBOARDING_INCOMPLETE`, `AGE_GATE_REFUSED` (neutral copy), `ACCOUNT_SUSPENDED`, `POLICY_DISALLOWED` (e.g. public link < min age), `ATTESTATION_FAILED`, `MFA_REQUIRED` |
+| 403 | `ONBOARDING_INCOMPLETE`, `AGE_GATE_REFUSED` (neutral copy), `AGE_ALREADY_SUBMITTED` (DOB locked), `FORBIDDEN` (wrong session kind for the route), `ACCOUNT_SUSPENDED`, `POLICY_DISALLOWED` (e.g. public link < min age), `ATTESTATION_FAILED`, `MFA_REQUIRED` |
 | 404 | `NOT_FOUND` (also for every object-level denial, incl. non-pending/expired board invitations), `INVITE_EXPIRED` (reset, expired or use cap reached) |
 | 409 | `HANDLE_TAKEN`, `PIN_VERSION_CONFLICT` / `BOARD_VERSION_CONFLICT`, `IDEMPOTENCY_IN_PROGRESS`, `FRIEND_LIMIT_REACHED`, `BOARD_LIMIT_REACHED`, `PIN_LIMIT_REACHED`, `COLLABORATOR_LIMIT_REACHED` (members + pending invitations), `ALREADY_INVITED`, `CARD_HELD_FOR_REVIEW` (owner pins/links a held card), `APPEAL_ALREADY_FILED` |
 | 413/415 | `MEDIA_TOO_LARGE`, `MEDIA_TYPE_UNSUPPORTED` |

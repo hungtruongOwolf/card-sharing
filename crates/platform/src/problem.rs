@@ -55,6 +55,12 @@ pub enum ApiError {
     /// Authenticated, but this kind of session may not call the route.
     #[error("forbidden")]
     Forbidden,
+    /// Neutral age-gate refusal (no threshold or region is revealed).
+    #[error("age gate refused")]
+    AgeGateRefused,
+    /// The date of birth was already submitted; it cannot be changed (DOB locked).
+    #[error("age already submitted")]
+    AgeAlreadySubmitted,
     /// A full session is required; the caller is still onboarding.
     #[error("onboarding incomplete")]
     OnboardingIncomplete,
@@ -93,9 +99,11 @@ impl ApiError {
             Self::Unauthenticated | Self::SessionExpired | Self::SessionRevoked => {
                 StatusCode::UNAUTHORIZED
             }
-            Self::Forbidden | Self::OnboardingIncomplete | Self::AccountSuspended => {
-                StatusCode::FORBIDDEN
-            }
+            Self::Forbidden
+            | Self::OnboardingIncomplete
+            | Self::AccountSuspended
+            | Self::AgeGateRefused
+            | Self::AgeAlreadySubmitted => StatusCode::FORBIDDEN,
             Self::NotFound => StatusCode::NOT_FOUND,
             Self::MethodNotAllowed => StatusCode::METHOD_NOT_ALLOWED,
             Self::RequestTimeout => StatusCode::REQUEST_TIMEOUT,
@@ -116,6 +124,8 @@ impl ApiError {
             Self::Forbidden => "FORBIDDEN",
             Self::OnboardingIncomplete => "ONBOARDING_INCOMPLETE",
             Self::AccountSuspended => "ACCOUNT_SUSPENDED",
+            Self::AgeGateRefused => "AGE_GATE_REFUSED",
+            Self::AgeAlreadySubmitted => "AGE_ALREADY_SUBMITTED",
             Self::NotFound => "NOT_FOUND",
             Self::MethodNotAllowed => "METHOD_NOT_ALLOWED",
             Self::RequestTimeout => "REQUEST_TIMEOUT",
@@ -204,6 +214,8 @@ mod tests {
             ApiError::Forbidden,
             ApiError::OnboardingIncomplete,
             ApiError::AccountSuspended,
+            ApiError::AgeGateRefused,
+            ApiError::AgeAlreadySubmitted,
             ApiError::Unavailable {
                 retry_after_secs: 1,
             },

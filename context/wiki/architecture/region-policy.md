@@ -36,5 +36,11 @@ overrides:
 - Each override has a source/legal note and a test (`policy_resolves_eu_min_age_16`).
 - Consumers depend on `PolicyService::resolve(ctx) -> Policy`, never on raw country codes.
 
+## Implementation (T-28)
+- Age gate: `IdentityService::submit_age` resolves `min_age` with `PolicyService::resolve_strictest` over the request's store /
+  declared / IP country and the signals stored with the account; client hints can only tighten.
+- IP country comes only from a trusted edge header (`API_IP_COUNTRY_HEADER`, e.g. `cf-ipcountry`); without one there is no IP
+  signal. Which edge sets it in production (Cloudflare in front of the API, or a GeoIP database) is still open.
+
 ## Open questions
 - Legal review of per-country values before launch.

@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use http::{HeaderMap, HeaderName};
 use identity::IdentityService;
+use platform::crypto::FieldCipher;
 use platform::rate_limit::RateLimiter;
 use policy::{CountryCode, PolicyService};
 
@@ -19,6 +20,8 @@ pub struct AppState {
     pub sessions: Arc<dyn SessionResolver>,
     pub limiter: Arc<RateLimiter>,
     pub client: Arc<ClientConfig>,
+    /// Encrypts personal-data columns (DOB).
+    pub field_cipher: Arc<FieldCipher>,
     /// Header carrying the client's IP country, set by a trusted edge (e.g. `cf-ipcountry`).
     pub ip_country_header: Option<HeaderName>,
 }
@@ -29,6 +32,7 @@ impl AppState {
         limiter: RateLimiter,
         identity: Arc<IdentityService>,
         client: ClientConfig,
+        field_cipher: FieldCipher,
     ) -> Self {
         Self {
             policy: Arc::new(policy),
@@ -36,6 +40,7 @@ impl AppState {
             identity,
             limiter: Arc::new(limiter),
             client: Arc::new(client),
+            field_cipher: Arc::new(field_cipher),
             ip_country_header: None,
         }
     }

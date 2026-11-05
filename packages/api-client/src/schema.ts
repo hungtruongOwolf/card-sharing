@@ -89,6 +89,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/age": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit the date of birth once. Auth: onb (account in `pending_age` only).
+         * @description Refusal is neutral: 403 `AGE_GATE_REFUSED` with no threshold or region in the body; the
+         *     pending account is deleted and the same device / sign-in identity is refused for 24 h.
+         */
+        post: operations["submitAge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/sessions/current": {
         parameters: {
             query?: never;
@@ -119,6 +140,30 @@ export interface components {
         AdsView: {
             personalized_requires_consent: boolean;
             rewarded: boolean;
+        };
+        /** @description Body of `POST /v1/me/age`. Country hints can only make the policy stricter. */
+        AgeRequest: {
+            /**
+             * Format: date
+             * @description ISO 8601 calendar date, e.g. `2010-05-01`.
+             * @example 2010-05-01
+             */
+            birth_date: string;
+            /**
+             * @description Country the user says they live in (ISO 3166-1 alpha-2), if asked.
+             * @example US
+             */
+            declared_country?: string | null;
+            /**
+             * @description App store storefront country reported by the OS (a hint, never trusted to loosen rules).
+             * @example US
+             */
+            store_country?: string | null;
+        };
+        AgeResponse: {
+            onboarding: components["schemas"]["OnboardingView"];
+            /** @example pending_profile */
+            status: string;
         };
         AiEffectsView: {
             cloud_allowed: boolean;
@@ -417,6 +462,75 @@ export interface operations {
             };
             /** @description UPGRADE_REQUIRED (X-App-Version below the minimum). */
             426: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    submitAge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgeRequest"];
+            };
+        };
+        responses: {
+            /** @description Admitted; continue with the profile step. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgeResponse"];
+                };
+            };
+            /** @description VALIDATION_FAILED. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description AGE_GATE_REFUSED (neutral; account removed), AGE_ALREADY_SUBMITTED (DOB is locked) or FORBIDDEN (not an onboarding session). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description TEMPORARILY_UNAVAILABLE (fails closed). */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

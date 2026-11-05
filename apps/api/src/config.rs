@@ -33,6 +33,9 @@ pub struct Config {
     pub database_url: Secret,
     /// `API_DB_MAX_CONNECTIONS` — default 10, allowed 1..=100.
     pub db_max_connections: u32,
+    /// `API_DATA_ENCRYPTION_KEY` — required. 32 random bytes, base64 (`openssl rand -base64 32`),
+    /// from the secret manager. Encrypts DOB and other personal-data columns.
+    pub data_encryption_key: Secret,
     /// `REDIS_URL` — required. `redis://` locally, `rediss://` (TLS) in shared environments.
     pub redis_url: Secret,
     /// `API_LIMITS_CONFIG_PATH` — default `config/limits.yaml` (relative to the CWD).
@@ -93,6 +96,7 @@ impl Config {
 
         let database_url = env.required_secret("DATABASE_URL")?;
         let db_max_connections = env.in_range("API_DB_MAX_CONNECTIONS", 10, 1..=100)?;
+        let data_encryption_key = env.required_secret("API_DATA_ENCRYPTION_KEY")?;
         let redis_url = env.required_secret("REDIS_URL")?;
         let limits_config_path = env
             .optional("API_LIMITS_CONFIG_PATH")
@@ -112,6 +116,7 @@ impl Config {
             log_format,
             database_url,
             db_max_connections,
+            data_encryption_key,
             redis_url,
             limits_config_path,
             client_ip_header,
@@ -162,9 +167,13 @@ mod tests {
 
     use super::*;
 
-    const REQUIRED: [(&str, &str); 2] = [
+    const REQUIRED: [(&str, &str); 3] = [
         ("REDIS_URL", "redis://127.0.0.1:6379/0"),
         ("DATABASE_URL", "postgres://app@127.0.0.1:5432/app"),
+        (
+            "API_DATA_ENCRYPTION_KEY",
+            "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        ),
     ];
 
     fn load(pairs: &[(&str, &str)]) -> Result<Config, ConfigError> {
