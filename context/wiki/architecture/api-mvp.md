@@ -53,6 +53,7 @@ or the header named by `API_CLIENT_IP_HEADER` (e.g. `fly-client-ip`) when a trus
 | DELETE | /v1/sessions/current | Log out (revokes session + widget token of device) | onb/ses | user | own session | 30/min u | yes | US-16 AC-16.2 |
 | POST | /v1/attestation/challenge | Nonce for `att` | onb/ses | user | — | 30/min d | no | US-5, US-13 |
 | GET | /v1/me | Account status, onboarding step, profile, resolved policy flags | onb/ses | user | self | 120/min u | yes | US-1–3 |
+| POST | /v1/me/age-signal | OS age range from the device (flag, off by default) | onb/ses | user | self | 10/day u | no | US-2 |
 | POST | /v1/me/age | Submit DOB once (+declared country) → active or neutral refusal | onb | user | self; only in `pending_age`; cooldown check | 5/day d | no | US-2 |
 | PUT | /v1/me/profile | Display name + avatar media | onb/ses | user | self; avatar media owned & `clean` | 20/h u | yes | US-3 |
 | POST | /v1/me/handle/check | Is handle available (no account info) | onb/ses | user | — | 20/min u, 100/day u | yes | US-3 AC-3.3 |
@@ -103,6 +104,10 @@ max-age=300`, byte-identical for every caller. Min-version gate: `X-App-Version`
 store_country?}` → 200 `{status: "pending_profile", onboarding: {step: "profile"}}` or 403 `AGE_GATE_REFUSED` (no detail, account
 deleted, 24 h cooldown); second submission → 403 `AGE_ALREADY_SUBMITTED`; cooldown store down → 503 (fails closed). Passing the
 gate moves the account to `pending_profile` (profile step), not `active`.
+
+`POST /v1/me/age-signal` (T-29, onb/ses, limit `me.age_signal` 10/day per user) `{source: apple_declared_age_range |
+google_play_age_signals, signal: minor | adult}` → 204. Off by default (`API_OS_AGE_SIGNALS_ENABLED`, legal L-3): while off,
+valid requests → 404 `NOT_FOUND` and nothing is stored. A client-sent signal can only tighten (minor overrides an adult DOB).
 
 `PUT /v1/me/profile` (onb/ses, limit `me.profile.update` 20/h per user) `{display_name}` → 200 `{status, onboarding: {step},
 profile: {display_name}}` with the stored, sanitized name (T-30 filter; 2–30 graphemes from `config/profile.yaml`; not unique,

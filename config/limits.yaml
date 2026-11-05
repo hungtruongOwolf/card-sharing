@@ -56,6 +56,11 @@ limits:
     requests: 5
     per_secs: 86400
     on_store_failure: closed
+  me.age_signal: # POST /v1/me/age-signal (the app sends the OS signal at most on launch)
+    scope: user
+    requests: 10
+    per_secs: 86400
+    on_store_failure: open
   me.profile.update: # PUT /v1/me/profile
     scope: user
     requests: 20

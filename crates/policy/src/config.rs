@@ -46,9 +46,17 @@ struct RawConfig {
 #[serde(deny_unknown_fields)]
 struct PolicyOverride {
     min_age: Option<u8>,
+    adult_age: Option<u8>,
+    discovery: Option<DiscoveryOverride>,
     ai_effects: Option<AiEffectsOverride>,
     ads: Option<AdsOverride>,
     ai_label: Option<AiLabelOverride>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DiscoveryOverride {
+    min_age: Option<u8>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -169,6 +177,12 @@ fn invalid_group(group: &str, reason: String) -> PolicyConfigError {
 fn apply(policy: &mut Policy, o: &PolicyOverride) {
     if let Some(min_age) = o.min_age {
         policy.min_age = min_age;
+    }
+    if let Some(adult_age) = o.adult_age {
+        policy.adult_age = adult_age;
+    }
+    if let Some(min_age) = o.discovery.as_ref().and_then(|d| d.min_age) {
+        policy.discovery.min_age = min_age;
     }
     if let Some(ai) = &o.ai_effects {
         apply_ai_effects(&mut policy.ai_effects, ai);

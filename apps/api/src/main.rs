@@ -90,7 +90,8 @@ async fn main() -> anyhow::Result<()> {
         field_cipher,
         profile,
     )
-    .with_ip_country_header(config.ip_country_header.clone());
+    .with_ip_country_header(config.ip_country_header.clone())
+    .with_os_age_signals(config.os_age_signals_enabled);
     let sign_in = sign_in_service(&config, identity, Arc::clone(&state.field_cipher), clock)?;
     let state = state.with_sign_in(Arc::new(sign_in));
 

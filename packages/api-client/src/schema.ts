@@ -151,6 +151,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/age-signal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Record the OS age signal for the caller's account. Auth: onb/ses. */
+        post: operations["submitAgeSignal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/handle": {
         parameters: {
             query?: never;
@@ -327,6 +344,15 @@ export interface components {
             /** @example pending_profile */
             status: string;
         };
+        AgeSignalRequest: {
+            /** @description `minor` when the OS says the user is under 18, `adult` otherwise. */
+            signal: components["schemas"]["AgeSignalValue"];
+            source: components["schemas"]["AgeSignalSource"];
+        };
+        /** @enum {string} */
+        AgeSignalSource: "apple_declared_age_range" | "google_play_age_signals";
+        /** @enum {string} */
+        AgeSignalValue: "minor" | "adult";
         AiEffectsView: {
             cloud_allowed: boolean;
             /**
@@ -931,6 +957,73 @@ export interface operations {
             };
             /** @description TEMPORARILY_UNAVAILABLE (fails closed). */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    submitAgeSignal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgeSignalRequest"];
+            };
+        };
+        responses: {
+            /** @description Stored; a minor signal applies from the next request. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description VALIDATION_FAILED. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND: OS age-signal ingestion is disabled. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

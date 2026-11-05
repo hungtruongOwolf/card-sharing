@@ -82,6 +82,12 @@ case-insensitive uniqueness), `handle_claimed_at` (first claim, starts the 24 h 
 `handle_changed_at` (cooldown base); `handle_reservations(handle PK, released_by, reserved_until)` without FK so a reservation
 outlives a deleted account. Expired reservations are deleted lazily on the next claim (no cleanup job yet).
 
+Minor status (T-29, `migrations/20261108000001_identity_os_age_signal.sql`): `accounts.os_age_signal TEXT NULL CHECK (minor,
+adult)`, `os_age_signal_source CHECK (apple_declared_age_range, google_play_age_signals)`, `os_age_signal_at` (all set together;
+written only while `API_OS_AGE_SIGNALS_ENABLED`). `AgeService` caches the per-day inputs (age in years, stored region signals,
+minor signal) in Redis as `age:<account>:<YYYY-MM-DD>` for ≤ 24 h — the date in the key makes a birthday apply the next day;
+a new signal evicts the entry. The DOB itself never leaves Postgres unencrypted.
+
 Age-gate refusal stores **nothing** in Postgres: the pending account is deleted and a 24 h cooldown key
 `agegate:{sha256(device_id)}` / `agegate:{sha256(provider:subject)}` lives in Redis only (AC-2.1). Implemented (T-28) as
 `agegate:d:<hex>` and `agegate:i:<hex>`; `birth_date_enc` = XChaCha20-Poly1305 (`platform::crypto::FieldCipher`, key

@@ -72,6 +72,11 @@ routes:
     body: { birth_date: $ADULT_DOB }
     expect: { guest: 401, onboarding_age: 200, onboarding_profile: 403, user: 403, suspended: 403 }
 
+  # OS age signal (T-29): enabled in the test env; the disabled flag (404) is in tests/api/age_service.rs.
+  - route: POST /v1/me/age-signal
+    body: { source: apple_declared_age_range, signal: minor }
+    expect: { guest: 401, onboarding_age: 204, onboarding_profile: 204, user: 204, suspended: 403 }
+
   # Profile writes need the age gate passed (pending_age -> 403 ONBOARDING_INCOMPLETE). No account id is
   # accepted; the other-user and validation cases are in tests/api/profile.rs.
   - route: PUT /v1/me/profile

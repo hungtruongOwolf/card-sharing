@@ -9,6 +9,9 @@ version: 1
 
 default:
   min_age: 13
+  adult_age: 18 # below this an account is a minor (minor protections, AgeService)
+  discovery:
+    min_age: 18 # handle search never returns younger accounts (US-5a)
   ai_effects:
     cloud_allowed: true
     people_in_photo: on_device_or_non_gemini # any | on_device_or_non_gemini | on_device_only
@@ -61,5 +64,8 @@ overrides:
     min_age: 13
   US: # COPPA
     min_age: 13
-  KR: # PIPA — verify
+  KR: # PIPA — verify; civil age of majority is 19
     min_age: 14
+    adult_age: 19
+    discovery:
+      min_age: 19
