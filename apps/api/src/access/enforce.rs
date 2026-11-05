@@ -7,13 +7,16 @@ use axum::extract::{ConnectInfo, MatchedPath, Request, State};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 use http::{HeaderMap, HeaderName, header};
+use identity::{AttestationService, IdentityService};
 use platform::idempotency::IdempotencyStore;
 use platform::problem::ApiError;
 use platform::rate_limit::{AccountSubject, Decision, RateLimiter, Subject};
 
+use super::attest;
 use super::caller::SessionResolver;
 use super::idempotency;
 use super::policy::{Idempotency, PolicyTable, authorize};
+use crate::config::AttestationMode;
 
 /// State of the enforcement middleware.
 #[derive(Clone)]
@@ -26,6 +29,10 @@ pub struct AccessState {
     pub min_app_version: Arc<semver::Version>,
     /// Idempotency-Key store for routes whose policy enables it.
     pub idempotency: Arc<IdempotencyStore>,
+    /// Attestation checks for `att` routes (T-35).
+    pub identity: Arc<IdentityService>,
+    pub attestation: Arc<AttestationService>,
+    pub attestation_mode: AttestationMode,
 }
 
 /// Where the client IP comes from. Only trust a header that the edge proxy always overwrites.
@@ -118,6 +125,20 @@ pub async fn enforce(
         return next.run(request).await;
     };
     request.extensions_mut().insert(principal.clone());
+    if policy.attestation {
+        request = match attest::check(
+            &access.identity,
+            &access.attestation,
+            access.attestation_mode,
+            &principal,
+            request,
+        )
+        .await
+        {
+            Ok(request) => request,
+            Err(err) => return err.into_response(),
+        };
+    }
     if policy.idempotency == Idempotency::None {
         return next.run(request).await;
     }

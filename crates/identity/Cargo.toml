@@ -13,6 +13,7 @@ license.workspace = true
 test-support = ["dep:num-bigint", "dep:axum"]
 
 [dependencies]
+attestation.workspace = true
 platform.workspace = true
 policy.workspace = true
 

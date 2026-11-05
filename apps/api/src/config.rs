@@ -70,6 +70,42 @@ pub struct Config {
     /// `API_OS_AGE_SIGNALS_ENABLED` — accept OS age signals (Apple Declared Age Range, Google Play
     /// Age Signals) on `POST /v1/me/age-signal`. Default `false` until legal review L-3.
     pub os_age_signals_enabled: bool,
+    /// Device attestation (T-35): mode and per-platform verifier settings.
+    pub attestation: AttestationConfig,
+}
+
+/// `att` add-on enforcement (EM 2026-11-04: log-only in beta, hard-fail at GA).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AttestationMode {
+    /// Not checked at all.
+    Off,
+    /// Checked and recorded; failures are logged, the request proceeds.
+    LogOnly,
+    /// Failures are refused with 403 `ATTESTATION_FAILED`.
+    Enforce,
+}
+
+#[derive(Debug, Clone)]
+pub struct AttestationConfig {
+    /// `API_ATTESTATION_MODE` — `off`, `log_only` (default) or `enforce`.
+    pub mode: AttestationMode,
+    /// `API_APP_ATTEST_APP_IDS` — comma-separated `TEAMID.bundle.id` values. Empty = iOS proofs
+    /// fail as `unconfigured`.
+    pub app_attest_app_ids: Vec<String>,
+    /// `API_APP_ATTEST_ALLOW_DEVELOPMENT` — accept the development AAGUID (default `false`).
+    pub app_attest_allow_development: bool,
+    /// `API_PLAY_INTEGRITY_PACKAGE_NAMES` + `API_PLAY_INTEGRITY_DECRYPTION_KEY` (secret, base64
+    /// AES-256) + `API_PLAY_INTEGRITY_VERIFICATION_KEY` (base64 DER EC public key) — all three or
+    /// none (Play Console → App integrity → response encryption). Unset = Android proofs fail as
+    /// `unconfigured`.
+    pub play_integrity: Option<PlayIntegrityConfig>,
+}
+
+#[derive(Debug, Clone)]
+pub struct PlayIntegrityConfig {
+    pub package_names: Vec<String>,
+    pub decryption_key: Secret,
+    pub verification_key: String,
 }
 
 /// The team's Sign in with Apple key (see [`Config::apple_signing`]).
@@ -146,6 +182,7 @@ impl Config {
         let auth_clock_skew_secs = env.in_range("API_AUTH_CLOCK_SKEW_SECS", 60, 0..=300)?;
         let apple_signing = apple_signing(env)?;
         let os_age_signals_enabled = env.flag("API_OS_AGE_SIGNALS_ENABLED", false)?;
+        let attestation = attestation_config(env)?;
 
         Ok(Self {
             bind_addr,
@@ -169,6 +206,7 @@ impl Config {
             auth_clock_skew: Duration::from_secs(auth_clock_skew_secs),
             apple_signing,
             os_age_signals_enabled,
+            attestation,
         })
     }
 }
@@ -212,6 +250,45 @@ fn apple_signing<F: Fn(&str) -> Option<String>>(
             "API_APPLE_TEAM_ID, API_APPLE_KEY_ID and API_APPLE_PRIVATE_KEY must be set together",
         )),
     }
+}
+
+fn attestation_config<F: Fn(&str) -> Option<String>>(
+    env: &Env<F>,
+) -> Result<AttestationConfig, ConfigError> {
+    let mode = match env.optional("API_ATTESTATION_MODE").as_deref() {
+        None | Some("log_only") => AttestationMode::LogOnly,
+        Some("off") => AttestationMode::Off,
+        Some("enforce") => AttestationMode::Enforce,
+        Some(other) => {
+            return Err(invalid(
+                "API_ATTESTATION_MODE",
+                format!("{other:?} must be off, log_only or enforce"),
+            ));
+        }
+    };
+    let packages = client_ids(env, "API_PLAY_INTEGRITY_PACKAGE_NAMES")?;
+    let decryption_key = env.optional("API_PLAY_INTEGRITY_DECRYPTION_KEY");
+    let verification_key = env.optional("API_PLAY_INTEGRITY_VERIFICATION_KEY");
+    let play_integrity = match (packages.is_empty(), decryption_key, verification_key) {
+        (true, None, None) => None,
+        (false, Some(decryption_key), Some(verification_key)) => Some(PlayIntegrityConfig {
+            package_names: packages,
+            decryption_key: Secret::new(decryption_key),
+            verification_key,
+        }),
+        _ => {
+            return Err(invalid(
+                "API_PLAY_INTEGRITY_DECRYPTION_KEY",
+                "API_PLAY_INTEGRITY_PACKAGE_NAMES, API_PLAY_INTEGRITY_DECRYPTION_KEY and                  API_PLAY_INTEGRITY_VERIFICATION_KEY must be set together",
+            ));
+        }
+    };
+    Ok(AttestationConfig {
+        mode,
+        app_attest_app_ids: client_ids(env, "API_APP_ATTEST_APP_IDS")?,
+        app_attest_allow_development: env.flag("API_APP_ATTEST_ALLOW_DEVELOPMENT", false)?,
+        play_integrity,
+    })
 }
 
 fn header_name<F: Fn(&str) -> Option<String>>(
@@ -325,6 +402,17 @@ mod tests {
         assert!(config.apple_signing.is_none());
         assert_eq!(config.auth_clock_skew, Duration::from_secs(60));
         assert!(!config.os_age_signals_enabled, "off until legal review");
+        assert_eq!(config.attestation.mode, AttestationMode::LogOnly);
+        assert!(config.attestation.play_integrity.is_none());
+        assert_eq!(
+            load(&[("API_ATTESTATION_MODE", "enforce")])
+                .unwrap()
+                .attestation
+                .mode,
+            AttestationMode::Enforce
+        );
+        assert!(load(&[("API_ATTESTATION_MODE", "strict")]).is_err());
+        assert!(load(&[("API_PLAY_INTEGRITY_PACKAGE_NAMES", "app.x")]).is_err());
         assert!(
             load(&[("API_OS_AGE_SIGNALS_ENABLED", "true")])
                 .unwrap()

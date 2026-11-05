@@ -96,7 +96,8 @@ impl Idempotency {
 pub struct RoutePolicy {
     pub auth: AuthKind,
     pub role: Role,
-    /// `att`: device attestation required (log-only in beta, hard-fail at GA; not wired yet).
+    /// `att`: device attestation required (`X-Attestation`; log-only in beta, enforce at GA).
+    /// Authenticated routes only: proofs are bound to the caller's challenges.
     pub attestation: bool,
     /// Name of the rate limit in `config/limits.yaml`, if any.
     pub rate_limit: Option<&'static str>,

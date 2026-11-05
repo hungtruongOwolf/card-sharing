@@ -3,13 +3,15 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use api::client_config::ClientConfig;
-use api::config::Config;
+use api::config::{AttestationConfig, Config};
 use api::state::{AppState, ProfileSettings};
+use attestation::apple::AppAttestVerifier;
+use attestation::play::PlayIntegrityVerifier;
 use identity::apple::{
     AppleClientSecretSigner, AppleHttpClient, AppleTokenClient, UnconfiguredAppleClient,
 };
 use identity::oidc::{IdTokenVerifier, JwksSettings, ProviderSpec, VerifierSettings};
-use identity::{IdentityService, ProfileRules, ProviderSignIn, SessionPolicy};
+use identity::{AttestationService, IdentityService, ProfileRules, ProviderSignIn, SessionPolicy};
 use platform::clock::{SharedClock, SystemClock};
 use platform::crypto::FieldCipher;
 use platform::idempotency::{IdempotencySettings, IdempotencyStore};
@@ -91,7 +93,11 @@ async fn main() -> anyhow::Result<()> {
         profile,
     )
     .with_ip_country_header(config.ip_country_header.clone())
-    .with_os_age_signals(config.os_age_signals_enabled);
+    .with_os_age_signals(config.os_age_signals_enabled)
+    .with_attestation(
+        attestation_service(&config.attestation)?,
+        config.attestation.mode,
+    );
     let sign_in = sign_in_service(&config, identity, Arc::clone(&state.field_cipher), clock)?;
     let state = state.with_sign_in(Arc::new(sign_in));
 
@@ -108,6 +114,43 @@ async fn main() -> anyhow::Result<()> {
 
     tracing::info!("shut down cleanly");
     Ok(())
+}
+
+/// App Attest (Apple's root) and Play Integrity verifiers from config; an unconfigured platform's
+/// proofs fail as `unconfigured` (recorded, and refused only in enforce mode).
+fn attestation_service(config: &AttestationConfig) -> anyhow::Result<AttestationService> {
+    let apple = if config.app_attest_app_ids.is_empty() {
+        tracing::warn!(
+            "API_APP_ATTEST_APP_IDS is empty: iOS attestation proofs fail as unconfigured"
+        );
+        None
+    } else {
+        Some(
+            AppAttestVerifier::apple(
+                config.app_attest_app_ids.clone(),
+                config.app_attest_allow_development,
+            )
+            .context("invalid App Attest root")?,
+        )
+    };
+    let play = match &config.play_integrity {
+        None => {
+            tracing::warn!(
+                "Play Integrity keys not configured: Android proofs fail as unconfigured"
+            );
+            None
+        }
+        Some(play) => Some(
+            PlayIntegrityVerifier::from_base64(
+                play.package_names.clone(),
+                play.decryption_key.expose(),
+                &play.verification_key,
+            )
+            .context("invalid Play Integrity keys")?,
+        ),
+    };
+    tracing::info!(mode = ?config.mode, "device attestation configured");
+    Ok(AttestationService::new(apple, play))
 }
 
 /// The worker process role: job lanes plus periodic platform maintenance. Job handlers are

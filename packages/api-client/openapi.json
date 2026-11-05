@@ -72,6 +72,165 @@
         }
       }
     },
+    "/v1/attestation/apple-keys": {
+      "post": {
+        "tags": [
+          "attestation"
+        ],
+        "summary": "Register this install's App Attest key. Auth: onb/ses. In log-only mode a failed attestation\nstill answers 204 (the key is not stored and the failure is recorded).",
+        "operationId": "registerAppleAttestKey",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppleKeyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Processed (stored when the attestation is valid)."
+          },
+          "400": {
+            "description": "VALIDATION_FAILED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ATTESTATION_FAILED (enforce mode) or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "TEMPORARILY_UNAVAILABLE (challenge store down).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "onb/ses",
+          "rateLimit": "attestation.register",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
+    "/v1/attestation/challenge": {
+      "post": {
+        "tags": [
+          "attestation"
+        ],
+        "summary": "Issue an attestation challenge. Auth: onb/ses.",
+        "operationId": "createAttestationChallenge",
+        "responses": {
+          "200": {
+            "description": "A new single-use challenge.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChallengeResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "TEMPORARILY_UNAVAILABLE (challenge store down).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "onb/ses",
+          "rateLimit": "attestation.challenge",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
     "/v1/auth/apple": {
       "post": {
         "tags": [
@@ -1302,6 +1461,36 @@
           }
         }
       },
+      "AppleKeyRequest": {
+        "type": "object",
+        "description": "Body of `POST /v1/attestation/apple-keys`.",
+        "required": [
+          "key_id",
+          "attestation",
+          "challenge"
+        ],
+        "properties": {
+          "attestation": {
+            "type": "string",
+            "description": "The `attestKey` object, standard base64 (made with `clientDataHash = SHA-256(challenge\nbytes)`).",
+            "maxLength": 16384,
+            "minLength": 1
+          },
+          "challenge": {
+            "type": "string",
+            "description": "A challenge from `POST /v1/attestation/challenge`.",
+            "maxLength": 64,
+            "minLength": 1
+          },
+          "key_id": {
+            "type": "string",
+            "description": "Key id from `DCAppAttestService.generateKey` (standard base64).",
+            "maxLength": 100,
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      },
       "AppleSignInRequest": {
         "type": "object",
         "description": "Body of `POST /v1/auth/apple`. The account is derived from the verified token only.",
@@ -1344,6 +1533,24 @@
           }
         },
         "additionalProperties": false
+      },
+      "ChallengeResponse": {
+        "type": "object",
+        "description": "A single-use challenge, valid 5 minutes, for one key attestation or one `X-Attestation`\nproof (`clientDataHash = SHA-256(challenge bytes || request hash)`).",
+        "required": [
+          "challenge",
+          "expires_at"
+        ],
+        "properties": {
+          "challenge": {
+            "type": "string",
+            "description": "32 random bytes, base64url without padding."
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
       },
       "ClientLimits": {
         "type": "object",
@@ -1852,6 +2059,10 @@
     {
       "name": "auth",
       "description": "Sign-in and session lifecycle (ADR-0004)"
+    },
+    {
+      "name": "attestation",
+      "description": "Device attestation challenges and keys (SR-13)"
     },
     {
       "name": "sessions",

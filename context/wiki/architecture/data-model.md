@@ -88,6 +88,13 @@ written only while `API_OS_AGE_SIGNALS_ENABLED`). `AgeService` caches the per-da
 minor signal) in Redis as `age:<account>:<YYYY-MM-DD>` for ≤ 24 h — the date in the key makes a birthday apply the next day;
 a new signal evicts the entry. The DOB itself never leaves Postgres unencrypted.
 
+Attestation (T-35, `migrations/20261108000002_identity_attestation_keys.sql`): `attestation_keys(key_id TEXT PK` =
+`ios:<App Attest key id>` or `android:<account>:<device>`; `account_id FK CASCADE`; `device_id`; `platform`; `public_key BYTEA(65)
+NULL` (set when a key attestation passed); `sign_count` (last assertion counter, compare-and-set); `pass_count`, `fail_count`,
+`last_verdict`, `last_failure` (reason code), `last_verdict_at)`. A row belongs to one account; other accounts' checks never touch
+it. `devices.attest_key_id` is set on registration. Challenges live in Redis only: `att:ch:<sha256(challenge)>` → account id,
+5 min, `GETDEL` on use.
+
 Age-gate refusal stores **nothing** in Postgres: the pending account is deleted and a 24 h cooldown key
 `agegate:{sha256(device_id)}` / `agegate:{sha256(provider:subject)}` lives in Redis only (AC-2.1). Implemented (T-28) as
 `agegate:d:<hex>` and `agegate:i:<hex>`; `birth_date_enc` = XChaCha20-Poly1305 (`platform::crypto::FieldCipher`, key

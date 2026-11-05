@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use http::{HeaderMap, HeaderName};
-use identity::{AgeService, IdentityService, ProfileRules, ProviderSignIn};
+use identity::{AgeService, AttestationService, IdentityService, ProfileRules, ProviderSignIn};
 use platform::crypto::FieldCipher;
 use platform::idempotency::{IdempotencySettings, IdempotencyStore};
 use platform::rate_limit::RateLimiter;
@@ -10,6 +10,7 @@ use policy::{CountryCode, PolicyService};
 
 use crate::access::SessionResolver;
 use crate::client_config::ClientConfig;
+use crate::config::AttestationMode;
 use crate::identity_adapter::IdentitySessions;
 
 /// Rules for user-written profile text (config/text_filter.yaml, config/profile.yaml).
@@ -24,6 +25,9 @@ pub struct ProfileSettings {
 pub struct AppState {
     pub policy: Arc<PolicyService>,
     pub identity: Arc<IdentityService>,
+    /// Device attestation verifiers (T-35) and how failures are treated.
+    pub attestation: Arc<AttestationService>,
+    pub attestation_mode: AttestationMode,
     /// Minor status from the encrypted DOB (and OS age signals when enabled).
     pub age: Arc<AgeService>,
     /// Resolves bearer tokens for the access-policy gate (identity sessions by default).
@@ -53,6 +57,8 @@ impl AppState {
         let policy = Arc::new(policy);
         let field_cipher = Arc::new(field_cipher);
         Self {
+            attestation: Arc::new(AttestationService::new(None, None)),
+            attestation_mode: AttestationMode::LogOnly,
             age: Arc::new(AgeService::new(
                 Arc::clone(&identity),
                 Arc::clone(&policy),
@@ -74,6 +80,13 @@ impl AppState {
             ip_country_header: None,
             sign_in: None,
         }
+    }
+
+    /// Installs the attestation verifiers and mode (`API_ATTESTATION_MODE`).
+    pub fn with_attestation(mut self, service: AttestationService, mode: AttestationMode) -> Self {
+        self.attestation = Arc::new(service);
+        self.attestation_mode = mode;
+        self
     }
 
     /// Enables or disables OS age-signal ingestion (`API_OS_AGE_SIGNALS_ENABLED`).

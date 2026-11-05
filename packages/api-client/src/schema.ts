@@ -38,6 +38,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/attestation/apple-keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Register this install's App Attest key. Auth: onb/ses. In log-only mode a failed attestation
+         *     still answers 204 (the key is not stored and the failure is recorded).
+         */
+        post: operations["registerAppleAttestKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/attestation/challenge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Issue an attestation challenge. Auth: onb/ses. */
+        post: operations["createAttestationChallenge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/auth/apple": {
         parameters: {
             query?: never;
@@ -378,6 +415,18 @@ export interface components {
              */
             min_app_version: string;
         };
+        /** @description Body of `POST /v1/attestation/apple-keys`. */
+        AppleKeyRequest: {
+            /**
+             * @description The `attestKey` object, standard base64 (made with `clientDataHash = SHA-256(challenge
+             *     bytes)`).
+             */
+            attestation: string;
+            /** @description A challenge from `POST /v1/attestation/challenge`. */
+            challenge: string;
+            /** @description Key id from `DCAppAttestService.generateKey` (standard base64). */
+            key_id: string;
+        };
         /** @description Body of `POST /v1/auth/apple`. The account is derived from the verified token only. */
         AppleSignInRequest: {
             /**
@@ -394,6 +443,16 @@ export interface components {
              *     claim must match.
              */
             nonce: string;
+        };
+        /**
+         * @description A single-use challenge, valid 5 minutes, for one key attestation or one `X-Attestation`
+         *     proof (`clientDataHash = SHA-256(challenge bytes || request hash)`).
+         */
+        ChallengeResponse: {
+            /** @description 32 random bytes, base64url without padding. */
+            challenge: string;
+            /** Format: date-time */
+            expires_at: string;
         };
         /** @description Product limits shown by the app. The server enforces its own copies. */
         ClientLimits: {
@@ -628,6 +687,129 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReadinessResponse"];
+                };
+            };
+        };
+    };
+    registerAppleAttestKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppleKeyRequest"];
+            };
+        };
+        responses: {
+            /** @description Processed (stored when the attestation is valid). */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description VALIDATION_FAILED. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ATTESTATION_FAILED (enforce mode) or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description TEMPORARILY_UNAVAILABLE (challenge store down). */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    createAttestationChallenge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A new single-use challenge. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChallengeResponse"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description TEMPORARILY_UNAVAILABLE (challenge store down). */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
         };

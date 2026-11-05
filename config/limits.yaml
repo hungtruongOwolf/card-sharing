@@ -46,6 +46,16 @@ limits:
     requests: 10
     per_secs: 3600
     on_store_failure: open
+  attestation.challenge: # POST /v1/attestation/challenge (30/min per device)
+    scope: device
+    requests: 30
+    per_secs: 60
+    on_store_failure: closed
+  attestation.register: # POST /v1/attestation/apple-keys (one key per install; retries only)
+    scope: device
+    requests: 10
+    per_secs: 86400
+    on_store_failure: closed
   me.read: # GET /v1/me
     scope: user
     requests: 120

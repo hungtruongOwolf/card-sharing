@@ -66,6 +66,9 @@ pub enum ApiError {
     OnboardingIncomplete,
     #[error("account suspended")]
     AccountSuspended,
+    /// The device attestation of a request marked `att` failed (enforce mode only).
+    #[error("attestation failed")]
+    AttestationFailed,
     /// The handle belongs to, or is reserved for, someone else (no detail which).
     #[error("handle taken")]
     HandleTaken,
@@ -114,6 +117,7 @@ impl ApiError {
             Self::Forbidden
             | Self::OnboardingIncomplete
             | Self::AccountSuspended
+            | Self::AttestationFailed
             | Self::AgeGateRefused
             | Self::AgeAlreadySubmitted => StatusCode::FORBIDDEN,
             Self::NotFound => StatusCode::NOT_FOUND,
@@ -139,6 +143,7 @@ impl ApiError {
             Self::Forbidden => "FORBIDDEN",
             Self::OnboardingIncomplete => "ONBOARDING_INCOMPLETE",
             Self::AccountSuspended => "ACCOUNT_SUSPENDED",
+            Self::AttestationFailed => "ATTESTATION_FAILED",
             Self::AgeGateRefused => "AGE_GATE_REFUSED",
             Self::AgeAlreadySubmitted => "AGE_ALREADY_SUBMITTED",
             Self::NotFound => "NOT_FOUND",
@@ -233,6 +238,7 @@ mod tests {
             ApiError::Forbidden,
             ApiError::OnboardingIncomplete,
             ApiError::AccountSuspended,
+            ApiError::AttestationFailed,
             ApiError::AgeGateRefused,
             ApiError::AgeAlreadySubmitted,
             ApiError::Unavailable {

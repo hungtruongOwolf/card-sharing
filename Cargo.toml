@@ -10,11 +10,14 @@ license = "UNLICENSED"
 
 [workspace.dependencies]
 # internal
+attestation = { path = "crates/attestation" }
 identity = { path = "crates/identity" }
 platform = { path = "crates/platform" }
 policy = { path = "crates/policy" }
 
 # external — keep versions here so every crate uses the same ones
+# AES key unwrap (RFC 3394) for Play Integrity JWE tokens (ring has no raw AES).
+aes-kw = "0.3.1"
 anyhow = "1.0.104"
 axum = { version = "0.8.9", default-features = false, features = ["http1", "http2", "json", "tokio", "query", "matched-path", "original-uri"] }
 base64 = "0.23.1"
@@ -39,6 +42,11 @@ redis = { version = "1.8.1", default-features = false, features = ["tokio-rustls
 # TLS for Redis/Postgres uses rustls with the ring provider only (no aws-lc / OpenSSL-licensed code).
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 rustls-native-certs = "0.8.5"
+# X.509 chain checks for App Attest (crates/attestation), ring algorithms only.
+rustls-pki-types = { version = "1.12", features = ["std"] }
+rustls-webpki = { version = "0.103.16", default-features = false, features = ["ring", "std"] }
+# Test-only (attestation `test-support`): certificate chains for App Attest test vectors.
+rcgen = { version = "0.14.10", default-features = false, features = ["ring", "crypto"] }
 ring = "0.17.14"
 semver = "1.0.28"
 serde = { version = "1.0.229", features = ["derive"] }
