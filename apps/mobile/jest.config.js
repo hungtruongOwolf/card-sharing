@@ -8,6 +8,7 @@ module.exports = {
     '^@card-sharing/tokens$': '<rootDir>/../../packages/tokens/src/index.ts',
     '^@card-sharing/shaders$': '<rootDir>/../../packages/shaders/src/index.ts',
     '^@card-sharing/effects-registry$': '<rootDir>/../../packages/effects-registry/src/index.ts',
+    '^@card-sharing/canvas-engine$': '<rootDir>/../../packages/canvas-engine/src/index.ts',
   },
   testPathIgnorePatterns: ['/node_modules/', '/dist/', '/.expo/'],
   maxWorkers: '50%',
