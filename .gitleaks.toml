@@ -1,0 +1,8 @@
+# gitleaks config: default rules plus narrow, reviewed allowlists. Loaded automatically from the repo root.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Container image references (name:tag, optional @sha256 digest) are public identifiers, not secrets"
+regexTarget = "line"
+regexes = ['''^\s*(-\s*)?image:\s*['"]?[a-z0-9][a-z0-9./_-]*:[A-Za-z0-9._-]+(@sha256:[0-9a-f]{64})?['"]?\s*(#.*)?$''']
