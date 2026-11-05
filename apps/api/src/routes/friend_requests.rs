@@ -1,12 +1,18 @@
-//! Friend requests (T-39, US-5, SR-20, SR-22, SR-13): preview an invite, send a request from it.
-//! The sender is always the caller; the recipient comes from the invite token, never from an id.
+//! Friend requests (T-39, T-40, US-5, SR-20, SR-22, SR-13): preview an invite, send a request from
+//! it, list, accept, decline and cancel. The sender is always the caller; the recipient comes from
+//! the invite token, never from an id. Answering a request that is not the caller's is the same
+//! 404 as a missing id.
 
 use axum::Json;
-use axum::extract::{Path, State};
+use axum::extract::rejection::QueryRejection;
+use axum::extract::{Path, Query, State};
 use http::StatusCode;
 use platform::problem::{ApiError, ProblemDetails};
 use serde::{Deserialize, Serialize};
-use social::{InviteError, InvitePreview, RequestError, SentRequest};
+use social::{
+    AnswerError, Direction, FriendSummary, InviteError, InvitePreview, RequestError, RequestItem,
+    SentRequest,
+};
 use time::OffsetDateTime;
 use utoipa::ToSchema;
 use uuid::Uuid;
@@ -166,4 +172,221 @@ pub async fn create_friend_request(
         .await
         .map_err(request_error)?;
     Ok((StatusCode::CREATED, Json(sent.into())))
+}
+
+fn answer_error(err: AnswerError) -> ApiError {
+    match err {
+        AnswerError::NotFound => ApiError::NotFound,
+        AnswerError::FriendLimit => ApiError::FriendLimitReached,
+        AnswerError::Social(err) => ApiError::internal(err),
+    }
+}
+
+/// A malformed id is just another id that does not exist.
+fn request_id(raw: &str) -> Result<Uuid, ApiError> {
+    Uuid::try_parse(raw).map_err(|_| ApiError::NotFound)
+}
+
+/// Another account as shown in request and friend lists.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct UserSummaryView {
+    #[schema(value_type = String, format = "uuid")]
+    pub id: Uuid,
+    #[schema(example = "Mai")]
+    pub display_name: String,
+    #[schema(example = "mai.cat")]
+    pub handle: Option<String>,
+}
+
+impl From<FriendSummary> for UserSummaryView {
+    fn from(summary: FriendSummary) -> Self {
+        Self {
+            id: summary.id,
+            display_name: summary.display_name,
+            handle: summary.handle,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum DirectionParam {
+    Incoming,
+    Outgoing,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ListQuery {
+    pub direction: DirectionParam,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct RequestItemView {
+    #[schema(value_type = String, format = "uuid")]
+    pub id: Uuid,
+    /// The sender (incoming) or the recipient (outgoing).
+    pub user: UserSummaryView,
+    #[serde(with = "time::serde::rfc3339")]
+    #[schema(value_type = String, format = DateTime)]
+    pub created_at: OffsetDateTime,
+    #[serde(with = "time::serde::rfc3339")]
+    #[schema(value_type = String, format = DateTime)]
+    pub expires_at: OffsetDateTime,
+}
+
+impl From<RequestItem> for RequestItemView {
+    fn from(item: RequestItem) -> Self {
+        Self {
+            id: item.id,
+            user: item.other.into(),
+            created_at: item.created_at,
+            expires_at: item.expires_at,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct RequestList {
+    /// Newest first, at most 100.
+    pub items: Vec<RequestItemView>,
+}
+
+/// My pending friend requests. Auth: ses.
+///
+/// `incoming`: requests addressed to me that I have not answered. `outgoing`: requests I sent that
+/// are still open; they all show as pending (declines are silent).
+#[utoipa::path(
+    get,
+    path = "/v1/friend-requests",
+    tag = TAG,
+    operation_id = "listFriendRequests",
+    security(("bearer" = [])),
+    params(("direction" = inline(DirectionParam), Query, description = "`incoming` or `outgoing`.")),
+    responses(
+        (status = OK, description = "Open requests, newest first.", body = RequestList),
+        (status = BAD_REQUEST, description = "VALIDATION_FAILED (missing or unknown direction).", body = ProblemDetails),
+        (status = UNAUTHORIZED, description = "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.", body = ProblemDetails),
+        (status = FORBIDDEN, description = "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.", body = ProblemDetails),
+        (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED.", body = ProblemDetails),
+    )
+)]
+pub async fn list_friend_requests(
+    State(state): State<AppState>,
+    caller: Caller,
+    query: Result<Query<ListQuery>, QueryRejection>,
+) -> Result<Json<RequestList>, ApiError> {
+    let Query(query) = query
+        .map_err(|_| ApiError::Validation("direction must be incoming or outgoing".to_owned()))?;
+    let direction = match query.direction {
+        DirectionParam::Incoming => Direction::Incoming,
+        DirectionParam::Outgoing => Direction::Outgoing,
+    };
+    let items = state
+        .social
+        .list_requests(caller.0.account_id, direction)
+        .await
+        .map_err(ApiError::internal)?;
+    Ok(Json(RequestList {
+        items: items.into_iter().map(RequestItemView::from).collect(),
+    }))
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct AcceptResponse {
+    /// The new friend.
+    pub friend: UserSummaryView,
+}
+
+/// Accept a friend request addressed to me. Auth: ses + att.
+///
+/// The 20-friend cap is re-checked for both sides at accept time; when either is full the request
+/// stays pending.
+#[utoipa::path(
+    post,
+    path = "/v1/friend-requests/{id}/accept",
+    tag = TAG,
+    operation_id = "acceptFriendRequest",
+    security(("bearer" = [])),
+    params(("id" = String, Path, format = "uuid", description = "Request id from the incoming list.")),
+    responses(
+        (status = OK, description = "Now friends.", body = AcceptResponse),
+        (status = UNAUTHORIZED, description = "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.", body = ProblemDetails),
+        (status = FORBIDDEN, description = "ONBOARDING_INCOMPLETE, ACCOUNT_SUSPENDED or ATTESTATION_FAILED (enforce mode).", body = ProblemDetails),
+        (status = NOT_FOUND, description = "NOT_FOUND: no pending request to the caller with this id.", body = ProblemDetails),
+        (status = CONFLICT, description = "FRIEND_LIMIT_REACHED.", body = ProblemDetails),
+        (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED.", body = ProblemDetails),
+    )
+)]
+pub async fn accept_friend_request(
+    State(state): State<AppState>,
+    caller: Caller,
+    Path(id): Path<String>,
+) -> Result<Json<AcceptResponse>, ApiError> {
+    let friend = state
+        .social
+        .accept_request(caller.0.account_id, request_id(&id)?)
+        .await
+        .map_err(answer_error)?;
+    Ok(Json(AcceptResponse {
+        friend: friend.into(),
+    }))
+}
+
+/// Decline a friend request addressed to me. Auth: ses. Silent: the sender is not told.
+#[utoipa::path(
+    post,
+    path = "/v1/friend-requests/{id}/decline",
+    tag = TAG,
+    operation_id = "declineFriendRequest",
+    security(("bearer" = [])),
+    params(("id" = String, Path, format = "uuid", description = "Request id from the incoming list.")),
+    responses(
+        (status = NO_CONTENT, description = "Declined."),
+        (status = UNAUTHORIZED, description = "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.", body = ProblemDetails),
+        (status = FORBIDDEN, description = "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.", body = ProblemDetails),
+        (status = NOT_FOUND, description = "NOT_FOUND: no pending request to the caller with this id.", body = ProblemDetails),
+        (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED.", body = ProblemDetails),
+    )
+)]
+pub async fn decline_friend_request(
+    State(state): State<AppState>,
+    caller: Caller,
+    Path(id): Path<String>,
+) -> Result<StatusCode, ApiError> {
+    state
+        .social
+        .decline_request(caller.0.account_id, request_id(&id)?)
+        .await
+        .map_err(answer_error)?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// Cancel a friend request I sent. Auth: ses.
+#[utoipa::path(
+    delete,
+    path = "/v1/friend-requests/{id}",
+    tag = TAG,
+    operation_id = "cancelFriendRequest",
+    security(("bearer" = [])),
+    params(("id" = String, Path, format = "uuid", description = "Request id from the outgoing list.")),
+    responses(
+        (status = NO_CONTENT, description = "Cancelled."),
+        (status = UNAUTHORIZED, description = "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.", body = ProblemDetails),
+        (status = FORBIDDEN, description = "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.", body = ProblemDetails),
+        (status = NOT_FOUND, description = "NOT_FOUND: no open request from the caller with this id.", body = ProblemDetails),
+        (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED.", body = ProblemDetails),
+    )
+)]
+pub async fn cancel_friend_request(
+    State(state): State<AppState>,
+    caller: Caller,
+    Path(id): Path<String>,
+) -> Result<StatusCode, ApiError> {
+    state
+        .social
+        .cancel_request(caller.0.account_id, request_id(&id)?)
+        .await
+        .map_err(answer_error)?;
+    Ok(StatusCode::NO_CONTENT)
 }

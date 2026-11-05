@@ -600,6 +600,93 @@
       }
     },
     "/v1/friend-requests": {
+      "get": {
+        "tags": [
+          "social"
+        ],
+        "summary": "My pending friend requests. Auth: ses.",
+        "description": "`incoming`: requests addressed to me that I have not answered. `outgoing`: requests I sent that\nare still open; they all show as pending (declines are silent).",
+        "operationId": "listFriendRequests",
+        "parameters": [
+          {
+            "name": "direction",
+            "in": "query",
+            "description": "`incoming` or `outgoing`.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "incoming",
+                "outgoing"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Open requests, newest first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED (missing or unknown direction).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "friend_requests.list",
+          "role": "user",
+          "versionGate": true
+        }
+      },
       "post": {
         "tags": [
           "social"
@@ -709,6 +796,258 @@
           "auth": "ses",
           "idempotency": "required",
           "rateLimit": "friend_requests.create",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
+    "/v1/friend-requests/{id}": {
+      "delete": {
+        "tags": [
+          "social"
+        ],
+        "summary": "Cancel a friend request I sent. Auth: ses.",
+        "operationId": "cancelFriendRequest",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Request id from the outgoing list.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Cancelled."
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: no open request from the caller with this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "friend_requests.cancel",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
+    "/v1/friend-requests/{id}/accept": {
+      "post": {
+        "tags": [
+          "social"
+        ],
+        "summary": "Accept a friend request addressed to me. Auth: ses + att.",
+        "description": "The 20-friend cap is re-checked for both sides at accept time; when either is full the request\nstays pending.",
+        "operationId": "acceptFriendRequest",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Request id from the incoming list.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Now friends.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcceptResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE, ACCOUNT_SUSPENDED or ATTESTATION_FAILED (enforce mode).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: no pending request to the caller with this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "FRIEND_LIMIT_REACHED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": true,
+          "auth": "ses",
+          "rateLimit": "friend_requests.accept",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
+    "/v1/friend-requests/{id}/decline": {
+      "post": {
+        "tags": [
+          "social"
+        ],
+        "summary": "Decline a friend request addressed to me. Auth: ses. Silent: the sender is not told.",
+        "operationId": "declineFriendRequest",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Request id from the incoming list.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Declined."
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: no pending request to the caller with this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "friend_requests.decline",
           "role": "user",
           "versionGate": true
         }
@@ -1686,6 +2025,18 @@
   },
   "components": {
     "schemas": {
+      "AcceptResponse": {
+        "type": "object",
+        "required": [
+          "friend"
+        ],
+        "properties": {
+          "friend": {
+            "$ref": "#/components/schemas/UserSummaryView",
+            "description": "The new friend."
+          }
+        }
+      },
       "AccountView": {
         "type": "object",
         "required": [
@@ -2465,6 +2816,48 @@
         },
         "additionalProperties": false
       },
+      "RequestItemView": {
+        "type": "object",
+        "required": [
+          "id",
+          "user",
+          "created_at",
+          "expires_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserSummaryView",
+            "description": "The sender (incoming) or the recipient (outgoing)."
+          }
+        }
+      },
+      "RequestList": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RequestItemView"
+            },
+            "description": "Newest first, at most 100."
+          }
+        }
+      },
       "SentRequestView": {
         "type": "object",
         "description": "A request as its sender sees it: pending until accepted or expired.",
@@ -2570,6 +2963,31 @@
           "token_type": {
             "type": "string",
             "example": "Bearer"
+          }
+        }
+      },
+      "UserSummaryView": {
+        "type": "object",
+        "description": "Another account as shown in request and friend lists.",
+        "required": [
+          "id",
+          "display_name"
+        ],
+        "properties": {
+          "display_name": {
+            "type": "string",
+            "example": "Mai"
+          },
+          "handle": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "mai.cat"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
           }
         }
       }

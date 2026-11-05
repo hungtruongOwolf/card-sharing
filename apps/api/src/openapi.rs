@@ -148,6 +148,24 @@ pub fn router() -> ApiRouter<AppState> {
                 .idempotency(Idempotency::Required),
             routes!(friend_requests::create_friend_request),
         )
+        .route(
+            RoutePolicy::session().limited("friend_requests.list"),
+            routes!(friend_requests::list_friend_requests),
+        )
+        .route(
+            RoutePolicy::session()
+                .limited("friend_requests.accept")
+                .with_attestation(),
+            routes!(friend_requests::accept_friend_request),
+        )
+        .route(
+            RoutePolicy::session().limited("friend_requests.decline"),
+            routes!(friend_requests::decline_friend_request),
+        )
+        .route(
+            RoutePolicy::session().limited("friend_requests.cancel"),
+            routes!(friend_requests::cancel_friend_request),
+        )
         .undocumented_policy(
             &Method::GET,
             "/openapi.json",
