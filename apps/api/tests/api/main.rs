@@ -12,6 +12,7 @@ mod authz_matrix;
 mod handle;
 mod http;
 mod idempotency;
+mod jobs;
 mod me;
 mod profile;
 mod rate_limit;

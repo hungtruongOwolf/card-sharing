@@ -17,20 +17,18 @@ redis.workspace = true
 # Selects the ring crypto provider for redis' rustls (rediss:// URLs).
 rustls.workspace = true
 serde.workspace = true
+serde_json.workspace = true
 serde_norway.workspace = true
 sha2.workspace = true
 sqlx.workspace = true
 thiserror.workspace = true
 time.workspace = true
-tokio.workspace = true
+tokio = { workspace = true, features = ["sync"] }
 tracing.workspace = true
 unicode-normalization.workspace = true
 unicode-segmentation.workspace = true
 utoipa.workspace = true
 uuid.workspace = true
-
-[dev-dependencies]
-serde_json.workspace = true
 
 [lints]
 workspace = true

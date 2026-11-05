@@ -7,6 +7,7 @@
 //! - [`config`]: typed environment configuration helpers that fail fast at startup.
 //! - [`request_id`]: `X-Request-Id` middleware and the per-request id.
 //! - [`crypto`]: AEAD encryption for personal-data columns (DOB, provider tokens).
+//! - [`jobs`]: Postgres job queue (lanes, unique keys, leases, backoff, dead letters) and worker.
 //! - [`idempotency`]: Idempotency-Key store (replay, reuse detection, leases).
 //! - [`cache`]: lazy Redis/Valkey connection (caches and buckets only, never durable data).
 //! - [`rate_limit`]: layered token-bucket rate limiter with limits from config.
@@ -18,6 +19,7 @@ pub mod config;
 pub mod crypto;
 pub mod idempotency;
 pub mod ids;
+pub mod jobs;
 pub mod problem;
 pub mod rate_limit;
 pub mod request_id;
