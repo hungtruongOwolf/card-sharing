@@ -2,7 +2,7 @@
 title: Effects Catalog (Tier 0) & Effect Registry
 type: spec
 status: draft
-updated: 2026-11-04
+updated: 2026-11-05
 sources: [raw/discussions/2026-11-04-prd-design-qa.md, raw/research/2026-11-04-zero-download-ai.md, raw/research/2026-11-04-subject-cutout.md, raw/research/2026-11-04-on-device-genai.md, raw/research/2026-11-04-frontend-stack.md, raw/discussions/2026-11-04-idea-round-1.md, raw/discussions/2026-11-04-idea-round-5.md]
 related: [[ADR-0003-effects-tiers]], [[subject-cutout]], [[design-system]], [[change-management]], [[monetization]], [[region-policy]], [[vision]], [[genai-effects]]
 ---
@@ -109,7 +109,9 @@ pose model downloaded on first use (Phase 2, [[ADR-0003-effects-tiers]]). Props 
 Export rules:
 - **Still:** render the composed card offscreen (`makeImageSnapshot`) at export resolution (long side 2048, 1080 for share), PNG with alpha for stickers, JPEG for photos; holo frozen at a flattering tilt.
 - **Loop clip (procedural only, not AI video):** render N frames with the `time` uniform offscreen → encode MP4/animated WebP via a native encoder module (AVAssetWriter / MediaCodec); Skia video export is beta → Phase 2. EM confirmed 2026-11-04: procedural loops are allowed (not AI video) — **Phase 2**.
-- Web share pages show the baked still (`webPreview: 'baked'`); live shaders only after lazy CanvasKit load.
+- Web share pages show the baked still (`webPreview: 'baked'`). On enlarge, the holo runs as a small WebGL2 port of the
+  same shader (`packages/shaders` uniforms), not CanvasKit: the T-126 spike measured CanvasKit at 2.9 MB gz, 15-17 s cold on
+  slow 4G (EM decision 2026-11-05, raw/research/2026-11-05-web-skia-spike.md).
 
 ### 3.3 MVP must-have 10 (and why)
 | # | id | Why |

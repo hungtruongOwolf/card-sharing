@@ -289,7 +289,7 @@ Images pre-resized server-side to widget sizes; no shaders in widgets (baked out
 | JS thread | No per-frame JS; gestures + animation in worklets; CRDT commits throttled |
 | Cutout | Mask ≤1 s on device (est.); contour on ≤512 px downsampled mask |
 | Thermal | On `thermalState` serious: pause holo/particles, drop to 60 fps |
-| Share page | LCP < 2.5 s with static board image; Skia/CanvasKit (~2.9 MB gz) lazy only on interaction |
+| Share page | LCP < 2.5 s (measured 1.5-2.1 s, T-126); initial JS <= 200 KB gz (measured ~140 KB); LCP still <= 100 KB WebP/AVIF ~600 px (EM-accepted); holo on enlarge via ~5 KB WebGL2 shader port, no CanvasKit on share pages |
 
 ## Open questions
 - **Decided (EM 2026-11-04):** brand vibe "warm scrapbook zine" — Bricolage Grotesque + DM Sans + Caveat + Anton + DM Mono, primary tomato `#C8412B`. Card-touch sounds ship in MVP (toggle, respect mute).
