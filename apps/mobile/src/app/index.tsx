@@ -4,13 +4,13 @@ import { StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { space } from '@card-sharing/tokens';
 
+import { CAPTION_MAX_GRAPHEMES as CAPTION_MAX, checkCaption } from '../features/captions';
 import { HoloCard } from '../features/holo-card';
 import { t } from '../i18n';
 import { Button, Screen, Sheet, Text, TextField, useToast } from '../ui';
 
 const CARD_ASPECT = 1.4;
 const MAX_CARD_WIDTH = 340;
-const CAPTION_MAX = 80;
 const DEMO_FRIEND_COUNT = 3;
 
 /** Toolchain proof (Skia + Reanimated + Gesture Handler) and a live sample of the T-33 UI kit. */
@@ -21,7 +21,8 @@ export default function HomeScreen() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [caption, setCaption] = useState('');
   const cardWidth = Math.min(width - space[8] * 2, MAX_CARD_WIDTH);
-  const over = caption.length - CAPTION_MAX;
+  // Graphemes, not UTF-16 code units: an emoji counts as one character (T-69).
+  const over = checkCaption(caption).length - CAPTION_MAX;
 
   return (
     <Screen title={t('app.name')} centered>

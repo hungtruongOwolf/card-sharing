@@ -17,6 +17,13 @@ describe('remote config', () => {
     expect(parseRemoteConfig('nope')).toBeNull();
   });
 
+  it('reads the caption limit only when it is a sane positive integer', () => {
+    const limit = (value: unknown) =>
+      parseRemoteConfig({ limits: { caption_max_chars: value } })?.captionMaxGraphemes;
+    expect(limit(80)).toBe(80);
+    for (const bad of [0, -1, 2.5, 1e9, '80', null]) expect(limit(bad)).toBeUndefined();
+  });
+
   it('fetches GET /v1/config and fails on an error status', async () => {
     const fetchFn = jest.fn(async (url: string) =>
       url.endsWith('/v1/config')

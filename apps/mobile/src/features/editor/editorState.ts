@@ -1,5 +1,7 @@
 import { clampParams, type EffectEntry, type ParamValue } from '@card-sharing/effects-registry';
 
+import { sanitizeText } from '../../text';
+
 /**
  * Card editor state (T-64): what the user chose, as the registry stores it (`{id, version, params}`), plus an
  * undo/redo history. Pure, so it is unit-tested without rendering. Params go through `clampParams` (lenient UI
@@ -18,6 +20,8 @@ export interface CardDraft {
   finish: StyleChoice | null;
   /** "Use whole photo" (prd-mvp AC-7.4): ignore the subject mask even when there is one. */
   wholePhoto: boolean;
+  /** Optional caption (US-12), stored sanitized; '' = none. Length and filter rules live in features/captions. */
+  caption: string;
 }
 
 export interface EditorHistory {
@@ -38,6 +42,7 @@ export type EditorAction =
       params: Readonly<Record<string, unknown>>;
     }
   | { type: 'setWholePhoto'; value: boolean }
+  | { type: 'setCaption'; text: string }
   | { type: 'undo' }
   | { type: 'redo' };
 
@@ -52,7 +57,7 @@ export function styleChoice(entry: EffectEntry, params?: unknown): StyleChoice {
 export function initialHistory(cut: EffectEntry): EditorHistory {
   return {
     past: [],
-    present: { cut: styleChoice(cut), finish: null, wholePhoto: false },
+    present: { cut: styleChoice(cut), finish: null, wholePhoto: false, caption: '' },
     future: [],
   };
 }
@@ -80,6 +85,9 @@ function nextDraft(draft: CardDraft, action: EditorAction): CardDraft {
       return { ...draft, [action.slot]: styleChoice(action.entry, action.params) };
     case 'setWholePhoto':
       return { ...draft, wholePhoto: action.value };
+    case 'setCaption':
+      // Sanitized here too, so the draft never holds bidi controls or invisible characters (SR-28).
+      return { ...draft, caption: sanitizeText(action.text) };
     case 'undo':
     case 'redo':
       return draft;

@@ -3,6 +3,8 @@
  * feedback: the server validates again and runs the profanity filter and the uniqueness check.
  */
 
+import { graphemeCount } from '../../text';
+
 export const DISPLAY_NAME_MIN = 2;
 export const DISPLAY_NAME_MAX = 30;
 export const HANDLE_MIN = 3;
@@ -10,14 +12,8 @@ export const HANDLE_MAX = 20;
 
 const HANDLE_PATTERN = /^[a-z0-9._]{3,20}$/;
 
-/** Grapheme count (what the server counts), falling back to code points where `Intl.Segmenter` is missing. */
-export function graphemeCount(value: string): number {
-  if (typeof Intl !== 'undefined' && 'Segmenter' in Intl) {
-    return Array.from(new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(value))
-      .length;
-  }
-  return Array.from(value).length;
-}
+/** Grapheme count (what the server counts); shared with captions. */
+export { graphemeCount };
 
 export type DisplayNameIssue = 'tooShort' | 'tooLong';
 

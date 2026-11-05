@@ -3,11 +3,21 @@ import type { RemoteRegistryConfig } from '@card-sharing/effects-registry';
 /**
  * Public client config (`GET /v1/config`, T-27): feature flags, registry kill switches and product limits.
  * Unauthenticated and CDN-cached, so it carries no user data. Display only: the server enforces its own copy.
- * Only the registry part is read so far; product limits join when a screen needs them.
+ * Read so far: the registry part and the caption limit.
  */
 export interface RemoteConfig {
   registry: RemoteRegistryConfig;
+  /** `limits.caption_max_chars` (grapheme clusters), when present and sane. */
+  captionMaxGraphemes?: number;
 }
+
+/** Upper bound accepted for a served length limit; anything else falls back to the app's default. */
+const MAX_SERVED_LIMIT = 1000;
+
+const positiveLimit = (value: unknown): number | undefined =>
+  Number.isSafeInteger(value) && (value as number) > 0 && (value as number) <= MAX_SERVED_LIMIT
+    ? (value as number)
+    : undefined;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -25,7 +35,11 @@ export function parseRemoteConfig(body: unknown): RemoteConfig | null {
     ? Object.fromEntries(Object.entries(body.flags).filter(([, on]) => typeof on === 'boolean'))
     : {};
   const kill = isRecord(body.kill_switches) ? body.kill_switches : {};
+  const captionMaxGraphemes = isRecord(body.limits)
+    ? positiveLimit(body.limits.caption_max_chars)
+    : undefined;
   return {
+    ...(captionMaxGraphemes === undefined ? {} : { captionMaxGraphemes }),
     registry: {
       flags: flags as Record<string, boolean>,
       kill_switches: {
