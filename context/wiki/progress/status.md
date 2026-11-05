@@ -38,6 +38,7 @@ related: [[roadmap]], [[ADR-0002-cross-platform-stack]], [[vision]]
 - Accounts (no paid accounts yet, by EM choice): Apple Developer, Google Play/Cloud, Fly.io, Cloudflare, Upstash, Expo; GitHub Pro (or public repo) for branch protection. Devices: iPhone only.
 - Minor: PRD Q8 metric targets, Q9 moderation staffing / CSAM hash vendor (blocks launch, not design).
 - Infra: EU data residency stance (before EU launch).
+- Content safety (decide by 2026-11-18, see [[content-safety]]): legal entity + CSAM point of contact, counsel timing, licensed eval images budget, FP/recall targets, vendor second opinion.
 - From MVP plan (by end of sprint 1): CSAM vendor (PhotoDNA vs Thorn Safer) + NCMEC reporting owner; nudity classifier choice;
   team size (plan assumes ~4.5 parallel lanes); torn-paper cut style at launch (PRD says yes, catalog says fast-follow);
   beta go/no-go metrics + beta regions; admin console location + captcha provider (by sprint 6).

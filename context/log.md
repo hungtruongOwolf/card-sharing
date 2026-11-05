@@ -100,3 +100,9 @@
 - T-2 done: CI repo-hygiene job (english_only, wiki lint) + `pnpm audit --prod --audit-level high` with two reviewed
   Expo-transitive exceptions in pnpm-workspace.yaml `auditConfig`; Rust advisories stay with cargo-deny. Branch protection
   needs GitHub Pro on a private repo, recorded as an EM blocker.
+
+## [2026-11-05] ingest | Content-safety spikes T-136, T-137
+- Raw: raw/research/2026-11-05-csam-hash-vendors.md, raw/research/2026-11-05-nudity-classifiers.md.
+- New page content-safety: free hash services (Arachnid Shield, PhotoDNA, NCMEC) need vetting + a legal entity; Thorn Safer
+  deferred (~$30.7k/yr). Nudity: self-hosted Marqo ViT-tiny (Apache-2.0) on server + phone; NudeNet rejected (AGPL).
+- ADR-0005 links to it; EM decisions (entity, counsel, eval data, FP/recall, vendor second opinion) due 2026-11-18 in status.
