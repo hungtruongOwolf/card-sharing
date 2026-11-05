@@ -149,6 +149,23 @@ describe('CardEditorScreen', () => {
       expect(screen.queryByLabelText(t('editor.wholePhoto'))).toBeNull();
       expect(tile('effects.cut.diecut.name')).toBeNull();
       expect(selected('effects.cut.none.name')).toBe(true);
+      // Mask-free shape cuts for whole-photo cards (EM decision 2026-11-05, T-63).
+      for (const key of [
+        'effects.cut.torn.name',
+        'effects.cut.shape.roundedSquare.name',
+        'effects.cut.shape.circle.name',
+        'effects.cut.shape.heart.name',
+      ] as const) {
+        expect(tile(key)).toBeTruthy();
+      }
+      await userEvent
+        .setup()
+        .press(screen.getByRole('button', { name: t('effects.cut.torn.name') }));
+      expect(screen.getByRole('radio', { name: t('effects.param.paper.kraft') })).toBeTruthy();
+      // The seed is a hidden param: roughness is the only stepper.
+      expect(
+        screen.getAllByRole('adjustable').map((node) => node.props.accessibilityLabel),
+      ).toEqual([t('effects.param.roughness')]);
       await userEvent.setup().press(screen.getByRole('tab', { name: t('editor.tab.finish') }));
       expect(tile('effects.fx.holo.name')).toBeNull();
     },

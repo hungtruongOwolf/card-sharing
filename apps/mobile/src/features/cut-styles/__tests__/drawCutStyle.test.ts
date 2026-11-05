@@ -31,7 +31,15 @@ function entry(id: string): EffectEntry {
   return found;
 }
 
+let cachedScene: CutScene | undefined;
+
+/** Built once: tracing the contour and baking the photo per render made the suite slow under a full run. */
 function discScene(): CutScene {
+  cachedScene ??= buildDiscScene();
+  return cachedScene;
+}
+
+function buildDiscScene(): CutScene {
   const data = new Uint8Array(SIZE * SIZE);
   for (let y = 0; y < SIZE; y++) {
     for (let x = 0; x < SIZE; x++) {
@@ -51,11 +59,19 @@ function discScene(): CutScene {
   };
 }
 
-function render(id: string, params: unknown, background?: string): Uint8Array {
+/** The disc scene without its subject: a whole-photo card (no on-device cutout, EM 2026-11-05). */
+const wholePhotoScene = (): CutScene => ({ ...discScene(), subject: null });
+
+function render(
+  id: string,
+  params: unknown,
+  background?: string,
+  scene: CutScene = discScene(),
+): Uint8Array {
   const surface = Skia.Surface.Make(SIZE, SIZE)!;
   const canvas = surface.getCanvas();
   if (background) canvas.clear(Skia.Color(background));
-  drawCutStyle(canvas, entry(id), params, discScene());
+  drawCutStyle(canvas, entry(id), params, scene);
   surface.flush();
   return pixelsOf(surface.makeImageSnapshot());
 }
@@ -131,15 +147,101 @@ describe('cut style renderers', () => {
     expect(render('cut.diecut', { color: '#FF0000' })).not.toEqual(render('cut.diecut', {}));
   });
 
+  it('refuses mask-based styles on a whole-photo card', () => {
+    expect(() => render('cut.raw', {}, undefined, wholePhotoScene())).toThrow(/needs a subject/);
+    expect(() => render('cut.diecut', {}, undefined, wholePhotoScene())).toThrow(/needs a subject/);
+  });
+
   it.each(SCHEMES)('matches the golden signatures on the %s canvas', (scheme) => {
     const background = buildTheme(scheme, false).color.bg.canvas;
     const goldens = Object.fromEntries(
-      ['cut.none', 'cut.raw', 'cut.diecut'].map((id) => [
-        id,
-        signature(render(id, {}, background)),
-      ]),
+      registry.byKind('cutStyle').map((e) => [e.id, signature(render(e.id, {}, background))]),
     );
     expect(goldens).toMatchSnapshot();
+  });
+
+  it.each(SCHEMES)('matches the whole-photo golden signatures on the %s canvas', (scheme) => {
+    const background = buildTheme(scheme, false).color.bg.canvas;
+    const maskFree = registry
+      .byKind('cutStyle')
+      .filter((e) => e.platforms.ios.requires.length === 0);
+    const goldens = Object.fromEntries(
+      maskFree.map((e) => [e.id, signature(render(e.id, {}, background, wholePhotoScene()))]),
+    );
+    expect(goldens).toMatchSnapshot();
+  });
+});
+
+describe('shape cuts (whole photo, T-63)', () => {
+  const shape = (id: string, params: unknown = {}) =>
+    render(id, params, undefined, wholePhotoScene());
+  const WHITE = [255, 255, 255, 255];
+
+  it('cut.shape.circle: photo inside the circle, transparent corners, border at the rim', () => {
+    const pixels = shape('cut.shape.circle', { borderWidthPct: 6 });
+    expect(at(pixels, CENTER, CENTER)).toEqual(PHOTO);
+    expect(at(pixels, 6, 6)[3]).toBe(0);
+    // Square side 0.96 * 128 ≈ 123 px: radius ≈ 61, border ≈ 7 px.
+    expect(at(pixels, CENTER + 58, CENTER)).toEqual(WHITE);
+    expect(at(pixels, CENTER + 50, CENTER)).toEqual(PHOTO);
+  });
+
+  it('cut.shape.heart: photo in the lobes, transparent in the top notch and the corners', () => {
+    const pixels = shape('cut.shape.heart', { borderWidthPct: 0 });
+    expect(at(pixels, CENTER, CENTER)).toEqual(PHOTO);
+    expect(at(pixels, CENTER - 25, 30)).toEqual(PHOTO);
+    expect(at(pixels, CENTER, 14)[3]).toBe(0);
+    expect(at(pixels, 4, 124)[3]).toBe(0);
+  });
+
+  it('cut.shape.rounded-square: rounded corners, corner radius clamps to 4-30 %', () => {
+    const pixels = shape('cut.shape.rounded-square', { borderWidthPct: 0, cornerRadiusPct: 30 });
+    expect(at(pixels, 4, 4)[3]).toBe(0);
+    expect(at(pixels, CENTER, 4)).toEqual(PHOTO);
+    expect(shape('cut.shape.rounded-square', { cornerRadiusPct: 90 })).toEqual(
+      shape('cut.shape.rounded-square', { cornerRadiusPct: 30 }),
+    );
+  });
+
+  it('use the photo, not the subject, when a subject exists', () => {
+    expect(render('cut.shape.circle', {})).toEqual(shape('cut.shape.circle'));
+  });
+});
+
+describe('cut.torn (T-63)', () => {
+  it('is deterministic for a seed and changes with it', () => {
+    expect(render('cut.torn', { seed: 42 })).toEqual(render('cut.torn', { seed: 42 }));
+    expect(render('cut.torn', { seed: 42 })).not.toEqual(render('cut.torn', { seed: 43 }));
+    const whole = (seed: number) => render('cut.torn', { seed }, undefined, wholePhotoScene());
+    expect(whole(5)).toEqual(whole(5));
+    expect(whole(5)).not.toEqual(whole(6));
+  });
+
+  it('puts the subject on a paper scrap that follows its contour', () => {
+    const pixels = render('cut.torn', { roughness: 0.2 });
+    expect(at(pixels, CENTER, CENTER)).toEqual(PHOTO);
+    // Paper margin is 4.5 % of 128 ≈ 5.8 px beyond the outline (near RADIUS - 1).
+    expect(at(pixels, CENTER + RADIUS + 3, CENTER)).toEqual([255, 253, 247, 255]);
+    expect(at(pixels, CENTER + RADIUS + 14, CENTER)[3]).toBe(0);
+    expect(at(pixels, 2, 2)[3]).toBe(0);
+  });
+
+  it('tears the whole photo out on a paper rim without a subject', () => {
+    const pixels = render(
+      'cut.torn',
+      { roughness: 0.2, paper: 'kraft' },
+      undefined,
+      wholePhotoScene(),
+    );
+    expect(at(pixels, CENTER, CENTER)).toEqual(PHOTO);
+    expect(at(pixels, 4, CENTER)).toEqual([201, 162, 126, 255]);
+    expect(at(pixels, 0, 0)[3]).toBe(0);
+  });
+
+  it('draws grid lines only on the grid paper', () => {
+    expect(render('cut.torn', { paper: 'grid' })).not.toEqual(
+      render('cut.torn', { paper: 'white' }),
+    );
   });
 });
 

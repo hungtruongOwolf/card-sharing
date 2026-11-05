@@ -2,7 +2,7 @@ import { Skia } from '@shopify/react-native-skia';
 
 import { toPathCommands, toSvgPath, type ContourResult } from '@card-sharing/canvas-engine';
 
-import type { CutSubject } from './drawCutStyle';
+import type { CutSubject } from './cutScene';
 
 /**
  * Thin adapter from canvas-engine contours (mask pixels) to an SkPath in canvas pixels. `scale` maps mask

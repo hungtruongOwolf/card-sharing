@@ -99,10 +99,21 @@ describe('visibleEntries', () => {
       'cut.none',
       'cut.raw',
       'cut.diecut',
+      'cut.torn',
+      'cut.shape.rounded-square',
+      'cut.shape.circle',
+      'cut.shape.heart',
       'fx.paper-lift',
     ]);
+  });
+
+  it('gives devices without on-device cutout the whole-photo styles (EM 2026-11-05)', () => {
     expect(visibleEntries(ENTRIES, noGms).map(({ entry }) => entry.id)).toEqual([
       'cut.none',
+      'cut.torn',
+      'cut.shape.rounded-square',
+      'cut.shape.circle',
+      'cut.shape.heart',
       'fx.holo',
       'fx.paper-lift',
     ]);
