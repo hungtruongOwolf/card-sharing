@@ -29,12 +29,12 @@ const GRID_GAP = space[3];
  * are baked), a resolution-scale knob, the reduced-motion variant and a frame-time overlay. The
  * measurement protocol is in context/raw/research/2026-11-05-holo-spike.md.
  */
-export function HoloLabScreen() {
+export function HoloLabScreen({ onClose }: { onClose: () => void }) {
   const [settings, setSettings] = useState<HoloLabSettings>(DEFAULT_HOLO_LAB_SETTINGS);
   return (
     // Forcing reduced motion re-themes the lab only, so its buttons follow the variant too.
     <ThemeProvider reducedMotion={settings.forceReducedMotion ? true : undefined}>
-      <HoloLab settings={settings} onChange={setSettings} />
+      <HoloLab settings={settings} onChange={setSettings} onClose={onClose} />
     </ThemeProvider>
   );
 }
@@ -42,9 +42,10 @@ export function HoloLabScreen() {
 interface HoloLabProps {
   settings: HoloLabSettings;
   onChange: (update: (s: HoloLabSettings) => HoloLabSettings) => void;
+  onClose: () => void;
 }
 
-function HoloLab({ settings, onChange }: HoloLabProps) {
+function HoloLab({ settings, onChange, onClose }: HoloLabProps) {
   const { reducedMotion } = useTheme();
   const { width: windowWidth } = useWindowDimensions();
   const [gyroAvailable, setGyroAvailable] = useState(true);
@@ -72,6 +73,8 @@ function HoloLab({ settings, onChange }: HoloLabProps) {
   return (
     <Screen title={t('holo.lab.title')}>
       {usesGyro ? <GyroTiltDriver tilt={tilt} onAvailability={setGyroAvailable} /> : null}
+      {/* The phase stack disables swipe-back, so the lab needs its own way out. */}
+      <Button label={t('common.close')} variant="secondary" onPress={onClose} />
       <Text tone="muted">{t('holo.lab.hint')}</Text>
       {settings.capture ? <CapturePanel /> : null}
       <Text>
