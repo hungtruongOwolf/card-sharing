@@ -93,3 +93,10 @@
   verified in a minimal repro), so apps no longer declare internal packages: they import them via tsconfig `paths`
   (honoured by Next.js, Expo/Metro, tsc, dependency-cruiser). turbo.json `globalDependencies` covers packages/* for caching.
 - README + status.md updated; supersedes the "move repo to NTFS" note above.
+
+## [2026-11-05] decision | Sprint 1 kickoff (free-first)
+- Source: raw/discussions/2026-11-05-sprint-1-kickoff-qa.md. No paid accounts yet; iPhone is the only device; 3 parallel lanes.
+- sprint-1 accepted with kickoff adjustments (deploy/EAS/native device spikes deferred; sign-in against mocked JWKS).
+- T-2 done: CI repo-hygiene job (english_only, wiki lint) + `pnpm audit --prod --audit-level high` with two reviewed
+  Expo-transitive exceptions in pnpm-workspace.yaml `auditConfig`; Rust advisories stay with cargo-deny. Branch protection
+  needs GitHub Pro on a private repo, recorded as an EM blocker.

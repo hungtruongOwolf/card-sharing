@@ -1,9 +1,9 @@
 ---
 title: Sprint 1 — identity slice + risk spikes
 type: status
-status: proposed
-updated: 2026-11-04
-sources: [raw/discussions/2026-11-04-prd-design-qa.md, raw/discussions/2026-11-04-security-qa.md, raw/discussions/2026-11-04-infra-qa.md]
+status: accepted
+updated: 2026-11-05
+sources: [raw/discussions/2026-11-05-sprint-1-kickoff-qa.md, raw/discussions/2026-11-04-prd-design-qa.md, raw/discussions/2026-11-04-security-qa.md, raw/discussions/2026-11-04-infra-qa.md]
 related: [[mvp-plan]], [[prd-mvp]], [[threat-model-mvp]], [[api-mvp]], [[ADR-0004-auth-sessions]], [[region-policy]], [[subject-cutout]], [[effects-catalog]], [[design-system]], [[testing-strategy]], [[status]]
 ---
 # Sprint 1 — identity slice + risk spikes
@@ -11,6 +11,25 @@ related: [[mvp-plan]], [[prd-mvp]], [[threat-model-mvp]], [[api-mvp]], [[ADR-000
 vertical slice, **sign in → region age gate → onboarding**, on a staging build, behind a deny-by-default route gate. At the same
 time it answers the riskiest unknowns of the whole MVP: cutout, holo, iOS widget push, Skia on the web, the nudity classifier and
 the CSAM vendor. The full plan and traceability are in [[mvp-plan]]. The tickets also appear in `context/wiki/progress/backlog.json` (label `sprint-1`).
+
+## Kickoff adjustments (EM, 2026-11-05)
+Started 2026-11-05, ahead of the planned dates, while the code-only parts of M0 finish in parallel. Constraints from the EM:
+no paid accounts yet (free-first; register Apple/Google/Fly/Cloudflare/Upstash/EAS later if the idea proves out), and the
+only test device is an iPhone (no Mac, no Android phone).
+
+| Ticket(s) | Adjustment |
+|---|---|
+| T-4..T-7, T-9 (M0 deploy/EAS) | **Deferred** until accounts exist. Staging demo is replaced by local `docker compose` + CI. |
+| T-19, T-20 | Built and tested against a **mocked JWKS**; real provider tests wait for Apple/Google accounts. |
+| T-50, T-89 (iOS spikes) | **Deferred**: need a Mac or EAS + a paid Apple Developer account for a dev build on the iPhone. |
+| T-51 (Android spike) | **Deferred**: no Android device. |
+| T-52 (holo 60 fps) | Code can progress; on-device frame-time numbers deferred (Expo Go cannot load the SDK-bundled Skia/Reanimated). |
+| T-126 (web Skia) | Kept; runs locally with Lighthouse. |
+| T-136, T-137 | Desk research with a **free-now vs launch-time** split. |
+| T-2 (M0 CI gates) | Done by the lead; branch protection blocked by GitHub Free on a private repo. |
+
+Lanes: backend (T-10 → T-11 → T-13 → T-18 → T-27 → T-28 → T-12, then T-19/T-20), mobile (T-33, then T-21/T-34),
+research (T-136, T-137). Memory-bound machine: one Rust build at a time.
 
 ## Sprint goal
 > A tester installs the staging build, signs in with Apple or Google, is refused or admitted by the region age gate (EU 16 / default 13

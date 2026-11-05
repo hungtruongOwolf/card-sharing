@@ -2,12 +2,12 @@
 title: Project Status
 type: status
 status: accepted
-updated: 2026-11-04
+updated: 2026-11-05
 related: [[roadmap]], [[ADR-0002-cross-platform-stack]], [[vision]]
 ---
 # Project Status
 
-**Phase:** 3 — Foundation (walking skeleton done); Design done
+**Phase:** 3 — Foundation; **sprint 1 started 2026-11-05** ([[sprint-1]], kickoff adjustments there)
 
 ## Done
 - Setup: context wiki, 16 team skills, security baseline, git init (2026-11-04).
@@ -20,7 +20,8 @@ related: [[roadmap]], [[ADR-0002-cross-platform-stack]], [[vision]]
 - Research (5 tracks): frontend stack, subject cutout, cloud GenAI, on-device GenAI, zero-download AI.
 
 ## Next
-2. MVP plan done ([[mvp-plan]], [[sprint-1]]) → GitHub milestones/issues → start sprint 1.
+1. Sprint 1 in progress: backend lane, mobile lane (T-33), research spikes (T-136, T-137). GitHub issues T-1..T-169 synced.
+2. Deferred until the EM registers accounts (free-first): staging deploy T-4..T-7, EAS T-9, real Apple/Google sign-in, native device spikes.
 3. Foundation follow-ups: API Dockerfile + CD to Fly.io, sqlx/Postgres + Redis readiness, OpenTelemetry/Sentry, seed + one-command dev, Playwright smoke, `packages/shaders` + `canvas-*` extraction, tokens from design-system.
 3. Week-1 spike: Skia web perf, holo shader, cutout module, Tier-0 hero effects.
 
@@ -34,6 +35,7 @@ related: [[roadmap]], [[ADR-0002-cross-platform-stack]], [[vision]]
 - Local object storage image is the community fork `pgsty/minio` (official image unavailable) — supply-chain call pending EM (alt: RustFS).
 
 ## Blockers / waiting on EM
+- Accounts (no paid accounts yet, by EM choice): Apple Developer, Google Play/Cloud, Fly.io, Cloudflare, Upstash, Expo; GitHub Pro (or public repo) for branch protection. Devices: iPhone only.
 - Minor: PRD Q8 metric targets, Q9 moderation staffing / CSAM hash vendor (blocks launch, not design).
 - Infra: EU data residency stance (before EU launch).
 - From MVP plan (by end of sprint 1): CSAM vendor (PhotoDNA vs Thorn Safer) + NCMEC reporting owner; nudity classifier choice;

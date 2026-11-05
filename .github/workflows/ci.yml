@@ -20,6 +20,17 @@ env:
 
 # Third-party actions are pinned to commit SHAs (tag in the trailing comment).
 jobs:
+  repo-hygiene:
+    name: Repo hygiene (English-only, wiki lint)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: English-only content (CLAUDE.md language rule)
+        run: python3 tools/english_only.py
+      - name: Context wiki lint (broken links, orphans, front matter)
+        run: python3 tools/wiki_graph.py lint
+
   rust:
     name: Rust (fmt, clippy, test)
     runs-on: ubuntu-latest
@@ -62,6 +73,9 @@ jobs:
           key: turbo-${{ runner.os }}-${{ github.sha }}
           restore-keys: turbo-${{ runner.os }}-
       - run: pnpm install --frozen-lockfile
+      # Fails on high/critical advisories in production deps; reviewed exceptions live in pnpm-workspace.yaml (auditConfig).
+      # Rust advisories are covered by the cargo-deny job (RustSec database), so no separate cargo-audit step.
+      - run: pnpm audit --prod --audit-level high
       - run: pnpm format:check
       - run: pnpm lint
       - run: pnpm lint:boundaries
