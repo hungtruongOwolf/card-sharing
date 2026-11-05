@@ -24,6 +24,7 @@ import { ThemeProvider, ToastProvider, useTheme } from '../ui';
 const ROUTES: readonly (readonly [Exclude<OnboardingPhase, 'loading' | 'error'>, string])[] = [
   ['home', 'index'],
   ['home', 'holo-lab'],
+  ['home', 'capture'],
   ['signIn', 'onboarding/sign-in'],
   ['refused', 'onboarding/refused'],
   ['birthDate', 'onboarding/birth-date'],
