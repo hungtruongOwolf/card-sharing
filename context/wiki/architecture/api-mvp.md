@@ -66,6 +66,13 @@ Implemented so far: `POST /v1/auth/refresh` `{refresh_token}` → `{token_type: 
 (unknown token → 401 `UNAUTHENTICATED`; reused / revoked / idle- or absolute-expired family → 401 `SESSION_REVOKED`; a retry of the
 previous token within 30 s while its successor is unused is accepted); `DELETE /v1/sessions/current` → 204.
 
+`GET /v1/me` → `{account: {id, status}, onboarding: {step: age|profile|done}, policy: {min_age, ai_effects, ads, ai_label}}`
+(policy = strictest of the signals stored at sign-up and the current IP country; the profile block arrives with the profile
+ticket). `GET /v1/config` → `{min_app_version, limits, flags, kill_switches}` from `config/client.yaml`, `Cache-Control: public,
+max-age=300`, byte-identical for every caller. Min-version gate: `X-App-Version` (semver) below `min_app_version` → 426
+`UPGRADE_REQUIRED`; malformed → 400; absent → allowed (web, tools). Exempt: `/v1/config`, probes, `/openapi.json`
+(`x-policy.versionGate: false`). IP country comes only from the header named by `API_IP_COUNTRY_HEADER` (trusted edge).
+
 ### Media
 | Method | Path | Purpose | Auth | Role | Object rule | Rate limit | Idem. | US |
 |---|---|---|---|---|---|---|---|---|

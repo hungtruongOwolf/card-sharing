@@ -115,6 +115,18 @@ impl PolicyService {
     }
 }
 
+impl PolicyService {
+    /// Strictest policy across several contexts, e.g. the signals stored at sign-up and those
+    /// of the current request (SR-24: a later request from a laxer region never loosens rules).
+    pub fn resolve_strictest(&self, contexts: &[PolicyContext]) -> Policy {
+        contexts
+            .iter()
+            .map(|ctx| self.resolve(ctx))
+            .reduce(strictest)
+            .unwrap_or_else(|| self.config.default.clone())
+    }
+}
+
 /// Field-wise strictest combination of two policies.
 fn strictest(a: Policy, b: Policy) -> Policy {
     Policy {

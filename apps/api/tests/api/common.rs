@@ -1,9 +1,9 @@
 //! Shared helpers for the API integration tests.
-#![allow(dead_code, clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use std::sync::Arc;
 use std::time::Duration;
 
+use api::client_config::ClientConfig;
 use api::config::{Config, LogFormat};
 use api::state::AppState;
 use axum::Router;
@@ -39,7 +39,22 @@ pub fn test_config() -> Config {
         redis_url: Secret::new("redis://127.0.0.1:1/0"),
         limits_config_path: "unused-in-tests".into(),
         client_ip_header: None,
+        ip_country_header: Some(http::HeaderName::from_static(TEST_COUNTRY_HEADER)),
+        client_config_path: "unused-in-tests".into(),
     }
+}
+
+/// Header the tests use as the trusted IP-country header.
+pub const TEST_COUNTRY_HEADER: &str = "x-test-ip-country";
+pub const CLIENT_YAML: &str = include_str!("../../../../config/client.yaml");
+
+pub fn client_config() -> ClientConfig {
+    ClientConfig::from_yaml_str(CLIENT_YAML).unwrap()
+}
+
+/// The production routes without database or Redis.
+pub fn offline_app() -> Router {
+    api::app(offline_state(), &test_config())
 }
 
 pub fn limits_config() -> RateLimitConfig {
@@ -66,7 +81,13 @@ pub fn offline_identity() -> Arc<IdentityService> {
 
 /// App state without database or Redis.
 pub fn offline_state() -> AppState {
-    AppState::new(policy_service(), memory_limiter(), offline_identity())
+    AppState::new(
+        policy_service(),
+        memory_limiter(),
+        offline_identity(),
+        client_config(),
+    )
+    .with_ip_country_header(test_config().ip_country_header)
 }
 
 /// Real Postgres + Redis, migrated, with a manual clock. `None` when the services are not
@@ -102,7 +123,13 @@ impl TestEnv {
             SessionPolicy::default(),
         ));
         // In-memory limiter: rate limits have their own tests; here they must not interfere.
-        let state = AppState::new(policy_service(), memory_limiter(), Arc::clone(&identity));
+        let state = AppState::new(
+            policy_service(),
+            memory_limiter(),
+            Arc::clone(&identity),
+            client_config(),
+        )
+        .with_ip_country_header(test_config().ip_country_header);
         let router = api::build(routes, state.clone(), &test_config());
         Some(Self {
             router,

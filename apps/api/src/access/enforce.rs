@@ -20,6 +20,8 @@ pub struct AccessState {
     pub sessions: Arc<dyn SessionResolver>,
     pub limiter: Arc<RateLimiter>,
     pub client_ip: ClientIpSource,
+    /// Requests whose `X-App-Version` is below this get 426.
+    pub min_app_version: Arc<semver::Version>,
 }
 
 /// Where the client IP comes from. Only trust a header that the edge proxy always overwrites.
@@ -68,6 +70,12 @@ pub async fn enforce(
         return ApiError::NotFound.into_response();
     };
 
+    if policy.version_gate
+        && let Err(err) = check_app_version(request.headers(), &access.min_app_version)
+    {
+        return err.into_response();
+    }
+
     let principal = if policy.auth.requires_principal() {
         // Copy the token out first: the request (and its body) must not be held across the
         // lookup await, or the future would not be `Send`.
@@ -107,6 +115,27 @@ pub async fn enforce(
     }
     next.run(request).await
 }
+
+/// `X-App-Version` (semver) below the minimum → 426. Absent → allowed (web, tools); the
+/// mobile app always sends it. Malformed → 400.
+fn check_app_version(headers: &HeaderMap, minimum: &semver::Version) -> Result<(), ApiError> {
+    let Some(value) = headers.get(APP_VERSION_HEADER) else {
+        return Ok(());
+    };
+    let version = value
+        .to_str()
+        .ok()
+        .and_then(|v| semver::Version::parse(v.trim()).ok())
+        .ok_or_else(|| {
+            ApiError::Validation("X-App-Version must be a semantic version".to_owned())
+        })?;
+    if version < *minimum {
+        return Err(ApiError::UpgradeRequired);
+    }
+    Ok(())
+}
+
+pub const APP_VERSION_HEADER: HeaderName = HeaderName::from_static("x-app-version");
 
 async fn rate_limit(limiter: &RateLimiter, limit: &str, subject: &Subject) -> Result<(), ApiError> {
     match limiter.check(limit, subject).await {

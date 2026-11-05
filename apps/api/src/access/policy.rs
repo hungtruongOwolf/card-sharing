@@ -78,6 +78,9 @@ pub struct RoutePolicy {
     pub attestation: bool,
     /// Name of the rate limit in `config/limits.yaml`, if any.
     pub rate_limit: Option<&'static str>,
+    /// Apply the minimum app version gate (`X-App-Version`). Off only for routes an outdated
+    /// app must still reach (`/v1/config`, probes).
+    pub version_gate: bool,
 }
 
 impl RoutePolicy {
@@ -107,7 +110,13 @@ impl RoutePolicy {
             role,
             attestation: false,
             rate_limit: None,
+            version_gate: true,
         }
+    }
+
+    pub const fn without_version_gate(mut self) -> Self {
+        self.version_gate = false;
+        self
     }
 
     /// Applies the named limit from `config/limits.yaml`.

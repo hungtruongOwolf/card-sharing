@@ -2,6 +2,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use anyhow::Context;
+use api::client_config::ClientConfig;
 use api::config::Config;
 use api::state::AppState;
 use identity::{IdentityService, SessionPolicy};
@@ -57,8 +58,12 @@ async fn main() -> anyhow::Result<()> {
         SessionPolicy::default(),
     ));
 
-    let app = api::app(AppState::new(policy, limiter, identity), &config)
-        .into_make_service_with_connect_info::<SocketAddr>();
+    let client = ClientConfig::from_path(&config.client_config_path)
+        .context("failed to load client config")?;
+    let state = AppState::new(policy, limiter, identity, client)
+        .with_ip_country_header(config.ip_country_header.clone());
+
+    let app = api::app(state, &config).into_make_service_with_connect_info::<SocketAddr>();
     let listener = TcpListener::bind(config.bind_addr)
         .await
         .with_context(|| format!("failed to bind {}", config.bind_addr))?;

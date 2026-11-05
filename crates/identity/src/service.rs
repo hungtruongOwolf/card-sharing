@@ -18,7 +18,7 @@ use time::{Duration, OffsetDateTime};
 use uuid::Uuid;
 
 use crate::cache::SessionCache;
-use crate::model::{AccountStatus, SessionScope};
+use crate::model::{AccountStatus, RegionSignals, SessionScope};
 use crate::token::{RandomnessError, SecretToken, TokenHash};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -134,6 +134,14 @@ pub struct SessionPrincipal {
     pub account_created_at: OffsetDateTime,
     pub device_id: Option<Uuid>,
     pub access_expires_at: OffsetDateTime,
+}
+
+/// What the account itself may see about its own account (`GET /v1/me`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AccountSummary {
+    pub id: Uuid,
+    pub status: AccountStatus,
+    pub region_signals: RegionSignals,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -354,6 +362,25 @@ impl IdentityService {
             access_expires_at,
             refresh_token: refresh,
         })
+    }
+
+    /// The account with this id, if it still exists.
+    pub async fn account(&self, account_id: Uuid) -> Result<Option<AccountSummary>, StoreError> {
+        let row: Option<(String, sqlx::types::Json<RegionSignals>)> =
+            sqlx::query_as("SELECT status, region_signals FROM identity.accounts WHERE id = $1")
+                .bind(account_id)
+                .fetch_optional(&self.pool)
+                .await?;
+        row.map(|(status, signals)| {
+            Ok(AccountSummary {
+                id: account_id,
+                status: status.parse().map_err(|err: crate::model::UnknownValue| {
+                    StoreError::Corrupt(err.to_string())
+                })?,
+                region_signals: signals.0,
+            })
+        })
+        .transpose()
     }
 
     async fn account_status(&self, account_id: Uuid) -> Result<AccountStatus, StoreError> {

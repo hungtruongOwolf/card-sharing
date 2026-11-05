@@ -55,6 +55,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Limits, feature flags and registry kill switches. Auth: none. */
+        get: operations["getConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** My account. Auth: onb/ses. */
+        get: operations["getMe"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/sessions/current": {
         parameters: {
             query?: never;
@@ -76,9 +110,87 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AccountView: {
+            /** @example 0192f0c1-7c1e-7a3b-9d2e-123456789abc */
+            id: string;
+            /** @example pending_age */
+            status: string;
+        };
+        AdsView: {
+            personalized_requires_consent: boolean;
+            rewarded: boolean;
+        };
+        AiEffectsView: {
+            cloud_allowed: boolean;
+            /**
+             * @description `any` | `on_device_or_non_gemini` | `on_device_only`.
+             * @example on_device_or_non_gemini
+             */
+            people_in_photo: string;
+        };
+        AiLabelView: {
+            c2pa: boolean;
+            visible_badge: boolean;
+        };
+        /** @description Body of `GET /v1/config`. */
+        AppConfigResponse: {
+            flags: {
+                [key: string]: boolean;
+            };
+            kill_switches: components["schemas"]["KillSwitches"];
+            limits: components["schemas"]["ClientLimits"];
+            /**
+             * @description Clients below this version must update (requests get 426 `UPGRADE_REQUIRED`).
+             * @example 0.1.0
+             */
+            min_app_version: string;
+        };
+        /** @description Product limits shown by the app. The server enforces its own copies. */
+        ClientLimits: {
+            /** Format: int32 */
+            board_collaborators_max: number;
+            /** Format: int32 */
+            boards_max: number;
+            /** Format: int32 */
+            caption_max_chars: number;
+            /** Format: int32 */
+            card_recipients_max: number;
+            /** Format: int32 */
+            friends_max: number;
+            /** Format: int32 */
+            pins_per_board_max: number;
+        };
         HealthResponse: {
             /** @example ok */
             status: string;
+        };
+        /** @description Registry ids switched off remotely; the app hides them and the server rejects them. */
+        KillSwitches: {
+            cut_styles: string[];
+            effects: string[];
+            finishes: string[];
+            reactions: string[];
+        };
+        MeResponse: {
+            account: components["schemas"]["AccountView"];
+            onboarding: components["schemas"]["OnboardingView"];
+            /**
+             * @description Region rules that apply to this account (strictest of the signals stored at sign-up and
+             *     the current request). The app renders only what these allow.
+             */
+            policy: components["schemas"]["PolicyView"];
+        };
+        /** @enum {string} */
+        OnboardingStep: "age" | "profile" | "done";
+        OnboardingView: {
+            step: components["schemas"]["OnboardingStep"];
+        };
+        PolicyView: {
+            ads: components["schemas"]["AdsView"];
+            ai_effects: components["schemas"]["AiEffectsView"];
+            ai_label: components["schemas"]["AiLabelView"];
+            /** Format: int32 */
+            min_age: number;
         };
         /** @description RFC 9457 problem details with two extension members: `code` and `requestId`. */
         ProblemDetails: {
@@ -238,6 +350,73 @@ export interface operations {
             };
             /** @description TEMPORARILY_UNAVAILABLE (rate-limit store down; auth fails closed). */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    getConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Public client configuration (cacheable, no user data). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppConfigResponse"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    getMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The caller's own account. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeResponse"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description UPGRADE_REQUIRED (X-App-Version below the minimum). */
+            426: {
                 headers: {
                     [name: string]: unknown;
                 };

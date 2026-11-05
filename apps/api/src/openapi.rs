@@ -4,7 +4,7 @@ use utoipa::{Modify, OpenApi};
 use utoipa_axum::routes;
 
 use crate::access::{ApiRouter, RoutePolicy};
-use crate::routes::{auth, health};
+use crate::routes::{app_config, auth, health, me};
 use crate::state::AppState;
 use platform::problem::ProblemDetails;
 
@@ -22,7 +22,9 @@ Every operation carries `x-policy` (auth kind, role, attestation) from its deny-
     components(schemas(ProblemDetails)),
     tags(
         (name = health::TAG, description = "Operational probes"),
-        (name = auth::TAG, description = "Sign-in and session lifecycle (ADR-0004)")
+        (name = auth::TAG, description = "Sign-in and session lifecycle (ADR-0004)"),
+        (name = me::TAG, description = "The caller's own account and onboarding"),
+        (name = app_config::TAG, description = "Public client configuration")
     )
 )]
 struct ApiDoc;
@@ -44,8 +46,24 @@ impl Modify for BearerScheme {
 /// without a policy; routes added to the axum router directly are refused at runtime.
 pub fn router() -> ApiRouter<AppState> {
     ApiRouter::new(ApiDoc::openapi())
-        .route(RoutePolicy::public(), routes!(health::healthz))
-        .route(RoutePolicy::public(), routes!(health::readyz))
+        .route(
+            RoutePolicy::public().without_version_gate(),
+            routes!(health::healthz),
+        )
+        .route(
+            RoutePolicy::public().without_version_gate(),
+            routes!(health::readyz),
+        )
+        .route(
+            RoutePolicy::public()
+                .limited("config.read")
+                .without_version_gate(),
+            routes!(app_config::get_config),
+        )
+        .route(
+            RoutePolicy::onboarding_or_session().limited("me.read"),
+            routes!(me::get_me),
+        )
         .route(
             RoutePolicy::public().limited("auth.refresh"),
             routes!(auth::refresh),
@@ -54,7 +72,11 @@ pub fn router() -> ApiRouter<AppState> {
             RoutePolicy::onboarding_or_session().limited("sessions.current.delete"),
             routes!(auth::delete_current_session),
         )
-        .undocumented_policy(&Method::GET, "/openapi.json", RoutePolicy::public())
+        .undocumented_policy(
+            &Method::GET,
+            "/openapi.json",
+            RoutePolicy::public().without_version_gate(),
+        )
 }
 
 /// The OpenAPI document, without building a server (used by the `openapi` export binary).

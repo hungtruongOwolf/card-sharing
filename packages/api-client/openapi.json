@@ -36,7 +36,8 @@
           "attestation": false,
           "auth": "none",
           "rateLimit": null,
-          "role": "guest"
+          "role": "guest",
+          "versionGate": false
         }
       }
     },
@@ -66,7 +67,8 @@
           "attestation": false,
           "auth": "none",
           "rateLimit": null,
-          "role": "guest"
+          "role": "guest",
+          "versionGate": false
         }
       }
     },
@@ -146,7 +148,102 @@
           "attestation": false,
           "auth": "none",
           "rateLimit": "auth.refresh",
-          "role": "guest"
+          "role": "guest",
+          "versionGate": true
+        }
+      }
+    },
+    "/v1/config": {
+      "get": {
+        "tags": [
+          "config"
+        ],
+        "summary": "Limits, feature flags and registry kill switches. Auth: none.",
+        "operationId": "getConfig",
+        "responses": {
+          "200": {
+            "description": "Public client configuration (cacheable, no user data).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppConfigResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "none",
+          "rateLimit": "config.read",
+          "role": "guest",
+          "versionGate": false
+        }
+      }
+    },
+    "/v1/me": {
+      "get": {
+        "tags": [
+          "me"
+        ],
+        "summary": "My account. Auth: onb/ses.",
+        "operationId": "getMe",
+        "responses": {
+          "200": {
+            "description": "The caller's own account.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "426": {
+            "description": "UPGRADE_REQUIRED (X-App-Version below the minimum).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "onb/ses",
+          "rateLimit": "me.read",
+          "role": "user",
+          "versionGate": true
         }
       }
     },
@@ -181,13 +278,155 @@
           "attestation": false,
           "auth": "onb/ses",
           "rateLimit": "sessions.current.delete",
-          "role": "user"
+          "role": "user",
+          "versionGate": true
         }
       }
     }
   },
   "components": {
     "schemas": {
+      "AccountView": {
+        "type": "object",
+        "required": [
+          "id",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "0192f0c1-7c1e-7a3b-9d2e-123456789abc"
+          },
+          "status": {
+            "type": "string",
+            "example": "pending_age"
+          }
+        }
+      },
+      "AdsView": {
+        "type": "object",
+        "required": [
+          "rewarded",
+          "personalized_requires_consent"
+        ],
+        "properties": {
+          "personalized_requires_consent": {
+            "type": "boolean"
+          },
+          "rewarded": {
+            "type": "boolean"
+          }
+        }
+      },
+      "AiEffectsView": {
+        "type": "object",
+        "required": [
+          "cloud_allowed",
+          "people_in_photo"
+        ],
+        "properties": {
+          "cloud_allowed": {
+            "type": "boolean"
+          },
+          "people_in_photo": {
+            "type": "string",
+            "description": "`any` | `on_device_or_non_gemini` | `on_device_only`.",
+            "example": "on_device_or_non_gemini"
+          }
+        }
+      },
+      "AiLabelView": {
+        "type": "object",
+        "required": [
+          "visible_badge",
+          "c2pa"
+        ],
+        "properties": {
+          "c2pa": {
+            "type": "boolean"
+          },
+          "visible_badge": {
+            "type": "boolean"
+          }
+        }
+      },
+      "AppConfigResponse": {
+        "type": "object",
+        "description": "Body of `GET /v1/config`.",
+        "required": [
+          "min_app_version",
+          "limits",
+          "flags",
+          "kill_switches"
+        ],
+        "properties": {
+          "flags": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "kill_switches": {
+            "$ref": "#/components/schemas/KillSwitches"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/ClientLimits"
+          },
+          "min_app_version": {
+            "type": "string",
+            "description": "Clients below this version must update (requests get 426 `UPGRADE_REQUIRED`).",
+            "example": "0.1.0"
+          }
+        }
+      },
+      "ClientLimits": {
+        "type": "object",
+        "description": "Product limits shown by the app. The server enforces its own copies.",
+        "required": [
+          "caption_max_chars",
+          "card_recipients_max",
+          "friends_max",
+          "boards_max",
+          "pins_per_board_max",
+          "board_collaborators_max"
+        ],
+        "properties": {
+          "board_collaborators_max": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "boards_max": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "caption_max_chars": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "card_recipients_max": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "friends_max": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "pins_per_board_max": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
       "HealthResponse": {
         "type": "object",
         "required": [
@@ -197,6 +436,107 @@
           "status": {
             "type": "string",
             "example": "ok"
+          }
+        }
+      },
+      "KillSwitches": {
+        "type": "object",
+        "description": "Registry ids switched off remotely; the app hides them and the server rejects them.",
+        "required": [
+          "cut_styles",
+          "finishes",
+          "effects",
+          "reactions"
+        ],
+        "properties": {
+          "cut_styles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "effects": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "finishes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "reactions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "MeResponse": {
+        "type": "object",
+        "required": [
+          "account",
+          "onboarding",
+          "policy"
+        ],
+        "properties": {
+          "account": {
+            "$ref": "#/components/schemas/AccountView"
+          },
+          "onboarding": {
+            "$ref": "#/components/schemas/OnboardingView"
+          },
+          "policy": {
+            "$ref": "#/components/schemas/PolicyView",
+            "description": "Region rules that apply to this account (strictest of the signals stored at sign-up and\nthe current request). The app renders only what these allow."
+          }
+        }
+      },
+      "OnboardingStep": {
+        "type": "string",
+        "enum": [
+          "age",
+          "profile",
+          "done"
+        ]
+      },
+      "OnboardingView": {
+        "type": "object",
+        "required": [
+          "step"
+        ],
+        "properties": {
+          "step": {
+            "$ref": "#/components/schemas/OnboardingStep"
+          }
+        }
+      },
+      "PolicyView": {
+        "type": "object",
+        "required": [
+          "min_age",
+          "ai_effects",
+          "ads",
+          "ai_label"
+        ],
+        "properties": {
+          "ads": {
+            "$ref": "#/components/schemas/AdsView"
+          },
+          "ai_effects": {
+            "$ref": "#/components/schemas/AiEffectsView"
+          },
+          "ai_label": {
+            "$ref": "#/components/schemas/AiLabelView"
+          },
+          "min_age": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
           }
         }
       },
@@ -337,6 +677,14 @@
     {
       "name": "auth",
       "description": "Sign-in and session lifecycle (ADR-0004)"
+    },
+    {
+      "name": "me",
+      "description": "The caller's own account and onboarding"
+    },
+    {
+      "name": "config",
+      "description": "Public client configuration"
     }
   ]
 }

@@ -1,11 +1,9 @@
 //! T-11: deny-by-default route policies (SR-3).
-#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
-
-mod common;
 
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use crate::common::*;
 use api::access::{
     AccessState, ApiRouter, Caller, Principal, ResolveError, ResolveFuture, RoutePolicy,
     SessionResolver, ValidJson, documented_operations,
@@ -15,7 +13,6 @@ use axum::Json;
 use axum::Router;
 use axum::body::Body;
 use axum::routing::get;
-use common::*;
 use http::{Request, StatusCode};
 use identity::{AccountStatus, SessionScope};
 use serde::Deserialize;
@@ -145,6 +142,7 @@ async fn route_added_without_a_policy_is_refused() {
         sessions: Arc::clone(&state.sessions),
         limiter: Arc::clone(&state.limiter),
         client_ip: api::access::ClientIpSource::Peer,
+        min_app_version: Arc::new(state.client.min_app_version.clone()),
     };
     let router: Router = router
         .route("/raw", get(|| async { "should never be served" }))

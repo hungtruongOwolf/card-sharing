@@ -68,6 +68,9 @@ pub enum ApiError {
     MethodNotAllowed,
     #[error("request timed out")]
     RequestTimeout,
+    /// `X-App-Version` is below the minimum supported version.
+    #[error("upgrade required")]
+    UpgradeRequired,
     /// The caller exhausted a rate limit.
     #[error("rate limited")]
     RateLimited { retry_after_secs: u64 },
@@ -96,6 +99,7 @@ impl ApiError {
             Self::NotFound => StatusCode::NOT_FOUND,
             Self::MethodNotAllowed => StatusCode::METHOD_NOT_ALLOWED,
             Self::RequestTimeout => StatusCode::REQUEST_TIMEOUT,
+            Self::UpgradeRequired => StatusCode::UPGRADE_REQUIRED,
             Self::RateLimited { .. } => StatusCode::TOO_MANY_REQUESTS,
             Self::Unavailable { .. } => StatusCode::SERVICE_UNAVAILABLE,
             Self::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
@@ -115,6 +119,7 @@ impl ApiError {
             Self::NotFound => "NOT_FOUND",
             Self::MethodNotAllowed => "METHOD_NOT_ALLOWED",
             Self::RequestTimeout => "REQUEST_TIMEOUT",
+            Self::UpgradeRequired => "UPGRADE_REQUIRED",
             Self::RateLimited { .. } => "RATE_LIMITED",
             Self::Unavailable { .. } => "TEMPORARILY_UNAVAILABLE",
             Self::Internal(_) => "INTERNAL",
@@ -205,6 +210,7 @@ mod tests {
             ApiError::RateLimited {
                 retry_after_secs: 1,
             },
+            ApiError::UpgradeRequired,
             ApiError::NotFound,
             ApiError::MethodNotAllowed,
             ApiError::RequestTimeout,

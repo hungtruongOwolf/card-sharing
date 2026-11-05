@@ -1,5 +1,4 @@
 // Test helpers may unwrap: a failure here is a test failure, not a request-path panic.
-#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use std::time::Duration;
 
@@ -15,8 +14,8 @@ use serde_json::Value;
 use tower::ServiceExt;
 
 const ALLOWED_ORIGIN: &str = "https://app.example.test";
-const POLICY_YAML: &str = include_str!("../../../config/policy/regions.yaml");
-const LIMITS_YAML: &str = include_str!("../../../config/limits.yaml");
+const POLICY_YAML: &str = include_str!("../../../../config/policy/regions.yaml");
+const LIMITS_YAML: &str = include_str!("../../../../config/limits.yaml");
 
 fn test_config() -> Config {
     Config {
@@ -31,6 +30,8 @@ fn test_config() -> Config {
         redis_url: platform::config::Secret::new("redis://127.0.0.1:1/0"),
         limits_config_path: "unused-in-tests".into(),
         client_ip_header: None,
+        ip_country_header: None,
+        client_config_path: "unused-in-tests".into(),
     }
 }
 
@@ -50,7 +51,14 @@ fn app() -> Router {
         std::sync::Arc::new(platform::clock::SystemClock),
         identity::SessionPolicy::default(),
     ));
-    api::app(AppState::new(policy, limiter, identity), &test_config())
+    let client = api::client_config::ClientConfig::from_yaml_str(include_str!(
+        "../../../../config/client.yaml"
+    ))
+    .unwrap();
+    api::app(
+        AppState::new(policy, limiter, identity, client),
+        &test_config(),
+    )
 }
 
 async fn send(router: Router, request: Request<Body>) -> Response<Body> {
