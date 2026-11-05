@@ -174,11 +174,22 @@ export const en = {
   'editor.param.value': '{label}: {value, number}',
   'editor.param.decrease': 'Decrease {label}',
   'editor.param.increase': 'Increase {label}',
+  'editor.caption.add': 'Add caption',
+  'editor.caption.edit': 'Edit caption',
   'editor.color.white': 'White',
   'editor.color.black': 'Black',
   'editor.color.mustard': 'Mustard',
   'editor.color.pink': 'Pink',
   'editor.color.sky': 'Sky blue',
+
+  'caption.title': 'Caption',
+  'caption.label': 'Caption',
+  'caption.placeholder': 'Say something about it',
+  'caption.counter': '{count, number} of {max, number} characters',
+  'caption.tooLong': '{over, plural, one {# character too long} other {# characters too long}}',
+  'caption.notAllowed': 'Some words in this caption aren’t allowed. Try different wording.',
+  'caption.save': 'Save caption',
+  'caption.remove': 'Remove caption',
 
   // Effect registry copy (packages/effects-registry entries reference these keys; a test checks them).
   'effects.cut.none.name': 'Photo',

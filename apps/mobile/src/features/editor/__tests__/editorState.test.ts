@@ -27,6 +27,7 @@ describe('editor state', () => {
       cut: { id: 'cut.none', version: 1, params: { cornerRadiusPct: 4 } },
       finish: null,
       wholePhoto: false,
+      caption: '',
     });
     expect(canUndo(start)).toBe(false);
     expect(canRedo(start)).toBe(false);
@@ -73,6 +74,12 @@ describe('editor state', () => {
       { type: 'setParams', slot: 'cut', entry: entry('cut.none'), params: { cornerRadiusPct: 4 } },
     );
     expect(same).toBe(start);
+  });
+
+  it('stores the caption sanitized, as one undo step', () => {
+    const captioned = run(start, { type: 'setCaption', text: '  zoomies \u202Egnp.exe  ' });
+    expect(captioned.present.caption).toBe('zoomies gnp.exe');
+    expect(run(captioned, { type: 'undo' }).present.caption).toBe('');
   });
 
   it(`keeps at most ${HISTORY_LIMIT} undo steps`, () => {

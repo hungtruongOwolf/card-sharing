@@ -27,6 +27,7 @@ export default function EditorRoute() {
       maskSource={maskSource}
       appVersion={Constants.expoConfig?.version ?? '0.0.0'}
       remoteConfig={remoteConfig?.registry}
+      captionMax={remoteConfig?.captionMaxGraphemes}
       onBack={() => (router.canGoBack() ? router.back() : router.replace('/capture'))}
     />
   );

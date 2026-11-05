@@ -61,6 +61,7 @@ const draft = (cut: string, finish: string | null = null, wholePhoto = false): C
   cut: styleChoice(entry(cut)),
   finish: finish ? styleChoice(entry(finish)) : null,
   wholePhoto,
+  caption: '',
 });
 
 describe('drawCard', () => {

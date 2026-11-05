@@ -14,6 +14,7 @@ import { space } from '@card-sharing/tokens';
 import { t, type MessageKey } from '../../i18n';
 import { Button, Screen, Text } from '../../ui';
 import type { CapturedPhoto } from '../capture';
+import { CAPTION_MAX_GRAPHEMES, CaptionSheet } from '../captions';
 import { downscalePhoto, drawCard, previewSize, subjectFor } from './cardScene';
 import {
   canRedo,
@@ -45,6 +46,8 @@ export interface CardEditorScreenProps {
   appVersion: string;
   /** `GET /v1/config` flags and kill switches; undefined while loading or offline. */
   remoteConfig?: RemoteRegistryConfig;
+  /** Caption length limit in graphemes (`/v1/config` `limits.caption_max_chars`); defaults to 80. */
+  captionMax?: number;
   loadImage?: LoadImage;
   registry?: Registry;
   /** Back to capture (also the way out of the error state). */
@@ -129,6 +132,7 @@ function Editor({
   appVersion,
   remoteConfig,
   registry = shippedRegistry,
+  captionMax = CAPTION_MAX_GRAPHEMES,
   onNext,
 }: EditorProps) {
   const { width: windowWidth } = useWindowDimensions();
@@ -144,6 +148,7 @@ function Editor({
     return initialHistory(cut ?? registry.byKind('cutStyle')[0]!);
   });
   const [activeSlot, setActiveSlot] = useState<StyleSlot>('cut');
+  const [captionOpen, setCaptionOpen] = useState(false);
 
   const draft = history.present;
   const hasSubject = subject !== null && !draft.wholePhoto;
@@ -153,7 +158,12 @@ function Editor({
   const finishTab = tabs.find((tab) => tab.slot === 'finish')!;
   const finish = resolveSelection(finishTab, draft, hasSubject);
   const shown: CardDraft | null = cut
-    ? { cut: cut.choice, finish: finish?.choice ?? null, wholePhoto: draft.wholePhoto }
+    ? {
+        cut: cut.choice,
+        finish: finish?.choice ?? null,
+        wholePhoto: draft.wholePhoto,
+        caption: draft.caption,
+      }
     : null;
 
   const scene = useMemo(
@@ -220,6 +230,23 @@ function Editor({
           <Text tone="muted">{t('editor.unavailable')}</Text>
         )}
       </View>
+      {draft.caption ? (
+        <Text variant="hand.md" style={styles.caption} testID="editor-caption">
+          {draft.caption}
+        </Text>
+      ) : null}
+      <Button
+        label={t(draft.caption ? 'editor.caption.edit' : 'editor.caption.add')}
+        variant="secondary"
+        onPress={() => setCaptionOpen(true)}
+      />
+      <CaptionSheet
+        visible={captionOpen}
+        caption={draft.caption}
+        max={captionMax}
+        onSave={(text) => dispatch({ type: 'setCaption', text })}
+        onClose={() => setCaptionOpen(false)}
+      />
       {subject ? (
         <View style={styles.row}>
           <Text style={styles.shrink}>{t('editor.wholePhoto')}</Text>
@@ -304,4 +331,5 @@ const styles = StyleSheet.create({
     gap: space[2],
   },
   shrink: { flexShrink: 1 },
+  caption: { alignSelf: 'center', textAlign: 'center' },
 });

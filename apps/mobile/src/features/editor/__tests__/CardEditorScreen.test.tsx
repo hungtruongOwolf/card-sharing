@@ -87,6 +87,12 @@ describe('CardEditorScreen', () => {
       await user.press(screen.getByRole('button', { name: t('editor.redo') }));
       expect(screen.getByRole('adjustable', { name: border }).props.accessibilityValue.now).toBe(6);
 
+      await user.press(screen.getByRole('button', { name: t('editor.caption.add') }));
+      await user.type(screen.getByTestId('caption-input'), 'zoomies \u{1F431}\u202E');
+      await user.press(screen.getByRole('button', { name: t('caption.save') }));
+      expect(screen.getByTestId('editor-caption')).toHaveTextContent('zoomies \u{1F431}');
+      expect(screen.getByRole('button', { name: t('editor.caption.edit') })).toBeTruthy();
+
       await user.press(screen.getByRole('radio', { name: t('editor.color.pink') }));
       expect(
         screen.getByRole('radio', { name: t('editor.color.pink') }).props.accessibilityState,
@@ -96,6 +102,7 @@ describe('CardEditorScreen', () => {
         cut: { id: 'cut.diecut', version: 1, params: { borderWidthPct: 6, color: '#F7A1C4' } },
         finish: null,
         wholePhoto: false,
+        caption: 'zoomies \u{1F431}',
       });
     },
     RENDER_TIMEOUT_MS,
