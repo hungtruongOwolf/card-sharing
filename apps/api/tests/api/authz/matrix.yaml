@@ -36,7 +36,7 @@ routes:
 
   # Sign-in ignores any bearer token: every caller gets a session for the identity in the ID token.
   # Invalid tokens (401), replay, rate limit and unknown fields are covered in tests/api/sign_in.rs and
-# tests/api/sign_in_google.rs.
+  # tests/api/sign_in_google.rs.
   - route: POST /v1/auth/apple
     body: { id_token: $APPLE_ID_TOKEN, nonce: $NONCE }
     expect: { guest: 200, onboarding_age: 200, onboarding_profile: 200, user: 200, suspended: 200 }
