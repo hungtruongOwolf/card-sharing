@@ -85,8 +85,8 @@ app gives Google `hex SHA-256(nonce)` as the sign-in nonce). `iss` = `https://ac
 (`https://www.googleapis.com/oauth2/v3/certs`). The same email as an Apple account creates a separate account (AC-1.3).
 
 `GET /v1/me` → `{account: {id, status}, onboarding: {step: age|profile|done}, policy: {min_age, ai_effects, ads, ai_label}}`
-(policy = strictest of the signals stored at sign-up and the current IP country) plus `profile: {display_name}` (null
-before the profile step; the handle joins with T-32). `GET /v1/config` → `{min_app_version, limits, flags, kill_switches}` from `config/client.yaml`, `Cache-Control: public,
+(policy = strictest of the signals stored at sign-up and the current IP country) plus `profile: {display_name, handle}` (null
+until set). `GET /v1/config` → `{min_app_version, limits, flags, kill_switches}` from `config/client.yaml`, `Cache-Control: public,
 max-age=300`, byte-identical for every caller. Min-version gate: `X-App-Version` (semver) below `min_app_version` → 426
 `UPGRADE_REQUIRED`; malformed → 400; absent → allowed (web, tools). Exempt: `/v1/config`, probes, `/openapi.json`
 (`x-policy.versionGate: false`). IP country comes only from the header named by `API_IP_COUNTRY_HEADER` (trusted edge).
@@ -101,6 +101,22 @@ profile: {display_name}}` with the stored, sanitized name (T-30 filter; 2–30 g
 never searchable). Too short/long, a filtered term or any extra field (no account id is accepted) → 400 `VALIDATION_FAILED`;
 before the age gate (`pending_age`) → 403 `ONBOARDING_INCOMPLETE` (nothing is collected from an account that may be refused).
 The avatar (`avatar_media_id`) joins with the media pipeline.
+
+Handles (T-32; rules in `config/profile.yaml`): `{handle}` is ASCII-lowercased, must match `^[a-z0-9._]{3,20}$` and pass the
+T-30 term lists (else 400 `VALIDATION_FAILED`); unique (stored lowercase, so the DB UNIQUE constraint is case-insensitive
+uniqueness and the last-resort race guard). `PUT /v1/me/handle` (onb/ses, limit `me.handle.claim` 10/h per user, fails closed)
+→ 200 `{status, onboarding, profile}`; taken, reserved for another account, or on the config reserved list (`reserved`,
+`reserved_contains`, separators ignored) → 409 `HANDLE_TAKEN` with no detail; re-claiming the current handle is a no-op.
+**Grace + cooldown (EM 2026-11-05):** changes are free for `grace_hours` (24) after the FIRST claim; after that a change waits
+`change_cooldown_days` (30) from the previous change → 429 `HANDLE_CHANGE_COOLDOWN` + `Retry-After` (seconds). A handle released
+after the grace window is reserved for its previous owner for `reservation_days` (30; the owner may take it back); one released
+inside the grace window is freed at once (never established; avoids one account locking many handles). Claims and releases take
+a per-handle transaction advisory lock, so a release and a concurrent claim cannot interleave. When display name and handle are
+both set, a `pending_profile` account becomes `active` in the same transaction and its onboarding sessions become `full`
+(the current access token keeps working; cached lookups are evicted). `POST /v1/me/handle/check` (onb/ses, limit
+`me.handle.check` 20/min + `also` 100/day per user, fails closed) → 200 `{available}` only (`true` for the caller's own handle or
+reservation); same 400/403 rules. Before the age gate both routes → 403 `ONBOARDING_INCOMPLETE`. A limit's `also:` list in
+`config/limits.yaml` adds extra per-caller windows that must all pass.
 
 ### Media
 | Method | Path | Purpose | Auth | Role | Object rule | Rate limit | Idem. | US |

@@ -6,8 +6,9 @@
  * (`AGE_GATE_REFUSED`, no detail), admission moves to `pending_profile`.
  * `PUT /v1/me/profile` mirrors the display-name route in apps/api/src/routes/me.rs (403 `ONBOARDING_INCOMPLETE`
  * before the age gate, 400 `VALIDATION_FAILED`, 200 `{status, onboarding, profile}`).
- * `PUT /v1/me/handle` is PROVISIONAL: it follows the api-mvp.md contract until the backend implements it (the
- * account becomes active once both a display name and a handle are set).
+ * `PUT /v1/me/handle` mirrors the handle route (lowercases input, 400 `VALIDATION_FAILED`, 409 `HANDLE_TAKEN`;
+ * the cooldown is driven by tests through `overrides`). The account becomes active once both a display name and a
+ * handle are set.
  */
 import { FakeAuthServer, json, problem, type RecordedRequest } from './fakeAuthServer';
 
@@ -70,7 +71,7 @@ export class FakeOnboardingServer {
     const me = () => ({
       account: { id: 'acc-1', status: this.status },
       onboarding: { step: STEP[this.status] },
-      profile: { display_name: this.displayName },
+      profile: { display_name: this.displayName, handle: this.handle },
       policy: {
         min_age: this.minAge,
         ai_effects: { cloud_allowed: true, people_in_photo: 'any' },
@@ -116,20 +117,25 @@ export class FakeOnboardingServer {
       return json({
         status: this.status,
         onboarding: { step: STEP[this.status] },
-        profile: { display_name: name },
+        profile: { display_name: name, handle: this.handle },
       });
     }
 
     if (method === 'PUT' && path === '/v1/me/handle') {
-      const handle = (body as { handle?: unknown } | undefined)?.handle;
+      const raw = (body as { handle?: unknown } | undefined)?.handle;
       if (this.status === 'pending_age') return problem(403, 'ONBOARDING_INCOMPLETE');
-      if (typeof handle !== 'string' || !/^[a-z0-9._]{3,20}$/.test(handle)) {
-        return problem(422, 'VALIDATION_FAILED');
+      const handle = typeof raw === 'string' ? raw.toLowerCase() : null;
+      if (handle === null || !/^[a-z0-9._]{3,20}$/.test(handle)) {
+        return problem(400, 'VALIDATION_FAILED');
       }
       if (this.takenHandles.has(handle)) return problem(409, 'HANDLE_TAKEN');
       this.handle = handle;
       this.activateIfComplete();
-      return json({ handle });
+      return json({
+        status: this.status,
+        onboarding: { step: STEP[this.status] },
+        profile: { display_name: this.displayName, handle },
+      });
     }
     return null;
   }

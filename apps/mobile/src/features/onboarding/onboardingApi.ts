@@ -5,18 +5,11 @@ import type { AuthClient } from '../auth';
 export type OnboardingStep = components['schemas']['OnboardingStep'];
 type AgeRequest = components['schemas']['AgeRequest'];
 type ProfileRequest = components['schemas']['ProfileRequest'];
+type HandleRequest = components['schemas']['HandleRequest'];
 
 /** The part of `GET /v1/me` the onboarding flow reads. The region policy is deliberately not exposed here. */
 export interface MeSummary {
   readonly step: OnboardingStep;
-}
-
-/**
- * PROVISIONAL (not in openapi.json yet): body for `PUT /v1/me/handle` as specified in
- * context/wiki/architecture/api-mvp.md (US-3). Replace with the generated type once the backend ships it.
- */
-interface HandleRequest {
-  handle: string;
 }
 
 export type OnboardingErrorKind =
@@ -24,7 +17,7 @@ export type OnboardingErrorKind =
   | 'refused'
   /** 403 `AGE_ALREADY_SUBMITTED`: the date of birth is locked (AC-2.3). */
   | 'already_submitted'
-  /** 400/422 `VALIDATION_FAILED` (bad format, profanity filter). */
+  /** 400 `VALIDATION_FAILED` (bad format, profanity filter). */
   | 'invalid'
   /** 409 `HANDLE_TAKEN`. */
   | 'taken'
@@ -49,7 +42,7 @@ export interface OnboardingApi {
   submitBirthDate(birthDate: string): Promise<OnboardingStep>;
   /** `PUT /v1/me/profile` (display name only; the avatar comes with the capture flow). */
   saveDisplayName(displayName: string): Promise<void>;
-  /** PROVISIONAL `PUT /v1/me/handle`. */
+  /** `PUT /v1/me/handle` (409 `HANDLE_TAKEN`, 429 `HANDLE_CHANGE_COOLDOWN`). */
   claimHandle(handle: string): Promise<void>;
 }
 
@@ -84,7 +77,7 @@ async function failure(response: Response): Promise<OnboardingError> {
   if (code === 'AGE_ALREADY_SUBMITTED') return new OnboardingError('already_submitted', status);
   if (code === 'HANDLE_TAKEN' || status === 409) return new OnboardingError('taken', status);
   if (status === 429) return new OnboardingError('rate_limited', status);
-  if (status === 400 || status === 422) return new OnboardingError('invalid', status);
+  if (status === 400) return new OnboardingError('invalid', status);
   return new OnboardingError('unavailable', status);
 }
 

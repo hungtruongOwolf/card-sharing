@@ -7,6 +7,7 @@
 #   on_store_failure: closed -> 503 when Redis is down (auth, search); open -> per-instance memory bucket
 #   new_account_requests: quota for accounts younger than new_account.days (defaults to requests)
 #   global: circuit breaker shared by all callers of the limit
+#   also: extra per-caller windows (e.g. a daily cap on top of a per-minute limit); all must pass
 # Values are starting points from api-mvp.md; tune them from production metrics.
 version: 1
 
@@ -45,6 +46,18 @@ limits:
     requests: 20
     per_secs: 3600
     on_store_failure: open
+  me.handle.check: # POST /v1/me/handle/check (reveals taken/available only; fails closed)
+    scope: user
+    requests: 20
+    per_secs: 60
+    on_store_failure: closed
+    also:
+      - { requests: 100, per_secs: 86400 }
+  me.handle.claim: # PUT /v1/me/handle
+    scope: user
+    requests: 10
+    per_secs: 3600
+    on_store_failure: closed
   config.read: # GET /v1/config (CDN cached; this only bounds cache misses)
     scope: ip
     requests: 120

@@ -1,4 +1,5 @@
-//! The caller's own account (T-27): status, onboarding step, profile (T-31) and resolved policy flags.
+//! The caller's own account (T-27): status, onboarding step, profile (T-31: display name, T-32:
+//! handle) and resolved policy flags.
 //! Every query is keyed by the session's account id; no path or body parameter can name
 //! another account.
 
@@ -6,7 +7,8 @@ use axum::Json;
 use axum::extract::State;
 use http::HeaderMap;
 use identity::{
-    AccountStatus, AgeGateError, AgeOutcome, AgeSubmission, Profile, ProfileError, ProfileUpdate,
+    AccountStatus, AgeGateError, AgeOutcome, AgeSubmission, HandleError, Profile, ProfileError,
+    ProfileUpdate,
 };
 use platform::problem::{ApiError, OrNotFound, ProblemDetails};
 use platform::text::TextError;
@@ -63,12 +65,16 @@ pub struct OnboardingView {
 pub struct ProfileView {
     #[schema(example = "Mai")]
     pub display_name: Option<String>,
+    /// Unique, lowercase.
+    #[schema(example = "mai.cat")]
+    pub handle: Option<String>,
 }
 
 impl From<Profile> for ProfileView {
     fn from(profile: Profile) -> Self {
         Self {
             display_name: profile.display_name,
+            handle: profile.handle,
         }
     }
 }
@@ -325,6 +331,16 @@ pub(crate) fn profile_error(err: ProfileError) -> ApiError {
     match err {
         ProfileError::NotReady => ApiError::OnboardingIncomplete,
         ProfileError::InvalidDisplayName(text) => text_problem("display_name", &text),
+        ProfileError::InvalidHandle(handle) => {
+            if let HandleError::Blocked { list } = &handle {
+                tracing::info!(event = "text_filter.blocked", field = "handle", list = %list, "text refused");
+            }
+            ApiError::Validation(format!("handle {handle}"))
+        }
+        ProfileError::HandleTaken => ApiError::HandleTaken,
+        ProfileError::HandleCooldown { retry_after_secs } => {
+            ApiError::HandleChangeCooldown { retry_after_secs }
+        }
         ProfileError::Store(store) => ApiError::internal(store),
     }
 }
@@ -358,6 +374,100 @@ pub async fn update_profile(
         .set_display_name(
             caller.0.account_id,
             &body.0.display_name,
+            &state.profile.text_filter,
+            &state.profile.rules,
+        )
+        .await
+        .map_err(profile_error)?;
+    Ok(Json(update.into()))
+}
+
+/// Body of `POST /v1/me/handle/check` and `PUT /v1/me/handle`.
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct HandleRequest {
+    /// `^[a-z0-9._]{3,20}$` after lowercasing (uppercase input is accepted and lowercased).
+    #[schema(example = "mai.cat")]
+    pub handle: String,
+}
+
+/// Availability of a handle for the caller. Nothing about any other account is returned.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct HandleCheckResponse {
+    /// `false` when taken, reserved or otherwise not claimable; `true` for the caller's own.
+    pub available: bool,
+}
+
+/// Is this handle available to me? Auth: onb/ses (after the age gate).
+///
+/// Rate-limited (20/min and 100/day per user, fails closed): it necessarily reveals whether a
+/// handle is taken, and nothing else.
+#[utoipa::path(
+    post,
+    path = "/v1/me/handle/check",
+    tag = TAG,
+    operation_id = "checkHandle",
+    security(("bearer" = [])),
+    request_body = HandleRequest,
+    responses(
+        (status = OK, description = "Availability only.", body = HandleCheckResponse),
+        (status = BAD_REQUEST, description = "VALIDATION_FAILED (format or filtered term).", body = ProblemDetails),
+        (status = UNAUTHORIZED, description = "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.", body = ProblemDetails),
+        (status = FORBIDDEN, description = "ONBOARDING_INCOMPLETE (age gate not passed) or ACCOUNT_SUSPENDED.", body = ProblemDetails),
+        (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED.", body = ProblemDetails),
+        (status = SERVICE_UNAVAILABLE, description = "TEMPORARILY_UNAVAILABLE (rate limit store down; fails closed).", body = ProblemDetails),
+    )
+)]
+pub async fn check_handle(
+    State(state): State<AppState>,
+    caller: Caller,
+    body: ValidJson<HandleRequest>,
+) -> Result<Json<HandleCheckResponse>, ApiError> {
+    let available = state
+        .identity
+        .handle_available(
+            caller.0.account_id,
+            &body.0.handle,
+            &state.profile.text_filter,
+            &state.profile.rules,
+        )
+        .await
+        .map_err(profile_error)?;
+    Ok(Json(HandleCheckResponse { available }))
+}
+
+/// Claim or change my handle. Auth: onb/ses (after the age gate).
+///
+/// Free to change for 24 h after the first claim; afterwards once per 30 days (both config). A
+/// handle released after the grace window stays reserved for 30 days. Finishing the profile
+/// (display name and handle set) makes the account `active` and the current session a full one.
+#[utoipa::path(
+    put,
+    path = "/v1/me/handle",
+    tag = TAG,
+    operation_id = "claimHandle",
+    security(("bearer" = [])),
+    request_body = HandleRequest,
+    responses(
+        (status = OK, description = "Claimed (or already mine).", body = ProfileResponse),
+        (status = BAD_REQUEST, description = "VALIDATION_FAILED (format or filtered term).", body = ProblemDetails),
+        (status = UNAUTHORIZED, description = "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.", body = ProblemDetails),
+        (status = FORBIDDEN, description = "ONBOARDING_INCOMPLETE (age gate not passed) or ACCOUNT_SUSPENDED.", body = ProblemDetails),
+        (status = CONFLICT, description = "HANDLE_TAKEN (taken or reserved; no detail).", body = ProblemDetails),
+        (status = TOO_MANY_REQUESTS, description = "HANDLE_CHANGE_COOLDOWN (with Retry-After) or RATE_LIMITED.", body = ProblemDetails),
+        (status = SERVICE_UNAVAILABLE, description = "TEMPORARILY_UNAVAILABLE (rate limit store down; fails closed).", body = ProblemDetails),
+    )
+)]
+pub async fn claim_handle(
+    State(state): State<AppState>,
+    caller: Caller,
+    body: ValidJson<HandleRequest>,
+) -> Result<Json<ProfileResponse>, ApiError> {
+    let update = state
+        .identity
+        .claim_handle(
+            caller.0.account_id,
+            &body.0.handle,
             &state.profile.text_filter,
             &state.profile.rules,
         )

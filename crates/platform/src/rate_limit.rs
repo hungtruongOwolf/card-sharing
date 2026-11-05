@@ -5,6 +5,8 @@
 //!   falling back to IP; `ip` keys by client IP. So one account on five devices shares one quota.
 //! - Accounts younger than `new_account.days` get `new_account_requests` instead of `requests`.
 //! - An optional `global` bucket per limit is a circuit breaker across all callers.
+//! - Optional `also` windows add more per-caller buckets to one limit (e.g. 20/min and 100/day);
+//!   a request must pass every window.
 //! - When Redis fails, `on_store_failure: closed` limits (auth, search) refuse the request;
 //!   `open` limits fall back to a per-instance in-memory bucket.
 
@@ -82,6 +84,10 @@ pub struct LimitSpec {
     /// Circuit breaker shared by every caller of this limit.
     #[serde(default)]
     pub global: Option<Rate>,
+    /// Extra per-caller windows checked after the main one (same scope; not reduced for new
+    /// accounts).
+    #[serde(default)]
+    pub also: Vec<Rate>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -165,6 +171,11 @@ fn validate(name: &str, spec: &LimitSpec) -> Result<(), RateLimitConfigError> {
         .is_some_and(|g| g.requests == 0 || g.per_secs == 0)
     {
         return Err(fail("global requests and per_secs must be at least 1"));
+    }
+    if spec.also.iter().any(|w| w.requests == 0 || w.per_secs == 0) {
+        return Err(fail(
+            "also windows need requests and per_secs of at least 1",
+        ));
     }
     Ok(())
 }
@@ -261,11 +272,8 @@ impl RateLimiter {
             }
         }
 
-        let key = format!(
-            "{}:{name}:{}",
-            self.key_prefix,
-            subject_key(spec.scope, subject)
-        );
+        let subject_key = subject_key(spec.scope, subject);
+        let key = format!("{}:{name}:{subject_key}", self.key_prefix);
         let requests = match subject.account {
             Some(account) if self.is_new(account, now) => {
                 spec.new_account_requests.unwrap_or(spec.requests)
@@ -273,7 +281,19 @@ impl RateLimiter {
             _ => spec.requests,
         };
         let bucket = Bucket::new(requests, spec.per_secs);
-        Ok(self.take(&key, bucket, spec.on_store_failure, now).await)
+        let decision = self.take(&key, bucket, spec.on_store_failure, now).await;
+        if decision != Decision::Allowed {
+            return Ok(decision);
+        }
+        for (index, window) in spec.also.iter().enumerate() {
+            let key = format!("{}:{name}:w{index}:{subject_key}", self.key_prefix);
+            let bucket = Bucket::new(window.requests, window.per_secs);
+            let decision = self.take(&key, bucket, spec.on_store_failure, now).await;
+            if decision != Decision::Allowed {
+                return Ok(decision);
+            }
+        }
+        Ok(Decision::Allowed)
     }
 
     fn is_new(&self, account: AccountSubject, now: OffsetDateTime) -> bool {
@@ -467,6 +487,13 @@ limits:
     per_secs: 60
     on_store_failure: closed
     global: { requests: 3, per_secs: 60 }
+  test.windows:
+    scope: user
+    requests: 3
+    per_secs: 60
+    on_store_failure: open
+    also:
+      - { requests: 4, per_secs: 3600 }
 ";
 
     fn limiter() -> (RateLimiter, Arc<ManualClock>) {
@@ -565,6 +592,34 @@ limits:
             }
         }
         assert_eq!(allowed, 3, "global breaker caps all callers together");
+    }
+
+    #[tokio::test]
+    async fn also_windows_cap_callers_beyond_the_main_window() {
+        let (limiter, clock) = limiter();
+        let subject = old_account();
+        let mut allowed = 0;
+        for _ in 0..3 {
+            if limiter.check("test.windows", &subject).await.unwrap() == Decision::Allowed {
+                allowed += 1;
+            }
+        }
+        assert_eq!(allowed, 3);
+        // The minute window refills, but the hour window (4) runs out after one more call.
+        clock.advance(time::Duration::seconds(60));
+        assert_eq!(
+            limiter.check("test.windows", &subject).await.unwrap(),
+            Decision::Allowed
+        );
+        assert!(matches!(
+            limiter.check("test.windows", &subject).await.unwrap(),
+            Decision::Limited { retry_after_secs } if retry_after_secs > 60
+        ));
+        let zero = YAML.replace(
+            "{ requests: 4, per_secs: 3600 }",
+            "{ requests: 0, per_secs: 3600 }",
+        );
+        assert!(RateLimitConfig::from_yaml_str(&zero).is_err());
     }
 
     #[tokio::test]
