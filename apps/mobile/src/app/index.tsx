@@ -1,42 +1,72 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, useColorScheme, useWindowDimensions, View } from 'react-native';
+import { useState } from 'react';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 
-import { space, themes, typography } from '@card-sharing/tokens';
+import { space } from '@card-sharing/tokens';
 
 import { HoloCard } from '../features/holo-card/HoloCard';
+import { t } from '../i18n';
+import { Button, Screen, Sheet, Text, TextField, useToast } from '../ui';
 
 const CARD_ASPECT = 1.4;
 const MAX_CARD_WIDTH = 340;
+const CAPTION_MAX = 80;
+const DEMO_FRIEND_COUNT = 3;
 
-/** Toolchain proof: Skia shader + Reanimated clock + Gesture Handler on one screen. */
+/** Toolchain proof (Skia + Reanimated + Gesture Handler) and a live sample of the T-33 UI kit. */
 export default function HomeScreen() {
-  const scheme = useColorScheme() === 'dark' ? 'dark' : 'light';
-  const theme = themes[scheme];
   const { width } = useWindowDimensions();
+  const toast = useToast();
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [caption, setCaption] = useState('');
   const cardWidth = Math.min(width - space[8] * 2, MAX_CARD_WIDTH);
+  const over = caption.length - CAPTION_MAX;
 
   return (
-    <View style={[styles.screen, { backgroundColor: theme.background }]}>
-      <Text style={[styles.title, { color: theme.textPrimary }]}>card-sharing</Text>
+    <Screen title={t('app.name')} centered>
       <HoloCard width={cardWidth} height={cardWidth * CARD_ASPECT} />
-      <Text style={[styles.hint, { color: theme.textSecondary }]}>Drag the card to tilt it</Text>
-      <StatusBar style="auto" />
-    </View>
+      <Text tone="muted">{t('home.hint')}</Text>
+      <View style={styles.actions}>
+        <Button
+          label={t('home.editCaption')}
+          variant="secondary"
+          onPress={() => setSheetOpen(true)}
+        />
+        <Button
+          label={t('home.send')}
+          onPress={() =>
+            toast.show({
+              message: t('home.sent', { count: DEMO_FRIEND_COUNT }),
+              variant: 'success',
+            })
+          }
+        />
+      </View>
+      <Sheet visible={sheetOpen} onClose={() => setSheetOpen(false)} title={t('home.editCaption')}>
+        <TextField
+          label={t('home.caption.label')}
+          placeholder={t('home.caption.placeholder')}
+          value={caption}
+          onChangeText={setCaption}
+          hint={t('home.caption.hint', { max: CAPTION_MAX })}
+          error={over > 0 ? t('home.caption.tooLong', { over }) : undefined}
+        />
+        <Button
+          block
+          label={t('home.caption.save')}
+          disabled={over > 0}
+          onPress={() => {
+            setSheetOpen(false);
+            toast.show({
+              message: t('home.caption.saved'),
+              action: { label: t('common.undo'), onPress: () => setCaption('') },
+            });
+          }}
+        />
+      </Sheet>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: space[6],
-  },
-  title: {
-    fontSize: typography.fontSize.xl,
-    fontWeight: typography.fontWeight.bold,
-  },
-  hint: {
-    fontSize: typography.fontSize.sm,
-  },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: space[3] },
 });

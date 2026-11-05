@@ -2,7 +2,7 @@
 title: Design System (foundation)
 type: guide
 status: draft
-updated: 2026-11-04
+updated: 2026-11-05
 sources: [raw/discussions/2026-11-04-prd-design-qa.md, raw/discussions/2026-11-04-idea-round-1.md, raw/discussions/2026-11-04-idea-round-3.md, raw/research/2026-11-04-frontend-stack.md, raw/research/2026-11-04-subject-cutout.md, raw/research/2026-11-04-zero-download-ai.md, raw/research/2026-11-04-boop-teardown.md]
 related: [[vision]], [[competitors]], [[effects-catalog]], [[ADR-0002-cross-platform-stack]], [[ADR-0003-effects-tiers]], [[subject-cutout]], [[change-management]], [[glossary]]
 ---
@@ -41,8 +41,9 @@ desk (warm charcoal surface, paper keeps a slightly dimmed cream, shadows become
 
 ## 3. Tokens (`packages/tokens`)
 Naming: `category.role.variant` → TS `tokens.color.surface.raised` / CSS `--color-surface-raised`. Components use semantic
-tokens only; `palette.*` primitives are referenced by semantic tokens, never by components. Contrast values are computed
-estimates (WCAG relative luminance); CI should verify with a contrast check on the generated table.
+tokens only; `palette.*` primitives are referenced by semantic tokens, never by components. Contrast is verified in CI:
+`packages/tokens/src/contrast.test.ts` checks every pair in `contrastPairs` (both schemes) against WCAG 2.2 AA on the generated
+table `tokenTable()`; a component that renders a new foreground/background combination adds a pair there (T-33).
 
 ### 3.1 Semantic colours
 | Token | Light | Dark | Use / contrast note |
@@ -57,13 +58,16 @@ estimates (WCAG relative luminance); CI should verify with a contrast check on t
 | `color.primary.base` | `#C8412B` (tomato) | `#FF7A5C` | Primary buttons, shutter ring |
 | `color.primary.onBase` | `#FFFFFF` (~4.9:1) | `#1A1512` (~6.9:1) | Text/icon on primary |
 | `color.primary.soft` | `#FBE1DA` | `#4A2A22` | Selected chip bg |
-| `color.accent.mustard` | `#F2C14E` | `#E8B43C` | Highlights, badges (ink text only) |
-| `color.accent.sky` | `#3E7FA8` | `#7FB8DA` | Links, info |
+| `color.accent.mustard` | `#F2C14E` | `#E8B43C` | Highlights, badges (text in `accent.onMustard` only) |
+| `color.accent.onMustard` | `#2B2320` | `#1A1512` | Text on mustard (~9:1 / ~9.5:1); dark-mode cream ink fails (1.6:1) |
+| `color.accent.sky` | `#336C91` | `#7FB8DA` | Links, info (light darkened from `#3E7FA8`, which was 3.5–4.4:1, to ≥4.5:1 on every surface) |
 | `color.accent.mint` | `#4F9A6E` | `#8CC7A1` | Success |
 | `color.danger.base` | `#B3261E` | `#FF8A80` | Errors, destructive |
+| `color.danger.onBase` | `#FFFFFF` (~6.5:1) | `#1A1512` (~7.9:1) | Label on destructive buttons |
 | `color.warning.base` | `#B26A00` | `#FFB74D` | Warnings |
 | `color.border.hairline` | `rgba(43,35,32,0.12)` | `rgba(245,237,224,0.14)` | Dividers |
-| `color.focus.ring` | `#3E7FA8` | `#7FB8DA` | Focus outline 2 px (web, keyboard, switch control) |
+| `color.focus.ring` | `#336C91` | `#7FB8DA` | Focus outline 2 px (web, keyboard, switch control) |
+| `color.overlay.scrim` | `rgba(43,35,32,0.4)` | `rgba(0,0,0,0.56)` | Backdrop behind sheets/modals (warm in light) |
 | `color.sticker.border` | `#FFFFFF` | `#FFFFFF` | Die-cut border default (stays white in dark) |
 | `color.shadow.ink` | `rgba(60,40,25,α)` | `rgba(0,0,0,α)` | Warm shadow base; α from elevation |
 | `deco.tape.{mustard,pink,mint,sky,lilac,kraft}` | `#F2C14E #F4A6B7 #A8D8B9 #A9CBE8 #C9B8EC #CDB48E` @85% | same @75% | Washi tape, never carries text |
@@ -132,6 +136,8 @@ Dark mode: ambient α ×1.6, contact α ×1.2 (shadows must stay visible on char
 | `motion.ease.exit` | `cubic-bezier(0.3, 0, 0.8, 0.15)` | Things leaving |
 | `motion.ease.paper` | `cubic-bezier(0.34, 1.4, 0.64, 1)` | Small overshoot "flick" |
 
+Reduced motion swaps springs for a `motion.reducedDuration` = 200 ms timing (mobile helper `animateTo()` in `apps/mobile/src/ui/theme/motion.ts`).
+
 Reanimated `withSpring` configs (starting values, tune in the week-1 spike; always pass `reduceMotion: ReduceMotion.System`):
 | Token | damping | stiffness | mass | Feel / use |
 |---|---|---|---|---|
@@ -163,12 +169,21 @@ Rules: ≤1 haptic per 50 ms (coalesce during drags), never on scroll, global to
 | Token | Values |
 |---|---|
 | `z.*` | base 0, boardItem 10, boardSelected 20, overlay 100, sheet 200, toast 300, modal 400 |
-| `size.touch.min` | 44 pt (iOS) / 48 dp (Android) |
+| `size.touch.min` | 44 pt (iOS) / 48 dp (Android) — TS `size.touch.{ios,android}` |
+| `size.grabber` | 36 × 4 (sheet grabber) |
+| `size.listRowMin` | 56 |
 | `size.avatar` | xs 24, sm 32, md 44, lg 64 |
 | `size.shutter` | 76 outer / 64 inner |
 | `opacity.tape` | 0.85 light / 0.75 dark |
 
 ## 4. Core components (`packages/ui` native + web share-page subset)
+**Built so far (T-33):** the base kit lives in `apps/mobile/src/ui` (`Screen`, `Text`, `Button`, `TextField`, `Sheet`, `Toast`,
+`ThemeProvider`) and moves to `packages/ui` when a second consumer appears. Copy comes from the ICU message catalog
+`apps/mobile/src/i18n/messages/en.ts` via `t()` (dependency-free formatter: plural, select, number; plural fallback for Hermes,
+which lacks guaranteed `Intl.PluralRules`). ESLint rules `card-sharing/no-hardcoded-strings` and `card-sharing/rtl-safe-styles`
+(local plugin `apps/mobile/eslint/`) reject literal UI strings and left/right styles. Brand fonts are not bundled yet; text
+renders in the platform font until they are (`apps/mobile/src/ui/theme/fonts.ts`).
+
 | Component | Variants | States | Notes |
 |---|---|---|---|
 | **Card** (a captured moment) | photo, sticker (cutout), polaroid, ticket | default, pressed (squish), lifted, sending, sent, failed, locked (effect needs unlock), skeleton | Front = media + effect; back (flip) = caption, date, who. Elevation 1→3 on lift |
@@ -178,7 +193,7 @@ Rules: ≤1 haptic per 50 ms (coalesce during drags), never on scroll, global to
 | **Friend avatar row** | horizontal chips with die-cut border | default, selected (tape tick), new-post dot, offline, invite (+) | Multi-select for send; VoiceOver "Alex, selected" |
 | **Reaction picker** | emoji + sticker reactions | closed, open (fan-out arc), hovered item (scale 1.3), chosen (pop + haptic), disabled | Long-press card opens; reduced motion = simple fade grid |
 | **Bottom sheet** | peek, half, full | opening, idle, dragging, closing | Paper texture, `elev.4`, grabber 36×4, `spring.gentle` |
-| **Toast** | info, success, error, undo | enter, visible (4 s, 8 s with action), exit, swiped | Looks like a sticky note; one at a time |
+| **Toast** | info, success, error, undo | enter, visible (4 s, 8 s with action), exit, swiped | Looks like a sticky note (`surface.raised`, `elev.3`, variant marker strip); one at a time; announced with its variant ("Error: …") |
 | **Effect tile** | free, ad-unlock, pro, new | idle, previewing, applied, locked, unavailable-on-device (with reason) | Data from [[effects-catalog]] registry |
 | **Empty state** | per screen | — | Hand-drawn doodle + Caveat note + one primary action ("Snap your first moment") |
 | **Error state** | network, permission, segmentation failed, generic | retry, fallback offered | Torn-paper illustration; always a next step (retry / use full photo / open Settings) |
@@ -237,7 +252,8 @@ Images pre-resized server-side to widget sizes; no shaders in widgets (baked out
 | Images | User media gets alt text (auto from caption; Tier 1b OS AI suggestion later, user-editable) |
 | Reduced motion | `useReducedMotion()` + `ReduceMotion.System`: no parallax/gyro, holo = static sheen, springs → 200 ms timing, particles → static sparkles, reveal → crossfade |
 | Haptics & sound | Never the only signal; global toggles |
-| Dynamic type | UI up to 200%; layouts wrap, no truncation of essential text |
+| Dynamic type | UI up to 200%; layouts wrap, no truncation of essential text (`maxFontScale` per type token: 2 for UI, 1.3 display, 1 meme canvas text) |
+| Copy & RTL | All user-facing strings incl. a11y labels from the ICU catalog, never concatenated; logical start/end styles only (lint-enforced) |
 | Colour independence | Selection = outline + check, not colour only; danger states have icon + text |
 | Flashing | Glitch/flash effects ≤3 flashes/s (WCAG 2.3.1); deep-fried/glitch previews respect reduced motion |
 | Share pages (web) | WCAG 2.2 AA, semantic HTML, board rendered as image with text list of items |

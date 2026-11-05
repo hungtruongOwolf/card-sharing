@@ -1,26 +1,74 @@
 import { describe, expect, it } from 'vitest';
 
-import { space, themes } from './index';
+import {
+  boxShadow,
+  cssVariables,
+  elevation,
+  space,
+  themes,
+  tokenTable,
+  type as typeScale,
+  typeStyle,
+  MAX_FONT_SCALE,
+} from './index';
 
-const HEX = /^#[0-9A-F]{6}$/i;
+const COLOR = /^(#[0-9A-F]{6}|rgba?\(\d+, \d+, \d+(, [\d.]+)?\))$/i;
 
 describe('tokens', () => {
   it('defines the same semantic roles for every color scheme', () => {
+    const names = (scheme: 'light' | 'dark') =>
+      tokenTable()
+        .map((row) => [row.name, typeof row[scheme]])
+        .sort();
+    expect(names('dark')).toEqual(names('light'));
     expect(Object.keys(themes.dark).sort()).toEqual(Object.keys(themes.light).sort());
   });
 
-  it('uses 6-digit hex colors for every semantic role', () => {
-    for (const theme of Object.values(themes)) {
-      for (const value of Object.values(theme)) {
-        expect(value).toMatch(HEX);
+  it('uses hex or rgb(a) strings for every colour token', () => {
+    for (const row of tokenTable()) {
+      expect(row.light).toMatch(COLOR);
+      expect(row.dark).toMatch(COLOR);
+    }
+  });
+
+  it('matches the design-system anchors (desk cream, tomato primary)', () => {
+    expect(themes.light.bg.canvas).toBe('#F6EFE3');
+    expect(themes.dark.bg.canvas).toBe('#1A1512');
+    expect(themes.light.primary.base).toBe('#C8412B');
+  });
+
+  it('keeps the space scale on the 4 pt grid and strictly increasing', () => {
+    const values = Object.values(space);
+    for (let i = 1; i < values.length; i++) {
+      expect(values[i]).toBeGreaterThan(values[i - 1] ?? -1);
+      expect((values[i] ?? 1) % 4).toBe(0);
+    }
+  });
+
+  it('lets UI text scale to 200 % and clamps display text at 1.3x', () => {
+    expect(typeStyle('body.md').maxFontScale).toBe(MAX_FONT_SCALE);
+    expect(typeStyle('display.lg').maxFontScale).toBe(1.3);
+    for (const group of Object.values(typeScale)) {
+      for (const style of Object.values(group)) {
+        expect(style.lineHeight).toBeGreaterThanOrEqual(style.size);
       }
     }
   });
 
-  it('keeps the space scale strictly increasing', () => {
-    const values = Object.values(space);
-    for (let i = 1; i < values.length; i++) {
-      expect(values[i]).toBeGreaterThan(values[i - 1] ?? -1);
-    }
+  it('builds warm two-layer shadows that are stronger in dark mode', () => {
+    expect(boxShadow(0, 'light')).toBeUndefined();
+    expect(boxShadow(1, 'light')).toBe(
+      '0px 1px 1px rgba(60, 40, 25, 0.14), 0px 2px 4px rgba(60, 40, 25, 0.08)',
+    );
+    expect(boxShadow(4, 'dark')).toBe(
+      '0px 8px 8px rgba(0, 0, 0, 0.12), 0px 24px 48px rgba(0, 0, 0, 0.352)',
+    );
+    expect(elevation[3].scale).toBe(1.04);
+  });
+
+  it('generates kebab-case CSS variables for web', () => {
+    const vars = cssVariables('dark');
+    expect(vars['--color-bg-paper-alt']).toBe('#3A3028');
+    expect(vars['--color-border-hairline']).toBe('rgba(245, 237, 224, 0.14)');
   });
 });
