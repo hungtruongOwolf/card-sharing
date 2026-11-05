@@ -32,3 +32,9 @@ Facts found while starting:
 |---|---|
 | How to run backend tests after a low-memory kill | Low-RAM mode now: 1 build job + 1 test thread |
 | Handle typo during onboarding vs 30-day change cooldown | Grace: free change for 24 h after the first claim; the 30-day cooldown applies after that |
+
+## Follow-up Q&A after T-126 (same day)
+| Question | EM answer |
+|---|---|
+| Share page enlarge: baked only, baked + small WebGL holo, or CanvasKit on fast networks | Baked + small WebGL holo (~5 KB, starts < 1 s) |
+| Share-page LCP still limited to ~100 KB (WebP/AVIF ~600 px) | Accepted |

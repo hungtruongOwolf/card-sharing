@@ -144,3 +144,9 @@
   cooldown + reservation; #34 closed). T-32 Rust tests ran in CI because the local machine ran out of resources; the
   API client came from the CI contract job and was re-checked locally. CI green on main.
 - EM: merge PRs without asking once CI is green (development phase); self-review stands in for human review.
+
+## [2026-11-05] ingest | T-126 web Skia spike
+- PR #175 (02a2af3): lazy CanvasKit prototype on /b/[token]; holo shader moved to packages/shaders (shared by mobile + web).
+- Numbers: LCP 1.5-2.1 s, ~140 KB initial JS, CanvasKit 2.78 MB gz wasm, 15-17 s cold tap-to-holo on slow 4G.
+- EM: share page = baked still + small WebGL2 holo port; LCP still <= 100 KB. effects-catalog + design-system updated;
+  follow-up issues #176 (WebGL holo), #177 (baked still), #178 (Lighthouse gate), #179 (remove canvaskit-wasm).
