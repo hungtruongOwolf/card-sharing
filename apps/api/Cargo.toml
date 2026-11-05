@@ -12,6 +12,7 @@ default-run = "api"
 attestation.workspace = true
 identity.workspace = true
 platform.workspace = true
+registry.workspace = true
 policy.workspace = true
 
 anyhow.workspace = true

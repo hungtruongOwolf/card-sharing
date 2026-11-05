@@ -63,8 +63,12 @@ name, wrong type, out of range → error; missing → default); `clampParams` is
 invalid → default). Optional `presets` (`{id, name, params}`) are UI-only picker tiles validated against the param rules;
 the "thick sticker" is the `cut.diecut` preset `thick` at `borderWidthPct: 6`, not a separate id. The server view (ids, versions, kinds, stacking, param ranges)
 is committed at `packages/effects-registry/generated/registry.json`; regenerate with
-`pnpm --filter @card-sharing/effects-registry export:json`, and a vitest file snapshot fails CI when it is stale (T-60
-consumes it). Shipped entries so far: `cut.none`, `cut.raw`, `cut.diecut`, `fx.holo`, `fx.paper-lift`; the other MVP
+`pnpm --filter @card-sharing/effects-registry export:json`, and a vitest file snapshot fails CI when it is stale. The API
+embeds that file at compile time (`crates/registry`, T-60) and validates `style` blocks with it: `{cut?, finish?, effects?: [≤ 8]}`,
+each `{id, version, params?}`; the id must exist at exactly the exported version and fit the slot (`cut` = `cutStyle`, `finish` =
+`filter`, `effects` = any non-cut kind); non-stackable entries appear once, `conflicts_with` pairs are refused; params follow the same
+strict rules as `resolveParams` and missing ones are stored with their defaults. Any violation → 422 `UNKNOWN_REGISTRY_ID` with no
+detail. Shipped entries so far: `cut.none`, `cut.raw`, `cut.diecut`, `fx.holo`, `fx.paper-lift`; the other MVP
 entries land with their tickets.
 
 **Cut style rendering (T-62, `apps/mobile/src/features/cut-styles`):** `drawCutStyle(canvas, entry, params, scene)` draws

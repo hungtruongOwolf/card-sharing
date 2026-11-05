@@ -21,6 +21,7 @@ mod me;
 mod outbox;
 mod profile;
 mod rate_limit;
+mod registry_style;
 mod session_management;
 mod sessions;
 mod sign_in;
