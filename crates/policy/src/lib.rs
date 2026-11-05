@@ -28,6 +28,8 @@ pub struct Policy {
     pub adult_age: u8,
     #[serde(default)]
     pub discovery: DiscoveryPolicy,
+    #[serde(default)]
+    pub invites: InvitePolicy,
     pub ai_effects: AiEffectsPolicy,
     pub ads: AdsPolicy,
     pub ai_label: AiLabelPolicy,
@@ -43,6 +45,26 @@ pub struct DiscoveryPolicy {
 impl Default for DiscoveryPolicy {
     fn default() -> Self {
         Self { min_age: 18 }
+    }
+}
+
+/// Personal invite links of minors (US-4 AC-4.4, SR-20): they expire and have a use cap. Adults'
+/// invites never expire on their own.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct InvitePolicy {
+    /// Days a minor's invite stays valid after it was issued.
+    pub minor_ttl_days: u16,
+    /// Friend requests a minor's invite can create before it expires.
+    pub minor_max_uses: u32,
+}
+
+impl Default for InvitePolicy {
+    fn default() -> Self {
+        Self {
+            minor_ttl_days: 7,
+            minor_max_uses: 5,
+        }
     }
 }
 
@@ -156,6 +178,10 @@ fn strictest(a: Policy, b: Policy) -> Policy {
         adult_age: a.adult_age.max(b.adult_age),
         discovery: DiscoveryPolicy {
             min_age: a.discovery.min_age.max(b.discovery.min_age),
+        },
+        invites: InvitePolicy {
+            minor_ttl_days: a.invites.minor_ttl_days.min(b.invites.minor_ttl_days),
+            minor_max_uses: a.invites.minor_max_uses.min(b.invites.minor_max_uses),
         },
         ai_effects: AiEffectsPolicy {
             cloud_allowed: a.ai_effects.cloud_allowed && b.ai_effects.cloud_allowed,

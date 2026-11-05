@@ -199,3 +199,31 @@ fn configs_without_the_new_fields_default_to_18() {
     let policy = default_policy(&svc);
     assert_eq!((policy.adult_age, policy.discovery.min_age), (18, 18));
 }
+
+#[test]
+fn minor_invite_rules_default_and_strictest_is_the_smallest() {
+    let svc = PolicyService::from_yaml_str(SHIPPED_CONFIG).unwrap();
+    let policy = default_policy(&svc);
+    assert_eq!(policy.invites.minor_ttl_days, 7);
+    assert_eq!(policy.invites.minor_max_uses, 5);
+
+    let svc = PolicyService::from_yaml_str(
+        r#"
+version: 1
+default:
+  min_age: 13
+  ai_effects: { cloud_allowed: true, people_in_photo: any }
+  ads: { rewarded: true, personalized_requires_consent: false }
+  ai_label: { visible_badge: true, c2pa: true }
+overrides:
+  FR: { invites: { minor_ttl_days: 3 } }
+  DE: { invites: { minor_max_uses: 2 } }
+"#,
+    )
+    .unwrap();
+    // Missing from the file: the documented defaults.
+    assert_eq!(default_policy(&svc).invites.minor_ttl_days, 7);
+    let both = svc.resolve_strictest(&[ctx_store("FR"), ctx_store("DE")]);
+    assert_eq!(both.invites.minor_ttl_days, 3);
+    assert_eq!(both.invites.minor_max_uses, 2);
+}

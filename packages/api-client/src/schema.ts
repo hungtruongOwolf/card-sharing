@@ -578,6 +578,12 @@ export interface components {
         /** @description My personal invite link. Share it as a link or QR code. */
         InviteResponse: {
             /**
+             * Format: date-time
+             * @description When the link stops working on its own: set only for minors' invites (AC-4.4, region
+             *     policy; they also stop after a few uses). `null` = valid until reset.
+             */
+            expires_at?: string | null;
+            /**
              * @description `<share host>/i/<token>`; the token is 128 random bits (22 base64url characters).
              * @example https://cardsharing.app/i/3q2-7wAAAAAAAAAAAAAAAA
              */
@@ -1495,7 +1501,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The caller's live invite link (the same until reset). */
+            /** @description The caller's live invite link (the same until reset; a minor's used-up or expired link is replaced). */
             200: {
                 headers: {
                     [name: string]: unknown;

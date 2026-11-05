@@ -48,6 +48,7 @@ struct PolicyOverride {
     min_age: Option<u8>,
     adult_age: Option<u8>,
     discovery: Option<DiscoveryOverride>,
+    invites: Option<InviteOverride>,
     ai_effects: Option<AiEffectsOverride>,
     ads: Option<AdsOverride>,
     ai_label: Option<AiLabelOverride>,
@@ -57,6 +58,13 @@ struct PolicyOverride {
 #[serde(deny_unknown_fields)]
 struct DiscoveryOverride {
     min_age: Option<u8>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct InviteOverride {
+    minor_ttl_days: Option<u16>,
+    minor_max_uses: Option<u32>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -183,6 +191,14 @@ fn apply(policy: &mut Policy, o: &PolicyOverride) {
     }
     if let Some(min_age) = o.discovery.as_ref().and_then(|d| d.min_age) {
         policy.discovery.min_age = min_age;
+    }
+    if let Some(invites) = &o.invites {
+        if let Some(days) = invites.minor_ttl_days {
+            policy.invites.minor_ttl_days = days;
+        }
+        if let Some(uses) = invites.minor_max_uses {
+            policy.invites.minor_max_uses = uses;
+        }
     }
     if let Some(ai) = &o.ai_effects {
         apply_ai_effects(&mut policy.ai_effects, ai);

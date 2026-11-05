@@ -9,6 +9,9 @@ pub enum SocialError {
     Crypto(#[from] CryptoError),
     #[error("system random number generator failed")]
     Randomness,
+    /// The identity module (age, account) failed.
+    #[error("identity error: {0}")]
+    Identity(String),
     #[error("corrupt row: {0}")]
     Corrupt(String),
 }

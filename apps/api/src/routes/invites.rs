@@ -6,6 +6,7 @@ use axum::extract::State;
 use platform::problem::{ApiError, ProblemDetails};
 use serde::Serialize;
 use social::MyInvite;
+use time::OffsetDateTime;
 use utoipa::ToSchema;
 
 use crate::access::Caller;
@@ -19,11 +20,19 @@ pub struct InviteResponse {
     /// `<share host>/i/<token>`; the token is 128 random bits (22 base64url characters).
     #[schema(example = "https://cardsharing.app/i/3q2-7wAAAAAAAAAAAAAAAA")]
     pub url: String,
+    /// When the link stops working on its own: set only for minors' invites (AC-4.4, region
+    /// policy; they also stop after a few uses). `null` = valid until reset.
+    #[serde(with = "time::serde::rfc3339::option")]
+    #[schema(value_type = Option<String>, format = DateTime)]
+    pub expires_at: Option<OffsetDateTime>,
 }
 
 impl From<MyInvite> for InviteResponse {
     fn from(invite: MyInvite) -> Self {
-        Self { url: invite.url }
+        Self {
+            url: invite.url,
+            expires_at: invite.expires_at,
+        }
     }
 }
 
@@ -35,7 +44,7 @@ impl From<MyInvite> for InviteResponse {
     operation_id = "getMyInvite",
     security(("bearer" = [])),
     responses(
-        (status = OK, description = "The caller's live invite link (the same until reset).", body = InviteResponse),
+        (status = OK, description = "The caller's live invite link (the same until reset; a minor's used-up or expired link is replaced).", body = InviteResponse),
         (status = UNAUTHORIZED, description = "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.", body = ProblemDetails),
         (status = FORBIDDEN, description = "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.", body = ProblemDetails),
         (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED.", body = ProblemDetails),

@@ -53,5 +53,12 @@ overrides:
   caps the effective age below `adult_age`; an `adult` signal never loosens the DOB; latest signal wins; ignored while the flag
   is off.
 
+## Implementation (T-38)
+- `invites: {minor_ttl_days: 7, minor_max_uses: 5}` in `config/policy/regions.yaml` (strictest = the smaller value; fields
+  missing from a config use these defaults). They apply to personal invite links whose owner is a minor (AC-4.4): stored on the
+  invite when issued and re-applied on every use from the owner's current `AgeService::status`, so an owner who becomes a minor
+  later (OS signal) is covered, and limits issued to a minor stay after the owner turns 18. The use cap value (5) is a
+  placeholder pending an EM decision.
+
 ## Open questions
 - Legal review of per-country values before launch.

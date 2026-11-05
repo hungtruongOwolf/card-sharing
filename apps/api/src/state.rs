@@ -69,7 +69,9 @@ impl AppState {
             false,
         ));
         let social = Arc::new(SocialService::new(
-            &identity,
+            Arc::clone(&identity),
+            Arc::clone(&age),
+            Arc::clone(&policy),
             Arc::clone(&field_cipher),
             SocialSettings::default(),
         ));
@@ -123,7 +125,9 @@ impl AppState {
     /// Installs the social rules (`config/social.yaml`).
     pub fn with_social_settings(mut self, settings: SocialSettings) -> Self {
         self.social = Arc::new(SocialService::new(
-            &self.identity,
+            Arc::clone(&self.identity),
+            Arc::clone(&self.age),
+            Arc::clone(&self.policy),
             Arc::clone(&self.field_cipher),
             settings,
         ));
