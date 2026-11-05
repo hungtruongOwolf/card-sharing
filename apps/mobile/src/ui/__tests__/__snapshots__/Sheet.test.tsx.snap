@@ -1,0 +1,587 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Sheet (dark) matches the snapshot when open 1`] = `
+<Modal
+  animationType="slide"
+  navigationBarTranslucent={true}
+  onRequestClose={[Function]}
+  statusBarTranslucent={true}
+  testID="sheet-modal"
+  transparent={true}
+  visible={true}
+>
+  <View
+    style={
+      {
+        "flex": 1,
+        "justifyContent": "flex-end",
+      }
+    }
+  >
+    <View
+      accessibilityLabel="Close sheet"
+      accessibilityRole="button"
+      accessibilityState={
+        {
+          "busy": undefined,
+          "checked": undefined,
+          "disabled": undefined,
+          "expanded": undefined,
+          "selected": undefined,
+        }
+      }
+      accessibilityValue={
+        {
+          "max": undefined,
+          "min": undefined,
+          "now": undefined,
+          "text": undefined,
+        }
+      }
+      accessible={true}
+      collapsable={false}
+      focusable={true}
+      onBlur={[Function]}
+      onClick={[Function]}
+      onFocus={[Function]}
+      onResponderGrant={[Function]}
+      onResponderMove={[Function]}
+      onResponderRelease={[Function]}
+      onResponderTerminate={[Function]}
+      onResponderTerminationRequest={[Function]}
+      onStartShouldSetResponder={[Function]}
+      style={
+        [
+          {
+            "bottom": 0,
+            "left": 0,
+            "position": "absolute",
+            "right": 0,
+            "top": 0,
+          },
+          {
+            "backgroundColor": "rgba(0, 0, 0, 0.56)",
+          },
+        ]
+      }
+      testID="sheet-backdrop"
+    />
+    <View
+      accessibilityViewIsModal={true}
+      onAccessibilityEscape={[Function]}
+      style={
+        [
+          {
+            "borderTopEndRadius": 24,
+            "borderTopStartRadius": 24,
+            "gap": 12,
+            "maxHeight": "90%",
+            "paddingHorizontal": 16,
+            "paddingTop": 8,
+          },
+          {
+            "backgroundColor": "#2A231D",
+            "boxShadow": "0px 8px 8px rgba(0, 0, 0, 0.12), 0px 24px 48px rgba(0, 0, 0, 0.352)",
+            "paddingBottom": 16,
+          },
+        ]
+      }
+      testID="sheet"
+    >
+      <View
+        accessibilityElementsHidden={true}
+        importantForAccessibility="no-hide-descendants"
+        style={
+          [
+            {
+              "alignSelf": "center",
+              "borderRadius": 9999,
+              "height": 4,
+              "width": 36,
+            },
+            {
+              "backgroundColor": "rgba(245, 237, 224, 0.14)",
+            },
+          ]
+        }
+      />
+      <View
+        style={
+          {
+            "alignItems": "center",
+            "flexDirection": "row",
+            "gap": 8,
+          }
+        }
+      >
+        <Text
+          accessibilityRole="header"
+          maxFontSizeMultiplier={2}
+          style={
+            [
+              {
+                "color": "#F5EDE0",
+                "fontFamily": undefined,
+                "fontSize": 20,
+                "fontWeight": "600",
+                "lineHeight": 26,
+                "textAlign": "auto",
+                "textTransform": "none",
+                "writingDirection": "auto",
+              },
+              {
+                "flex": 1,
+              },
+            ]
+          }
+        >
+          Edit caption
+        </Text>
+        <View
+          accessibilityLabel="Close"
+          accessibilityRole="button"
+          accessibilityState={
+            {
+              "busy": false,
+              "checked": undefined,
+              "disabled": false,
+              "expanded": undefined,
+              "selected": undefined,
+            }
+          }
+          accessibilityValue={
+            {
+              "max": undefined,
+              "min": undefined,
+              "now": undefined,
+              "text": undefined,
+            }
+          }
+          accessible={true}
+          collapsable={false}
+          focusable={true}
+          onBlur={[Function]}
+          onClick={[Function]}
+          onFocus={[Function]}
+          onResponderGrant={[Function]}
+          onResponderMove={[Function]}
+          onResponderRelease={[Function]}
+          onResponderTerminate={[Function]}
+          onResponderTerminationRequest={[Function]}
+          onStartShouldSetResponder={[Function]}
+          style={
+            [
+              {
+                "alignSelf": "flex-start",
+              },
+              null,
+            ]
+          }
+        >
+          <View
+            collapsable={false}
+            jestAnimatedProps={
+              {
+                "value": {},
+              }
+            }
+            jestAnimatedStyle={
+              {
+                "value": {
+                  "transform": [
+                    {
+                      "scale": 1,
+                    },
+                  ],
+                },
+              }
+            }
+            jestInlineStyle={
+              [
+                {
+                  "alignItems": "center",
+                  "borderRadius": 9999,
+                  "borderWidth": 0.5,
+                  "justifyContent": "center",
+                  "paddingHorizontal": 16,
+                  "paddingVertical": 8,
+                },
+                {
+                  "backgroundColor": "transparent",
+                  "borderColor": "transparent",
+                  "minHeight": 44,
+                  "minWidth": 44,
+                },
+              ]
+            }
+            style={
+              [
+                {
+                  "alignItems": "center",
+                  "borderRadius": 9999,
+                  "borderWidth": 0.5,
+                  "justifyContent": "center",
+                  "paddingHorizontal": 16,
+                  "paddingVertical": 8,
+                },
+                {
+                  "backgroundColor": "transparent",
+                  "borderColor": "transparent",
+                  "minHeight": 44,
+                  "minWidth": 44,
+                },
+                {
+                  "transform": [
+                    {
+                      "scale": 1,
+                    },
+                  ],
+                },
+              ]
+            }
+            testID="button-surface"
+          >
+            <View>
+              <Text
+                maxFontSizeMultiplier={2}
+                style={
+                  [
+                    {
+                      "color": "#F5EDE0",
+                      "fontFamily": undefined,
+                      "fontSize": 14,
+                      "fontWeight": "600",
+                      "lineHeight": 18,
+                      "textAlign": "auto",
+                      "textTransform": "none",
+                      "writingDirection": "auto",
+                    },
+                    {
+                      "textAlign": "center",
+                    },
+                  ]
+                }
+              >
+                Close
+              </Text>
+            </View>
+          </View>
+        </View>
+      </View>
+      <Text
+        maxFontSizeMultiplier={2}
+        style={
+          [
+            {
+              "color": "#F5EDE0",
+              "fontFamily": undefined,
+              "fontSize": 15,
+              "fontWeight": "400",
+              "lineHeight": 22,
+              "textAlign": "auto",
+              "textTransform": "none",
+              "writingDirection": "auto",
+            },
+            undefined,
+          ]
+        }
+      >
+        Body
+      </Text>
+    </View>
+  </View>
+</Modal>
+`;
+
+exports[`Sheet (light) matches the snapshot when open 1`] = `
+<Modal
+  animationType="slide"
+  navigationBarTranslucent={true}
+  onRequestClose={[Function]}
+  statusBarTranslucent={true}
+  testID="sheet-modal"
+  transparent={true}
+  visible={true}
+>
+  <View
+    style={
+      {
+        "flex": 1,
+        "justifyContent": "flex-end",
+      }
+    }
+  >
+    <View
+      accessibilityLabel="Close sheet"
+      accessibilityRole="button"
+      accessibilityState={
+        {
+          "busy": undefined,
+          "checked": undefined,
+          "disabled": undefined,
+          "expanded": undefined,
+          "selected": undefined,
+        }
+      }
+      accessibilityValue={
+        {
+          "max": undefined,
+          "min": undefined,
+          "now": undefined,
+          "text": undefined,
+        }
+      }
+      accessible={true}
+      collapsable={false}
+      focusable={true}
+      onBlur={[Function]}
+      onClick={[Function]}
+      onFocus={[Function]}
+      onResponderGrant={[Function]}
+      onResponderMove={[Function]}
+      onResponderRelease={[Function]}
+      onResponderTerminate={[Function]}
+      onResponderTerminationRequest={[Function]}
+      onStartShouldSetResponder={[Function]}
+      style={
+        [
+          {
+            "bottom": 0,
+            "left": 0,
+            "position": "absolute",
+            "right": 0,
+            "top": 0,
+          },
+          {
+            "backgroundColor": "rgba(43, 35, 32, 0.4)",
+          },
+        ]
+      }
+      testID="sheet-backdrop"
+    />
+    <View
+      accessibilityViewIsModal={true}
+      onAccessibilityEscape={[Function]}
+      style={
+        [
+          {
+            "borderTopEndRadius": 24,
+            "borderTopStartRadius": 24,
+            "gap": 12,
+            "maxHeight": "90%",
+            "paddingHorizontal": 16,
+            "paddingTop": 8,
+          },
+          {
+            "backgroundColor": "#FFFBF3",
+            "boxShadow": "0px 8px 8px rgba(60, 40, 25, 0.1), 0px 24px 48px rgba(60, 40, 25, 0.22)",
+            "paddingBottom": 16,
+          },
+        ]
+      }
+      testID="sheet"
+    >
+      <View
+        accessibilityElementsHidden={true}
+        importantForAccessibility="no-hide-descendants"
+        style={
+          [
+            {
+              "alignSelf": "center",
+              "borderRadius": 9999,
+              "height": 4,
+              "width": 36,
+            },
+            {
+              "backgroundColor": "rgba(43, 35, 32, 0.12)",
+            },
+          ]
+        }
+      />
+      <View
+        style={
+          {
+            "alignItems": "center",
+            "flexDirection": "row",
+            "gap": 8,
+          }
+        }
+      >
+        <Text
+          accessibilityRole="header"
+          maxFontSizeMultiplier={2}
+          style={
+            [
+              {
+                "color": "#2B2320",
+                "fontFamily": undefined,
+                "fontSize": 20,
+                "fontWeight": "600",
+                "lineHeight": 26,
+                "textAlign": "auto",
+                "textTransform": "none",
+                "writingDirection": "auto",
+              },
+              {
+                "flex": 1,
+              },
+            ]
+          }
+        >
+          Edit caption
+        </Text>
+        <View
+          accessibilityLabel="Close"
+          accessibilityRole="button"
+          accessibilityState={
+            {
+              "busy": false,
+              "checked": undefined,
+              "disabled": false,
+              "expanded": undefined,
+              "selected": undefined,
+            }
+          }
+          accessibilityValue={
+            {
+              "max": undefined,
+              "min": undefined,
+              "now": undefined,
+              "text": undefined,
+            }
+          }
+          accessible={true}
+          collapsable={false}
+          focusable={true}
+          onBlur={[Function]}
+          onClick={[Function]}
+          onFocus={[Function]}
+          onResponderGrant={[Function]}
+          onResponderMove={[Function]}
+          onResponderRelease={[Function]}
+          onResponderTerminate={[Function]}
+          onResponderTerminationRequest={[Function]}
+          onStartShouldSetResponder={[Function]}
+          style={
+            [
+              {
+                "alignSelf": "flex-start",
+              },
+              null,
+            ]
+          }
+        >
+          <View
+            collapsable={false}
+            jestAnimatedProps={
+              {
+                "value": {},
+              }
+            }
+            jestAnimatedStyle={
+              {
+                "value": {
+                  "transform": [
+                    {
+                      "scale": 1,
+                    },
+                  ],
+                },
+              }
+            }
+            jestInlineStyle={
+              [
+                {
+                  "alignItems": "center",
+                  "borderRadius": 9999,
+                  "borderWidth": 0.5,
+                  "justifyContent": "center",
+                  "paddingHorizontal": 16,
+                  "paddingVertical": 8,
+                },
+                {
+                  "backgroundColor": "transparent",
+                  "borderColor": "transparent",
+                  "minHeight": 44,
+                  "minWidth": 44,
+                },
+              ]
+            }
+            style={
+              [
+                {
+                  "alignItems": "center",
+                  "borderRadius": 9999,
+                  "borderWidth": 0.5,
+                  "justifyContent": "center",
+                  "paddingHorizontal": 16,
+                  "paddingVertical": 8,
+                },
+                {
+                  "backgroundColor": "transparent",
+                  "borderColor": "transparent",
+                  "minHeight": 44,
+                  "minWidth": 44,
+                },
+                {
+                  "transform": [
+                    {
+                      "scale": 1,
+                    },
+                  ],
+                },
+              ]
+            }
+            testID="button-surface"
+          >
+            <View>
+              <Text
+                maxFontSizeMultiplier={2}
+                style={
+                  [
+                    {
+                      "color": "#2B2320",
+                      "fontFamily": undefined,
+                      "fontSize": 14,
+                      "fontWeight": "600",
+                      "lineHeight": 18,
+                      "textAlign": "auto",
+                      "textTransform": "none",
+                      "writingDirection": "auto",
+                    },
+                    {
+                      "textAlign": "center",
+                    },
+                  ]
+                }
+              >
+                Close
+              </Text>
+            </View>
+          </View>
+        </View>
+      </View>
+      <Text
+        maxFontSizeMultiplier={2}
+        style={
+          [
+            {
+              "color": "#2B2320",
+              "fontFamily": undefined,
+              "fontSize": 15,
+              "fontWeight": "400",
+              "lineHeight": 22,
+              "textAlign": "auto",
+              "textTransform": "none",
+              "writingDirection": "auto",
+            },
+            undefined,
+          ]
+        }
+      >
+        Body
+      </Text>
+    </View>
+  </View>
+</Modal>
+`;

@@ -1,0 +1,1051 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Button (dark) matches the snapshot for every variant 1`] = `
+<>
+  <View
+    accessibilityLabel="Primary"
+    accessibilityRole="button"
+    accessibilityState={
+      {
+        "busy": false,
+        "checked": undefined,
+        "disabled": false,
+        "expanded": undefined,
+        "selected": undefined,
+      }
+    }
+    accessibilityValue={
+      {
+        "max": undefined,
+        "min": undefined,
+        "now": undefined,
+        "text": undefined,
+      }
+    }
+    accessible={true}
+    collapsable={false}
+    focusable={true}
+    onBlur={[Function]}
+    onClick={[Function]}
+    onFocus={[Function]}
+    onResponderGrant={[Function]}
+    onResponderMove={[Function]}
+    onResponderRelease={[Function]}
+    onResponderTerminate={[Function]}
+    onResponderTerminationRequest={[Function]}
+    onStartShouldSetResponder={[Function]}
+    style={
+      [
+        {
+          "alignSelf": "flex-start",
+        },
+        null,
+      ]
+    }
+  >
+    <View
+      collapsable={false}
+      jestAnimatedProps={
+        {
+          "value": {},
+        }
+      }
+      jestAnimatedStyle={
+        {
+          "value": {
+            "transform": [
+              {
+                "scale": 1,
+              },
+            ],
+          },
+        }
+      }
+      jestInlineStyle={
+        [
+          {
+            "alignItems": "center",
+            "borderRadius": 9999,
+            "borderWidth": 0.5,
+            "justifyContent": "center",
+            "paddingHorizontal": 16,
+            "paddingVertical": 8,
+          },
+          {
+            "backgroundColor": "#FF7A5C",
+            "borderColor": "#FF7A5C",
+            "minHeight": 44,
+            "minWidth": 44,
+          },
+        ]
+      }
+      style={
+        [
+          {
+            "alignItems": "center",
+            "borderRadius": 9999,
+            "borderWidth": 0.5,
+            "justifyContent": "center",
+            "paddingHorizontal": 16,
+            "paddingVertical": 8,
+          },
+          {
+            "backgroundColor": "#FF7A5C",
+            "borderColor": "#FF7A5C",
+            "minHeight": 44,
+            "minWidth": 44,
+          },
+          {
+            "transform": [
+              {
+                "scale": 1,
+              },
+            ],
+          },
+        ]
+      }
+      testID="button-surface"
+    >
+      <View>
+        <Text
+          maxFontSizeMultiplier={2}
+          style={
+            [
+              {
+                "color": "#1A1512",
+                "fontFamily": undefined,
+                "fontSize": 14,
+                "fontWeight": "600",
+                "lineHeight": 18,
+                "textAlign": "auto",
+                "textTransform": "none",
+                "writingDirection": "auto",
+              },
+              {
+                "textAlign": "center",
+              },
+            ]
+          }
+        >
+          Primary
+        </Text>
+      </View>
+    </View>
+  </View>
+  <View
+    accessibilityLabel="Secondary"
+    accessibilityRole="button"
+    accessibilityState={
+      {
+        "busy": false,
+        "checked": undefined,
+        "disabled": false,
+        "expanded": undefined,
+        "selected": undefined,
+      }
+    }
+    accessibilityValue={
+      {
+        "max": undefined,
+        "min": undefined,
+        "now": undefined,
+        "text": undefined,
+      }
+    }
+    accessible={true}
+    collapsable={false}
+    focusable={true}
+    onBlur={[Function]}
+    onClick={[Function]}
+    onFocus={[Function]}
+    onResponderGrant={[Function]}
+    onResponderMove={[Function]}
+    onResponderRelease={[Function]}
+    onResponderTerminate={[Function]}
+    onResponderTerminationRequest={[Function]}
+    onStartShouldSetResponder={[Function]}
+    style={
+      [
+        {
+          "alignSelf": "flex-start",
+        },
+        null,
+      ]
+    }
+  >
+    <View
+      collapsable={false}
+      jestAnimatedProps={
+        {
+          "value": {},
+        }
+      }
+      jestAnimatedStyle={
+        {
+          "value": {
+            "transform": [
+              {
+                "scale": 1,
+              },
+            ],
+          },
+        }
+      }
+      jestInlineStyle={
+        [
+          {
+            "alignItems": "center",
+            "borderRadius": 9999,
+            "borderWidth": 0.5,
+            "justifyContent": "center",
+            "paddingHorizontal": 16,
+            "paddingVertical": 8,
+          },
+          {
+            "backgroundColor": "#332B24",
+            "borderColor": "rgba(245, 237, 224, 0.14)",
+            "minHeight": 44,
+            "minWidth": 44,
+          },
+        ]
+      }
+      style={
+        [
+          {
+            "alignItems": "center",
+            "borderRadius": 9999,
+            "borderWidth": 0.5,
+            "justifyContent": "center",
+            "paddingHorizontal": 16,
+            "paddingVertical": 8,
+          },
+          {
+            "backgroundColor": "#332B24",
+            "borderColor": "rgba(245, 237, 224, 0.14)",
+            "minHeight": 44,
+            "minWidth": 44,
+          },
+          {
+            "transform": [
+              {
+                "scale": 1,
+              },
+            ],
+          },
+        ]
+      }
+      testID="button-surface"
+    >
+      <View>
+        <Text
+          maxFontSizeMultiplier={2}
+          style={
+            [
+              {
+                "color": "#F5EDE0",
+                "fontFamily": undefined,
+                "fontSize": 14,
+                "fontWeight": "600",
+                "lineHeight": 18,
+                "textAlign": "auto",
+                "textTransform": "none",
+                "writingDirection": "auto",
+              },
+              {
+                "textAlign": "center",
+              },
+            ]
+          }
+        >
+          Secondary
+        </Text>
+      </View>
+    </View>
+  </View>
+  <View
+    accessibilityLabel="Ghost"
+    accessibilityRole="button"
+    accessibilityState={
+      {
+        "busy": false,
+        "checked": undefined,
+        "disabled": false,
+        "expanded": undefined,
+        "selected": undefined,
+      }
+    }
+    accessibilityValue={
+      {
+        "max": undefined,
+        "min": undefined,
+        "now": undefined,
+        "text": undefined,
+      }
+    }
+    accessible={true}
+    collapsable={false}
+    focusable={true}
+    onBlur={[Function]}
+    onClick={[Function]}
+    onFocus={[Function]}
+    onResponderGrant={[Function]}
+    onResponderMove={[Function]}
+    onResponderRelease={[Function]}
+    onResponderTerminate={[Function]}
+    onResponderTerminationRequest={[Function]}
+    onStartShouldSetResponder={[Function]}
+    style={
+      [
+        {
+          "alignSelf": "flex-start",
+        },
+        null,
+      ]
+    }
+  >
+    <View
+      collapsable={false}
+      jestAnimatedProps={
+        {
+          "value": {},
+        }
+      }
+      jestAnimatedStyle={
+        {
+          "value": {
+            "transform": [
+              {
+                "scale": 1,
+              },
+            ],
+          },
+        }
+      }
+      jestInlineStyle={
+        [
+          {
+            "alignItems": "center",
+            "borderRadius": 9999,
+            "borderWidth": 0.5,
+            "justifyContent": "center",
+            "paddingHorizontal": 16,
+            "paddingVertical": 8,
+          },
+          {
+            "backgroundColor": "transparent",
+            "borderColor": "transparent",
+            "minHeight": 44,
+            "minWidth": 44,
+          },
+        ]
+      }
+      style={
+        [
+          {
+            "alignItems": "center",
+            "borderRadius": 9999,
+            "borderWidth": 0.5,
+            "justifyContent": "center",
+            "paddingHorizontal": 16,
+            "paddingVertical": 8,
+          },
+          {
+            "backgroundColor": "transparent",
+            "borderColor": "transparent",
+            "minHeight": 44,
+            "minWidth": 44,
+          },
+          {
+            "transform": [
+              {
+                "scale": 1,
+              },
+            ],
+          },
+        ]
+      }
+      testID="button-surface"
+    >
+      <View>
+        <Text
+          maxFontSizeMultiplier={2}
+          style={
+            [
+              {
+                "color": "#F5EDE0",
+                "fontFamily": undefined,
+                "fontSize": 14,
+                "fontWeight": "600",
+                "lineHeight": 18,
+                "textAlign": "auto",
+                "textTransform": "none",
+                "writingDirection": "auto",
+              },
+              {
+                "textAlign": "center",
+              },
+            ]
+          }
+        >
+          Ghost
+        </Text>
+      </View>
+    </View>
+  </View>
+  <View
+    accessibilityLabel="Delete"
+    accessibilityRole="button"
+    accessibilityState={
+      {
+        "busy": false,
+        "checked": undefined,
+        "disabled": false,
+        "expanded": undefined,
+        "selected": undefined,
+      }
+    }
+    accessibilityValue={
+      {
+        "max": undefined,
+        "min": undefined,
+        "now": undefined,
+        "text": undefined,
+      }
+    }
+    accessible={true}
+    collapsable={false}
+    focusable={true}
+    onBlur={[Function]}
+    onClick={[Function]}
+    onFocus={[Function]}
+    onResponderGrant={[Function]}
+    onResponderMove={[Function]}
+    onResponderRelease={[Function]}
+    onResponderTerminate={[Function]}
+    onResponderTerminationRequest={[Function]}
+    onStartShouldSetResponder={[Function]}
+    style={
+      [
+        {
+          "alignSelf": "flex-start",
+        },
+        null,
+      ]
+    }
+  >
+    <View
+      collapsable={false}
+      jestAnimatedProps={
+        {
+          "value": {},
+        }
+      }
+      jestAnimatedStyle={
+        {
+          "value": {
+            "transform": [
+              {
+                "scale": 1,
+              },
+            ],
+          },
+        }
+      }
+      jestInlineStyle={
+        [
+          {
+            "alignItems": "center",
+            "borderRadius": 9999,
+            "borderWidth": 0.5,
+            "justifyContent": "center",
+            "paddingHorizontal": 16,
+            "paddingVertical": 8,
+          },
+          {
+            "backgroundColor": "#FF8A80",
+            "borderColor": "#FF8A80",
+            "minHeight": 44,
+            "minWidth": 44,
+          },
+        ]
+      }
+      style={
+        [
+          {
+            "alignItems": "center",
+            "borderRadius": 9999,
+            "borderWidth": 0.5,
+            "justifyContent": "center",
+            "paddingHorizontal": 16,
+            "paddingVertical": 8,
+          },
+          {
+            "backgroundColor": "#FF8A80",
+            "borderColor": "#FF8A80",
+            "minHeight": 44,
+            "minWidth": 44,
+          },
+          {
+            "transform": [
+              {
+                "scale": 1,
+              },
+            ],
+          },
+        ]
+      }
+      testID="button-surface"
+    >
+      <View>
+        <Text
+          maxFontSizeMultiplier={2}
+          style={
+            [
+              {
+                "color": "#1A1512",
+                "fontFamily": undefined,
+                "fontSize": 14,
+                "fontWeight": "600",
+                "lineHeight": 18,
+                "textAlign": "auto",
+                "textTransform": "none",
+                "writingDirection": "auto",
+              },
+              {
+                "textAlign": "center",
+              },
+            ]
+          }
+        >
+          Delete
+        </Text>
+      </View>
+    </View>
+  </View>
+</>
+`;
+
+exports[`Button (light) matches the snapshot for every variant 1`] = `
+<>
+  <View
+    accessibilityLabel="Primary"
+    accessibilityRole="button"
+    accessibilityState={
+      {
+        "busy": false,
+        "checked": undefined,
+        "disabled": false,
+        "expanded": undefined,
+        "selected": undefined,
+      }
+    }
+    accessibilityValue={
+      {
+        "max": undefined,
+        "min": undefined,
+        "now": undefined,
+        "text": undefined,
+      }
+    }
+    accessible={true}
+    collapsable={false}
+    focusable={true}
+    onBlur={[Function]}
+    onClick={[Function]}
+    onFocus={[Function]}
+    onResponderGrant={[Function]}
+    onResponderMove={[Function]}
+    onResponderRelease={[Function]}
+    onResponderTerminate={[Function]}
+    onResponderTerminationRequest={[Function]}
+    onStartShouldSetResponder={[Function]}
+    style={
+      [
+        {
+          "alignSelf": "flex-start",
+        },
+        null,
+      ]
+    }
+  >
+    <View
+      collapsable={false}
+      jestAnimatedProps={
+        {
+          "value": {},
+        }
+      }
+      jestAnimatedStyle={
+        {
+          "value": {
+            "transform": [
+              {
+                "scale": 1,
+              },
+            ],
+          },
+        }
+      }
+      jestInlineStyle={
+        [
+          {
+            "alignItems": "center",
+            "borderRadius": 9999,
+            "borderWidth": 0.5,
+            "justifyContent": "center",
+            "paddingHorizontal": 16,
+            "paddingVertical": 8,
+          },
+          {
+            "backgroundColor": "#C8412B",
+            "borderColor": "#C8412B",
+            "minHeight": 44,
+            "minWidth": 44,
+          },
+        ]
+      }
+      style={
+        [
+          {
+            "alignItems": "center",
+            "borderRadius": 9999,
+            "borderWidth": 0.5,
+            "justifyContent": "center",
+            "paddingHorizontal": 16,
+            "paddingVertical": 8,
+          },
+          {
+            "backgroundColor": "#C8412B",
+            "borderColor": "#C8412B",
+            "minHeight": 44,
+            "minWidth": 44,
+          },
+          {
+            "transform": [
+              {
+                "scale": 1,
+              },
+            ],
+          },
+        ]
+      }
+      testID="button-surface"
+    >
+      <View>
+        <Text
+          maxFontSizeMultiplier={2}
+          style={
+            [
+              {
+                "color": "#FFFFFF",
+                "fontFamily": undefined,
+                "fontSize": 14,
+                "fontWeight": "600",
+                "lineHeight": 18,
+                "textAlign": "auto",
+                "textTransform": "none",
+                "writingDirection": "auto",
+              },
+              {
+                "textAlign": "center",
+              },
+            ]
+          }
+        >
+          Primary
+        </Text>
+      </View>
+    </View>
+  </View>
+  <View
+    accessibilityLabel="Secondary"
+    accessibilityRole="button"
+    accessibilityState={
+      {
+        "busy": false,
+        "checked": undefined,
+        "disabled": false,
+        "expanded": undefined,
+        "selected": undefined,
+      }
+    }
+    accessibilityValue={
+      {
+        "max": undefined,
+        "min": undefined,
+        "now": undefined,
+        "text": undefined,
+      }
+    }
+    accessible={true}
+    collapsable={false}
+    focusable={true}
+    onBlur={[Function]}
+    onClick={[Function]}
+    onFocus={[Function]}
+    onResponderGrant={[Function]}
+    onResponderMove={[Function]}
+    onResponderRelease={[Function]}
+    onResponderTerminate={[Function]}
+    onResponderTerminationRequest={[Function]}
+    onStartShouldSetResponder={[Function]}
+    style={
+      [
+        {
+          "alignSelf": "flex-start",
+        },
+        null,
+      ]
+    }
+  >
+    <View
+      collapsable={false}
+      jestAnimatedProps={
+        {
+          "value": {},
+        }
+      }
+      jestAnimatedStyle={
+        {
+          "value": {
+            "transform": [
+              {
+                "scale": 1,
+              },
+            ],
+          },
+        }
+      }
+      jestInlineStyle={
+        [
+          {
+            "alignItems": "center",
+            "borderRadius": 9999,
+            "borderWidth": 0.5,
+            "justifyContent": "center",
+            "paddingHorizontal": 16,
+            "paddingVertical": 8,
+          },
+          {
+            "backgroundColor": "#FFFFFF",
+            "borderColor": "rgba(43, 35, 32, 0.12)",
+            "minHeight": 44,
+            "minWidth": 44,
+          },
+        ]
+      }
+      style={
+        [
+          {
+            "alignItems": "center",
+            "borderRadius": 9999,
+            "borderWidth": 0.5,
+            "justifyContent": "center",
+            "paddingHorizontal": 16,
+            "paddingVertical": 8,
+          },
+          {
+            "backgroundColor": "#FFFFFF",
+            "borderColor": "rgba(43, 35, 32, 0.12)",
+            "minHeight": 44,
+            "minWidth": 44,
+          },
+          {
+            "transform": [
+              {
+                "scale": 1,
+              },
+            ],
+          },
+        ]
+      }
+      testID="button-surface"
+    >
+      <View>
+        <Text
+          maxFontSizeMultiplier={2}
+          style={
+            [
+              {
+                "color": "#2B2320",
+                "fontFamily": undefined,
+                "fontSize": 14,
+                "fontWeight": "600",
+                "lineHeight": 18,
+                "textAlign": "auto",
+                "textTransform": "none",
+                "writingDirection": "auto",
+              },
+              {
+                "textAlign": "center",
+              },
+            ]
+          }
+        >
+          Secondary
+        </Text>
+      </View>
+    </View>
+  </View>
+  <View
+    accessibilityLabel="Ghost"
+    accessibilityRole="button"
+    accessibilityState={
+      {
+        "busy": false,
+        "checked": undefined,
+        "disabled": false,
+        "expanded": undefined,
+        "selected": undefined,
+      }
+    }
+    accessibilityValue={
+      {
+        "max": undefined,
+        "min": undefined,
+        "now": undefined,
+        "text": undefined,
+      }
+    }
+    accessible={true}
+    collapsable={false}
+    focusable={true}
+    onBlur={[Function]}
+    onClick={[Function]}
+    onFocus={[Function]}
+    onResponderGrant={[Function]}
+    onResponderMove={[Function]}
+    onResponderRelease={[Function]}
+    onResponderTerminate={[Function]}
+    onResponderTerminationRequest={[Function]}
+    onStartShouldSetResponder={[Function]}
+    style={
+      [
+        {
+          "alignSelf": "flex-start",
+        },
+        null,
+      ]
+    }
+  >
+    <View
+      collapsable={false}
+      jestAnimatedProps={
+        {
+          "value": {},
+        }
+      }
+      jestAnimatedStyle={
+        {
+          "value": {
+            "transform": [
+              {
+                "scale": 1,
+              },
+            ],
+          },
+        }
+      }
+      jestInlineStyle={
+        [
+          {
+            "alignItems": "center",
+            "borderRadius": 9999,
+            "borderWidth": 0.5,
+            "justifyContent": "center",
+            "paddingHorizontal": 16,
+            "paddingVertical": 8,
+          },
+          {
+            "backgroundColor": "transparent",
+            "borderColor": "transparent",
+            "minHeight": 44,
+            "minWidth": 44,
+          },
+        ]
+      }
+      style={
+        [
+          {
+            "alignItems": "center",
+            "borderRadius": 9999,
+            "borderWidth": 0.5,
+            "justifyContent": "center",
+            "paddingHorizontal": 16,
+            "paddingVertical": 8,
+          },
+          {
+            "backgroundColor": "transparent",
+            "borderColor": "transparent",
+            "minHeight": 44,
+            "minWidth": 44,
+          },
+          {
+            "transform": [
+              {
+                "scale": 1,
+              },
+            ],
+          },
+        ]
+      }
+      testID="button-surface"
+    >
+      <View>
+        <Text
+          maxFontSizeMultiplier={2}
+          style={
+            [
+              {
+                "color": "#2B2320",
+                "fontFamily": undefined,
+                "fontSize": 14,
+                "fontWeight": "600",
+                "lineHeight": 18,
+                "textAlign": "auto",
+                "textTransform": "none",
+                "writingDirection": "auto",
+              },
+              {
+                "textAlign": "center",
+              },
+            ]
+          }
+        >
+          Ghost
+        </Text>
+      </View>
+    </View>
+  </View>
+  <View
+    accessibilityLabel="Delete"
+    accessibilityRole="button"
+    accessibilityState={
+      {
+        "busy": false,
+        "checked": undefined,
+        "disabled": false,
+        "expanded": undefined,
+        "selected": undefined,
+      }
+    }
+    accessibilityValue={
+      {
+        "max": undefined,
+        "min": undefined,
+        "now": undefined,
+        "text": undefined,
+      }
+    }
+    accessible={true}
+    collapsable={false}
+    focusable={true}
+    onBlur={[Function]}
+    onClick={[Function]}
+    onFocus={[Function]}
+    onResponderGrant={[Function]}
+    onResponderMove={[Function]}
+    onResponderRelease={[Function]}
+    onResponderTerminate={[Function]}
+    onResponderTerminationRequest={[Function]}
+    onStartShouldSetResponder={[Function]}
+    style={
+      [
+        {
+          "alignSelf": "flex-start",
+        },
+        null,
+      ]
+    }
+  >
+    <View
+      collapsable={false}
+      jestAnimatedProps={
+        {
+          "value": {},
+        }
+      }
+      jestAnimatedStyle={
+        {
+          "value": {
+            "transform": [
+              {
+                "scale": 1,
+              },
+            ],
+          },
+        }
+      }
+      jestInlineStyle={
+        [
+          {
+            "alignItems": "center",
+            "borderRadius": 9999,
+            "borderWidth": 0.5,
+            "justifyContent": "center",
+            "paddingHorizontal": 16,
+            "paddingVertical": 8,
+          },
+          {
+            "backgroundColor": "#B3261E",
+            "borderColor": "#B3261E",
+            "minHeight": 44,
+            "minWidth": 44,
+          },
+        ]
+      }
+      style={
+        [
+          {
+            "alignItems": "center",
+            "borderRadius": 9999,
+            "borderWidth": 0.5,
+            "justifyContent": "center",
+            "paddingHorizontal": 16,
+            "paddingVertical": 8,
+          },
+          {
+            "backgroundColor": "#B3261E",
+            "borderColor": "#B3261E",
+            "minHeight": 44,
+            "minWidth": 44,
+          },
+          {
+            "transform": [
+              {
+                "scale": 1,
+              },
+            ],
+          },
+        ]
+      }
+      testID="button-surface"
+    >
+      <View>
+        <Text
+          maxFontSizeMultiplier={2}
+          style={
+            [
+              {
+                "color": "#FFFFFF",
+                "fontFamily": undefined,
+                "fontSize": 14,
+                "fontWeight": "600",
+                "lineHeight": 18,
+                "textAlign": "auto",
+                "textTransform": "none",
+                "writingDirection": "auto",
+              },
+              {
+                "textAlign": "center",
+              },
+            ]
+          }
+        >
+          Delete
+        </Text>
+      </View>
+    </View>
+  </View>
+</>
+`;

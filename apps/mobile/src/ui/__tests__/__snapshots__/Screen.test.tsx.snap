@@ -1,0 +1,169 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Screen (dark) matches the snapshot 1`] = `
+<RNCSafeAreaView
+  edges={
+    {
+      "bottom": "additive",
+      "left": "additive",
+      "right": "additive",
+      "top": "additive",
+    }
+  }
+  style={
+    [
+      {
+        "flex": 1,
+      },
+      {
+        "backgroundColor": "#1A1512",
+      },
+    ]
+  }
+  testID="screen"
+>
+  <RCTScrollView
+    contentContainerStyle={
+      [
+        {
+          "flexGrow": 1,
+          "gap": 16,
+          "paddingHorizontal": 16,
+          "paddingVertical": 16,
+        },
+        false,
+      ]
+    }
+    keyboardDismissMode="interactive"
+    keyboardShouldPersistTaps="handled"
+  >
+    <View>
+      <Text
+        accessibilityRole="header"
+        maxFontSizeMultiplier={2}
+        style={
+          [
+            {
+              "color": "#F5EDE0",
+              "fontFamily": undefined,
+              "fontSize": 24,
+              "fontWeight": "600",
+              "lineHeight": 30,
+              "textAlign": "auto",
+              "textTransform": "none",
+              "writingDirection": "auto",
+            },
+            undefined,
+          ]
+        }
+      >
+        Friends
+      </Text>
+      <Text
+        maxFontSizeMultiplier={2}
+        style={
+          [
+            {
+              "color": "#F5EDE0",
+              "fontFamily": undefined,
+              "fontSize": 15,
+              "fontWeight": "400",
+              "lineHeight": 22,
+              "textAlign": "auto",
+              "textTransform": "none",
+              "writingDirection": "auto",
+            },
+            undefined,
+          ]
+        }
+      >
+        Body
+      </Text>
+    </View>
+  </RCTScrollView>
+</RNCSafeAreaView>
+`;
+
+exports[`Screen (light) matches the snapshot 1`] = `
+<RNCSafeAreaView
+  edges={
+    {
+      "bottom": "additive",
+      "left": "additive",
+      "right": "additive",
+      "top": "additive",
+    }
+  }
+  style={
+    [
+      {
+        "flex": 1,
+      },
+      {
+        "backgroundColor": "#F6EFE3",
+      },
+    ]
+  }
+  testID="screen"
+>
+  <RCTScrollView
+    contentContainerStyle={
+      [
+        {
+          "flexGrow": 1,
+          "gap": 16,
+          "paddingHorizontal": 16,
+          "paddingVertical": 16,
+        },
+        false,
+      ]
+    }
+    keyboardDismissMode="interactive"
+    keyboardShouldPersistTaps="handled"
+  >
+    <View>
+      <Text
+        accessibilityRole="header"
+        maxFontSizeMultiplier={2}
+        style={
+          [
+            {
+              "color": "#2B2320",
+              "fontFamily": undefined,
+              "fontSize": 24,
+              "fontWeight": "600",
+              "lineHeight": 30,
+              "textAlign": "auto",
+              "textTransform": "none",
+              "writingDirection": "auto",
+            },
+            undefined,
+          ]
+        }
+      >
+        Friends
+      </Text>
+      <Text
+        maxFontSizeMultiplier={2}
+        style={
+          [
+            {
+              "color": "#2B2320",
+              "fontFamily": undefined,
+              "fontSize": 15,
+              "fontWeight": "400",
+              "lineHeight": 22,
+              "textAlign": "auto",
+              "textTransform": "none",
+              "writingDirection": "auto",
+            },
+            undefined,
+          ]
+        }
+      >
+        Body
+      </Text>
+    </View>
+  </RCTScrollView>
+</RNCSafeAreaView>
+`;

@@ -1,0 +1,365 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`TextField (dark) matches the snapshot with hint and with error 1`] = `
+<>
+  <View
+    style={
+      {
+        "alignSelf": "stretch",
+        "gap": 4,
+      }
+    }
+  >
+    <Text
+      accessibilityElementsHidden={true}
+      importantForAccessibility="no-hide-descendants"
+      maxFontSizeMultiplier={2}
+      style={
+        [
+          {
+            "color": "#F5EDE0",
+            "fontFamily": undefined,
+            "fontSize": 14,
+            "fontWeight": "600",
+            "lineHeight": 18,
+            "textAlign": "auto",
+            "textTransform": "none",
+            "writingDirection": "auto",
+          },
+          undefined,
+        ]
+      }
+    >
+      Name
+    </Text>
+    <TextInput
+      accessibilityHint="Shown to friends"
+      accessibilityLabel="Name"
+      accessibilityState={
+        {
+          "disabled": false,
+        }
+      }
+      editable={true}
+      maxFontSizeMultiplier={2}
+      onBlur={[Function]}
+      onFocus={[Function]}
+      placeholder="Your name"
+      placeholderTextColor="#857668"
+      selectionColor="#FF7A5C"
+      style={
+        [
+          {
+            "borderRadius": 8,
+            "paddingHorizontal": 12,
+            "paddingVertical": 8,
+            "textAlign": "auto",
+          },
+          {
+            "backgroundColor": "#332B24",
+            "borderColor": "rgba(245, 237, 224, 0.14)",
+            "borderWidth": 1,
+            "color": "#F5EDE0",
+            "fontFamily": undefined,
+            "fontSize": 17,
+            "minHeight": 48,
+            "opacity": 1,
+          },
+        ]
+      }
+    />
+    <Text
+      accessibilityElementsHidden={true}
+      importantForAccessibility="no-hide-descendants"
+      maxFontSizeMultiplier={2}
+      style={
+        [
+          {
+            "color": "#B9AA9A",
+            "fontFamily": undefined,
+            "fontSize": 15,
+            "fontWeight": "400",
+            "lineHeight": 22,
+            "textAlign": "auto",
+            "textTransform": "none",
+            "writingDirection": "auto",
+          },
+          undefined,
+        ]
+      }
+    >
+      Shown to friends
+    </Text>
+  </View>
+  <View
+    style={
+      {
+        "alignSelf": "stretch",
+        "gap": 4,
+      }
+    }
+  >
+    <Text
+      accessibilityElementsHidden={true}
+      importantForAccessibility="no-hide-descendants"
+      maxFontSizeMultiplier={2}
+      style={
+        [
+          {
+            "color": "#F5EDE0",
+            "fontFamily": undefined,
+            "fontSize": 14,
+            "fontWeight": "600",
+            "lineHeight": 18,
+            "textAlign": "auto",
+            "textTransform": "none",
+            "writingDirection": "auto",
+          },
+          undefined,
+        ]
+      }
+    >
+      Handle
+    </Text>
+    <TextInput
+      accessibilityHint="Error: Already taken"
+      accessibilityLabel="Handle"
+      accessibilityState={
+        {
+          "disabled": false,
+        }
+      }
+      editable={true}
+      maxFontSizeMultiplier={2}
+      onBlur={[Function]}
+      onFocus={[Function]}
+      placeholderTextColor="#857668"
+      selectionColor="#FF7A5C"
+      style={
+        [
+          {
+            "borderRadius": 8,
+            "paddingHorizontal": 12,
+            "paddingVertical": 8,
+            "textAlign": "auto",
+          },
+          {
+            "backgroundColor": "#332B24",
+            "borderColor": "#FF8A80",
+            "borderWidth": 2,
+            "color": "#F5EDE0",
+            "fontFamily": undefined,
+            "fontSize": 17,
+            "minHeight": 48,
+            "opacity": 1,
+          },
+        ]
+      }
+    />
+    <Text
+      accessibilityLiveRegion="polite"
+      accessibilityRole="alert"
+      maxFontSizeMultiplier={2}
+      style={
+        [
+          {
+            "color": "#FF8A80",
+            "fontFamily": undefined,
+            "fontSize": 15,
+            "fontWeight": "400",
+            "lineHeight": 22,
+            "textAlign": "auto",
+            "textTransform": "none",
+            "writingDirection": "auto",
+          },
+          undefined,
+        ]
+      }
+    >
+      Already taken
+    </Text>
+  </View>
+</>
+`;
+
+exports[`TextField (light) matches the snapshot with hint and with error 1`] = `
+<>
+  <View
+    style={
+      {
+        "alignSelf": "stretch",
+        "gap": 4,
+      }
+    }
+  >
+    <Text
+      accessibilityElementsHidden={true}
+      importantForAccessibility="no-hide-descendants"
+      maxFontSizeMultiplier={2}
+      style={
+        [
+          {
+            "color": "#2B2320",
+            "fontFamily": undefined,
+            "fontSize": 14,
+            "fontWeight": "600",
+            "lineHeight": 18,
+            "textAlign": "auto",
+            "textTransform": "none",
+            "writingDirection": "auto",
+          },
+          undefined,
+        ]
+      }
+    >
+      Name
+    </Text>
+    <TextInput
+      accessibilityHint="Shown to friends"
+      accessibilityLabel="Name"
+      accessibilityState={
+        {
+          "disabled": false,
+        }
+      }
+      editable={true}
+      maxFontSizeMultiplier={2}
+      onBlur={[Function]}
+      onFocus={[Function]}
+      placeholder="Your name"
+      placeholderTextColor="#9A8B80"
+      selectionColor="#C8412B"
+      style={
+        [
+          {
+            "borderRadius": 8,
+            "paddingHorizontal": 12,
+            "paddingVertical": 8,
+            "textAlign": "auto",
+          },
+          {
+            "backgroundColor": "#FFFFFF",
+            "borderColor": "rgba(43, 35, 32, 0.12)",
+            "borderWidth": 1,
+            "color": "#2B2320",
+            "fontFamily": undefined,
+            "fontSize": 17,
+            "minHeight": 48,
+            "opacity": 1,
+          },
+        ]
+      }
+    />
+    <Text
+      accessibilityElementsHidden={true}
+      importantForAccessibility="no-hide-descendants"
+      maxFontSizeMultiplier={2}
+      style={
+        [
+          {
+            "color": "#6B5E57",
+            "fontFamily": undefined,
+            "fontSize": 15,
+            "fontWeight": "400",
+            "lineHeight": 22,
+            "textAlign": "auto",
+            "textTransform": "none",
+            "writingDirection": "auto",
+          },
+          undefined,
+        ]
+      }
+    >
+      Shown to friends
+    </Text>
+  </View>
+  <View
+    style={
+      {
+        "alignSelf": "stretch",
+        "gap": 4,
+      }
+    }
+  >
+    <Text
+      accessibilityElementsHidden={true}
+      importantForAccessibility="no-hide-descendants"
+      maxFontSizeMultiplier={2}
+      style={
+        [
+          {
+            "color": "#2B2320",
+            "fontFamily": undefined,
+            "fontSize": 14,
+            "fontWeight": "600",
+            "lineHeight": 18,
+            "textAlign": "auto",
+            "textTransform": "none",
+            "writingDirection": "auto",
+          },
+          undefined,
+        ]
+      }
+    >
+      Handle
+    </Text>
+    <TextInput
+      accessibilityHint="Error: Already taken"
+      accessibilityLabel="Handle"
+      accessibilityState={
+        {
+          "disabled": false,
+        }
+      }
+      editable={true}
+      maxFontSizeMultiplier={2}
+      onBlur={[Function]}
+      onFocus={[Function]}
+      placeholderTextColor="#9A8B80"
+      selectionColor="#C8412B"
+      style={
+        [
+          {
+            "borderRadius": 8,
+            "paddingHorizontal": 12,
+            "paddingVertical": 8,
+            "textAlign": "auto",
+          },
+          {
+            "backgroundColor": "#FFFFFF",
+            "borderColor": "#B3261E",
+            "borderWidth": 2,
+            "color": "#2B2320",
+            "fontFamily": undefined,
+            "fontSize": 17,
+            "minHeight": 48,
+            "opacity": 1,
+          },
+        ]
+      }
+    />
+    <Text
+      accessibilityLiveRegion="polite"
+      accessibilityRole="alert"
+      maxFontSizeMultiplier={2}
+      style={
+        [
+          {
+            "color": "#B3261E",
+            "fontFamily": undefined,
+            "fontSize": 15,
+            "fontWeight": "400",
+            "lineHeight": 22,
+            "textAlign": "auto",
+            "textTransform": "none",
+            "writingDirection": "auto",
+          },
+          undefined,
+        ]
+      }
+    >
+      Already taken
+    </Text>
+  </View>
+</>
+`;

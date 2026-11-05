@@ -5,6 +5,7 @@
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
     "noFallthroughCasesInSwitch": true,
+    "types": ["jest"],
     "paths": {
       "@card-sharing/tokens": ["../../packages/tokens/src/index.ts"],
       "@card-sharing/api-client": ["../../packages/api-client/src/index.ts"]
