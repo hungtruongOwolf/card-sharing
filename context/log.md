@@ -172,3 +172,7 @@
   Commit hashes in older log entries refer to pre-rewrite history. Repo git config now uses the noreply address.
 - Residual: commits of already-merged PRs stay reachable through GitHub's PR refs with the old address (needs GitHub
   Support to purge); the EM's public profile email setting is the EM's to change.
+- After going public: CI green again (b4e82d1, gitleaks fingerprints remapped to rewritten hashes); T-14 PR #188 and T-59
+  PR #187 merged. Branch protection on main: 6 required checks, linear history, no force-push/deletion, admin bypass for
+  wiki/log pushes (#172 closed). A transient GitHub error ("fatal error in commit_refs_rules") rejected pushes for a few
+  minutes right after the visibility change.

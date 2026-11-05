@@ -35,7 +35,7 @@ related: [[roadmap]], [[ADR-0002-cross-platform-stack]], [[vision]]
 - Local object storage image is the community fork `pgsty/minio` (official image unavailable) — supply-chain call pending EM (alt: RustFS).
 
 ## Blockers / waiting on EM
-- Accounts (no paid accounts yet, by EM choice): Apple Developer, Google Play/Cloud, Fly.io, Cloudflare, Upstash, Expo; GitHub Pro (or public repo) for branch protection. Devices: iPhone only.
+- Accounts (no paid accounts yet, by EM choice): Apple Developer, Google Play/Cloud, Fly.io, Cloudflare, Upstash, Expo. Devices: iPhone only.
 - Minor: PRD Q8 metric targets, Q9 moderation staffing / CSAM hash vendor (blocks launch, not design).
 - Infra: EU data residency stance (before EU launch).
 - Content safety (decide by 2026-11-18, see [[content-safety]]): legal entity + CSAM point of contact, counsel timing, licensed eval images budget, FP/recall targets, vendor second opinion.
