@@ -1,14 +1,14 @@
 # Reviewed false positives only (rule generic-api-key matched non-secret text). Add a fingerprint here only after
 # a human confirms the match is not a secret; never allowlist whole files or rules.
 # Do not quote the matched text in these comments - gitleaks scans this file too.
+# Commit hashes below are post-rewrite (2026-11-05: history rewritten to the GitHub noreply address).
 
 # README.md line 38: comment describing the local infra start command (no secret)
-d45bdc590acd89042bb1e255aa48baeca6c739fe:README.md:generic-api-key:38
-# infra/docker-compose.yml line 26: container image version tag (no secret)
-d45bdc590acd89042bb1e255aa48baeca6c739fe:infra/docker-compose.yml:generic-api-key:26
-# .gitleaksignore lines 3 and 5 in commit 4c1855d: earlier comments quoted the two matches above (no secret)
-4c1855d856df0591386f50d26bafcab2428b5797:.gitleaksignore:generic-api-key:3
-4c1855d856df0591386f50d26bafcab2428b5797:.gitleaksignore:generic-api-key:5
+a38bc539f0d83badcb6c43bb29e764c7289b9ae1:README.md:generic-api-key:38
+# .gitleaksignore lines 3 and 5 in an early commit: comments quoted the match above (no secret)
+bdc91cf8836f184f924df3f037f5a4fe6f5fb3ec:.gitleaksignore:generic-api-key:3
+bdc91cf8836f184f924df3f037f5a4fe6f5fb3ec:.gitleaksignore:generic-api-key:5
 # T-19 test fixtures: a dummy config value in a unit test, and a PEM wrapper around a key generated at test runtime.
-40dddd664eaa30087c2ff713240a73a8f1e705bb:apps/api/src/config.rs:generic-api-key:329
-40dddd664eaa30087c2ff713240a73a8f1e705bb:crates/identity/src/apple.rs:private-key:325
+f1a5759b4bfdcb64d41bc61a4cefe4306cb5c7ce:apps/api/src/config.rs:generic-api-key:329
+f1a5759b4bfdcb64d41bc61a4cefe4306cb5c7ce:crates/identity/src/apple.rs:private-key:325
+# Container image tags are allowlisted by regex in .gitleaks.toml.
