@@ -5,7 +5,6 @@
 //! service types (see context/wiki/engineering/change-management.md).
 
 pub mod config;
-pub mod error;
 pub mod middleware;
 pub mod openapi;
 pub mod routes;
@@ -19,8 +18,8 @@ use axum::Router;
 use axum::routing::get;
 
 use crate::config::Config;
-use crate::error::ApiError;
 use crate::state::AppState;
+use platform::problem::ApiError;
 
 /// Builds the full application: documented routes, `/openapi.json`, fallbacks and middleware.
 pub fn app(state: AppState, config: &Config) -> Router {

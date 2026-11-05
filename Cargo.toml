@@ -10,6 +10,7 @@ license = "UNLICENSED"
 
 [workspace.dependencies]
 # internal
+platform = { path = "crates/platform" }
 policy = { path = "crates/policy" }
 
 # external — keep versions here so every crate uses the same ones
@@ -20,6 +21,7 @@ serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 serde_norway = "0.9.42"
 thiserror = "2.0.21"
+time = { version = "0.3.55", features = ["serde", "macros", "formatting", "parsing"] }
 tokio = { version = "1.54.1", features = ["macros", "rt-multi-thread", "net", "signal", "time"] }
 tower = { version = "0.5.3", features = ["timeout", "util"] }
 tower-http = { version = "0.7.1", features = ["cors", "trace", "set-header", "limit", "catch-panic"] }
