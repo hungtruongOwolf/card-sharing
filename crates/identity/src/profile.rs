@@ -321,17 +321,47 @@ impl IdentityService {
             .collect())
     }
 
-    /// The active account holding exactly this (already normalized) handle. One query whatever
-    /// the outcome; used by handle search, which adds its own hiding rules.
+    /// The active, findable account holding exactly this (already normalized) handle. One query
+    /// whatever the outcome; used by handle search, which adds its own hiding rules.
     pub async fn handle_owner(&self, handle: &str) -> Result<Option<Uuid>, StoreError> {
         Ok(sqlx::query_scalar(
             "SELECT p.account_id FROM identity.profiles p
              JOIN identity.accounts a ON a.id = p.account_id
-             WHERE p.handle = $1 AND a.status = 'active'",
+             WHERE p.handle = $1 AND a.status = 'active' AND p.findable_by_handle",
         )
         .bind(handle)
         .fetch_optional(&self.pool)
         .await?)
+    }
+
+    /// The stored "Findable by handle" flag (`true` before the profile exists). Callers combine it
+    /// with the age rule: under `discovery.min_age` nobody is findable.
+    pub async fn findable_by_handle(&self, account_id: Uuid) -> Result<bool, StoreError> {
+        let flag: Option<bool> = sqlx::query_scalar(
+            "SELECT findable_by_handle FROM identity.profiles WHERE account_id = $1",
+        )
+        .bind(account_id)
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(flag.unwrap_or(true))
+    }
+
+    /// Stores the flag. The caller has already applied the age rule (minors cannot turn it on).
+    pub async fn set_findable_by_handle(
+        &self,
+        account_id: Uuid,
+        findable: bool,
+    ) -> Result<(), StoreError> {
+        sqlx::query(
+            "UPDATE identity.profiles SET findable_by_handle = $2, updated_at = $3
+             WHERE account_id = $1",
+        )
+        .bind(account_id)
+        .bind(findable)
+        .bind(self.clock.now())
+        .execute(&self.pool)
+        .await?;
+        Ok(())
     }
 
     /// Sets the display name after sanitizing and filtering it. Returns the stored form.

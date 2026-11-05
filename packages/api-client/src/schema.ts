@@ -429,6 +429,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change my privacy settings. Auth: ses.
+         * @description Turning "Findable by handle" on needs the region's discovery age (`discovery.min_age`): below
+         *     it the answer is 403 `POLICY_DISALLOWED`. Turning it off is always allowed and takes effect on
+         *     the next search (the standard "no one found").
+         */
+        patch: operations["updateSettings"];
+        trace?: never;
+    };
     "/v1/sessions": {
         parameters: {
             query?: never;
@@ -759,6 +781,7 @@ export interface components {
             policy: components["schemas"]["PolicyView"];
             /** @description What the caller has set so far (empty fields before the profile step). */
             profile: components["schemas"]["ProfileView"];
+            settings: components["schemas"]["SettingsView"];
         };
         /** @enum {string} */
         OnboardingStep: "age" | "profile" | "done";
@@ -917,6 +940,21 @@ export interface components {
             is_current: boolean;
             /** Format: date-time */
             last_seen_at: string;
+        };
+        /** @description Body of `PATCH /v1/me/settings`. */
+        SettingsRequest: {
+            /** @description Let others find me by exact handle (adults only). */
+            findable_by_handle: boolean;
+        };
+        /** @description The caller's privacy settings, as they apply right now. */
+        SettingsView: {
+            /** @description Whether this account may turn `findable_by_handle` on (false under the discovery age). */
+            can_be_findable: boolean;
+            /**
+             * @description Whether others can find me by exact handle. Always `false` under the region's discovery
+             *     age (the toggle cannot be turned on then).
+             */
+            findable_by_handle: boolean;
         };
         /** @description A new access + refresh token pair. Store both in the device's secure storage only. */
         TokenPair: {
@@ -2238,6 +2276,66 @@ export interface operations {
                 };
             };
             /** @description ONBOARDING_INCOMPLETE (age gate not passed) or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    updateSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SettingsRequest"];
+            };
+        };
+        responses: {
+            /** @description The settings now in force. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsView"];
+                };
+            };
+            /** @description VALIDATION_FAILED. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description POLICY_DISALLOWED (under the discovery age), ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
             403: {
                 headers: {
                     [name: string]: unknown;

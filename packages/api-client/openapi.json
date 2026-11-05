@@ -1789,6 +1789,90 @@
         }
       }
     },
+    "/v1/me/settings": {
+      "patch": {
+        "tags": [
+          "me"
+        ],
+        "summary": "Change my privacy settings. Auth: ses.",
+        "description": "Turning \"Findable by handle\" on needs the region's discovery age (`discovery.min_age`): below\nit the answer is 403 `POLICY_DISALLOWED`. Turning it off is always allowed and takes effect on\nthe next search (the standard \"no one found\").",
+        "operationId": "updateSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "The settings now in force.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "POLICY_DISALLOWED (under the discovery age), ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "me.settings.update",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
     "/v1/sessions": {
       "get": {
         "tags": [
@@ -2704,7 +2788,8 @@
           "account",
           "onboarding",
           "profile",
-          "policy"
+          "policy",
+          "settings"
         ],
         "properties": {
           "account": {
@@ -2720,6 +2805,9 @@
           "profile": {
             "$ref": "#/components/schemas/ProfileView",
             "description": "What the caller has set so far (empty fields before the profile step)."
+          },
+          "settings": {
+            "$ref": "#/components/schemas/SettingsView"
           }
         }
       },
@@ -3099,6 +3187,38 @@
           "last_seen_at": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "SettingsRequest": {
+        "type": "object",
+        "description": "Body of `PATCH /v1/me/settings`.",
+        "required": [
+          "findable_by_handle"
+        ],
+        "properties": {
+          "findable_by_handle": {
+            "type": "boolean",
+            "description": "Let others find me by exact handle (adults only)."
+          }
+        },
+        "additionalProperties": false
+      },
+      "SettingsView": {
+        "type": "object",
+        "description": "The caller's privacy settings, as they apply right now.",
+        "required": [
+          "findable_by_handle",
+          "can_be_findable"
+        ],
+        "properties": {
+          "can_be_findable": {
+            "type": "boolean",
+            "description": "Whether this account may turn `findable_by_handle` on (false under the discovery age)."
+          },
+          "findable_by_handle": {
+            "type": "boolean",
+            "description": "Whether others can find me by exact handle. Always `false` under the region's discovery\nage (the toggle cannot be turned on then)."
           }
         }
       },

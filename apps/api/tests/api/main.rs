@@ -12,6 +12,7 @@ mod age_service;
 mod attestation;
 mod audit;
 mod authz_matrix;
+mod findable;
 mod friend_requests;
 mod handle;
 mod http;

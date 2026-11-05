@@ -96,7 +96,8 @@ impl SocialService {
         Ok(age_ok && !blocked && target != caller)
     }
 
-    /// Visibility re-checked when a request is sent from a ref: discoverable and still active.
+    /// Visibility re-checked when a request is sent from a ref: discoverable, still active and
+    /// still findable by handle.
     pub(crate) async fn target_still_findable(
         &self,
         caller: Uuid,
@@ -104,7 +105,12 @@ impl SocialService {
     ) -> Result<bool, SocialError> {
         let visible = self.discoverable(caller, target).await?;
         let active = self.summaries(&[target]).await?.contains_key(&target);
-        Ok(visible && active)
+        let findable = self
+            .identity
+            .findable_by_handle(target)
+            .await
+            .map_err(|err| SocialError::Identity(err.to_string()))?;
+        Ok(visible && active && findable)
     }
 
     fn mint_ref(&self, caller: Uuid, target: Uuid) -> Result<String, SocialError> {

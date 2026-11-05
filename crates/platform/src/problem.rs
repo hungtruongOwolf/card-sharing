@@ -69,6 +69,10 @@ pub enum ApiError {
     /// The device attestation of a request marked `att` failed (enforce mode only).
     #[error("attestation failed")]
     AttestationFailed,
+    /// A region / age rule does not allow this for the caller (e.g. a minor turning on
+    /// "Findable by handle").
+    #[error("policy disallowed")]
+    PolicyDisallowed,
     /// The handle belongs to, or is reserved for, someone else (no detail which).
     #[error("handle taken")]
     HandleTaken,
@@ -132,6 +136,7 @@ impl ApiError {
             | Self::OnboardingIncomplete
             | Self::AccountSuspended
             | Self::AttestationFailed
+            | Self::PolicyDisallowed
             | Self::AgeGateRefused
             | Self::AgeAlreadySubmitted => StatusCode::FORBIDDEN,
             Self::NotFound | Self::InviteExpired => StatusCode::NOT_FOUND,
@@ -163,6 +168,7 @@ impl ApiError {
             Self::OnboardingIncomplete => "ONBOARDING_INCOMPLETE",
             Self::AccountSuspended => "ACCOUNT_SUSPENDED",
             Self::AttestationFailed => "ATTESTATION_FAILED",
+            Self::PolicyDisallowed => "POLICY_DISALLOWED",
             Self::AgeGateRefused => "AGE_GATE_REFUSED",
             Self::AgeAlreadySubmitted => "AGE_ALREADY_SUBMITTED",
             Self::NotFound => "NOT_FOUND",
@@ -262,6 +268,7 @@ mod tests {
             ApiError::OnboardingIncomplete,
             ApiError::AccountSuspended,
             ApiError::AttestationFailed,
+            ApiError::PolicyDisallowed,
             ApiError::AgeGateRefused,
             ApiError::AgeAlreadySubmitted,
             ApiError::Unavailable {

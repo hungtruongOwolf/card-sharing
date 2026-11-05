@@ -155,3 +155,10 @@ routes:
   - route: POST /v1/users/search
     body: { handle: $HANDLE }
     expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 200, suspended: 403 }
+
+  # Privacy settings (T-45). The matrix user has no DOB (treated as under the discovery age), so turning
+  # findability off is the allowed cell; adults turning it on and minors refused are in
+  # tests/api/findable.rs.
+  - route: PATCH /v1/me/settings
+    body: { findable_by_handle: false }
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 200, suspended: 403 }
