@@ -1,8 +1,8 @@
 //! Exact-handle search without enumeration (US-5a, SR-19, SR-23, threat A-11).
 //!
 //! One code path for every outcome: the handle lookup, the age check, the block check and the
-//! profile read run whether or not the handle exists, and the HTTP layer pads every answer to a
-//! fixed latency bucket. A hidden account (under `discovery.min_age`, not active, blocked either
+//! profile read run whether or not the handle exists (on a decoy account when it does not), and
+//! the HTTP layer pads every answer to a fixed latency bucket. A hidden account (under `discovery.min_age`, not active, blocked either
 //! way, or the caller) answers exactly like a missing handle.
 //!
 //! A hit carries a `ref` instead of an id: the target id and an expiry, encrypted with the field
@@ -64,7 +64,10 @@ impl SocialService {
             .handle_owner(&handle)
             .await
             .map_err(|err| SocialError::Identity(err.to_string()))?;
-        let target = found.unwrap_or(Uuid::nil());
+        // Decoy for a missing handle: the caller's own account, whose age record is cached like a
+        // searched account's, so the age, block and profile steps cost the same on both paths.
+        // `discoverable` is false for it (a caller never finds themselves).
+        let target = found.unwrap_or(caller);
         let visible = self.discoverable(caller, target).await?;
         let profiles = self.summaries(&[target]).await?;
         let (Some(_), true, Some(profile)) = (found, visible, profiles.get(&target)) else {

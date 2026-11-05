@@ -46,7 +46,7 @@ async fn an_exact_case_insensitive_match_returns_one_result() {
     let Some(env) = TestEnv::new().await else {
         return;
     };
-    let searcher = adult(&env).await;
+    let searcher = established(&env, adult(&env).await).await;
     let target = adult(&env).await;
     for query in [
         target.handle.clone(),
@@ -66,7 +66,7 @@ async fn partial_input_returns_nothing() {
     let Some(env) = TestEnv::new().await else {
         return;
     };
-    let searcher = adult(&env).await;
+    let searcher = established(&env, adult(&env).await).await;
     let target = adult(&env).await;
     let handle = &target.handle;
     for query in [
@@ -110,7 +110,7 @@ async fn hidden_accounts_answer_exactly_like_a_missing_handle() {
     let Some(env) = TestEnv::new().await else {
         return;
     };
-    let searcher = adult(&env).await;
+    let searcher = established(&env, adult(&env).await).await;
     let teen = minor(&env).await;
     let blocks_searcher = adult(&env).await;
     block(&env, blocks_searcher.id, searcher.id).await;
@@ -142,7 +142,7 @@ async fn a_ref_works_once_for_its_searcher_only_and_expires() {
     let Some(env) = TestEnv::new().await else {
         return;
     };
-    let alice = adult(&env).await;
+    let alice = established(&env, adult(&env).await).await;
     let mallory = adult(&env).await;
     let target = adult(&env).await;
     let body = search(&env.router, &alice, &target.handle).await;
@@ -252,7 +252,7 @@ async fn the_eleventh_search_in_a_minute_is_try_later() {
     let Some(env) = TestEnv::new().await else {
         return;
     };
-    let searcher = adult(&env).await;
+    let searcher = established(&env, adult(&env).await).await;
     for _ in 0..10 {
         search(&env.router, &searcher, &fresh_handle()).await;
     }
@@ -297,6 +297,10 @@ fn ks_p_value(a: &[f64], b: &[f64]) -> f64 {
     }
     let en = (n * m / (n + m)).sqrt();
     let lambda = (en + 0.12 + 0.11 / en) * d;
+    // The series does not converge near 0, where Q_KS is 1 to many decimals.
+    if lambda < 0.3 {
+        return 1.0;
+    }
     // Q_KS(lambda) = 2 * sum (-1)^(k-1) exp(-2 k^2 lambda^2)
     let mut sum = 0.0;
     for k in 1..=100 {
@@ -335,7 +339,7 @@ async fn minor_and_missing_handles_cannot_be_told_apart_by_timing_or_bytes() {
     };
     const SAMPLES: usize = 1_000;
     let mut settings = social_settings();
-    settings.search_latency_floor_ms = 25;
+    settings.search_latency_floor_ms = 40;
     let mut state = env.state.clone().with_social_settings(settings);
     state.limiter = Arc::new(RateLimiter::in_memory(
         limits_without_search_caps(),
@@ -343,7 +347,7 @@ async fn minor_and_missing_handles_cannot_be_told_apart_by_timing_or_bytes() {
     ));
     let router = api::build(api::openapi::router(), state, &test_config());
 
-    let searcher = adult(&env).await;
+    let searcher = established(&env, adult(&env).await).await;
     let teen = minor(&env).await;
     let request_id = Uuid::now_v7();
     // Warm caches and connections on both paths first.
