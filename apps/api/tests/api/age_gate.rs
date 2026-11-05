@@ -52,7 +52,15 @@ async fn eu_fifteen_year_old_is_refused_neutrally_and_the_account_is_removed() {
         problem.get("detail").is_none(),
         "neutral: no threshold or region"
     );
-    assert!(!problem.to_string().contains("16"));
+    // Check every field except the random requestId (a UUID can contain "16" by chance).
+    let mut without_request_id = problem.clone();
+    if let Some(fields) = without_request_id.as_object_mut() {
+        fields.remove("requestId");
+    }
+    assert!(
+        !without_request_id.to_string().contains("16"),
+        "neutral: the threshold must not leak, got {without_request_id}"
+    );
 
     assert_eq!(
         status_of(&env, account).await,
