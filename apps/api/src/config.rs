@@ -5,12 +5,8 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use http::HeaderValue;
-
-#[derive(Debug, thiserror::Error)]
-pub enum ConfigError {
-    #[error("{key}: {reason}")]
-    Invalid { key: &'static str, reason: String },
-}
+pub use platform::config::ConfigError;
+use platform::config::{Env, invalid};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LogFormat {
@@ -39,47 +35,35 @@ const MAX_BODY_LIMIT_BYTES: usize = 64 * 1024 * 1024;
 
 impl Config {
     pub fn from_env() -> Result<Self, ConfigError> {
-        Self::from_lookup(|key| std::env::var(key).ok())
+        Self::from_env_source(&Env::process())
     }
 
     /// Builds config from any key lookup (lets tests avoid mutating process env).
     pub fn from_lookup(lookup: impl Fn(&str) -> Option<String>) -> Result<Self, ConfigError> {
-        let get = |key: &str| {
-            lookup(key)
-                .map(|v| v.trim().to_owned())
-                .filter(|v| !v.is_empty())
-        };
+        Self::from_env_source(&Env::new(lookup))
+    }
 
-        let bind_addr = match get("API_BIND_ADDR") {
-            Some(raw) => raw
-                .parse()
-                .map_err(|_| invalid("API_BIND_ADDR", format!("{raw:?} is not host:port")))?,
-            None => SocketAddr::from(([127, 0, 0, 1], 8080)),
-        };
+    fn from_env_source<F: Fn(&str) -> Option<String>>(env: &Env<F>) -> Result<Self, ConfigError> {
+        let bind_addr = env.parse_or("API_BIND_ADDR", SocketAddr::from(([127, 0, 0, 1], 8080)))?;
 
-        let cors_allowed_origins = match get("API_CORS_ALLOWED_ORIGINS") {
+        let cors_allowed_origins = match env.optional("API_CORS_ALLOWED_ORIGINS") {
             Some(raw) => parse_origins(&raw)?,
             None => Vec::new(),
         };
 
-        let timeout_secs = parse_in_range(
-            get("API_REQUEST_TIMEOUT_SECS"),
-            "API_REQUEST_TIMEOUT_SECS",
-            15,
-            1..=300,
-        )?;
-        let body_limit_bytes = parse_in_range(
-            get("API_BODY_LIMIT_BYTES"),
+        let timeout_secs = env.in_range("API_REQUEST_TIMEOUT_SECS", 15, 1..=300)?;
+        let body_limit_bytes = env.in_range(
             "API_BODY_LIMIT_BYTES",
             1024 * 1024,
             1..=MAX_BODY_LIMIT_BYTES,
         )?;
 
-        let policy_config_path = get("API_POLICY_CONFIG_PATH")
-            .map(PathBuf::from)
-            .unwrap_or_else(|| PathBuf::from("config/policy/regions.yaml"));
+        let policy_config_path = env.optional("API_POLICY_CONFIG_PATH").map_or_else(
+            || PathBuf::from("config/policy/regions.yaml"),
+            PathBuf::from,
+        );
 
-        let log_format = match get("API_LOG_FORMAT").as_deref() {
+        let log_format = match env.optional("API_LOG_FORMAT").as_deref() {
             None | Some("json") => LogFormat::Json,
             Some("pretty") => LogFormat::Pretty,
             Some(other) => {
@@ -99,34 +83,6 @@ impl Config {
             log_format,
         })
     }
-}
-
-fn invalid(key: &'static str, reason: String) -> ConfigError {
-    ConfigError::Invalid { key, reason }
-}
-
-fn parse_in_range<T>(
-    raw: Option<String>,
-    key: &'static str,
-    default: T,
-    range: std::ops::RangeInclusive<T>,
-) -> Result<T, ConfigError>
-where
-    T: std::str::FromStr + PartialOrd + std::fmt::Display,
-{
-    let Some(raw) = raw else {
-        return Ok(default);
-    };
-    let value: T = raw
-        .parse()
-        .map_err(|_| invalid(key, format!("{raw:?} is not a number")))?;
-    if !range.contains(&value) {
-        return Err(invalid(
-            key,
-            format!("{value} is outside {}..={}", range.start(), range.end()),
-        ));
-    }
-    Ok(value)
 }
 
 /// Accepts exact origins only: `scheme://host[:port]`, no path, wildcard or credentials.

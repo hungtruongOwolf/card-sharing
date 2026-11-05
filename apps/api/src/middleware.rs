@@ -7,9 +7,9 @@ use std::time::Duration;
 use axum::Router;
 use axum::error_handling::HandleErrorLayer;
 use axum::extract::{MatchedPath, Request};
-use axum::middleware::{self, Next};
+use axum::middleware;
 use axum::response::{IntoResponse, Response};
-use http::{HeaderName, HeaderValue, Method, StatusCode, header};
+use http::{HeaderValue, Method, StatusCode, header};
 use tower::{BoxError, ServiceBuilder};
 use tower_http::catch_panic::CatchPanicLayer;
 use tower_http::cors::{AllowOrigin, CorsLayer};
@@ -17,21 +17,15 @@ use tower_http::limit::RequestBodyLimitLayer;
 use tower_http::set_header::SetResponseHeaderLayer;
 use tower_http::trace::{DefaultOnResponse, TraceLayer};
 use tracing::Level;
-use uuid::Uuid;
 
 use crate::config::Config;
-use crate::error::{ApiError, problem_response};
-
-pub const REQUEST_ID_HEADER: HeaderName = HeaderName::from_static("x-request-id");
-
-/// Request id available to handlers via `Extension<RequestId>`.
-#[derive(Debug, Clone, Copy)]
-pub struct RequestId(pub Uuid);
+use platform::problem::{ApiError, problem_response};
+use platform::request_id::{self, REQUEST_ID_HEADER, RequestId};
 
 /// Wraps `router` with the full middleware stack (outermost first).
 pub fn apply(router: Router, config: &Config) -> Router {
     let stack = ServiceBuilder::new()
-        .layer(middleware::from_fn(request_id))
+        .layer(middleware::from_fn(request_id::middleware))
         .layer(
             TraceLayer::new_for_http()
                 .make_span_with(make_span)
@@ -68,31 +62,6 @@ pub fn apply(router: Router, config: &Config) -> Router {
         .layer(RequestBodyLimitLayer::new(config.body_limit_bytes));
 
     router.layer(stack)
-}
-
-/// Accepts a client-supplied `x-request-id` only if it is a UUID (prevents log injection /
-/// unbounded values); otherwise generates a UUIDv7. Echoed on the response.
-async fn request_id(mut request: Request, next: Next) -> Response {
-    let id = request
-        .headers()
-        .get(&REQUEST_ID_HEADER)
-        .and_then(|value| value.to_str().ok())
-        .and_then(|value| Uuid::parse_str(value).ok())
-        .unwrap_or_else(Uuid::now_v7);
-
-    let header_value = HeaderValue::from_str(&id.hyphenated().to_string()).ok();
-    if let Some(value) = &header_value {
-        request
-            .headers_mut()
-            .insert(REQUEST_ID_HEADER, value.clone());
-    }
-    request.extensions_mut().insert(RequestId(id));
-
-    let mut response = next.run(request).await;
-    if let Some(value) = header_value {
-        response.headers_mut().insert(REQUEST_ID_HEADER, value);
-    }
-    response
 }
 
 /// Logs the route template, never the raw path/query (share tokens must not reach logs).
@@ -141,5 +110,5 @@ async fn handle_middleware_error(err: BoxError) -> Response {
 fn panic_response(_panic: Box<dyn Any + Send + 'static>) -> Response {
     // The panic payload may contain internal details: log a marker, never echo it.
     tracing::error!("handler panicked");
-    problem_response(StatusCode::INTERNAL_SERVER_ERROR, "internal", None)
+    problem_response(StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL", None)
 }

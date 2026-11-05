@@ -179,6 +179,9 @@ and be enabled; unknown JSON fields rejected (`deny_unknown_fields`).
 
 ## Errors (RFC 9457 `application/problem+json`)
 `{ "type": "https://…/errors/<code>", "title", "status", "detail", "code", "requestId" }` — no SQL, stack traces or other users' data.
+Implemented in `crates/platform` (`problem`, `request_id`): `type` is `about:blank` until a public errors URL exists (clients switch
+on `code`); `requestId` equals the `X-Request-Id` response header. Generic codes beyond the table: 405 `METHOD_NOT_ALLOWED`,
+408 `REQUEST_TIMEOUT`, 500 `INTERNAL`.
 
 | HTTP | Codes |
 |---|---|

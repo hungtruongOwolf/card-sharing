@@ -56,7 +56,13 @@ async fn assert_problem(response: Response<Body>, status: StatusCode, code: &str
         header_str(&response, "content-type"),
         Some("application/problem+json")
     );
+    let request_id = header_str(&response, "x-request-id").map(str::to_owned);
     let body = json_body(response).await;
+    assert_eq!(
+        body["requestId"].as_str(),
+        request_id.as_deref(),
+        "problem body carries the X-Request-Id of the request"
+    );
     assert_eq!(body["type"], "about:blank");
     assert_eq!(body["status"], status.as_u16());
     assert_eq!(body["code"], code);
@@ -85,7 +91,7 @@ async fn readyz_reports_loaded_policy_version() {
 
 #[tokio::test]
 async fn unknown_route_is_problem_json_404() {
-    assert_problem(get_path("/nope").await, StatusCode::NOT_FOUND, "not_found").await;
+    assert_problem(get_path("/nope").await, StatusCode::NOT_FOUND, "NOT_FOUND").await;
 }
 
 #[tokio::test]
@@ -98,7 +104,7 @@ async fn wrong_method_is_problem_json_405() {
     assert_problem(
         response,
         StatusCode::METHOD_NOT_ALLOWED,
-        "method_not_allowed",
+        "METHOD_NOT_ALLOWED",
     )
     .await;
 }
@@ -216,7 +222,7 @@ async fn slow_handler_times_out_with_problem_json_408() {
     );
     let app = api::middleware::apply(router, &test_config());
     let response = send(app, Request::get("/slow").body(Body::empty()).unwrap()).await;
-    assert_problem(response, StatusCode::REQUEST_TIMEOUT, "request_timeout").await;
+    assert_problem(response, StatusCode::REQUEST_TIMEOUT, "REQUEST_TIMEOUT").await;
 }
 
 #[tokio::test]
@@ -226,7 +232,7 @@ async fn panicking_handler_returns_generic_problem_json_500() {
     }
     let app = api::middleware::apply(Router::new().route("/boom", get(boom)), &test_config());
     let response = send(app, Request::get("/boom").body(Body::empty()).unwrap()).await;
-    let body = assert_problem(response, StatusCode::INTERNAL_SERVER_ERROR, "internal").await;
+    let body = assert_problem(response, StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL").await;
     assert!(
         !body.to_string().contains("secret"),
         "panic message must not leak"

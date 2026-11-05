@@ -2,9 +2,9 @@ use utoipa::OpenApi;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
-use crate::error::ProblemDetails;
 use crate::routes::health;
 use crate::state::AppState;
+use platform::problem::ProblemDetails;
 
 #[derive(OpenApi)]
 #[openapi(

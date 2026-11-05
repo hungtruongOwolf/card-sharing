@@ -46,14 +46,20 @@ export interface components {
             /** @example ok */
             status: string;
         };
-        /** @description RFC 9457 problem details. `code` is a stable machine-readable extension member. */
+        /** @description RFC 9457 problem details with two extension members: `code` and `requestId`. */
         ProblemDetails: {
             /**
              * @description Stable error code clients can switch on.
-             * @example not_found
+             * @example NOT_FOUND
              */
             code: string;
+            /** @description Safe, human-readable explanation. Never contains internal details. */
             detail?: string | null;
+            /**
+             * @description Id of the failing request (same value as the `X-Request-Id` response header).
+             * @example 0192f0c1-7c1e-7a3b-9d2e-123456789abc
+             */
+            requestId?: string | null;
             /**
              * Format: int32
              * @example 404
@@ -62,7 +68,7 @@ export interface components {
             /** @example Not Found */
             title: string;
             /**
-             * @description URI reference identifying the problem type (`about:blank` = see `status`).
+             * @description URI reference identifying the problem type (`about:blank` = see `status` and `code`).
              * @example about:blank
              */
             type: string;
