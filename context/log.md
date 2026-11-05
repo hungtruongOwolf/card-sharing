@@ -163,3 +163,12 @@
 ## [2026-11-05] plan | Sprint 1 closed, sprint 2 started
 - Sprint 1: 19 tickets done; T-52 (device numbers) and T-1 (device boot) wait for an APK + borrowed Android phone.
 - Sprint 2 plan in sprint-2: backend T-14, T-15, T-16, T-17, T-24, T-29, T-35, T-22, T-60; mobile/TS T-59, T-61, T-53, T-62.
+
+## [2026-11-05] decision | Repo made public; history rewritten to the noreply address
+- GitHub Actions stopped (private repo out of free minutes: "recent account payments have failed or your spending limit
+  needs to be increased"). EM chose to make the repo public (unlimited Actions for public repos, branch protection possible).
+- Before that: gitleaks over all branches (no leaks), no secrets/keys tracked; EM chose to rewrite author/committer email to
+  the GitHub noreply address (git filter-branch over main + 3 open branches, force-pushed with lease; local backup bundle).
+  Commit hashes in older log entries refer to pre-rewrite history. Repo git config now uses the noreply address.
+- Residual: commits of already-merged PRs stay reachable through GitHub's PR refs with the old address (needs GitHub
+  Support to purge); the EM's public profile email setting is the EM's to change.
