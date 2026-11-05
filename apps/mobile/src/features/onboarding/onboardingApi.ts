@@ -1,5 +1,6 @@
 import type { components } from '@card-sharing/api-client';
 
+import { problemCode } from '../../data/problemCode';
 import type { AuthClient } from '../auth';
 
 export type OnboardingStep = components['schemas']['OnboardingStep'];
@@ -55,19 +56,6 @@ function stepFrom(body: unknown): OnboardingStep | null {
   if (typeof onboarding !== 'object' || onboarding === null || !('step' in onboarding)) return null;
   const step = (onboarding as { step: unknown }).step;
   return STEPS.find((s) => s === step) ?? null;
-}
-
-async function problemCode(response: Response): Promise<string | undefined> {
-  try {
-    const body: unknown = await response.clone().json();
-    if (typeof body === 'object' && body !== null && 'code' in body) {
-      const { code } = body as { code: unknown };
-      return typeof code === 'string' ? code : undefined;
-    }
-  } catch {
-    // Not a problem+json body.
-  }
-  return undefined;
 }
 
 async function failure(response: Response): Promise<OnboardingError> {

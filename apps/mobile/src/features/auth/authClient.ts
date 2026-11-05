@@ -1,5 +1,6 @@
 import type { components } from '@card-sharing/api-client';
 
+import { problemCode } from '../../data/problemCode';
 import { sessionFromTokenPair, type Session } from './session';
 import type { TokenStore } from './tokenStore';
 
@@ -118,19 +119,6 @@ interface IdTokenSignInRequest {
 
 const DEFAULT_REFRESH_SKEW_MS = 30_000;
 const DEFAULT_LOGOUT_TIMEOUT_MS = 5_000;
-
-async function problemCode(response: Response): Promise<string | undefined> {
-  try {
-    const body: unknown = await response.clone().json();
-    if (typeof body === 'object' && body !== null && 'code' in body) {
-      const { code } = body as { code: unknown };
-      return typeof code === 'string' ? code : undefined;
-    }
-  } catch {
-    // Not a problem+json body.
-  }
-  return undefined;
-}
 
 export function createAuthClient(options: AuthClientOptions): AuthClient {
   const {

@@ -45,6 +45,7 @@ export interface RecordedRequest {
   path: string;
   authorization: string | null;
   appVersion: string | null;
+  idempotencyKey: string | null;
   body: unknown;
 }
 
@@ -148,6 +149,7 @@ export class FakeAuthServer {
       path,
       authorization: headers.get('Authorization'),
       appVersion: headers.get('X-App-Version'),
+      idempotencyKey: headers.get('Idempotency-Key'),
       body,
     };
     this.requests.push(recorded);

@@ -264,6 +264,15 @@ a block is never revealed by a cap that stops applying): own friend count at `fr
 periodic task (every 10 min) marks them `expired` and deletes answered/expired requests and reset invites after
 `requests.retention_days` (30).
 
+Mobile client (#216, `apps/mobile/src/features/friends/friendsApi.ts`): one typed module for every social endpoint above. It
+validates each answer at the boundary (malformed rows dropped, an unexpected body is an error), sends ids and invite tokens
+into a path only after a UUID / 22-character check (anything else is the same "not found" without a request), reads the
+privacy settings from `GET /v1/me`, and maps problem codes to typed kinds (`not_found`, `invite_expired`, `already_friends`,
+`friend_limit`, `not_allowed`, `invalid`, `rate_limited`, `unavailable`). A send carries one `Idempotency-Key` (UUIDv4) per
+logical action, reused on retry. No `X-Attestation` yet: the app has no attestation module and the server runs `log_only` in
+the beta. Tests run against `apps/mobile/src/test/fakeSocialServer.ts`, which mirrors the rules above (silent blocks, one 404,
+caps, identical search misses).
+
 ### Cards, feed, widget, reactions
 | Method | Path | Purpose | Auth | Role | Object rule | Rate limit | Idem. | US |
 |---|---|---|---|---|---|---|---|---|
