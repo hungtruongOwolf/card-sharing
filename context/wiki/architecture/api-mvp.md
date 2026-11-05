@@ -244,6 +244,17 @@ publishes `social.friendship_removed {actor_id, other_id}` for internal consumer
 read time; the widget refresh push of AC-16.4 subscribes when it exists). There is no friend-set cache yet, so nothing needs
 invalidating (reads go to Postgres).
 
+Blocks (T-47, AC-26.2): `POST /v1/blocks {user_id}` (limit `blocks.create`) → 204, also when already blocked. The target
+must be related to the caller: a friend, a friend request either way (any status still on record) or an existing block;
+card senders and board co-members join this rule with those modules. Anything else, the caller, or a malformed id → the same
+404 `NOT_FOUND` (no existence oracle). In one transaction under the pair lock: the block row, unfriend (with
+`social.friendship_removed`), the target's pending requests to the caller → `dropped` (they keep looking pending to the
+target until they expire), the caller's open requests to the target → `cancelled`, and `social.user_blocked {blocker_id,
+blocked_id}` for internal consumers. Silent to the blocked account: later requests either way get the standard 201 and are
+stored as `dropped`, search and invite previews hide each side from the other. `GET /v1/blocks` → `{items: [{user: {id,
+display_name, handle}, blocked_at}]}`; `DELETE /v1/blocks/{userId}` → 204 (blocker only, otherwise 404); unblocking does not
+restore the friendship.
+
 Caps and expiry (T-41, `config/social.yaml`): sending a request checks the sender's own limits first, whatever the target (so
 a block is never revealed by a cap that stops applying): own friend count at `friends.max` → 409 `FRIEND_LIMIT_REACHED`;
 `requests.max_pending` (20) open requests → 429 `RATE_LIMITED` with `Retry-After` = until the oldest open one expires;
