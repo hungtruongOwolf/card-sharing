@@ -15,3 +15,8 @@ friends:
 requests:
   # Unanswered requests expire after this many days (AC-5.4).
   ttl_days: 14
+  # Open requests a sender may have at once, and requests per rolling 24 hours (AC-5.3, 429 beyond).
+  max_pending: 20
+  daily_max: 30
+  # Answered or expired requests and reset invites are deleted after this many days.
+  retention_days: 30

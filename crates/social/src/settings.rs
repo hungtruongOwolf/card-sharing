@@ -41,6 +41,9 @@ struct RawFriends {
 #[serde(deny_unknown_fields)]
 struct RawRequests {
     ttl_days: u16,
+    max_pending: u16,
+    daily_max: u16,
+    retention_days: u16,
 }
 
 #[derive(Debug, Deserialize)]
@@ -58,6 +61,12 @@ pub struct SocialSettings {
     pub friends_max: u16,
     /// A request not answered within this many days expires (AC-5.4).
     pub request_ttl_days: u16,
+    /// Open requests a sender may have at once (AC-5.3).
+    pub requests_max_pending: u16,
+    /// Requests a sender may create in any 24 hours (AC-5.3).
+    pub requests_daily_max: u16,
+    /// Answered or expired requests and revoked invites are deleted after this many days.
+    pub retention_days: u16,
 }
 
 impl Default for SocialSettings {
@@ -67,6 +76,9 @@ impl Default for SocialSettings {
             invite_url_base: "http://localhost:3000/i/".to_owned(),
             friends_max: 20,
             request_ttl_days: 14,
+            requests_max_pending: 20,
+            requests_daily_max: 30,
+            retention_days: 30,
         }
     }
 }
@@ -84,15 +96,24 @@ impl SocialSettings {
                 "invites.url_base must be an http(s) URL ending with '/'".to_owned(),
             ));
         }
-        if raw.friends.max == 0 || raw.requests.ttl_days == 0 {
+        let requests = &raw.requests;
+        if raw.friends.max == 0
+            || requests.ttl_days == 0
+            || requests.max_pending == 0
+            || requests.daily_max == 0
+            || requests.retention_days == 0
+        {
             return Err(SocialConfigError::Invalid(
-                "friends.max and requests.ttl_days must be at least 1".to_owned(),
+                "friends.max and every requests.* value must be at least 1".to_owned(),
             ));
         }
         Ok(Self {
             invite_url_base: base,
             friends_max: raw.friends.max,
             request_ttl_days: raw.requests.ttl_days,
+            requests_max_pending: raw.requests.max_pending,
+            requests_daily_max: raw.requests.daily_max,
+            retention_days: raw.requests.retention_days,
         })
     }
 
@@ -123,7 +144,7 @@ mod tests {
     fn url_base_must_be_http_and_end_with_a_slash() {
         for base in ["ftp://x/i/", "https://x/i", "javascript:alert(1)/"] {
             let yaml = format!(
-                "version: 1\ninvites:\n  url_base: \"{base}\"\nfriends:\n  max: 20\nrequests:\n  ttl_days: 14\n"
+                "version: 1\ninvites:\n  url_base: \"{base}\"\nfriends:\n  max: 20\nrequests:\n  ttl_days: 14\n  max_pending: 20\n  daily_max: 30\n  retention_days: 30\n"
             );
             assert!(SocialSettings::from_yaml_str(&yaml).is_err(), "{base}");
         }

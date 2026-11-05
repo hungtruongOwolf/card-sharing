@@ -128,7 +128,9 @@ Requests, friendships and blocks as implemented (T-39, `20261109000003_social_fr
 drops are silent (the sender sees "pending" until expiry, and it keeps its slot under the sender's pending cap). The pair dedupe
 index is `UNIQUE(from_user, to_user) WHERE status IN ('pending','declined','dropped')`; only `pending` rows reach the recipient.
 `friendships` and `blocks` as above, with `CHECK` against self-edges. Pair writes take `pg_advisory_xact_lock` on both accounts
-(key = the random tail of the UUIDv7, locked in key order).
+(key = the random tail of the UUIDv7, locked in key order). Retention (T-41): the `social.expire_requests` worker task marks
+open requests past `expires_at` as `expired`, deletes `accepted` / `cancelled` / `expired` rows 30 days after they were answered
+or expired, and deletes revoked invites 30 days after the reset (`requests.retention_days`).
 
 The "adult · no mutual friends" hint on a minor's incoming request (AC-5.5) is computed at read time (recipient is a minor ∧
 sender is an adult ∧ no mutual friends); nothing extra is stored. Minor status always comes from

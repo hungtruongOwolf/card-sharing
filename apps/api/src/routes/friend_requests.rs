@@ -38,6 +38,9 @@ fn request_error(err: RequestError) -> ApiError {
         }
         RequestError::AlreadyFriends => ApiError::AlreadyFriends,
         RequestError::FriendLimit => ApiError::FriendLimitReached,
+        RequestError::RequestLimit { retry_after_secs } => {
+            ApiError::RateLimited { retry_after_secs }
+        }
         RequestError::Social(err) => ApiError::internal(err),
     }
 }
@@ -158,7 +161,7 @@ impl From<SentRequest> for CreateFriendRequestResponse {
         (status = NOT_FOUND, description = "NOT_FOUND or INVITE_EXPIRED.", body = ProblemDetails),
         (status = CONFLICT, description = "ALREADY_FRIENDS, FRIEND_LIMIT_REACHED or IDEMPOTENCY_IN_PROGRESS.", body = ProblemDetails),
         (status = UNPROCESSABLE_ENTITY, description = "IDEMPOTENCY_KEY_REUSED.", body = ProblemDetails),
-        (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED.", body = ProblemDetails),
+        (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED (also: 20 open requests or 30 sent in 24 hours; Retry-After).", body = ProblemDetails),
     )
 )]
 pub async fn create_friend_request(

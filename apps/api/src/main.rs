@@ -185,6 +185,13 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
         Arc::clone(&clock),
         IdempotencySettings::default(),
     ));
+    let social = social::SocialSettings::from_path(&config.social_config_path)
+        .context("failed to load social config")?;
+    let janitor = Arc::new(social::SocialJanitor::new(
+        pool.clone(),
+        Arc::clone(&clock),
+        social.retention_days,
+    ));
     // Subscribers register here as modules start publishing events.
     let relay = Arc::new(OutboxRelay::new(pool, clock));
     let worker = Worker::new(queue, WorkerSettings::default())
@@ -198,6 +205,11 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
             "idempotency.purge",
             std::time::Duration::from_secs(3600),
             Arc::new(IdempotencyPurge(idempotency)),
+        )
+        .periodic(
+            "social.expire_requests",
+            std::time::Duration::from_secs(600),
+            Arc::new(SocialHousekeeping(janitor)),
         )
         .periodic(
             "outbox.relay",
@@ -245,6 +257,25 @@ impl PeriodicTask for MagicLinkPurge {
                 .await
                 .map_err(|e| e.to_string())?;
             tracing::info!(event = "identity.magic_links.purged", purged);
+            Ok(())
+        })
+    }
+}
+
+/// Expires friend requests past 14 days (AC-5.4) and purges old social rows.
+struct SocialHousekeeping(Arc<social::SocialJanitor>);
+
+impl PeriodicTask for SocialHousekeeping {
+    fn run(&self) -> PeriodicFuture {
+        let janitor = Arc::clone(&self.0);
+        Box::pin(async move {
+            let report = janitor.run_once().await.map_err(|e| e.to_string())?;
+            tracing::info!(
+                event = "social.housekeeping",
+                expired = report.expired,
+                purged_requests = report.purged_requests,
+                purged_invites = report.purged_invites
+            );
             Ok(())
         })
     }
