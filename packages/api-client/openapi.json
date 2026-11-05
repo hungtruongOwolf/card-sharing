@@ -1053,6 +1053,147 @@
         }
       }
     },
+    "/v1/friends": {
+      "get": {
+        "tags": [
+          "social"
+        ],
+        "summary": "My friends. Auth: ses.",
+        "operationId": "listFriends",
+        "responses": {
+          "200": {
+            "description": "The caller's friends.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FriendList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "friends.list",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
+    "/v1/friends/{userId}": {
+      "delete": {
+        "tags": [
+          "social"
+        ],
+        "summary": "Remove a friend. Auth: ses. Silent: the other person gets no notification (AC-6.2).",
+        "operationId": "removeFriend",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "description": "The friend's account id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No longer friends."
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: the caller has no friend with this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "friends.remove",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
     "/v1/invites/{token}": {
       "get": {
         "tags": [
@@ -2619,6 +2760,21 @@
           }
         },
         "additionalProperties": false
+      },
+      "FriendList": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserSummaryView"
+            },
+            "description": "Most recent friendship first (at most the friend cap, 20)."
+          }
+        }
       },
       "GoogleSignInRequest": {
         "type": "object",

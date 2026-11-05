@@ -4,6 +4,7 @@
 //! data (profiles, age) comes from `identity` through its public services, never by SQL.
 
 mod error;
+mod friends;
 mod graph;
 mod invites;
 mod janitor;
@@ -13,6 +14,7 @@ mod service;
 mod settings;
 
 pub use error::{InviteError, SocialError};
+pub use friends::FRIENDSHIP_REMOVED;
 pub use invites::{INVITE_TOKEN_LEN, InvitePreview, MyInvite, ResolvedInvite};
 pub use janitor::{JanitorReport, SocialJanitor};
 pub use requests::{

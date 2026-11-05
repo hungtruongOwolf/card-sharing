@@ -237,6 +237,13 @@ Findable by handle (T-45): `PATCH /v1/me/settings` (ses, limit `me.settings.upda
 always false under the discovery age). Search's handle lookup only matches findable accounts (same single query, so the miss
 is the standard one), and a request from a ref whose target turned it off is silently dropped.
 
+Friends (T-46): `GET /v1/friends` (limit `friends.list`) → `{items: [{id, display_name, handle}]}`, most recent friendship
+first, inactive accounts left out. `DELETE /v1/friends/{userId}` (limit `friends.remove`) → 204; a user id that is not the
+caller's friend (or malformed) → the same 404 `NOT_FOUND`. Silent to the other side (AC-6.2): no push, no activity item; it
+publishes `social.friendship_removed {actor_id, other_id}` for internal consumers (feed / widget / boards read friendship at
+read time; the widget refresh push of AC-16.4 subscribes when it exists). There is no friend-set cache yet, so nothing needs
+invalidating (reads go to Postgres).
+
 Caps and expiry (T-41, `config/social.yaml`): sending a request checks the sender's own limits first, whatever the target (so
 a block is never revealed by a cap that stops applying): own friend count at `friends.max` → 409 `FRIEND_LIMIT_REACHED`;
 `requests.max_pending` (20) open requests → 429 `RATE_LIMITED` with `Retry-After` = until the oldest open one expires;
