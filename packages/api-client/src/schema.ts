@@ -180,8 +180,9 @@ export interface paths {
         };
         /**
          * My pending friend requests. Auth: ses.
-         * @description `incoming`: requests addressed to me that I have not answered. `outgoing`: requests I sent that
-         *     are still open; they all show as pending (declines are silent).
+         * @description `incoming`: requests addressed to me that I have not answered; for a minor, a request from an
+         *     adult with no mutual friends carries `hint: "adult_no_mutual_friends"`. `outgoing`: requests I
+         *     sent that are still open; they all show as pending (declines are silent).
          */
         get: operations["listFriendRequests"];
         put?: never;
@@ -824,6 +825,11 @@ export interface components {
             created_at: string;
             /** Format: date-time */
             expires_at: string;
+            /**
+             * @description Present only on incoming requests to a minor whose sender is an adult with no mutual
+             *     friends (AC-5.5). Never present for adult recipients.
+             */
+            hint?: "adult_no_mutual_friends" | null;
             /** Format: uuid */
             id: string;
             /** @description The sender (incoming) or the recipient (outgoing). */

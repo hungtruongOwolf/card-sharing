@@ -20,6 +20,7 @@ mod invites;
 mod jobs;
 mod magic_link;
 mod me;
+mod minor_hint;
 mod outbox;
 mod profile;
 mod rate_limit;

@@ -80,6 +80,25 @@ pub(crate) async fn friend_count(conn: &mut PgConnection, id: Uuid) -> Result<i6
     .await
 }
 
+/// Accounts that are friends with both `a` and `b`.
+pub(crate) async fn mutual_friend_count(
+    conn: &mut PgConnection,
+    a: Uuid,
+    b: Uuid,
+) -> Result<i64, sqlx::Error> {
+    sqlx::query_scalar(
+        "WITH fa AS (SELECT CASE WHEN user_a = $1 THEN user_b ELSE user_a END AS friend
+                     FROM social.friendships WHERE user_a = $1 OR user_b = $1),
+              fb AS (SELECT CASE WHEN user_a = $2 THEN user_b ELSE user_a END AS friend
+                     FROM social.friendships WHERE user_a = $2 OR user_b = $2)
+         SELECT count(*) FROM fa JOIN fb USING (friend)",
+    )
+    .bind(a)
+    .bind(b)
+    .fetch_one(conn)
+    .await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

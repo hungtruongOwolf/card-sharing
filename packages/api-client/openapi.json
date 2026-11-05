@@ -605,7 +605,7 @@
           "social"
         ],
         "summary": "My pending friend requests. Auth: ses.",
-        "description": "`incoming`: requests addressed to me that I have not answered. `outgoing`: requests I sent that\nare still open; they all show as pending (declines are silent).",
+        "description": "`incoming`: requests addressed to me that I have not answered; for a minor, a request from an\nadult with no mutual friends carries `hint: \"adult_no_mutual_friends\"`. `outgoing`: requests I\nsent that are still open; they all show as pending (declines are silent).",
         "operationId": "listFriendRequests",
         "parameters": [
           {
@@ -2832,6 +2832,20 @@
           "expires_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "hint": {
+            "oneOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "adult_no_mutual_friends"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Present only on incoming requests to a minor whose sender is an adult with no mutual\nfriends (AC-5.5). Never present for adult recipients."
           },
           "id": {
             "type": "string",
