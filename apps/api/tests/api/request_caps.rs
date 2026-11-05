@@ -163,12 +163,15 @@ async fn a_request_older_than_14_days_disappears_from_both_lists() {
     janitor(&env).run_once().await.unwrap();
     assert_eq!(request_status(&env, &id).await, "expired");
     // ...and deletes it once it is older than the retention.
-    sqlx::query("UPDATE social.friend_requests SET expires_at = $2 WHERE id = $1::uuid")
-        .bind(&id)
-        .bind(now - Duration::days(31))
-        .execute(env.identity.pool())
-        .await
-        .unwrap();
+    sqlx::query(
+        "UPDATE social.friend_requests SET created_at = $2, expires_at = $3 WHERE id = $1::uuid",
+    )
+    .bind(&id)
+    .bind(now - Duration::days(45))
+    .bind(now - Duration::days(31))
+    .execute(env.identity.pool())
+    .await
+    .unwrap();
     janitor(&env).run_once().await.unwrap();
     let left: i64 =
         sqlx::query_scalar("SELECT count(*) FROM social.friend_requests WHERE id = $1::uuid")
