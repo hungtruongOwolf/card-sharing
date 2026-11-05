@@ -35,6 +35,8 @@ fn test_config() -> Config {
         client_ip_header: None,
         ip_country_header: None,
         client_config_path: "unused-in-tests".into(),
+        text_filter_config_path: "unused-in-tests".into(),
+        profile_config_path: "unused-in-tests".into(),
         apple_client_ids: Vec::new(),
         google_client_ids: Vec::new(),
         auth_clock_skew: Duration::from_secs(60),
@@ -68,7 +70,14 @@ fn app() -> Router {
     )
     .unwrap();
     api::app(
-        AppState::new(policy, limiter, identity, client, cipher),
+        AppState::new(
+            policy,
+            limiter,
+            identity,
+            client,
+            cipher,
+            crate::common::profile_settings(),
+        ),
         &test_config(),
     )
 }

@@ -40,6 +40,11 @@ limits:
     requests: 5
     per_secs: 86400
     on_store_failure: closed
+  me.profile.update: # PUT /v1/me/profile
+    scope: user
+    requests: 20
+    per_secs: 3600
+    on_store_failure: open
   config.read: # GET /v1/config (CDN cached; this only bounds cache misses)
     scope: ip
     requests: 120

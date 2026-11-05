@@ -4,6 +4,7 @@ import type { AuthClient } from '../auth';
 
 export type OnboardingStep = components['schemas']['OnboardingStep'];
 type AgeRequest = components['schemas']['AgeRequest'];
+type ProfileRequest = components['schemas']['ProfileRequest'];
 
 /** The part of `GET /v1/me` the onboarding flow reads. The region policy is deliberately not exposed here. */
 export interface MeSummary {
@@ -11,12 +12,9 @@ export interface MeSummary {
 }
 
 /**
- * PROVISIONAL (not in openapi.json yet): bodies for `PUT /v1/me/profile` and `PUT /v1/me/handle` as specified
- * in context/wiki/architecture/api-mvp.md (US-3). Replace with the generated types once the backend ships them.
+ * PROVISIONAL (not in openapi.json yet): body for `PUT /v1/me/handle` as specified in
+ * context/wiki/architecture/api-mvp.md (US-3). Replace with the generated type once the backend ships it.
  */
-interface ProfileRequest {
-  display_name: string;
-}
 interface HandleRequest {
   handle: string;
 }
@@ -49,7 +47,7 @@ export interface OnboardingApi {
   getMe(): Promise<MeSummary>;
   /** `POST /v1/me/age`. Resolves with the next step; refusal rejects with kind `refused`. */
   submitBirthDate(birthDate: string): Promise<OnboardingStep>;
-  /** PROVISIONAL `PUT /v1/me/profile` (display name only; the avatar comes with the capture flow). */
+  /** `PUT /v1/me/profile` (display name only; the avatar comes with the capture flow). */
   saveDisplayName(displayName: string): Promise<void>;
   /** PROVISIONAL `PUT /v1/me/handle`. */
   claimHandle(handle: string): Promise<void>;

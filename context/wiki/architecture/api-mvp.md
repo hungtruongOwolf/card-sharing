@@ -85,8 +85,8 @@ app gives Google `hex SHA-256(nonce)` as the sign-in nonce). `iss` = `https://ac
 (`https://www.googleapis.com/oauth2/v3/certs`). The same email as an Apple account creates a separate account (AC-1.3).
 
 `GET /v1/me` → `{account: {id, status}, onboarding: {step: age|profile|done}, policy: {min_age, ai_effects, ads, ai_label}}`
-(policy = strictest of the signals stored at sign-up and the current IP country; the profile block arrives with the profile
-ticket). `GET /v1/config` → `{min_app_version, limits, flags, kill_switches}` from `config/client.yaml`, `Cache-Control: public,
+(policy = strictest of the signals stored at sign-up and the current IP country) plus `profile: {display_name}` (null
+before the profile step; the handle joins with T-32). `GET /v1/config` → `{min_app_version, limits, flags, kill_switches}` from `config/client.yaml`, `Cache-Control: public,
 max-age=300`, byte-identical for every caller. Min-version gate: `X-App-Version` (semver) below `min_app_version` → 426
 `UPGRADE_REQUIRED`; malformed → 400; absent → allowed (web, tools). Exempt: `/v1/config`, probes, `/openapi.json`
 (`x-policy.versionGate: false`). IP country comes only from the header named by `API_IP_COUNTRY_HEADER` (trusted edge).
@@ -95,6 +95,12 @@ max-age=300`, byte-identical for every caller. Min-version gate: `X-App-Version`
 store_country?}` → 200 `{status: "pending_profile", onboarding: {step: "profile"}}` or 403 `AGE_GATE_REFUSED` (no detail, account
 deleted, 24 h cooldown); second submission → 403 `AGE_ALREADY_SUBMITTED`; cooldown store down → 503 (fails closed). Passing the
 gate moves the account to `pending_profile` (profile step), not `active`.
+
+`PUT /v1/me/profile` (onb/ses, limit `me.profile.update` 20/h per user) `{display_name}` → 200 `{status, onboarding: {step},
+profile: {display_name}}` with the stored, sanitized name (T-30 filter; 2–30 graphemes from `config/profile.yaml`; not unique,
+never searchable). Too short/long, a filtered term or any extra field (no account id is accepted) → 400 `VALIDATION_FAILED`;
+before the age gate (`pending_age`) → 403 `ONBOARDING_INCOMPLETE` (nothing is collected from an account that may be refused).
+The avatar (`avatar_media_id`) joins with the media pipeline.
 
 ### Media
 | Method | Path | Purpose | Auth | Role | Object rule | Rate limit | Idem. | US |

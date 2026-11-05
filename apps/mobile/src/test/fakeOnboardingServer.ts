@@ -4,8 +4,10 @@
  * `GET /v1/me` and `POST /v1/me/age` mirror apps/api/src/routes/me.rs and crates/identity/src/age_gate.rs:
  * one submission per account (`AGE_ALREADY_SUBMITTED`), refusal deletes the account and its sessions
  * (`AGE_GATE_REFUSED`, no detail), admission moves to `pending_profile`.
- * `PUT /v1/me/profile` and `PUT /v1/me/handle` are PROVISIONAL: they follow the api-mvp.md contract until the
- * backend implements them (the account becomes active once both a display name and a handle are set).
+ * `PUT /v1/me/profile` mirrors the display-name route in apps/api/src/routes/me.rs (403 `ONBOARDING_INCOMPLETE`
+ * before the age gate, 400 `VALIDATION_FAILED`, 200 `{status, onboarding, profile}`).
+ * `PUT /v1/me/handle` is PROVISIONAL: it follows the api-mvp.md contract until the backend implements it (the
+ * account becomes active once both a display name and a handle are set).
  */
 import { FakeAuthServer, json, problem, type RecordedRequest } from './fakeAuthServer';
 
@@ -68,6 +70,7 @@ export class FakeOnboardingServer {
     const me = () => ({
       account: { id: 'acc-1', status: this.status },
       onboarding: { step: STEP[this.status] },
+      profile: { display_name: this.displayName },
       policy: {
         min_age: this.minAge,
         ai_effects: { cloud_allowed: true, people_in_photo: 'any' },
@@ -106,11 +109,15 @@ export class FakeOnboardingServer {
       const name = (body as { display_name?: unknown } | undefined)?.display_name;
       if (this.status === 'pending_age') return problem(403, 'ONBOARDING_INCOMPLETE');
       if (typeof name !== 'string' || name.length < 2 || name.length > 30 || name === 'badword') {
-        return problem(422, 'VALIDATION_FAILED');
+        return problem(400, 'VALIDATION_FAILED');
       }
       this.displayName = name;
       this.activateIfComplete();
-      return json({ display_name: name });
+      return json({
+        status: this.status,
+        onboarding: { step: STEP[this.status] },
+        profile: { display_name: name },
+      });
     }
 
     if (method === 'PUT' && path === '/v1/me/handle') {

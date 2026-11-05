@@ -1,12 +1,15 @@
-//! The caller's own account (T-27): status, onboarding step and resolved policy flags.
+//! The caller's own account (T-27): status, onboarding step, profile (T-31) and resolved policy flags.
 //! Every query is keyed by the session's account id; no path or body parameter can name
 //! another account.
 
 use axum::Json;
 use axum::extract::State;
 use http::HeaderMap;
-use identity::{AccountStatus, AgeGateError, AgeOutcome, AgeSubmission};
+use identity::{
+    AccountStatus, AgeGateError, AgeOutcome, AgeSubmission, Profile, ProfileError, ProfileUpdate,
+};
 use platform::problem::{ApiError, OrNotFound, ProblemDetails};
+use platform::text::TextError;
 use policy::{CountryCode, Policy, PolicyContext};
 use serde::{Deserialize, Serialize};
 use time::Date;
@@ -23,6 +26,8 @@ pub const TAG: &str = "me";
 pub struct MeResponse {
     pub account: AccountView,
     pub onboarding: OnboardingView,
+    /// What the caller has set so far (empty fields before the profile step).
+    pub profile: ProfileView,
     /// Region rules that apply to this account (strictest of the signals stored at sign-up and
     /// the current request). The app renders only what these allow.
     pub policy: PolicyView,
@@ -50,6 +55,22 @@ pub enum OnboardingStep {
 #[derive(Debug, Serialize, ToSchema)]
 pub struct OnboardingView {
     pub step: OnboardingStep,
+}
+
+/// The caller's own profile. Display names are stored sanitized (what is returned is what
+/// others will see).
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ProfileView {
+    #[schema(example = "Mai")]
+    pub display_name: Option<String>,
+}
+
+impl From<Profile> for ProfileView {
+    fn from(profile: Profile) -> Self {
+        Self {
+            display_name: profile.display_name,
+        }
+    }
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -136,6 +157,11 @@ pub async fn get_me(
         .await
         .map_err(ApiError::internal)?
         .or_not_found()?;
+    let profile = state
+        .identity
+        .profile(account.id)
+        .await
+        .map_err(ApiError::internal)?;
     let current = PolicyContext {
         ip_country: state.ip_country(&headers),
         ..PolicyContext::default()
@@ -151,6 +177,7 @@ pub async fn get_me(
         onboarding: OnboardingView {
             step: onboarding_step(account.status),
         },
+        profile: profile.into(),
         policy: policy.into(),
     }))
 }
@@ -254,4 +281,87 @@ pub async fn submit_age(
             },
         })),
     }
+}
+
+/// Body of `PUT /v1/me/profile`. The account is always the caller's; no id is accepted.
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ProfileRequest {
+    /// 2-30 characters (grapheme clusters) after sanitizing; not unique, never searchable.
+    #[schema(example = "Mai")]
+    pub display_name: String,
+}
+
+/// Result of a profile write: the account status and onboarding step after it, and the profile.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ProfileResponse {
+    #[schema(value_type = String, example = "pending_profile")]
+    pub status: AccountStatus,
+    pub onboarding: OnboardingView,
+    pub profile: ProfileView,
+}
+
+impl From<ProfileUpdate> for ProfileResponse {
+    fn from(update: ProfileUpdate) -> Self {
+        Self {
+            status: update.status,
+            onboarding: OnboardingView {
+                step: onboarding_step(update.status),
+            },
+            profile: update.profile.into(),
+        }
+    }
+}
+
+fn text_problem(field: &str, err: &TextError) -> ApiError {
+    if let TextError::Blocked { list } = err {
+        // The list name is for metrics only; the client learns just "not allowed".
+        tracing::info!(event = "text_filter.blocked", field, list = %list, "text refused");
+    }
+    ApiError::Validation(format!("{field} {err}"))
+}
+
+pub(crate) fn profile_error(err: ProfileError) -> ApiError {
+    match err {
+        ProfileError::NotReady => ApiError::OnboardingIncomplete,
+        ProfileError::InvalidDisplayName(text) => text_problem("display_name", &text),
+        ProfileError::Store(store) => ApiError::internal(store),
+    }
+}
+
+/// Set my display name. Auth: onb/ses (after the age gate).
+///
+/// The name is sanitized (NFC, invisible and bidi characters removed, whitespace collapsed,
+/// combining marks capped) and checked against the term lists; the stored form is returned.
+#[utoipa::path(
+    put,
+    path = "/v1/me/profile",
+    tag = TAG,
+    operation_id = "updateProfile",
+    security(("bearer" = [])),
+    request_body = ProfileRequest,
+    responses(
+        (status = OK, description = "Saved; the response carries the stored (sanitized) name.", body = ProfileResponse),
+        (status = BAD_REQUEST, description = "VALIDATION_FAILED (length, filtered term, unknown field).", body = ProblemDetails),
+        (status = UNAUTHORIZED, description = "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.", body = ProblemDetails),
+        (status = FORBIDDEN, description = "ONBOARDING_INCOMPLETE (age gate not passed) or ACCOUNT_SUSPENDED.", body = ProblemDetails),
+        (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED.", body = ProblemDetails),
+    )
+)]
+pub async fn update_profile(
+    State(state): State<AppState>,
+    caller: Caller,
+    body: ValidJson<ProfileRequest>,
+) -> Result<Json<ProfileResponse>, ApiError> {
+    let update = state
+        .identity
+        .set_display_name(
+            caller.0.account_id,
+            &body.0.display_name,
+            &state.profile.text_filter,
+            &state.profile.rules,
+        )
+        .await
+        .map_err(profile_error)?;
+    Ok(Json(update.into()))
 }
