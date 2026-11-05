@@ -2,14 +2,19 @@
  * @jest-environment @shopify/react-native-skia/jestEnv.js
  */
 import { Skia } from '@shopify/react-native-skia';
-import { fireEvent, screen, userEvent } from '@testing-library/react-native';
+import { act, fireEvent, screen, userEvent } from '@testing-library/react-native';
 import { Platform } from 'react-native';
+import { State } from 'react-native-gesture-handler';
+import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
+
+import { createRegistry, ENTRIES, registry } from '@card-sharing/effects-registry';
 
 import { t } from '../../../i18n';
 import { renderThemed } from '../../../test/render';
 import type { CapturedPhoto } from '../../capture';
 import { CardEditorScreen, type CardEditorScreenProps } from '../CardEditorScreen';
 import { createSyntheticMaskSource, noMaskSource } from '../maskSource';
+import { sliderValue } from '../ParamControls';
 
 jest.mock('@shopify/react-native-skia', () =>
   // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -138,6 +143,7 @@ describe('CardEditorScreen', () => {
       await fireEvent(screen.getByLabelText(t('editor.wholePhoto')), 'valueChange', true);
       expect(tile('effects.cut.diecut.name')).toBeNull();
       expect(tile('effects.cut.raw.name')).toBeNull();
+      expect(screen.queryByTestId('tile-cut.diecut')).toBeNull();
       expect(selected('effects.cut.none.name')).toBe(true);
       await user.press(screen.getByRole('button', { name: t('editor.undo') }));
       expect(selected('effects.cut.diecut.name')).toBe(true);
@@ -175,6 +181,82 @@ describe('CardEditorScreen', () => {
       ).toEqual([t('effects.param.roughness')]);
       await userEvent.setup().press(screen.getByRole('tab', { name: t('editor.tab.finish') }));
       expect(tile('effects.fx.holo.name')).toBeNull();
+    },
+    RENDER_TIMEOUT_MS,
+  );
+
+  it(
+    'drags a slider as one undo step',
+    async () => {
+      await renderEditor();
+      const user = userEvent.setup();
+      const border = t('effects.param.borderWidthPct');
+      const spec = registry.get('cut.diecut')!.params.borderWidthPct!;
+      if (spec.type !== 'number') throw new Error('expected a number param');
+      const value = () =>
+        screen.getByRole('adjustable', { name: border }).props.accessibilityValue.now as number;
+      const before = value();
+      const id = `param-slider-${border}`;
+      await fireEvent(screen.getByTestId(id, { includeHiddenElements: true }), 'layout', {
+        nativeEvent: { layout: { x: 0, y: 0, width: 200, height: 44 } },
+      });
+      await act(async () => {
+        fireGestureHandler(getByGestureTestId(id), [
+          { state: State.BEGAN, x: 10 },
+          { state: State.ACTIVE, x: 60 },
+          { x: 120 },
+          { x: 150 },
+          { state: State.END, x: 150 },
+        ]);
+      });
+      expect(value()).toBe(sliderValue(spec, 0.75));
+      await user.press(screen.getByRole('button', { name: t('editor.undo') }));
+      expect(value()).toBe(before);
+      expect(screen.getByRole('button', { name: t('editor.undo') })).toBeDisabled();
+    },
+    RENDER_TIMEOUT_MS,
+  );
+
+  it(
+    'explains locked and unavailable tiles instead of applying them',
+    async () => {
+      const custom = createRegistry(
+        ENTRIES.map((e) => {
+          if (e.id === 'cut.raw') return { ...e, unlock: 'pro' as const };
+          if (e.id === 'cut.torn') return { ...e, flags: { minAppVersion: '9.0.0' } };
+          return e;
+        }),
+      );
+      await renderEditor({ registry: custom });
+      const user = userEvent.setup();
+      const reason = t('editor.tile.reason.needsUpdate');
+      const torn = screen.getByRole('button', {
+        name: t('editor.tile.unavailable.a11y', { name: t('effects.cut.torn.name'), reason }),
+      });
+      expect(torn.props.accessibilityState).toMatchObject({ disabled: true, selected: false });
+      expect(screen.getByText(reason)).toBeTruthy();
+      const raw = screen.getByRole('button', {
+        name: t('editor.tile.locked.a11y', { name: t('effects.cut.raw.name'), unlock: 'pro' }),
+      });
+      await fireEvent.press(raw);
+      expect(screen.getByText(t('editor.tile.locked.toast'))).toBeTruthy();
+      expect(selected('effects.cut.diecut.name')).toBe(true);
+      expect(screen.getByRole('button', { name: t('editor.undo') })).toBeDisabled();
+      await user.press(screen.getByRole('button', { name: t('effects.cut.none.name') }));
+      expect(selected('effects.cut.none.name')).toBe(true);
+    },
+    RENDER_TIMEOUT_MS,
+  );
+
+  it(
+    'shows baked thumbnails on the tiles',
+    async () => {
+      await renderEditor();
+      const thumb = await screen.findByTestId('tile-thumb-cut.diecut');
+      expect(thumb.props.source).toEqual({
+        uri: expect.stringMatching(/^data:image\/png;base64,/),
+      });
+      expect(screen.getByTestId('tile-thumb-cut.none')).toBeTruthy();
     },
     RENDER_TIMEOUT_MS,
   );

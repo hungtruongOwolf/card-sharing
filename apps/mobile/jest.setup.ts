@@ -8,6 +8,9 @@ jest.mock(
 
 require('react-native-reanimated').setUpTests();
 
+// Gesture Handler's native module mocks, so tests can drive gestures with its jest-utils (fireGestureHandler).
+require('react-native-gesture-handler/jestSetup');
+
 // Brand fonts are embedded natively by the expo-font config plugin; report them as registered so component
 // snapshots show the faces a real build renders (src/ui/theme/fonts.ts falls back to the platform font otherwise).
 jest.mock('expo-font', () => {
