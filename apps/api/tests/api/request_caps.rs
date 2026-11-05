@@ -109,6 +109,17 @@ async fn caps_apply_even_when_the_target_blocked_the_sender() {
     .await;
 }
 
+// The janitor runs over the whole (shared) test database, so these tests never move a clock
+// forward before running it: they age their own rows instead, and the janitor uses the present.
+
+fn janitor(env: &TestEnv) -> SocialJanitor {
+    SocialJanitor::new(
+        env.identity.pool().clone(),
+        env.clock.clone(),
+        social_settings().retention_days,
+    )
+}
+
 #[tokio::test]
 async fn a_request_older_than_14_days_disappears_from_both_lists() {
     let Some(env) = TestEnv::new().await else {
@@ -124,9 +135,17 @@ async fn a_request_older_than_14_days_disappears_from_both_lists() {
         .to_owned();
     assert_eq!(list(&env, &alice, "incoming").await.len(), 1);
 
-    env.clock.advance(Duration::days(14) + Duration::seconds(1));
-    let alice = signed_in_again(&env, &alice).await;
-    let bob = signed_in_again(&env, &bob).await;
+    // Sent 14 days and a second ago.
+    let now = env.clock.now();
+    sqlx::query(
+        "UPDATE social.friend_requests SET created_at = $2, expires_at = $3 WHERE id = $1::uuid",
+    )
+    .bind(&id)
+    .bind(now - Duration::days(14) - Duration::seconds(1))
+    .bind(now - Duration::seconds(1))
+    .execute(env.identity.pool())
+    .await
+    .unwrap();
     // Gone from both lists at once, before the job runs.
     assert!(list(&env, &alice, "incoming").await.is_empty());
     assert!(list(&env, &bob, "outgoing").await.is_empty());
@@ -140,17 +159,18 @@ async fn a_request_older_than_14_days_disappears_from_both_lists() {
     .await;
     assert_problem(response, StatusCode::NOT_FOUND, "NOT_FOUND").await;
 
-    // The periodic job marks it expired, and purges it after the retention.
-    let janitor = SocialJanitor::new(
-        env.identity.pool().clone(),
-        env.clock.clone(),
-        social_settings().retention_days,
-    );
-    let report = janitor.run_once().await.unwrap();
+    // The periodic job marks it expired...
+    let report = janitor(&env).run_once().await.unwrap();
     assert!(report.expired >= 1);
     assert_eq!(request_status(&env, &id).await, "expired");
-    env.clock.advance(Duration::days(31));
-    janitor.run_once().await.unwrap();
+    // ...and deletes it once it is older than the retention.
+    sqlx::query("UPDATE social.friend_requests SET expires_at = $2 WHERE id = $1::uuid")
+        .bind(&id)
+        .bind(now - Duration::days(31))
+        .execute(env.identity.pool())
+        .await
+        .unwrap();
+    janitor(&env).run_once().await.unwrap();
     let left: i64 =
         sqlx::query_scalar("SELECT count(*) FROM social.friend_requests WHERE id = $1::uuid")
             .bind(&id)
@@ -168,13 +188,15 @@ async fn reset_invites_are_purged_after_the_retention() {
     let alice = adult(&env).await;
     invite_token(&env, &alice).await;
     call(&env, "POST", "/v1/me/invite/reset", &alice, None).await;
-    let janitor = SocialJanitor::new(
-        env.identity.pool().clone(),
-        env.clock.clone(),
-        social_settings().retention_days,
-    );
-    env.clock.advance(Duration::days(31));
-    janitor.run_once().await.unwrap();
+    sqlx::query(
+        "UPDATE social.invites SET revoked_at = $2 WHERE owner_id = $1 AND revoked_at IS NOT NULL",
+    )
+    .bind(alice.id)
+    .bind(env.clock.now() - Duration::days(31))
+    .execute(env.identity.pool())
+    .await
+    .unwrap();
+    janitor(&env).run_once().await.unwrap();
     let rows: i64 = sqlx::query_scalar("SELECT count(*) FROM social.invites WHERE owner_id = $1")
         .bind(alice.id)
         .fetch_one(env.identity.pool())
