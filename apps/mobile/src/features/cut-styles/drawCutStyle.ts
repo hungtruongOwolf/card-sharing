@@ -14,18 +14,32 @@ import { clampParams, type EffectEntry, type ParamValue } from '@card-sharing/ef
 
 import { borderWidthPx, cornerRadiusPx, SUBJECT_FEATHER_PX, type Rect } from './cutGeometry';
 
-/** What every cut style draws from: the photo and the subject outline, in the same canvas pixel space. */
+/** The subject outline from the mask contours (non-zero fill keeps holes), in canvas pixels. */
+export interface CutSubject {
+  path: SkPath;
+  bounds: Rect;
+}
+
+/**
+ * What every cut style draws from: the photo and, when there is one, the subject outline, in the same canvas
+ * pixel space. `subject` is null for a whole-photo card: the device has no on-device cutout, no subject was
+ * found, or the user chose "Use whole photo" (EM 2026-11-05). Entries that need a mask are hidden then.
+ */
 export interface CutScene {
   width: number;
   height: number;
   photo: SkImage;
-  /** Subject outline from the mask contours (non-zero fill keeps holes). */
-  subject: SkPath;
-  subjectBounds: Rect;
+  subject: CutSubject | null;
 }
 
 type Params = Record<string, ParamValue>;
 type CutRenderer = (canvas: SkCanvas, scene: CutScene, params: Params) => void;
+type SubjectRenderer = (
+  canvas: SkCanvas,
+  scene: CutScene,
+  subject: CutSubject,
+  params: Params,
+) => void;
 
 const num = (params: Params, name: string) => params[name] as number;
 
@@ -44,14 +58,14 @@ function drawPhoto(canvas: SkCanvas, scene: CutScene) {
  * then the photo with SrcIn (equivalent to the catalog's mask DstIn, but the photo covers the whole layer, so
  * everything outside the mask is cleared).
  */
-function drawSubject(canvas: SkCanvas, scene: CutScene, featherPx: number) {
+function drawSubject(canvas: SkCanvas, scene: CutScene, subject: CutSubject, featherPx: number) {
   canvas.saveLayer();
   const mask = Skia.Paint();
   mask.setAntiAlias(true);
   if (featherPx > 0) {
     mask.setMaskFilter(Skia.MaskFilter.MakeBlur(BlurStyle.Normal, featherPx, true));
   }
-  canvas.drawPath(scene.subject, mask);
+  canvas.drawPath(subject.path, mask);
   const { photo, width, height } = scene;
   const photoPaint = Skia.Paint();
   photoPaint.setBlendMode(BlendMode.SrcIn);
@@ -63,6 +77,14 @@ function drawSubject(canvas: SkCanvas, scene: CutScene, featherPx: number) {
   );
   canvas.restore();
 }
+
+/** Renderers that draw around the subject; the scene must carry one (the picker hides them otherwise). */
+const needsSubject =
+  (id: string, render: SubjectRenderer): CutRenderer =>
+  (canvas, scene, params) => {
+    if (!scene.subject) throw new Error(`${id} needs a subject mask`);
+    render(canvas, scene, scene.subject, params);
+  };
 
 /**
  * Renderers by `renderer.ref`. A new cut style that reuses a ref is an entry file only (AC-10.2); a new ref
@@ -80,19 +102,21 @@ const RENDERERS: Readonly<Record<string, CutRenderer>> = {
     drawPhoto(canvas, scene);
     canvas.restore();
   },
-  'mask:dstIn': (canvas, scene, params) => drawSubject(canvas, scene, num(params, 'featherPx')),
-  'contour:stroke': (canvas, scene, params) => {
+  'mask:dstIn': needsSubject('mask:dstIn', (canvas, scene, subject, params) =>
+    drawSubject(canvas, scene, subject, num(params, 'featherPx')),
+  ),
+  'contour:stroke': needsSubject('contour:stroke', (canvas, scene, subject, params) => {
     const border = Skia.Paint();
     border.setAntiAlias(true);
     border.setColor(Skia.Color(params.color as string));
-    canvas.drawPath(scene.subject, border);
+    canvas.drawPath(subject.path, border);
     border.setStyle(PaintStyle.Stroke);
     border.setStrokeJoin(StrokeJoin.Round);
     // The stroke is centred on the outline, so twice the border shows as one border width outside it.
-    border.setStrokeWidth(2 * borderWidthPx(scene.subjectBounds, num(params, 'borderWidthPct')));
-    canvas.drawPath(scene.subject, border);
-    drawSubject(canvas, scene, SUBJECT_FEATHER_PX);
-  },
+    border.setStrokeWidth(2 * borderWidthPx(subject.bounds, num(params, 'borderWidthPct')));
+    canvas.drawPath(subject.path, border);
+    drawSubject(canvas, scene, subject, SUBJECT_FEATHER_PX);
+  }),
 };
 
 export function hasCutRenderer(entry: EffectEntry): boolean {

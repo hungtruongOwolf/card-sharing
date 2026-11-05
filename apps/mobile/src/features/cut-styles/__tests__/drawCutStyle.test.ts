@@ -47,8 +47,7 @@ function discScene(): CutScene {
     width: SIZE,
     height: SIZE,
     photo: photoSurface.makeImageSnapshot(),
-    subject: subject.path,
-    subjectBounds: subject.bounds,
+    subject,
   };
 }
 
@@ -112,7 +111,7 @@ describe('cut style renderers', () => {
 
   it('cut.diecut: border colour just outside the subject, nothing beyond it', () => {
     const scene = discScene();
-    const border = borderWidthPx(scene.subjectBounds, 6);
+    const border = borderWidthPx(scene.subject!.bounds, 6);
     expect(border).toBeGreaterThan(6);
     const pixels = render('cut.diecut', { borderWidthPct: 6 });
     expect(at(pixels, CENTER, CENTER)).toEqual(PHOTO);

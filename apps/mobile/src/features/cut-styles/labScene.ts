@@ -55,7 +55,6 @@ export function labScene(size: number, mask: Mask = labMask()): CutScene | null 
     width: size,
     height: size,
     photo: surface.makeImageSnapshot(),
-    subject: subject.path,
-    subjectBounds: subject.bounds,
+    subject,
   };
 }

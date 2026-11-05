@@ -13,7 +13,9 @@ export const ALL_DEVICES: EffectEntry['platforms'] = {
 
 /**
  * Needs an on-device subject mask: Vision on iOS 17+, ML Kit or the bundled fallback model on Android
- * (prd-mvp AC-7.6). No server fallback in the MVP, so devices without a mask do not show the entry.
+ * (prd-mvp AC-7.6). There is no server cutout in the MVP. Without a mask (iOS < 17, Android without the model,
+ * no subject found, or "Use whole photo") the card is a whole-photo card: these entries are hidden and the
+ * picker lists the mask-free styles, `ALL_DEVICES` entries such as the shape cuts (EM decision 2026-11-05).
  */
 export const NEEDS_SUBJECT_MASK: EffectEntry['platforms'] = {
   ios: { min: APP_MIN_IOS, requires: ['subjectMask'] },

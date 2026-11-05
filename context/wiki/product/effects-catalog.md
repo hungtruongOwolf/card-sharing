@@ -3,7 +3,7 @@ title: Effects Catalog (Tier 0) & Effect Registry
 type: spec
 status: draft
 updated: 2026-11-05
-sources: [raw/discussions/2026-11-04-prd-design-qa.md, raw/research/2026-11-04-zero-download-ai.md, raw/research/2026-11-04-subject-cutout.md, raw/research/2026-11-04-on-device-genai.md, raw/research/2026-11-04-frontend-stack.md, raw/discussions/2026-11-04-idea-round-1.md, raw/discussions/2026-11-04-idea-round-5.md]
+sources: [raw/discussions/2026-11-05-sprint-1-kickoff-qa.md, raw/discussions/2026-11-04-prd-design-qa.md, raw/research/2026-11-04-zero-download-ai.md, raw/research/2026-11-04-subject-cutout.md, raw/research/2026-11-04-on-device-genai.md, raw/research/2026-11-04-frontend-stack.md, raw/discussions/2026-11-04-idea-round-1.md, raw/discussions/2026-11-04-idea-round-5.md]
 related: [[ADR-0003-effects-tiers]], [[subject-cutout]], [[design-system]], [[change-management]], [[monetization]], [[region-policy]], [[vision]], [[genai-effects]]
 ---
 # Effects Catalog (Tier 0) & Effect Registry
@@ -53,8 +53,10 @@ export const laserEyes: EffectEntry = {
 `src/entries/index.ts`; `validateRegistry` (run by tests) checks every entry and rejects duplicate ids. `tier` is a string
 (`'0'`, `'1'`, `'1b'`, `'2'`); `tags` (e.g. `finish`, `builtIn`) add picker listings. `platforms.*.requires` uses the
 capability vocabulary `subjectMask, faceLandmarks, animalPose, playServices, gyro`; `fallback` is `userPoints` only (no
-server-cutout fallback in the MVP, prd-mvp AC-7.6; mask-based cut styles are hidden on a device without an on-device mask,
-T-62). Every entry can be killed remotely: `resolveAvailability` merges all `/v1/config` `kill_switches` groups into
+server-cutout fallback in the MVP, prd-mvp AC-7.6). **No-cutout fallback (EM decision 2026-11-05):** a card without a
+subject mask (iOS < 17, Android without the bundled model, no subject found, or the editor's "Use whole photo") is a
+**whole-photo card**: entries requiring `subjectMask` are hidden and the picker offers the mask-free styles (`cut.none` and
+the shape cuts: rounded square, circle, heart, torn edge, T-63); subject cutout styles appear only when a mask exists. Every entry can be killed remotely: `resolveAvailability` merges all `/v1/config` `kill_switches` groups into
 one id set (ids are unique across kinds), then applies `flags.featureFlag` (dark until the config flag is `true`),
 `flags.minAppVersion`, OS minimum and capabilities. `resolveParams` is the strict param check the server mirrors (unknown
 name, wrong type, out of range → error; missing → default); `clampParams` is the lenient UI/preview variant (numbers clamp,
@@ -73,6 +75,23 @@ colour, subject on top with a 0.75 px feather). A new cut style reusing a ref is
 from T-61 contours via `subjectPath` (`Skia.Path.MakeFromSVGString`). Tests render with CanvasKit WASM in jest
 (`@shopify/react-native-skia/jestEnv.js`), probe pixels and keep 8×8 golden signatures on the light and dark canvas. A dev
 screen `/cut-lab` previews every cut style, its presets and slider params on a synthetic subject until segmenters exist.
+`CutScene.subject` is `null` for a whole-photo card; subject renderers (`mask:dstIn`, `contour:stroke`) refuse to draw
+without one.
+
+**Card editor (T-64, `apps/mobile/src/features/editor`, route `/editor` after capture):** tabs *Shape* (`kind: cutStyle`)
+and *Finish* (tag `finish`, minus `builtIn` entries such as `fx.paper-lift`), each listing only entries that have a
+renderer and pass `resolveAvailability` against the device, the card (`subjectMask` only when a mask exists and "Use whole
+photo" is off) and the `/v1/config` flags and kill switches (`useRemoteConfig`, display only; offline shows everything the
+device supports). Tiles read `name`, VoiceOver hints `description`, the preview label `a11yLabel`. Param controls come
+from the param spec: number → stepper exposed as one adjustable control (VoiceOver swipe up/down), boolean → switch, enum
+→ radio buttons, color → swatches; `ui: 'hidden'` params get none. Labels use i18n keys `effects.param.<name>` (and
+`effects.param.<name>.<value>` for enum values); a test checks every editable param of every entry has them. State is a
+pure reducer of `{cut, finish, wholePhoto}` choices (`{id, version, params}`, params through `clampParams`) with 50 undo
+steps. The default cut is the first contour-tracing (sticker) style when there is a subject, else the first listed one;
+a selection that becomes hidden (kill switch, whole photo) falls back to the default. The preview is a Skia `<Picture>`
+of `drawCard` (cut style, then the finish with SrcATop so it covers only the card's pixels; holo at the fixed still tilt).
+Masks come from a `MaskSource` seam: development builds use a synthetic subject, release builds `noMaskSource`
+(whole-photo cards) until the segmenters T-54/T-55 plug in.
 
 Rules: adding an effect = add entry + shader/asset + tests (golden snapshot); removing = remove entry **and** migrate stored
 references (fallback to `fx.none`) + update this page ([[change-management]]). Device-capability routing hides entries whose
@@ -81,7 +100,7 @@ references (fallback to `fx.none`) + update this page ([[change-management]]). D
 ## 2. Input providers (Tier 0, zero download)
 | Input | iOS | Android | Notes |
 |---|---|---|---|
-| `mask`, `contour` | Vision foreground instance mask (17+) | ML Kit Subject Segmentation (beta, Play services) | Server fallback; see [[subject-cutout]] |
+| `mask`, `contour` | Vision foreground instance mask (17+) | ML Kit Subject Segmentation (beta, Play services); no GMS → bundled model | No server fallback in the MVP: without a mask the card is a whole-photo card (EM 2026-11-05); see [[subject-cutout]] |
 | `faceLandmarks` (people) | Vision face landmarks | ML Kit face detection / Face Mesh (468 pts, ~6.4 MB, beta) | People-anchored props work on both |
 | `animalPose` (cats/dogs) | `VNDetectAnimalBodyPoseRequest` (17+) | **None built in** | Android fallback chain below |
 | `gyro` | Reanimated `useAnimatedSensor` (rotation) | same | Disabled under reduced motion |
