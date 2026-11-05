@@ -162,3 +162,13 @@ routes:
   - route: PATCH /v1/me/settings
     body: { findable_by_handle: false }
     expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 200, suspended: 403 }
+
+  # Friends (T-46). A user id that is not the caller's friend is the same 404 as a missing one
+  # (tests/api/friends.rs covers third-party edges).
+  - route: GET /v1/friends
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 200, suspended: 403 }
+
+  - route: DELETE /v1/friends/{userId}
+    path: /v1/friends/0192f0c1-7c1e-7a3b-9d2e-123456789abc
+    missing_path: /v1/friends/0192f0c1-7c1e-7a3b-9d2e-000000000000
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }

@@ -162,6 +162,16 @@ limits:
     requests: 20
     per_secs: 3600
     on_store_failure: open
+  friends.list: # GET /v1/friends
+    scope: user
+    requests: 60
+    per_secs: 60
+    on_store_failure: open
+  friends.remove: # DELETE /v1/friends/{userId}
+    scope: user
+    requests: 30
+    per_secs: 3600
+    on_store_failure: open
   config.read: # GET /v1/config (CDN cached; this only bounds cache misses)
     scope: ip
     requests: 120

@@ -14,6 +14,7 @@ mod audit;
 mod authz_matrix;
 mod findable;
 mod friend_requests;
+mod friends;
 mod handle;
 mod http;
 mod idempotency;
