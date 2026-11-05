@@ -5,6 +5,7 @@
 mod age_gate;
 mod age_service;
 pub mod apple;
+mod attestation;
 mod cache;
 mod model;
 pub mod oidc;
@@ -18,6 +19,7 @@ mod token;
 
 pub use age_gate::{AgeGateError, AgeOutcome, AgeSubmission, age_on};
 pub use age_service::{AgeError, AgeService, AgeStatus, OsAgeSignal, OsAgeSource};
+pub use attestation::{AttestationOutcome, AttestationService, AttestationStoreError, Challenge};
 pub use model::{AccountStatus, RegionSignals, SessionScope, UnknownValue};
 pub use profile::{
     HandleError, HandleRules, Profile, ProfileConfigError, ProfileError, ProfileRules,

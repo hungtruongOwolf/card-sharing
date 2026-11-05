@@ -143,6 +143,10 @@ fn idempotency_keys_are_only_used_on_authenticated_routes() {
                 || policy.auth.requires_principal(),
             "{method} {path} enables Idempotency-Key without authentication"
         );
+        assert!(
+            !policy.attestation || policy.auth.requires_principal(),
+            "{method} {path} requires attestation without authentication"
+        );
     }
 }
 
@@ -157,6 +161,9 @@ async fn route_added_without_a_policy_is_refused() {
         client_ip: api::access::ClientIpSource::Peer,
         min_app_version: Arc::new(state.client.min_app_version.clone()),
         idempotency: Arc::clone(&state.idempotency),
+        identity: Arc::clone(&state.identity),
+        attestation: Arc::clone(&state.attestation),
+        attestation_mode: state.attestation_mode,
     };
     let router: Router = router
         .route("/raw", get(|| async { "should never be served" }))

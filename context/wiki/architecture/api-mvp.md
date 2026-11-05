@@ -37,6 +37,17 @@ scope `user` keys by account, falling back to device then client IP; `new_accoun
 return 503 `TEMPORARILY_UNAVAILABLE` + `Retry-After`; `open` limits fall back to a per-instance memory bucket. Client IP = TCP peer,
 or the header named by `API_CLIENT_IP_HEADER` (e.g. `fly-client-ip`) when a trusted proxy sets it.
 
+Attestation (T-35, `att`): a route marked `RoutePolicy::with_attestation()` (authenticated routes only) needs
+`X-Attestation: base64url(JSON)` = `{platform: "ios", key_id, challenge, assertion}` (App Attest `generateAssertion` object,
+standard base64) or `{platform: "android", challenge, token}` (Play Integrity token). The challenge comes from
+`POST /v1/attestation/challenge` (single use, 5 min, bound to the account); the proof is bound to it and to the request:
+`clientDataHash = SHA-256(challenge bytes || SHA-256(method, path + query, body))` (Play `requestHash` = its lowercase hex).
+iOS keys are registered once with `POST /v1/attestation/apple-keys {key_id, attestation, challenge}` (attestation made with
+`clientDataHash = SHA-256(challenge bytes)`). Mode `API_ATTESTATION_MODE`: `log_only` (beta default: failures recorded and
+logged, request proceeds), `enforce` (GA: 403 `ATTESTATION_FAILED`; challenge store down → 503), `off`. Verdicts are counted per
+device key id in `identity.attestation_keys`. No production route is marked `att` yet; send, friend request/accept, search and
+sign-up opt in with their tickets.
+
 ## Endpoints
 ### Identity & onboarding
 | Method | Path | Purpose | Auth | Role | Object rule | Rate limit | Idem. | US |
@@ -51,7 +62,8 @@ or the header named by `API_CLIENT_IP_HEADER` (e.g. `fly-client-ip`) when a trus
 | POST | /v1/sessions/revoke-all | Log out everywhere (incl. current, widget tokens) | ses | user | self | 10/h u | yes | AC-1.4 |
 | POST | /v1/auth/reauth | Fresh provider proof → reauth token (5 min) | ses | user | proof subject = session account | 5/15 min u | no | US-29, US-30 |
 | DELETE | /v1/sessions/current | Log out (revokes session + widget token of device) | onb/ses | user | own session | 30/min u | yes | US-16 AC-16.2 |
-| POST | /v1/attestation/challenge | Nonce for `att` | onb/ses | user | — | 30/min d | no | US-5, US-13 |
+| POST | /v1/attestation/challenge | Nonce for `att` (32 bytes, single use, 5 min) | onb/ses | user | — | 30/min d | no | US-5, US-13 |
+| POST | /v1/attestation/apple-keys | Register this install's App Attest key (attestation object) | onb/ses | user | key bound to caller | 10/day d | no | US-5, US-13 |
 | GET | /v1/me | Account status, onboarding step, profile, resolved policy flags | onb/ses | user | self | 120/min u | yes | US-1–3 |
 | POST | /v1/me/age-signal | OS age range from the device (flag, off by default) | onb/ses | user | self | 10/day u | no | US-2 |
 | POST | /v1/me/age | Submit DOB once (+declared country) → active or neutral refusal | onb | user | self; only in `pending_age`; cooldown check | 5/day d | no | US-2 |

@@ -41,6 +41,12 @@ fn test_config() -> Config {
         google_client_ids: Vec::new(),
         auth_clock_skew: Duration::from_secs(60),
         apple_signing: None,
+        attestation: api::config::AttestationConfig {
+            mode: api::config::AttestationMode::LogOnly,
+            app_attest_app_ids: Vec::new(),
+            app_attest_allow_development: false,
+            play_integrity: None,
+        },
         os_age_signals_enabled: false,
     }
 }

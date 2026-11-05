@@ -65,6 +65,15 @@ routes:
   - route: POST /v1/sessions/revoke-all
     expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 204, suspended: 403 }
 
+  # Attestation (T-35). Challenge single use, binding and verdicts: tests/api/attestation.rs. A bogus key
+  # registration answers 204 in log-only mode (the test env's mode).
+  - route: POST /v1/attestation/challenge
+    expect: { guest: 401, onboarding_age: 200, onboarding_profile: 200, user: 200, suspended: 403 }
+
+  - route: POST /v1/attestation/apple-keys
+    body: { key_id: $NONCE, attestation: AAAA, challenge: $NONCE }
+    expect: { guest: 401, onboarding_age: 204, onboarding_profile: 204, user: 204, suspended: 403 }
+
   - route: GET /v1/me
     expect: { guest: 401, onboarding_age: 200, onboarding_profile: 200, user: 200, suspended: 403 }
 

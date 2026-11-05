@@ -9,6 +9,7 @@ license.workspace = true
 default-run = "api"
 
 [dependencies]
+attestation.workspace = true
 identity.workspace = true
 platform.workspace = true
 policy.workspace = true
@@ -33,6 +34,9 @@ utoipa-axum.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]
+base64.workspace = true
+# Runtime-generated App Attest and Play Integrity test vectors.
+attestation = { workspace = true, features = ["test-support"] }
 http-body-util.workspace = true
 # Mock JWKS server, locally generated RSA keys and ID-token minting.
 identity = { workspace = true, features = ["test-support"] }

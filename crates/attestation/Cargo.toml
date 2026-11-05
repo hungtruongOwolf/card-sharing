@@ -1,0 +1,31 @@
+[package]
+name = "attestation"
+version = "0.1.0"
+description = "Device attestation verification: Apple App Attest and Google Play Integrity (SR-13)"
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[features]
+# Test vectors: a fake App Attest CA, device keys and Play Integrity tokens generated at runtime.
+test-support = ["dep:rcgen"]
+
+[dependencies]
+aes-kw.workspace = true
+base64.workspace = true
+ring.workspace = true
+rustls-pki-types.workspace = true
+rustls-webpki.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+time.workspace = true
+
+rcgen = { workspace = true, optional = true }
+
+[dev-dependencies]
+rcgen.workspace = true
+
+[lints]
+workspace = true
