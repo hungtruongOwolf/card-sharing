@@ -122,7 +122,11 @@
       "params": {
         "paper": {
           "type": "enum",
-          "values": ["white", "kraft", "grid"],
+          "values": [
+            "white",
+            "kraft",
+            "grid"
+          ],
           "default": "white"
         },
         "roughness": {

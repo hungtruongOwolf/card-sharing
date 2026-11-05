@@ -31,7 +31,15 @@ function entry(id: string): EffectEntry {
   return found;
 }
 
+let cachedScene: CutScene | undefined;
+
+/** Built once: tracing the contour and baking the photo per render made the suite slow under a full run. */
 function discScene(): CutScene {
+  cachedScene ??= buildDiscScene();
+  return cachedScene;
+}
+
+function buildDiscScene(): CutScene {
   const data = new Uint8Array(SIZE * SIZE);
   for (let y = 0; y < SIZE; y++) {
     for (let x = 0; x < SIZE; x++) {

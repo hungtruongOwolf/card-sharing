@@ -43,8 +43,8 @@ describe('launch cut styles (AC-10.1)', () => {
   it('ships at least 6 cut styles counting the thick sticker preset', () => {
     const tiles = registry
       .byKind('cutStyle')
-      .flatMap((entry) => (entry.presets?.length ? entry.presets : [entry]));
-    expect(tiles.length).toBeGreaterThanOrEqual(6);
+      .reduce((count, entry) => count + Math.max(1, entry.presets?.length ?? 0), 0);
+    expect(tiles).toBeGreaterThanOrEqual(6);
   });
 
   it('offers torn paper and the shape cuts without a subject mask (EM 2026-11-05)', () => {
@@ -54,12 +54,8 @@ describe('launch cut styles (AC-10.1)', () => {
       'cut.shape.circle',
       'cut.shape.heart',
     ]) {
-      const entry = registry.get(id)!;
-      expect([id, entry.platforms.ios.requires, entry.platforms.android.requires]).toEqual([
-        id,
-        [],
-        [],
-      ]);
+      const platforms = registry.get(id)?.platforms;
+      expect([id, platforms?.ios.requires, platforms?.android.requires]).toEqual([id, [], []]);
     }
   });
 });
