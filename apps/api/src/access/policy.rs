@@ -76,6 +76,8 @@ pub struct RoutePolicy {
     pub role: Role,
     /// `att`: device attestation required (log-only in beta, hard-fail at GA; not wired yet).
     pub attestation: bool,
+    /// Name of the rate limit in `config/limits.yaml`, if any.
+    pub rate_limit: Option<&'static str>,
 }
 
 impl RoutePolicy {
@@ -104,7 +106,14 @@ impl RoutePolicy {
             auth,
             role,
             attestation: false,
+            rate_limit: None,
         }
+    }
+
+    /// Applies the named limit from `config/limits.yaml`.
+    pub const fn limited(mut self, limit: &'static str) -> Self {
+        self.rate_limit = Some(limit);
+        self
     }
 
     pub const fn with_attestation(mut self) -> Self {
@@ -140,6 +149,11 @@ impl PolicyTable {
         self.entries
             .iter()
             .map(|((method, path), policy)| (method.as_str(), path.as_str(), policy))
+    }
+
+    /// Every rate limit name referenced by a route (checked against the config at startup).
+    pub fn rate_limits(&self) -> impl Iterator<Item = &'static str> + '_ {
+        self.entries.values().filter_map(|policy| policy.rate_limit)
     }
 
     pub fn len(&self) -> usize {

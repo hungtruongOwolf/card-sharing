@@ -90,6 +90,7 @@ fn annotate(operation: &mut Operation, policy: &RoutePolicy) {
                 "auth": policy.auth.as_str(),
                 "role": policy.role.as_str(),
                 "attestation": policy.attestation,
+                "rateLimit": policy.rate_limit,
             }),
         )
         .build();

@@ -4,9 +4,9 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use http::HeaderValue;
+use http::{HeaderName, HeaderValue};
 pub use platform::config::ConfigError;
-use platform::config::{Env, invalid};
+use platform::config::{Env, Secret, invalid};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LogFormat {
@@ -29,6 +29,14 @@ pub struct Config {
     pub policy_config_path: PathBuf,
     /// `API_LOG_FORMAT` — `json` (default) or `pretty`.
     pub log_format: LogFormat,
+    /// `REDIS_URL` — required. `redis://` locally, `rediss://` (TLS) in shared environments.
+    pub redis_url: Secret,
+    /// `API_LIMITS_CONFIG_PATH` — default `config/limits.yaml` (relative to the CWD).
+    pub limits_config_path: PathBuf,
+    /// `API_CLIENT_IP_HEADER` — header the edge proxy sets to the client IP (e.g.
+    /// `fly-client-ip`). Unset (default) = use the TCP peer address. Only set it when every
+    /// request passes through a proxy that overwrites the header.
+    pub client_ip_header: Option<HeaderName>,
 }
 
 const MAX_BODY_LIMIT_BYTES: usize = 64 * 1024 * 1024;
@@ -74,6 +82,22 @@ impl Config {
             }
         };
 
+        let redis_url = env.required_secret("REDIS_URL")?;
+        let limits_config_path = env
+            .optional("API_LIMITS_CONFIG_PATH")
+            .map_or_else(|| PathBuf::from("config/limits.yaml"), PathBuf::from);
+        let client_ip_header = env
+            .optional("API_CLIENT_IP_HEADER")
+            .map(|raw| {
+                HeaderName::from_bytes(raw.to_ascii_lowercase().as_bytes()).map_err(|_| {
+                    invalid(
+                        "API_CLIENT_IP_HEADER",
+                        format!("{raw:?} is not a header name"),
+                    )
+                })
+            })
+            .transpose()?;
+
         Ok(Self {
             bind_addr,
             cors_allowed_origins,
@@ -81,6 +105,9 @@ impl Config {
             body_limit_bytes,
             policy_config_path,
             log_format,
+            redis_url,
+            limits_config_path,
+            client_ip_header,
         })
     }
 }
@@ -114,9 +141,11 @@ mod tests {
 
     use super::*;
 
+    const REDIS: (&str, &str) = ("REDIS_URL", "redis://127.0.0.1:6379/0");
+
     fn load(pairs: &[(&str, &str)]) -> Result<Config, ConfigError> {
-        let env: HashMap<String, String> = pairs
-            .iter()
+        let env: HashMap<String, String> = std::iter::once(&REDIS)
+            .chain(pairs.iter())
             .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
             .collect();
         Config::from_lookup(|k| env.get(k).cloned())
@@ -132,6 +161,26 @@ mod tests {
         );
         assert_eq!(config.request_timeout, Duration::from_secs(15));
         assert_eq!(config.log_format, LogFormat::Json);
+    }
+
+    #[test]
+    fn missing_redis_url_aborts_with_the_key_name() {
+        let err = Config::from_lookup(|_| None).unwrap_err();
+        assert!(err.to_string().contains("REDIS_URL"), "{err}");
+    }
+
+    #[test]
+    fn redis_url_is_not_printed_by_debug() {
+        let config = load(&[("REDIS_URL", "redis://:hunter2@localhost:6379")]).unwrap();
+        assert!(!format!("{config:?}").contains("hunter2"));
+    }
+
+    #[test]
+    fn client_ip_header_is_optional_and_validated() {
+        assert!(load(&[]).unwrap().client_ip_header.is_none());
+        let config = load(&[("API_CLIENT_IP_HEADER", "Fly-Client-IP")]).unwrap();
+        assert_eq!(config.client_ip_header.unwrap().as_str(), "fly-client-ip");
+        assert!(load(&[("API_CLIENT_IP_HEADER", "bad header")]).is_err());
     }
 
     #[test]

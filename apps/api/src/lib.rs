@@ -18,7 +18,7 @@ use axum::Json;
 use axum::Router;
 use axum::routing::get;
 
-use crate::access::{AccessState, ApiRouter};
+use crate::access::{AccessState, ApiRouter, ClientIpSource};
 use crate::config::Config;
 use crate::state::AppState;
 use platform::problem::ApiError;
@@ -36,6 +36,11 @@ pub fn build(routes: ApiRouter<AppState>, state: AppState, config: &Config) -> R
     let access = AccessState {
         policies: Arc::new(policies),
         sessions: Arc::clone(&state.sessions),
+        limiter: Arc::clone(&state.limiter),
+        client_ip: config
+            .client_ip_header
+            .clone()
+            .map_or(ClientIpSource::Peer, ClientIpSource::Header),
     };
 
     let router = router

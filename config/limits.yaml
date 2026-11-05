@@ -1,0 +1,47 @@
+# Rate limits (SR-23) — see crates/platform/src/rate_limit.rs and context/wiki/architecture/api-mvp.md.
+#
+# Each route policy names one limit here; startup fails if a referenced name is missing.
+#   scope: user   -> per account (falls back to device, then client IP, for anonymous callers)
+#          device -> per device (falls back to client IP)
+#          ip     -> per client IP
+#   on_store_failure: closed -> 503 when Redis is down (auth, search); open -> per-instance memory bucket
+#   new_account_requests: quota for accounts younger than new_account.days (defaults to requests)
+#   global: circuit breaker shared by all callers of the limit
+# Values are starting points from api-mvp.md; tune them from production metrics.
+version: 1
+
+new_account:
+  days: 7
+
+limits:
+  auth.signin: # POST /v1/auth/apple, /v1/auth/google
+    scope: ip
+    requests: 10
+    per_secs: 60
+    on_store_failure: closed
+    global: { requests: 3000, per_secs: 60 }
+  auth.refresh: # POST /v1/auth/refresh (30/h per device; anonymous callers fall back to IP)
+    scope: device
+    requests: 30
+    per_secs: 3600
+    on_store_failure: closed
+  sessions.current.delete: # DELETE /v1/sessions/current
+    scope: user
+    requests: 30
+    per_secs: 60
+    on_store_failure: open
+  me.read: # GET /v1/me
+    scope: user
+    requests: 120
+    per_secs: 60
+    on_store_failure: open
+  me.age: # POST /v1/me/age (5/day per device)
+    scope: device
+    requests: 5
+    per_secs: 86400
+    on_store_failure: closed
+  config.read: # GET /v1/config (CDN cached; this only bounds cache misses)
+    scope: ip
+    requests: 120
+    per_secs: 60
+    on_store_failure: open

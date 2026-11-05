@@ -97,7 +97,7 @@ async fn rename_route(_caller: Caller, body: ValidJson<RenameRequest>) -> String
 }
 
 fn state() -> AppState {
-    AppState::new(policy_service()).with_sessions(Arc::new(FakeSessions::new()))
+    AppState::new(policy_service(), memory_limiter()).with_sessions(Arc::new(FakeSessions::new()))
 }
 
 fn test_routes() -> ApiRouter<AppState> {
@@ -143,6 +143,8 @@ async fn route_added_without_a_policy_is_refused() {
     let access = AccessState {
         policies: Arc::new(policies),
         sessions: Arc::clone(&state.sessions),
+        limiter: Arc::clone(&state.limiter),
+        client_ip: api::access::ClientIpSource::Peer,
     };
     let router: Router = router
         .route("/raw", get(|| async { "should never be served" }))
