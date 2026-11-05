@@ -97,7 +97,7 @@ async fn rename_route(_caller: Caller, body: ValidJson<RenameRequest>) -> String
 }
 
 fn state() -> AppState {
-    AppState::new(policy_service(), memory_limiter()).with_sessions(Arc::new(FakeSessions::new()))
+    offline_state().with_sessions(Arc::new(FakeSessions::new()))
 }
 
 fn test_routes() -> ApiRouter<AppState> {

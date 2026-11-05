@@ -46,7 +46,11 @@ fn routes() -> ApiRouter<AppState> {
 fn app(limiter: RateLimiter) -> Router {
     let mut config = test_config();
     config.client_ip_header = Some(http::HeaderName::from_static("x-test-client-ip"));
-    api::build(routes(), AppState::new(policy_service(), limiter), &config)
+    api::build(
+        routes(),
+        AppState::new(policy_service(), limiter, offline_identity()),
+        &config,
+    )
 }
 
 fn signin_from(ip: &str) -> Request<Body> {

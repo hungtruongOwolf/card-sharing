@@ -26,6 +26,8 @@ fn test_config() -> Config {
         body_limit_bytes: 1024,
         policy_config_path: "unused-in-tests".into(),
         log_format: LogFormat::Json,
+        database_url: platform::config::Secret::new("postgres://unused@127.0.0.1:1/unused"),
+        db_max_connections: 2,
         redis_url: platform::config::Secret::new("redis://127.0.0.1:1/0"),
         limits_config_path: "unused-in-tests".into(),
         client_ip_header: None,
@@ -39,7 +41,16 @@ fn app() -> Router {
         limits,
         std::sync::Arc::new(platform::clock::SystemClock),
     );
-    api::app(AppState::new(policy, limiter), &test_config())
+    let pool = sqlx::postgres::PgPoolOptions::new()
+        .connect_lazy("postgres://unused@127.0.0.1:1/unused")
+        .unwrap();
+    let identity = std::sync::Arc::new(identity::IdentityService::new(
+        pool,
+        None,
+        std::sync::Arc::new(platform::clock::SystemClock),
+        identity::SessionPolicy::default(),
+    ));
+    api::app(AppState::new(policy, limiter, identity), &test_config())
 }
 
 async fn send(router: Router, request: Request<Body>) -> Response<Body> {

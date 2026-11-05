@@ -5,16 +5,23 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use api::config::{Config, LogFormat};
+use api::state::AppState;
 use axum::Router;
 use axum::body::{Body, Bytes};
 use http::{Request, Response, StatusCode};
 use http_body_util::BodyExt;
-use platform::clock::SystemClock;
+use identity::{
+    DeviceInfo, IdentityService, IssuedSession, Platform, Provider, SessionPolicy, VerifiedIdentity,
+};
+use platform::cache::ConnectionManager;
+use platform::clock::{ManualClock, SystemClock};
 use platform::config::Secret;
 use platform::rate_limit::{RateLimitConfig, RateLimiter};
 use policy::PolicyService;
 use serde_json::Value;
+use sqlx::postgres::PgPoolOptions;
 use tower::ServiceExt;
+use uuid::Uuid;
 
 pub const POLICY_YAML: &str = include_str!("../../../../config/policy/regions.yaml");
 pub const LIMITS_YAML: &str = include_str!("../../../../config/limits.yaml");
@@ -27,6 +34,8 @@ pub fn test_config() -> Config {
         body_limit_bytes: 64 * 1024,
         policy_config_path: "unused-in-tests".into(),
         log_format: LogFormat::Json,
+        database_url: Secret::new("postgres://unused@127.0.0.1:1/unused"),
+        db_max_connections: 2,
         redis_url: Secret::new("redis://127.0.0.1:1/0"),
         limits_config_path: "unused-in-tests".into(),
         client_ip_header: None,
@@ -40,6 +49,94 @@ pub fn limits_config() -> RateLimitConfig {
 /// Limiter backed by per-process memory (no Redis needed).
 pub fn memory_limiter() -> RateLimiter {
     RateLimiter::in_memory(limits_config(), Arc::new(SystemClock))
+}
+
+/// Identity service whose pool never connects (for tests that do not touch the database).
+pub fn offline_identity() -> Arc<IdentityService> {
+    let pool = PgPoolOptions::new()
+        .connect_lazy("postgres://unused@127.0.0.1:1/unused")
+        .unwrap();
+    Arc::new(IdentityService::new(
+        pool,
+        None,
+        Arc::new(SystemClock),
+        SessionPolicy::default(),
+    ))
+}
+
+/// App state without database or Redis.
+pub fn offline_state() -> AppState {
+    AppState::new(policy_service(), memory_limiter(), offline_identity())
+}
+
+/// Real Postgres + Redis, migrated, with a manual clock. `None` when the services are not
+/// configured (see [`service_url`]).
+pub struct TestEnv {
+    pub router: Router,
+    pub state: AppState,
+    pub identity: Arc<IdentityService>,
+    pub clock: Arc<ManualClock>,
+    pub redis: ConnectionManager,
+}
+
+impl TestEnv {
+    pub async fn new() -> Option<Self> {
+        Self::with_routes(api::openapi::router()).await
+    }
+
+    pub async fn with_routes(routes: api::access::ApiRouter<AppState>) -> Option<Self> {
+        let database_url = service_url("TEST_DATABASE_URL")?;
+        let redis_url = service_url("TEST_REDIS_URL")?;
+        let pool = PgPoolOptions::new()
+            .max_connections(5)
+            .connect(&database_url)
+            .await
+            .unwrap();
+        api::db::MIGRATOR.run(&pool).await.unwrap();
+        let redis = platform::cache::connect_lazy(&Secret::new(redis_url)).unwrap();
+        let clock = Arc::new(ManualClock::starting_now());
+        let identity = Arc::new(IdentityService::new(
+            pool,
+            Some(redis.clone()),
+            clock.clone(),
+            SessionPolicy::default(),
+        ));
+        // In-memory limiter: rate limits have their own tests; here they must not interfere.
+        let state = AppState::new(policy_service(), memory_limiter(), Arc::clone(&identity));
+        let router = api::build(routes, state.clone(), &test_config());
+        Some(Self {
+            router,
+            state,
+            identity,
+            clock,
+            redis,
+        })
+    }
+
+    /// A new account (status `pending_age`) signed in on a new device.
+    pub async fn signed_in_user(&self) -> (Uuid, IssuedSession) {
+        let identity = VerifiedIdentity {
+            provider: Provider::Apple,
+            subject: format!("test-{}", Uuid::now_v7()),
+            email: None,
+        };
+        let (account_id, _) = self
+            .identity
+            .find_or_create_account(&identity)
+            .await
+            .unwrap();
+        let device = DeviceInfo {
+            id: Uuid::now_v7(),
+            platform: Platform::Ios,
+            app_version: "1.0.0".to_owned(),
+        };
+        let session = self
+            .identity
+            .start_session(account_id, Some(&device))
+            .await
+            .unwrap();
+        (account_id, session)
+    }
 }
 
 /// Integration-test service URL from the environment. Missing → `None` (test skipped), unless

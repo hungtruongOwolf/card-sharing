@@ -6,6 +6,8 @@
 
 pub mod access;
 pub mod config;
+pub mod db;
+pub mod identity_adapter;
 pub mod middleware;
 pub mod openapi;
 pub mod routes;

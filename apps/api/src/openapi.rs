@@ -4,7 +4,7 @@ use utoipa::{Modify, OpenApi};
 use utoipa_axum::routes;
 
 use crate::access::{ApiRouter, RoutePolicy};
-use crate::routes::health;
+use crate::routes::{auth, health};
 use crate::state::AppState;
 use platform::problem::ProblemDetails;
 
@@ -20,7 +20,10 @@ Every operation carries `x-policy` (auth kind, role, attestation) from its deny-
     ),
     modifiers(&BearerScheme),
     components(schemas(ProblemDetails)),
-    tags((name = health::TAG, description = "Operational probes"))
+    tags(
+        (name = health::TAG, description = "Operational probes"),
+        (name = auth::TAG, description = "Sign-in and session lifecycle (ADR-0004)")
+    )
 )]
 struct ApiDoc;
 
@@ -43,6 +46,14 @@ pub fn router() -> ApiRouter<AppState> {
     ApiRouter::new(ApiDoc::openapi())
         .route(RoutePolicy::public(), routes!(health::healthz))
         .route(RoutePolicy::public(), routes!(health::readyz))
+        .route(
+            RoutePolicy::public().limited("auth.refresh"),
+            routes!(auth::refresh),
+        )
+        .route(
+            RoutePolicy::onboarding_or_session().limited("sessions.current.delete"),
+            routes!(auth::delete_current_session),
+        )
         .undocumented_policy(&Method::GET, "/openapi.json", RoutePolicy::public())
 }
 
