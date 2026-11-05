@@ -9,6 +9,7 @@
 //! - [`crypto`]: AEAD encryption for personal-data columns (DOB, provider tokens).
 //! - [`cache`]: lazy Redis/Valkey connection (caches and buckets only, never durable data).
 //! - [`rate_limit`]: layered token-bucket rate limiter with limits from config.
+//! - [`text`]: sanitizer and term filter for names, handles and captions (SR-28).
 
 pub mod cache;
 pub mod clock;
@@ -18,3 +19,4 @@ pub mod ids;
 pub mod problem;
 pub mod rate_limit;
 pub mod request_id;
+pub mod text;
