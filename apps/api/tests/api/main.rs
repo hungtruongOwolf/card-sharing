@@ -14,3 +14,4 @@ mod me;
 mod rate_limit;
 mod sessions;
 mod sign_in;
+mod sign_in_google;

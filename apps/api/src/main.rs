@@ -87,8 +87,8 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Apple sign-in (T-19): ID-token verifier with cached JWKS, plus the code exchange when the
-/// team key is configured.
+/// Apple (T-19) and Google (T-20) sign-in: ID-token verifiers with cached JWKS, plus the Apple
+/// code exchange when the team key is configured.
 fn sign_in_service(
     config: &Config,
     identity: Arc<IdentityService>,
@@ -113,6 +113,15 @@ fn sign_in_service(
     if config.apple_client_ids.is_empty() {
         tracing::warn!("API_APPLE_CLIENT_IDS is empty: Apple sign-in answers 503");
     }
+    let google = IdTokenVerifier::new(
+        ProviderSpec::google(),
+        settings(&config.google_client_ids),
+        http.clone(),
+        Arc::clone(&clock),
+    )?;
+    if config.google_client_ids.is_empty() {
+        tracing::warn!("API_GOOGLE_CLIENT_IDS is empty: Google sign-in answers 503");
+    }
     let apple_tokens: Arc<dyn AppleTokenClient> = match &config.apple_signing {
         Some(signing) => {
             let signer = AppleClientSecretSigner::new(
@@ -128,7 +137,9 @@ fn sign_in_service(
             Arc::new(UnconfiguredAppleClient)
         }
     };
-    Ok(ProviderSignIn::new(identity, apple_tokens, cipher).with_verifier(apple))
+    Ok(ProviderSignIn::new(identity, apple_tokens, cipher)
+        .with_verifier(apple)
+        .with_verifier(google))
 }
 
 /// Resolves on Ctrl+C or SIGTERM (container stop). In-flight requests are drained;

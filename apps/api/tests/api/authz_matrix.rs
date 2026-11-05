@@ -140,6 +140,7 @@ struct Placeholders {
     adult_dob: String,
     nonce: String,
     apple_id_token: String,
+    google_id_token: String,
 }
 
 impl Placeholders {
@@ -151,6 +152,7 @@ impl Placeholders {
             refresh_token: fixture.refresh_token.clone(),
             adult_dob: adult_dob.to_owned(),
             apple_id_token: env.apple_id_token(&subject, &nonce),
+            google_id_token: env.google_id_token(&subject, &nonce),
             nonce,
         }
     }
@@ -162,6 +164,9 @@ fn substitute(value: &Value, values: &Placeholders) -> Value {
         Value::String(s) if s == "$ADULT_DOB" => Value::String(values.adult_dob.clone()),
         Value::String(s) if s == "$NONCE" => Value::String(values.nonce.clone()),
         Value::String(s) if s == "$APPLE_ID_TOKEN" => Value::String(values.apple_id_token.clone()),
+        Value::String(s) if s == "$GOOGLE_ID_TOKEN" => {
+            Value::String(values.google_id_token.clone())
+        }
         Value::Object(map) => Value::Object(
             map.iter()
                 .map(|(k, v)| (k.clone(), substitute(v, values)))

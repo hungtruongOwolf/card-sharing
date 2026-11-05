@@ -36,6 +36,7 @@ fn test_config() -> Config {
         ip_country_header: None,
         client_config_path: "unused-in-tests".into(),
         apple_client_ids: Vec::new(),
+        google_client_ids: Vec::new(),
         auth_clock_skew: Duration::from_secs(60),
         apple_signing: None,
     }
