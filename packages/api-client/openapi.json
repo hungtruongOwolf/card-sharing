@@ -2380,6 +2380,113 @@
         }
       }
     },
+    "/v1/media-files/{key}": {
+      "get": {
+        "tags": [
+          "media"
+        ],
+        "summary": "Fetch a signed media object. Auth: none (the signature is the capability).",
+        "description": "Returns the image bytes (`image/webp`) when the signature over the exact key, expiry and viewer\nis valid and unexpired; otherwise 403. Clients never build these URLs: they come inside DTOs\n(with `expires_at`) and are refetched through the DTO after expiry.",
+        "operationId": "getMediaFile",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "description": "Exact object key.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "exp",
+            "in": "query",
+            "description": "Expiry (Unix seconds).",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "v",
+            "in": "query",
+            "description": "Viewer id the URL was issued to (audit).",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sig",
+            "in": "query",
+            "description": "HMAC-SHA256 signature (base64url).",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The image.",
+            "content": {
+              "image/webp": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageBytes"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN: missing, malformed, tampered or expired signature.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: the object no longer exists (deleted card).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "TEMPORARILY_UNAVAILABLE: signing or storage not configured.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "x-policy": {
+          "attestation": false,
+          "auth": "none",
+          "rateLimit": "media.files.read",
+          "role": "guest",
+          "versionGate": false
+        }
+      }
+    },
     "/v1/media/{id}": {
       "get": {
         "tags": [

@@ -106,6 +106,16 @@ async fn main() -> anyhow::Result<()> {
         Some(store) => state.with_media_store(store),
         None => state,
     };
+    let state = match &config.media_signing_key {
+        Some(key) => state.with_media_signer(Arc::new(
+            media::UrlSigner::from_base64(key.expose(), &config.media_base_url)
+                .context("invalid API_MEDIA_SIGNING_KEY")?,
+        )),
+        None => {
+            tracing::warn!("API_MEDIA_SIGNING_KEY is unset: routes that return media answer 503");
+            state
+        }
+    };
     let sign_in = sign_in_service(&config, identity, Arc::clone(&state.field_cipher), clock)?;
     let state = state.with_sign_in(Arc::new(sign_in));
 

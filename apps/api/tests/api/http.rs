@@ -39,6 +39,8 @@ fn test_config() -> Config {
         profile_config_path: "unused-in-tests".into(),
         social_config_path: "unused-in-tests".into(),
         media_storage_dir: None,
+        media_signing_key: None,
+        media_base_url: "https://media.cardsharing.test".to_owned(),
         content_safety: api::config::ContentSafetyConfig {
             env: api::config::AppEnv::Test,
             csam_matcher: api::config::SafetyAdapter::Fake,

@@ -7,6 +7,7 @@ pub mod pipeline;
 pub mod process;
 pub mod safety;
 pub mod service;
+pub mod signer;
 pub mod sniff;
 pub mod store;
 
@@ -23,5 +24,6 @@ pub use service::{
     MAX_UPLOAD_BYTES, MediaError, MediaKind, MediaRecord, MediaService, MediaState, PROCESS_JOB,
     Uploaded,
 };
+pub use signer::{SignedUrl, UrlAudience, UrlSigner, VerifyError};
 pub use sniff::{ImageFormat, MAX_DIMENSION, SniffError, SniffOutcome, Sniffed, sniff};
 pub use store::{Bucket, FsObjectStore, MemoryObjectStore, ObjectKey, ObjectStore, StoreError};

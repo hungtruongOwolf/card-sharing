@@ -27,6 +27,7 @@ mod media;
 mod media_gate;
 mod media_hold;
 mod media_process;
+mod media_urls;
 mod minor_hint;
 mod outbox;
 mod profile;

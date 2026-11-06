@@ -214,3 +214,9 @@ routes:
     path: /v1/media/0192f0c1-7c1e-7a3b-9d2e-123456789abc
     missing_path: /v1/media/0192f0c1-7c1e-7a3b-9d2e-000000000000
     expect: { guest: 401, onboarding_age: 404, onboarding_profile: 404, user: 404, suspended: 403 }
+
+  # Signed media edge (T-74). No signature -> 403 for everyone; sessions are ignored (the signature
+  # is the capability). Valid, expired and tampered URLs are in tests/api/media_urls.rs.
+  - route: GET /v1/media-files/{key}
+    path: /v1/media-files/0123456789abcdef0123456789abcdef
+    expect: { guest: 403, onboarding_age: 403, onboarding_profile: 403, user: 403, suspended: 403 }

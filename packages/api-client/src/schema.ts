@@ -553,6 +553,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/media-files/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fetch a signed media object. Auth: none (the signature is the capability).
+         * @description Returns the image bytes (`image/webp`) when the signature over the exact key, expiry and viewer
+         *     is valid and unexpired; otherwise 403. Clients never build these URLs: they come inside DTOs
+         *     (with `expires_at`) and are refetched through the DTO after expiry.
+         */
+        get: operations["getMediaFile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/media/{id}": {
         parameters: {
             query?: never;
@@ -2946,6 +2968,72 @@ export interface operations {
                 };
             };
             /** @description TEMPORARILY_UNAVAILABLE: object storage is down or not configured. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    getMediaFile: {
+        parameters: {
+            query?: {
+                /** @description Expiry (Unix seconds). */
+                exp?: string;
+                /** @description Viewer id the URL was issued to (audit). */
+                v?: string;
+                /** @description HMAC-SHA256 signature (base64url). */
+                sig?: string;
+            };
+            header?: never;
+            path: {
+                /** @description Exact object key. */
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The image. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/webp": components["schemas"]["ImageBytes"];
+                };
+            };
+            /** @description FORBIDDEN: missing, malformed, tampered or expired signature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND: the object no longer exists (deleted card). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description TEMPORARILY_UNAVAILABLE: signing or storage not configured. */
             503: {
                 headers: {
                     [name: string]: unknown;
