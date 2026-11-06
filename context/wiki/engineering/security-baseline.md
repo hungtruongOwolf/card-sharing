@@ -130,6 +130,8 @@ Notes:
   user taps Send, sends the rendered card (+ mask only when the cut style reads it, + a re-encoded original only with
   "keep original" on, AC-13.4), and validates every card/media response at the boundary (http(s) media URLs only;
   `original_url` is never kept).
+- **Feed offline copy** (T-80): metadata only (no signed URL is ever persisted, SR-8), SecureStore
+  `WHEN_UNLOCKED_THIS_DEVICE_ONLY`, replaced on every load and cleared on sign-out.
 - MVP threat model, abuse cases and SR-1…SR-37 live in [[threat-model-mvp]]; every feature PR checks the SRs it touches.
 - Region-specific rules (age, consent, ads) resolved server-side from config — [[region-policy]].
 - See [[genai-effects]], [[monetization]], [[subject-cutout]], [[ADR-0003-effects-tiers]].

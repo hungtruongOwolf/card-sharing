@@ -25,6 +25,31 @@ beforeEach(() => {
   seen = [];
 });
 
+it('runs the sign-out hook so device copies of server data are cleared', async () => {
+  const server = new FakeAuthServer();
+  const session = sessionFromTokenPair(server.issue());
+  if (!session) throw new Error('bad pair');
+  secureStoreMock.__items.set(SESSION_KEY, serializeSession(session));
+  const client = createAuthClient({
+    baseUrl: () => server.baseUrl,
+    store: createSecureTokenStore(),
+    fetch: server.fetch,
+    now: server.now,
+  });
+  const onSignedOut = jest.fn();
+  await render(
+    <QueryClientProvider client={new QueryClient()}>
+      <AuthProvider client={client} onSignedOut={onSignedOut}>
+        <Probe />
+      </AuthProvider>
+    </QueryClientProvider>,
+  );
+  await act(() => client.init());
+  expect(onSignedOut).not.toHaveBeenCalled();
+  await act(() => client.signOut());
+  expect(onSignedOut).toHaveBeenCalledTimes(1);
+});
+
 it('clears the query cache on logout and on revocation', async () => {
   const server = new FakeAuthServer();
   const session = sessionFromTokenPair(server.issue());

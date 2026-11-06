@@ -100,6 +100,21 @@ export class FakeCardsServer extends FakeSocialServer {
   readonly cards = new Map<string, FakeCard>();
   /** `METHOD path` whose next request is processed but answered 503, like a response lost on the way back. */
   readonly loseResponse = new Set<string>();
+  /** My reaction per card id. */
+  readonly reactions = new Map<string, string>();
+  /** `reactions` of config/client.yaml (minus kill switches). */
+  readonly reactionKinds = new Set([
+    'react.heart',
+    'react.laugh',
+    'react.wow',
+    'react.sad',
+    'react.fire',
+    'react.paw',
+    'react.squish',
+  ]);
+  feedPageSize = 30;
+  /** Lifetime of signed URLs in card views. */
+  mediaTtlMs = 10 * 60_000;
 
   private cardCounter = 0;
   private readonly cardReplays = new Map<string, { body: string; response: Response }>();
@@ -141,7 +156,7 @@ export class FakeCardsServer extends FakeSocialServer {
     const [path = '', query = ''] = request.path.split('?');
     const key = `${method} ${path}`;
     const override = this.overrides.get(key);
-    const ours = path === '/v1/media' || path.startsWith('/v1/cards');
+    const ours = path === '/v1/media' || path === '/v1/feed' || path.startsWith('/v1/cards');
     if (!ours) return null;
     if (override) {
       this.overrides.delete(key);
@@ -158,6 +173,13 @@ export class FakeCardsServer extends FakeSocialServer {
     if (first === 'media' && !second && method === 'POST') return this.uploadRoute(request, query);
     if (first === 'cards' && !second && method === 'POST') return this.createRoute(request);
     if (first === 'cards' && second && !third && method === 'GET') return this.readRoute(second);
+    if (first === 'feed' && !second && method === 'GET') return this.feedRoute(query);
+    if (first === 'cards' && second && third === 'reaction' && method === 'PUT') {
+      return this.react(second, request.body);
+    }
+    if (first === 'cards' && second && third === 'reaction' && method === 'DELETE') {
+      return this.react(second, null);
+    }
     return notFound();
   }
 
@@ -302,12 +324,12 @@ export class FakeCardsServer extends FakeSocialServer {
             render_url: `https://media.test/${card.renderMediaId}?exp=1&sig=x`,
             mask_url: null,
             original_url: mine && card.originalMediaId ? 'https://media.test/original' : null,
-            expires_at: new Date(this.now() + 10 * 60_000).toISOString(),
+            expires_at: new Date(this.now() + this.mediaTtlMs).toISOString(),
           }
         : null,
       sent_at: new Date(card.sentAt).toISOString(),
       is_mine: mine,
-      my_reaction: null,
+      my_reaction: mine ? null : (this.reactions.get(card.id) ?? null),
       ...(mine
         ? {
             status: card.status,
@@ -322,6 +344,47 @@ export class FakeCardsServer extends FakeSocialServer {
           }
         : {}),
     };
+  }
+
+  /** Signed-looking cursor: the offset plus a tag; anything else is a tampered cursor (400). */
+  static cursorFor(offset: number): string {
+    return `o${offset}t${(offset * 7919 + 13) % 9973}`;
+  }
+
+  private feedRoute(query: string): Response {
+    const cursor = new URLSearchParams(query).get('cursor');
+    let offset = 0;
+    if (cursor !== null) {
+      const match = /^o(\d+)t(\d+)$/.exec(cursor);
+      offset = match ? Number(match[1]) : -1;
+      if (offset < 0 || FakeCardsServer.cursorFor(offset) !== cursor) {
+        return problem(400, 'VALIDATION_FAILED');
+      }
+    }
+    const visible = [...this.cards.values()]
+      .filter((card) => card.owner !== ME && this.visible(card))
+      .sort((a, b) => b.sentAt - a.sentAt || b.id.localeCompare(a.id));
+    const page = visible.slice(offset, offset + this.feedPageSize);
+    const next = offset + page.length;
+    return json({
+      items: page.map((card) => this.cardView(card)),
+      next_cursor: next < visible.length ? FakeCardsServer.cursorFor(next) : null,
+    });
+  }
+
+  private react(id: string, body: unknown): Response {
+    const card = this.cards.get(id);
+    if (!card || card.owner === ME || !this.visible(card)) return notFound();
+    if (body === null) {
+      this.reactions.delete(id);
+      return new Response(null, { status: 204 });
+    }
+    const kind = (body as { kind?: unknown } | undefined)?.kind;
+    if (typeof kind !== 'string' || !this.reactionKinds.has(kind)) {
+      return problem(400, 'VALIDATION_FAILED');
+    }
+    this.reactions.set(id, kind);
+    return new Response(null, { status: 204 });
   }
 
   private readRoute(id: string): Response {

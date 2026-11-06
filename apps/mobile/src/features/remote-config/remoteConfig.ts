@@ -15,7 +15,11 @@ export interface RemoteConfig {
   textFilter?: TextFilterConfig;
   /** `limits.card_recipients_max`: most friends one card can go to (T-77), when present and sane. */
   cardRecipientsMax?: number;
+  /** `reactions` minus `kill_switches.reactions`, in display order (US-17); undefined when not served. */
+  reactions?: string[];
 }
+
+const REACTION_ID = /^react\.[a-z0-9_-]{1,40}$/;
 
 /** Upper bound accepted for a served length limit; anything else falls back to the app's default. */
 const MAX_SERVED_LIMIT = 1000;
@@ -48,7 +52,14 @@ export function parseRemoteConfig(body: unknown): RemoteConfig | null {
     ? positiveLimit(body.limits.card_recipients_max)
     : undefined;
   const textFilter = parseTextFilterConfig(body.text_filter);
+  const killedReactions = new Set(stringList(kill.reactions));
+  const reactions = Array.isArray(body.reactions)
+    ? [...new Set(stringList(body.reactions))].filter(
+        (id) => REACTION_ID.test(id) && !killedReactions.has(id),
+      )
+    : undefined;
   return {
+    ...(reactions === undefined ? {} : { reactions }),
     ...(captionMaxGraphemes === undefined ? {} : { captionMaxGraphemes }),
     ...(cardRecipientsMax === undefined ? {} : { cardRecipientsMax }),
     ...(textFilter === undefined ? {} : { textFilter }),

@@ -29,6 +29,7 @@ export default function HomeScreen() {
       <HoloCard width={cardWidth} height={cardWidth * CARD_ASPECT} />
       <Text tone="muted">{t('home.hint')}</Text>
       <Button label={t('home.capture')} onPress={() => router.push('/capture')} />
+      <Button label={t('feed.open')} variant="secondary" onPress={() => router.push('/feed')} />
       <Button
         label={t('drafts.open.home')}
         variant="secondary"

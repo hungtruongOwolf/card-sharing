@@ -79,6 +79,13 @@ export interface CardItem {
   readonly myReaction: string | null;
 }
 
+/** One page of my feed (validated `FeedPage`), newest delivery first. */
+export interface FeedPage {
+  readonly items: readonly CardItem[];
+  /** Opaque cursor of the next page; null on the last page. */
+  readonly nextCursor: string | null;
+}
+
 export type CardsErrorKind =
   /** 404 `NOT_FOUND`: missing, not mine, or not visible to me (the server answers the same for all). */
   | 'not_found'
@@ -132,6 +139,12 @@ export interface CardsApi {
   createCard(card: NewCard): Promise<SentCard>;
   /** `GET /v1/cards/{id}`. */
   getCard(id: string): Promise<CardItem>;
+  /** `GET /v1/feed?cursor=` (30 per page). A tampered or expired cursor is `invalid` (400). */
+  feed(cursor?: string | null): Promise<FeedPage>;
+  /** `PUT /v1/cards/{id}/reaction {kind}`: sets or replaces my one reaction (AC-17.2). */
+  setReaction(cardId: string, kind: string): Promise<void>;
+  /** `DELETE /v1/cards/{id}/reaction`. */
+  clearReaction(cardId: string): Promise<void>;
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -148,6 +161,12 @@ const MAX_NAME_LENGTH = 200;
 const MAX_TEXT_LENGTH = 1000;
 const MAX_URL_LENGTH = 4096;
 const MAX_REACTION_LENGTH = 64;
+/** Feed cursors are base64url (position + HMAC tag); bound the size so a hostile body cannot grow a request. */
+const CURSOR = /^[A-Za-z0-9_-]{1,512}$/;
+/** Reaction ids as config/client.yaml names them (`react.heart`). */
+const REACTION = /^react\.[a-z0-9_-]{1,40}$/;
+
+export const isReactionKind = (value: string): boolean => REACTION.test(value);
 
 export const isCardId = (value: string): boolean => UUID.test(value);
 
@@ -232,6 +251,16 @@ export function parseCard(value: unknown): CardItem | null {
   };
 }
 
+/** Validates a `FeedPage`; malformed items are dropped, a malformed cursor ends the feed. */
+export function parseFeedPage(body: unknown): FeedPage | null {
+  const v = record(body);
+  if (!v || !Array.isArray(v.items)) return null;
+  const items = v.items.map(parseCard).filter((card): card is CardItem => card !== null);
+  const nextCursor =
+    typeof v.next_cursor === 'string' && CURSOR.test(v.next_cursor) ? v.next_cursor : null;
+  return { items, nextCursor };
+}
+
 function audienceBody(audience: Audience): Schemas['AudienceRequest'] {
   if (audience.mode === 'all') return { mode: 'all' };
   const ids = [...new Set(audience.recipientIds)];
@@ -312,6 +341,29 @@ export function createCardsApi(fetcher: AuthClient['fetch']): CardsApi {
         headers: { 'Content-Type': 'application/json', 'Idempotency-Key': card.clientCardId },
         body: JSON.stringify(body),
       });
+    },
+    async feed(cursor) {
+      if (cursor !== undefined && cursor !== null && !CURSOR.test(cursor)) {
+        throw new CardsError('invalid');
+      }
+      const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : '';
+      return read(parseFeedPage, `/v1/feed${query}`, { method: 'GET' });
+    },
+    async setReaction(cardId, kind) {
+      if (!REACTION.test(kind)) throw new CardsError('invalid');
+      const body: Schemas['ReactionRequest'] = { kind };
+      const response = await fetcher(`/v1/cards/${checkedId(cardId)}/reaction`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!response.ok) throw await failure(response);
+    },
+    async clearReaction(cardId) {
+      const response = await fetcher(`/v1/cards/${checkedId(cardId)}/reaction`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) throw await failure(response);
     },
     async getCard(id) {
       return read((body) => parseCard(record(body)?.card), `/v1/cards/${checkedId(id)}`, {
