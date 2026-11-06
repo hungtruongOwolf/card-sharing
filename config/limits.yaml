@@ -224,3 +224,8 @@ limits:
     requests: 100
     per_secs: 86400
     on_store_failure: open
+  cards.read: # GET /v1/cards/{id}
+    scope: user
+    requests: 300
+    per_secs: 60
+    on_store_failure: open

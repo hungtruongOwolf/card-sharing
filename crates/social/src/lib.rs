@@ -25,3 +25,35 @@ pub use requests::{
 pub use search::SearchHit;
 pub use service::SocialService;
 pub use settings::{SocialConfigError, SocialSettings};
+
+/// SQL predicate (a string literal, for other modules' visibility queries): accounts `$a` and
+/// `$b` (SQL expressions given as literals) are friends and neither blocks the other. The social
+/// schema stays owned here; callers embed the predicate instead of re-deriving it.
+///
+/// ```ignore
+/// sqlx::query(concat!("SELECT 1 WHERE ", social::friends_unblocked_sql!("$1", "c.owner_id")))
+/// ```
+#[macro_export]
+macro_rules! friends_unblocked_sql {
+    ($a:literal, $b:literal) => {
+        concat!(
+            "(EXISTS (SELECT 1 FROM social.friendships sf WHERE sf.user_a = LEAST(",
+            $a,
+            "::uuid, ",
+            $b,
+            "::uuid) AND sf.user_b = GREATEST(",
+            $a,
+            "::uuid, ",
+            $b,
+            "::uuid)) AND NOT EXISTS (SELECT 1 FROM social.blocks sb WHERE (sb.blocker_id = ",
+            $a,
+            " AND sb.blocked_id = ",
+            $b,
+            ") OR (sb.blocker_id = ",
+            $b,
+            " AND sb.blocked_id = ",
+            $a,
+            ")))"
+        )
+    };
+}

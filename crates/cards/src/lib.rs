@@ -3,9 +3,11 @@
 //! accounts belong to other modules; this crate stores ids and asks their services, and every
 //! read that decides visibility does so in one SQL predicate (see `access`).
 
+pub mod access;
 pub mod deliver;
 pub mod service;
 
+pub use access::{HoldView, VisibleCard};
 pub use deliver::{
     CARD_DELIVERED, CARD_HELD, EVALUATE_JOB, EvaluateJob, EvaluateOnEvents, Evaluation, HOLD_TTL,
 };

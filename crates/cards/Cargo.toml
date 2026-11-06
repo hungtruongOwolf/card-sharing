@@ -8,7 +8,11 @@ publish.workspace = true
 license.workspace = true
 
 [dependencies]
+# identity and social only for their SQL visibility predicates (account_active_sql!,
+# friends_unblocked_sql!), so their schemas stay owned by them.
+identity.workspace = true
 media.workspace = true
+social.workspace = true
 platform.workspace = true
 
 serde_json.workspace = true

@@ -338,6 +338,46 @@ impl MediaService {
         .await?)
     }
 
+    /// Object keys to sign for `clean` media only: the derivative `variant` of each id, or the
+    /// full-size re-encode when `variant` is `None` (owner-only originals). Media that are not
+    /// clean (or lack the variant) are absent, so no URL can ever point at quarantine.
+    pub async fn clean_keys(
+        &self,
+        ids: &[Uuid],
+        variant: Option<crate::process::Variant>,
+    ) -> Result<std::collections::HashMap<Uuid, ObjectKey>, MediaError> {
+        let rows: Vec<(Uuid, String)> = match variant {
+            Some(variant) => {
+                sqlx::query_as(
+                    "SELECT m.id, d.storage_key FROM media.media_objects m
+                     JOIN media.media_derivatives d ON d.media_id = m.id
+                     WHERE m.id = ANY($1) AND m.state = 'clean' AND d.bucket = 'clean'
+                       AND d.variant = $2",
+                )
+                .bind(ids)
+                .bind(variant.as_str())
+                .fetch_all(&self.pool)
+                .await?
+            }
+            None => {
+                sqlx::query_as(
+                    "SELECT id, storage_key FROM media.media_objects
+                     WHERE id = ANY($1) AND state = 'clean' AND bucket = 'clean'",
+                )
+                .bind(ids)
+                .fetch_all(&self.pool)
+                .await?
+            }
+        };
+        rows.into_iter()
+            .map(|(id, key)| {
+                ObjectKey::parse(&key)
+                    .map(|key| (id, key))
+                    .ok_or_else(|| MediaError::Corrupt("storage key".to_owned()))
+            })
+            .collect()
+    }
+
     /// A mask must have exactly the render's size (T-71): a mismatched pair is refused before a
     /// card is created, so the recipient never composes a mask over the wrong image.
     pub fn mask_fits(render: &MediaRecord, mask: &MediaRecord) -> bool {

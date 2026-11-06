@@ -38,3 +38,17 @@ pub use service::{
 pub use sessions::SessionInfo;
 pub use sign_in::{ProviderSignIn, SignInError, SignInRequest, SignedIn, apple_refresh_token_aad};
 pub use token::{SecretToken, TokenHash};
+
+/// SQL predicate (a string literal) for other modules' visibility queries: the account `$id` (a
+/// SQL expression given as a literal) is `active` (not suspended, banned, deleting or still
+/// onboarding). The identity schema stays owned here.
+#[macro_export]
+macro_rules! account_active_sql {
+    ($id:literal) => {
+        concat!(
+            "EXISTS (SELECT 1 FROM identity.accounts ia WHERE ia.id = ",
+            $id,
+            " AND ia.status = 'active')"
+        )
+    };
+}

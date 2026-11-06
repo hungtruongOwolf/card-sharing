@@ -16,6 +16,7 @@ use media::{MediaKind, MediaRecord, MediaService, MediaState};
 use platform::problem::{ApiError, ProblemDetails};
 use platform::text::{FieldRules, TextError};
 use serde::{Deserialize, Serialize};
+use time::OffsetDateTime;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
@@ -282,4 +283,218 @@ pub async fn create_card(
         tracing::info!(event = "card.sent", card_id = %sent.id, recipients = sent.recipient_count);
     }
     Ok((StatusCode::ACCEPTED, Json(SentCardEnvelope::from(sent))).into_response())
+}
+
+/// The sender of a card as viewers see it.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct CardSenderView {
+    #[schema(format = "uuid")]
+    pub id: String,
+    pub display_name: Option<String>,
+    /// Signed avatar URL once avatars join the media pipeline; `null` for now.
+    pub avatar_url: Option<String>,
+}
+
+/// Signed media of a card. URLs live until `expires_at`; refetch the card after that.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct CardMediaView {
+    pub render_url: String,
+    pub mask_url: Option<String>,
+    /// Owner only (AC-13.6): never present for anyone else.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub original_url: Option<String>,
+    #[serde(with = "time::serde::rfc3339")]
+    #[schema(value_type = String, format = DateTime)]
+    pub expires_at: OffsetDateTime,
+}
+
+/// Classifier hold (owner only).
+#[derive(Debug, Serialize, ToSchema)]
+pub struct CardHoldView {
+    /// `nudity_classifier`.
+    pub reason: &'static str,
+    /// `none`, `pending`, `released`, `upheld` or `expired`.
+    pub appeal: &'static str,
+    #[serde(with = "time::serde::rfc3339")]
+    #[schema(value_type = String, format = DateTime)]
+    pub expires_at: OffsetDateTime,
+}
+
+/// A card as one viewer may see it (card read, feed items).
+#[derive(Debug, Serialize, ToSchema)]
+pub struct CardView {
+    #[schema(format = "uuid")]
+    pub id: String,
+    pub sender: CardSenderView,
+    pub caption: Option<String>,
+    pub alt_text: Option<String>,
+    #[schema(value_type = Object)]
+    pub style: serde_json::Value,
+    /// `null` while the card is not delivered (the owner's pending or held card).
+    pub media: Option<CardMediaView>,
+    #[serde(with = "time::serde::rfc3339")]
+    #[schema(value_type = String, format = DateTime)]
+    pub sent_at: OffsetDateTime,
+    pub is_mine: bool,
+    /// Owner only: `pending_scan`, `held_review`, `active`, `blocked` or `failed`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<&'static str>,
+    /// Owner only, when the classifier held the card.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hold: Option<CardHoldView>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct CardEnvelope {
+    pub card: CardView,
+}
+
+/// Builds the views of cards the viewer may see (access already decided): per-viewer URLs are
+/// signed for delivered cards with clean media only, and charged to the viewer's URL budget.
+pub(crate) async fn card_views(
+    state: &AppState,
+    viewer: &crate::access::Principal,
+    cards: Vec<cards::VisibleCard>,
+) -> Result<Vec<CardView>, ApiError> {
+    use media::Variant;
+    let shown: Vec<Uuid> = cards
+        .iter()
+        .flat_map(|c| std::iter::once(c.render_media_id).chain(c.mask_media_id))
+        .collect();
+    let originals: Vec<Uuid> = cards.iter().filter_map(|c| c.original_media_id).collect();
+    let feed_keys = state
+        .media
+        .clean_keys(&shown, Some(Variant::Feed1080))
+        .await
+        .map_err(ApiError::internal)?;
+    let original_keys = state
+        .media
+        .clean_keys(&originals, None)
+        .await
+        .map_err(ApiError::internal)?;
+    let deliverable = |c: &cards::VisibleCard| {
+        c.status == cards::CardStatus::Active
+            && feed_keys.contains_key(&c.render_media_id)
+            && c.mask_media_id.is_none_or(|m| feed_keys.contains_key(&m))
+    };
+    let urls: usize = cards
+        .iter()
+        .filter(|c| deliverable(c))
+        .map(|c| {
+            1 + usize::from(c.mask_media_id.is_some())
+                + usize::from(
+                    c.original_media_id
+                        .is_some_and(|o| original_keys.contains_key(&o)),
+                )
+        })
+        .sum();
+    state
+        .charge_url_budget(viewer, u32::try_from(urls).unwrap_or(u32::MAX))
+        .await?;
+
+    let owners: Vec<Uuid> = cards.iter().map(|c| c.owner_id).collect();
+    let profiles = state
+        .identity
+        .public_profiles(&owners)
+        .await
+        .map_err(ApiError::internal)?;
+    let mut views = Vec::with_capacity(cards.len());
+    for card in cards {
+        let media = if deliverable(&card) {
+            let sign = |key: &media::ObjectKey| state.sign_media(key, viewer.account_id);
+            let render = feed_keys
+                .get(&card.render_media_id)
+                .map(sign)
+                .transpose()?
+                .ok_or(ApiError::NotFound)?;
+            let mask = card
+                .mask_media_id
+                .and_then(|m| feed_keys.get(&m))
+                .map(sign)
+                .transpose()?;
+            let original = card
+                .original_media_id
+                .and_then(|o| original_keys.get(&o))
+                .map(sign)
+                .transpose()?;
+            Some(CardMediaView {
+                expires_at: render.expires_at,
+                render_url: render.url,
+                mask_url: mask.map(|m| m.url),
+                original_url: original.map(|o| o.url),
+            })
+        } else {
+            None
+        };
+        let hold = if card.is_mine && card.status == cards::CardStatus::HeldReview {
+            state
+                .cards
+                .hold_of(viewer.account_id, card.id)
+                .await
+                .map_err(ApiError::internal)?
+                .map(|h| CardHoldView {
+                    reason: h.reason,
+                    appeal: h.appeal,
+                    expires_at: h.expires_at,
+                })
+        } else {
+            None
+        };
+        views.push(CardView {
+            id: card.id.hyphenated().to_string(),
+            sender: CardSenderView {
+                id: card.owner_id.hyphenated().to_string(),
+                display_name: profiles.get(&card.owner_id).map(|p| p.display_name.clone()),
+                avatar_url: None,
+            },
+            caption: card.caption,
+            alt_text: card.alt_text,
+            style: card.style,
+            media,
+            sent_at: card.sent_at,
+            is_mine: card.is_mine,
+            status: card.is_mine.then(|| card.status.as_str()),
+            hold,
+        });
+    }
+    Ok(views)
+}
+
+/// Read one card. Auth: ses.
+///
+/// Visible to its owner, or to a recipient it was delivered to who is still a friend of the
+/// owner, with no block either way, while the card is active (one SQL predicate). Anyone else,
+/// and any malformed id, gets the same 404 as a missing card. Media come as per-viewer signed
+/// URLs (10 min); `original_url` only for the owner; the owner also sees `status` and `hold`.
+#[utoipa::path(
+    get,
+    path = "/v1/cards/{id}",
+    tag = TAG,
+    operation_id = "getCard",
+    security(("bearer" = [])),
+    params(("id" = String, Path, format = "uuid", description = "The card id.")),
+    responses(
+        (status = OK, description = "The card as the caller may see it.", body = CardEnvelope),
+        (status = UNAUTHORIZED, description = "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.", body = ProblemDetails),
+        (status = FORBIDDEN, description = "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.", body = ProblemDetails),
+        (status = NOT_FOUND, description = "NOT_FOUND: no card this caller may see.", body = ProblemDetails),
+        (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED (requests or the signed-URL budget).", body = ProblemDetails),
+        (status = SERVICE_UNAVAILABLE, description = "TEMPORARILY_UNAVAILABLE: media signing not configured.", body = ProblemDetails),
+    )
+)]
+pub async fn get_card(
+    State(state): State<AppState>,
+    caller: Caller,
+    axum::extract::Path(id): axum::extract::Path<String>,
+) -> Result<Json<CardEnvelope>, ApiError> {
+    let id = Uuid::try_parse(&id).map_err(|_| ApiError::NotFound)?;
+    let card = state
+        .cards
+        .visible(caller.0.account_id, id)
+        .await
+        .map_err(ApiError::internal)?
+        .ok_or(ApiError::NotFound)?;
+    let mut views = card_views(&state, &caller.0, vec![card]).await?;
+    let card = views.pop().ok_or(ApiError::NotFound)?;
+    Ok(Json(CardEnvelope { card }))
 }
