@@ -5,12 +5,19 @@
 
 pub mod pipeline;
 pub mod process;
+pub mod safety;
 pub mod service;
 pub mod sniff;
 pub mod store;
 
-pub use pipeline::{FailureCode, ProcessMediaJob, ProcessSettings, sandboxed};
+pub use pipeline::{
+    CSAM_MATCHED, FailureCode, ProcessMediaJob, ProcessSettings, sandboxed, sandboxed_decode,
+};
 pub use process::{Encoded, ProcessError, Processed, Variant};
+pub use safety::{
+    ContentGates, FakeHashMatcher, HashMatcher, HashVerdict, MatchCategory, ScanInput, Unavailable,
+    UnconfiguredHashMatcher,
+};
 pub use service::{
     MAX_UPLOAD_BYTES, MediaError, MediaKind, MediaRecord, MediaService, MediaState, PROCESS_JOB,
     Uploaded,

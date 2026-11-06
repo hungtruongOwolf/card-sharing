@@ -57,6 +57,8 @@ pub struct Config {
     /// (`<dir>/<bucket>/<key>`). Unset (default) = no object storage: uploads answer 503 and media
     /// jobs retry (fail closed). Production uses the S3-compatible adapter (ADR-0008).
     pub media_storage_dir: Option<PathBuf>,
+    /// Deployment profile and content-safety adapters (T-72).
+    pub content_safety: ContentSafetyConfig,
     /// `API_SOCIAL_CONFIG_PATH` — default `config/social.yaml` (invite links, friend caps, search).
     pub social_config_path: PathBuf,
     /// `API_APPLE_CLIENT_IDS` — comma-separated `aud` values accepted in Apple ID tokens (the iOS
@@ -108,6 +110,44 @@ pub struct MailConfig {
     /// `API_MAGIC_LINK_URL` — Universal/App Link base for magic links, default
     /// `http://localhost:3000/auth/link` (local web). The token is appended as `#token=...`.
     pub magic_link_url: String,
+}
+
+/// `API_ENV` â€” the deployment profile. Defaults to `production` (the safest assumption):
+/// development-only adapters must be enabled on purpose.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AppEnv {
+    Development,
+    Test,
+    Staging,
+    Production,
+}
+
+impl AppEnv {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Development => "development",
+            Self::Test => "test",
+            Self::Staging => "staging",
+            Self::Production => "production",
+        }
+    }
+}
+
+/// Which content-safety adapter a gate uses until the vendors are chosen (content-safety.md).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SafetyAdapter {
+    /// No provider: every scan is unavailable, so nothing is ever delivered (fail closed).
+    None,
+    /// Deterministic fake (top-left pixel markers). Refused when `API_ENV=production`.
+    Fake,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ContentSafetyConfig {
+    /// `API_ENV` â€” `development`, `test`, `staging` or `production` (default).
+    pub env: AppEnv,
+    /// `API_CSAM_MATCHER` â€” `none` (default) or `fake` (not in production).
+    pub csam_matcher: SafetyAdapter,
 }
 
 /// `att` add-on enforcement (EM 2026-11-04: log-only in beta, hard-fail at GA).
@@ -220,6 +260,7 @@ impl Config {
             .optional("API_MEDIA_STORAGE_DIR")
             .filter(|dir| !dir.trim().is_empty())
             .map(PathBuf::from);
+        let content_safety = content_safety_config(env)?;
         let apple_client_ids = client_ids(env, "API_APPLE_CLIENT_IDS")?;
         let google_client_ids = client_ids(env, "API_GOOGLE_CLIENT_IDS")?;
         let auth_clock_skew_secs = env.in_range("API_AUTH_CLOCK_SKEW_SECS", 60, 0..=300)?;
@@ -248,6 +289,7 @@ impl Config {
             profile_config_path,
             social_config_path,
             media_storage_dir,
+            content_safety,
             apple_client_ids,
             google_client_ids,
             auth_clock_skew: Duration::from_secs(auth_clock_skew_secs),
@@ -366,6 +408,45 @@ fn mail_config<F: Fn(&str) -> Option<String>>(env: &Env<F>) -> Result<MailConfig
     })
 }
 
+fn content_safety_config<F: Fn(&str) -> Option<String>>(
+    env: &Env<F>,
+) -> Result<ContentSafetyConfig, ConfigError> {
+    let app_env = match env.optional("API_ENV").as_deref() {
+        None | Some("production") => AppEnv::Production,
+        Some("staging") => AppEnv::Staging,
+        Some("test") => AppEnv::Test,
+        Some("development") => AppEnv::Development,
+        Some(other) => {
+            return Err(invalid(
+                "API_ENV",
+                format!("{other:?} must be development, test, staging or production"),
+            ));
+        }
+    };
+    let csam_matcher = safety_adapter(env, "API_CSAM_MATCHER", app_env)?;
+    Ok(ContentSafetyConfig {
+        env: app_env,
+        csam_matcher,
+    })
+}
+
+/// A content-safety adapter choice; the fake one never starts in production.
+fn safety_adapter<F: Fn(&str) -> Option<String>>(
+    env: &Env<F>,
+    key: &'static str,
+    app_env: AppEnv,
+) -> Result<SafetyAdapter, ConfigError> {
+    match env.optional(key).as_deref() {
+        None | Some("none") => Ok(SafetyAdapter::None),
+        Some("fake") if app_env == AppEnv::Production => Err(invalid(
+            key,
+            "the fake adapter is refused when API_ENV=production",
+        )),
+        Some("fake") => Ok(SafetyAdapter::Fake),
+        Some(other) => Err(invalid(key, format!("{other:?} must be none or fake"))),
+    }
+}
+
 fn attestation_config<F: Fn(&str) -> Option<String>>(
     env: &Env<F>,
 ) -> Result<AttestationConfig, ConfigError> {
@@ -474,6 +555,23 @@ mod tests {
         );
         assert_eq!(config.request_timeout, Duration::from_secs(15));
         assert_eq!(config.log_format, LogFormat::Json);
+    }
+
+    #[test]
+    fn fake_content_safety_adapters_never_start_in_production() {
+        let config = load(&[]).unwrap();
+        assert_eq!(config.content_safety.env, AppEnv::Production);
+        assert_eq!(config.content_safety.csam_matcher, SafetyAdapter::None);
+        // Default env is production: the fake is refused.
+        let err = load(&[("API_CSAM_MATCHER", "fake")]).unwrap_err();
+        assert!(err.to_string().contains("API_CSAM_MATCHER"), "{err}");
+        assert!(load(&[("API_ENV", "production"), ("API_CSAM_MATCHER", "fake")]).is_err());
+        for env in ["development", "test", "staging"] {
+            let config = load(&[("API_ENV", env), ("API_CSAM_MATCHER", "fake")]).unwrap();
+            assert_eq!(config.content_safety.csam_matcher, SafetyAdapter::Fake);
+        }
+        assert!(load(&[("API_ENV", "prod")]).is_err());
+        assert!(load(&[("API_ENV", "development"), ("API_CSAM_MATCHER", "photodna")]).is_err());
     }
 
     #[test]

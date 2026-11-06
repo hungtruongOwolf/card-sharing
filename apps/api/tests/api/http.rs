@@ -39,6 +39,10 @@ fn test_config() -> Config {
         profile_config_path: "unused-in-tests".into(),
         social_config_path: "unused-in-tests".into(),
         media_storage_dir: None,
+        content_safety: api::config::ContentSafetyConfig {
+            env: api::config::AppEnv::Test,
+            csam_matcher: api::config::SafetyAdapter::Fake,
+        },
         apple_client_ids: Vec::new(),
         google_client_ids: Vec::new(),
         auth_clock_skew: Duration::from_secs(60),

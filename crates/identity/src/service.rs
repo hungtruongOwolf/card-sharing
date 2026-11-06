@@ -613,6 +613,39 @@ impl IdentityService {
         Ok(())
     }
 
+    /// Suspends an account (pending or active; banned and deleting accounts are left as they
+    /// are) and revokes every live session. `reason` is a short code for the audit log.
+    /// Returns `false` when nothing changed. Idempotent.
+    pub async fn suspend_account(
+        &self,
+        account_id: Uuid,
+        reason: &'static str,
+    ) -> Result<bool, StoreError> {
+        let now = self.clock.now();
+        let mut tx = self.pool.begin().await?;
+        let suspended = sqlx::query(
+            "UPDATE identity.accounts SET status = 'suspended', updated_at = $2
+             WHERE id = $1 AND status IN ('pending_age', 'pending_profile', 'active')",
+        )
+        .bind(account_id)
+        .bind(now)
+        .execute(&mut *tx)
+        .await?
+        .rows_affected()
+            == 1;
+        if suspended {
+            let entry = AuditEntry::new(Actor::System, AuditAction::AccountSuspended)
+                .target("account", account_id)
+                .detail("reason", reason);
+            audit::record(&mut *tx, &entry, now).await?;
+        }
+        tx.commit().await?;
+        // Revoke even when the status was already suspended: no live session may survive.
+        self.revoke_all_sessions(account_id, RevokeReason::Suspended)
+            .await?;
+        Ok(suspended)
+    }
+
     /// Drops cached lookups for every live session of an account, so a status change (age gate,
     /// suspension) takes effect on the next request instead of after the cache TTL.
     pub async fn invalidate_cached_sessions(&self, account_id: Uuid) -> Result<(), StoreError> {

@@ -32,6 +32,23 @@ as in [[ADR-0005-media-pipeline]]. The EM decides by **2026-11-18**. Every vendo
   - **UK, Online Safety Act s.66:** since 2026-04-07, CSEA content must be reported to the NCA and the provider must register. Non-UK providers report only UK-linked content. Content already reported to NCMEC is exempt.
   - **EU:** voluntary detection is allowed again under Regulation (EU) 2026/1881 from 2026-07-31 until 2028-04-03.
 
+### Implemented (T-72, fake adapter until the EM decides)
+- `crates/media/src/safety.rs`: `HashMatcher` port. Input is the decoded, re-encoded image (`sha256` of the re-encode,
+  size, RGBA pixels); PDQ hashing joins with the first real provider. Verdict `NoMatch {provider, list_version}` or
+  `Match {category: csam | harmful_abusive | test, exact, provider, list_version, provider_ref}`; anything else is
+  `Unavailable`. Every call is bounded by a 10 s timeout.
+- Adapters: `none` (default; always unavailable, so nothing is ever delivered) and `fake` (top-left pixel magenta
+  `#FF00FF` = `test` match, cyan `#00FFFF` = outage). `API_CSAM_MATCHER=fake` is a config error when `API_ENV=production`
+  (and `API_ENV` defaults to `production`), so the API and the worker refuse to start.
+- Every kind (render, mask, original, avatar) is matched in `media.process` before anything leaves quarantine.
+- Match: the raw upload is copied to the `legal-hold` bucket, every other copy deleted, media `blocked`, a
+  `moderation.csam_incidents` row and a `media.csam_matched` outbox event in one transaction; the subscriber's
+  `identity.suspend_account` job suspends the account (audit `account.suspended`) and revokes all sessions. An error-level
+  `csam.match` log event (ids only) is the alert.
+- Unavailable: the job retries with backoff (30 attempts, about a day), the media stays `scanning`; the worker logs an
+  error-level `media.scan_backlog` event when the oldest pending upload is older than 5 minutes (AC-28.2).
+- Not yet: the `CsamReporter` port and reporting process (incidents keep `reported_at` NULL, indexed), real providers.
+
 ## Nudity / sexual-content classifier (T-137, AC-28.3, D1, D6)
 - **Primary:** `Marqo/nsfw-image-detection-384`.
   - Apache-2.0, ViT-tiny, 22.4 MB. The vendor reports 98.56% accuracy on its own test set.

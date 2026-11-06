@@ -26,6 +26,8 @@ pub enum AuditAction {
     AgeRefused,
     /// A handle was claimed or changed.
     HandleChanged,
+    /// An account was suspended (e.g. automatically after a known-CSAM match).
+    AccountSuspended,
 }
 
 impl AuditAction {
@@ -37,6 +39,7 @@ impl AuditAction {
             Self::LogoutAll => "auth.logout_all",
             Self::AgeRefused => "auth.age_refused",
             Self::HandleChanged => "profile.handle_changed",
+            Self::AccountSuspended => "account.suspended",
         }
     }
 }
@@ -145,6 +148,7 @@ mod tests {
             AuditAction::LogoutAll,
             AuditAction::AgeRefused,
             AuditAction::HandleChanged,
+            AuditAction::AccountSuspended,
         ] {
             let code = action.as_str();
             let (module, verb) = code.split_once('.').unwrap_or_default();

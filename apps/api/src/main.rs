@@ -186,9 +186,11 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
         FieldCipher::from_base64(1, config.data_encryption_key.expose())
             .context("invalid API_DATA_ENCRYPTION_KEY")?,
     );
+    // Redis lets suspensions drop cached sessions at once (not only after the cache TTL).
+    let redis = platform::cache::connect_lazy(&config.redis_url).context("invalid REDIS_URL")?;
     let identity = Arc::new(IdentityService::new(
         pool.clone(),
-        None,
+        Some(redis),
         Arc::clone(&clock),
         SessionPolicy::default(),
     ));
@@ -219,15 +221,28 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
         media_store(config),
     ));
     // Subscribers register here as modules start publishing events.
-    let relay = Arc::new(OutboxRelay::new(pool, clock));
+    let relay =
+        Arc::new(OutboxRelay::new(pool, clock).subscribe(Arc::new(api::workers::CsamSuspension)));
     let worker = Worker::new(queue, WorkerSettings::default())
         .handle(MAGIC_LINK_JOB, Arc::new(magic_links))
         .handle(
             media::PROCESS_JOB,
             Arc::new(media::ProcessMediaJob {
-                media,
-                settings: media::ProcessSettings::default(),
+                media: Arc::clone(&media),
+                settings: media::ProcessSettings {
+                    gates: api::workers::content_gates(&config.content_safety),
+                    ..media::ProcessSettings::default()
+                },
             }),
+        )
+        .handle(
+            api::workers::SUSPEND_ACCOUNT_JOB,
+            Arc::new(api::workers::SuspendAccountJob(Arc::clone(&identity))),
+        )
+        .periodic(
+            "media.scan_backlog",
+            api::workers::ScanBacklog::INTERVAL,
+            Arc::new(api::workers::ScanBacklog(media)),
         )
         .periodic(
             "identity.magic_links.purge",
