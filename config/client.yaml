@@ -17,6 +17,17 @@ limits:
   pins_per_board_max: 100
   board_collaborators_max: 8
 
+# Reactions a recipient may send (US-17), in display order: six emoji + squish. Ids are stable;
+# the app maps them to glyphs/animations. Switch one off with kill_switches.reactions.
+reactions:
+  - react.heart
+  - react.laugh
+  - react.wow
+  - react.sad
+  - react.fire
+  - react.paw
+  - react.squish
+
 # Feature flags: name -> enabled.
 flags: {}
 

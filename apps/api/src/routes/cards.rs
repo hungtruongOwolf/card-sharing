@@ -336,6 +336,9 @@ pub struct CardView {
     #[schema(value_type = String, format = DateTime)]
     pub sent_at: OffsetDateTime,
     pub is_mine: bool,
+    /// The caller's own reaction (recipients; the owner sees all reactions via
+    /// `GET /v1/cards/{id}/reactions`).
+    pub my_reaction: Option<String>,
     /// Owner only: `pending_scan`, `held_review`, `active`, `blocked` or `failed`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub status: Option<&'static str>,
@@ -392,6 +395,12 @@ pub(crate) async fn card_views(
         .charge_url_budget(viewer, u32::try_from(urls).unwrap_or(u32::MAX))
         .await?;
 
+    let card_ids: Vec<Uuid> = cards.iter().map(|c| c.id).collect();
+    let mut my_reactions = state
+        .cards
+        .my_reactions(viewer.account_id, &card_ids)
+        .await
+        .map_err(ApiError::internal)?;
     let owners: Vec<Uuid> = cards.iter().map(|c| c.owner_id).collect();
     let profiles = state
         .identity
@@ -453,6 +462,7 @@ pub(crate) async fn card_views(
             media,
             sent_at: card.sent_at,
             is_mine: card.is_mine,
+            my_reaction: my_reactions.remove(&card.id),
             status: card.is_mine.then(|| card.status.as_str()),
             hold,
         });
@@ -536,4 +546,160 @@ pub async fn delete_card(
     } else {
         Err(ApiError::NotFound)
     }
+}
+
+/// Body of `PUT /v1/cards/{id}/reaction`.
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReactionRequest {
+    /// One of `reactions` from `GET /v1/config` (e.g. `react.heart`, `react.squish`).
+    pub kind: String,
+}
+
+/// One reaction on my card.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ReactionView {
+    pub user: CardSenderView,
+    pub kind: String,
+    #[serde(with = "time::serde::rfc3339")]
+    #[schema(value_type = String, format = DateTime)]
+    pub updated_at: OffsetDateTime,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ReactionList {
+    /// Newest first; only people who are still my friends.
+    pub items: Vec<ReactionView>,
+}
+
+fn card_id(raw: &str) -> Result<Uuid, ApiError> {
+    Uuid::try_parse(raw).map_err(|_| ApiError::NotFound)
+}
+
+/// React to a card. Auth: ses.
+///
+/// Sets or replaces my one reaction on a card delivered to me that I may still see (same rule as
+/// reading it). The owner cannot react to their own card. Only the owner sees reactions; other
+/// recipients never do. A card I may not see is the same 404 as a missing one.
+#[utoipa::path(
+    put,
+    path = "/v1/cards/{id}/reaction",
+    tag = TAG,
+    operation_id = "setCardReaction",
+    security(("bearer" = [])),
+    params(("id" = String, Path, format = "uuid", description = "The card id.")),
+    request_body = ReactionRequest,
+    responses(
+        (status = NO_CONTENT, description = "Reaction set."),
+        (status = BAD_REQUEST, description = "VALIDATION_FAILED: unknown or switched-off reaction.", body = ProblemDetails),
+        (status = UNAUTHORIZED, description = "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.", body = ProblemDetails),
+        (status = FORBIDDEN, description = "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.", body = ProblemDetails),
+        (status = NOT_FOUND, description = "NOT_FOUND: no card delivered to me with this id.", body = ProblemDetails),
+        (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED.", body = ProblemDetails),
+    )
+)]
+pub async fn set_reaction(
+    State(state): State<AppState>,
+    caller: Caller,
+    axum::extract::Path(id): axum::extract::Path<String>,
+    body: ValidJson<ReactionRequest>,
+) -> Result<StatusCode, ApiError> {
+    let id = card_id(&id)?;
+    if !state.client.reaction_allowed(&body.0.kind) {
+        return Err(ApiError::Validation("unknown reaction".to_owned()));
+    }
+    let set = state
+        .cards
+        .react(caller.0.account_id, id, &body.0.kind)
+        .await
+        .map_err(ApiError::internal)?;
+    if set {
+        Ok(StatusCode::NO_CONTENT)
+    } else {
+        Err(ApiError::NotFound)
+    }
+}
+
+/// Remove my reaction. Auth: ses. Same visibility rule as reacting.
+#[utoipa::path(
+    delete,
+    path = "/v1/cards/{id}/reaction",
+    tag = TAG,
+    operation_id = "deleteCardReaction",
+    security(("bearer" = [])),
+    params(("id" = String, Path, format = "uuid", description = "The card id.")),
+    responses(
+        (status = NO_CONTENT, description = "No reaction of mine remains."),
+        (status = UNAUTHORIZED, description = "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.", body = ProblemDetails),
+        (status = FORBIDDEN, description = "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.", body = ProblemDetails),
+        (status = NOT_FOUND, description = "NOT_FOUND: no card delivered to me with this id.", body = ProblemDetails),
+        (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED.", body = ProblemDetails),
+    )
+)]
+pub async fn delete_reaction(
+    State(state): State<AppState>,
+    caller: Caller,
+    axum::extract::Path(id): axum::extract::Path<String>,
+) -> Result<StatusCode, ApiError> {
+    let id = card_id(&id)?;
+    let visible = state
+        .cards
+        .unreact(caller.0.account_id, id)
+        .await
+        .map_err(ApiError::internal)?;
+    if visible {
+        Ok(StatusCode::NO_CONTENT)
+    } else {
+        Err(ApiError::NotFound)
+    }
+}
+
+/// Reactions on my card. Auth: ses. Owner only: recipients get the same 404 as a missing card.
+#[utoipa::path(
+    get,
+    path = "/v1/cards/{id}/reactions",
+    tag = TAG,
+    operation_id = "listCardReactions",
+    security(("bearer" = [])),
+    params(("id" = String, Path, format = "uuid", description = "The card id.")),
+    responses(
+        (status = OK, description = "Reactions on my card.", body = ReactionList),
+        (status = UNAUTHORIZED, description = "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.", body = ProblemDetails),
+        (status = FORBIDDEN, description = "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.", body = ProblemDetails),
+        (status = NOT_FOUND, description = "NOT_FOUND: no card of mine with this id.", body = ProblemDetails),
+        (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED.", body = ProblemDetails),
+    )
+)]
+pub async fn list_reactions(
+    State(state): State<AppState>,
+    caller: Caller,
+    axum::extract::Path(id): axum::extract::Path<String>,
+) -> Result<Json<ReactionList>, ApiError> {
+    let id = card_id(&id)?;
+    let reactions = state
+        .cards
+        .reactions(caller.0.account_id, id)
+        .await
+        .map_err(ApiError::internal)?
+        .ok_or(ApiError::NotFound)?;
+    let ids: Vec<Uuid> = reactions.iter().map(|r| r.reactor_id).collect();
+    let profiles = state
+        .identity
+        .public_profiles(&ids)
+        .await
+        .map_err(ApiError::internal)?;
+    Ok(Json(ReactionList {
+        items: reactions
+            .into_iter()
+            .map(|r| ReactionView {
+                user: CardSenderView {
+                    id: r.reactor_id.hyphenated().to_string(),
+                    display_name: profiles.get(&r.reactor_id).map(|p| p.display_name.clone()),
+                    avatar_url: None,
+                },
+                kind: r.kind,
+                updated_at: r.updated_at,
+            })
+            .collect(),
+    }))
 }

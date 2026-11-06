@@ -26,6 +26,8 @@ pub enum ClientConfigError {
     UnsupportedVersion(u32),
     #[error("min_app_version {0:?} is not a semantic version")]
     MinVersion(String),
+    #[error("reaction id {0:?} must look like react.<name>")]
+    ReactionId(String),
 }
 
 /// Product limits shown by the app. The server enforces its own copies.
@@ -59,6 +61,9 @@ pub struct AppConfigResponse {
     pub limits: ClientLimits,
     pub flags: BTreeMap<String, bool>,
     pub kill_switches: KillSwitches,
+    /// Reaction ids a recipient may send (US-17), in display order; ids in
+    /// `kill_switches.reactions` are refused even when listed here.
+    pub reactions: Vec<String>,
     /// Sanitizer caps and term lists of the shared text filter, for instant hints while typing
     /// (captions, names). The server checks again on submit and its answer is final.
     pub text_filter: TextFilterHints,
@@ -75,6 +80,8 @@ struct RawClientConfig {
     flags: BTreeMap<String, bool>,
     #[serde(default)]
     kill_switches: KillSwitches,
+    #[serde(default)]
+    reactions: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -86,11 +93,35 @@ pub struct ClientConfig {
     pub etag: String,
 }
 
+/// `react.` followed by 1 to 32 of `[a-z0-9-]` (same rule as the database check).
+fn is_reaction_id(id: &str) -> bool {
+    id.strip_prefix("react.").is_some_and(|name| {
+        (1..=32).contains(&name.len())
+            && name
+                .bytes()
+                .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+    })
+}
+
 impl ClientConfig {
+    /// Whether `kind` is a reaction recipients may send now (listed and not switched off).
+    pub fn reaction_allowed(&self, kind: &str) -> bool {
+        self.response.reactions.iter().any(|r| r == kind)
+            && !self
+                .response
+                .kill_switches
+                .reactions
+                .iter()
+                .any(|r| r == kind)
+    }
+
     pub fn from_yaml_str(yaml: &str) -> Result<Self, ClientConfigError> {
         let raw: RawClientConfig = serde_norway::from_str(yaml)?;
         if raw.version != SUPPORTED_VERSION {
             return Err(ClientConfigError::UnsupportedVersion(raw.version));
+        }
+        if let Some(bad) = raw.reactions.iter().find(|id| !is_reaction_id(id)) {
+            return Err(ClientConfigError::ReactionId(bad.clone()));
         }
         let min_app_version = semver::Version::parse(&raw.min_app_version)
             .map_err(|_| ClientConfigError::MinVersion(raw.min_app_version.clone()))?;
@@ -100,6 +131,7 @@ impl ClientConfig {
                 limits: raw.limits,
                 flags: raw.flags,
                 kill_switches: raw.kill_switches,
+                reactions: raw.reactions,
                 text_filter: TextFilterHints::default(),
             },
             min_app_version,
@@ -147,6 +179,20 @@ mod tests {
             config.response.min_app_version,
             config.min_app_version.to_string()
         );
+    }
+
+    #[test]
+    fn reactions_are_listed_validated_and_switchable() {
+        let config = ClientConfig::from_yaml_str(SHIPPED).unwrap();
+        assert_eq!(config.response.reactions.len(), 7);
+        assert!(config.reaction_allowed("react.squish"));
+        assert!(!config.reaction_allowed("react.unknown"));
+        let killed = SHIPPED.replace("  reactions: []", "  reactions: [react.fire]");
+        let config = ClientConfig::from_yaml_str(&killed).unwrap();
+        assert!(!config.reaction_allowed("react.fire"));
+        assert!(config.reaction_allowed("react.heart"));
+        let bad = SHIPPED.replace("  - react.paw", "  - Paw!");
+        assert!(ClientConfig::from_yaml_str(&bad).is_err());
     }
 
     #[test]
