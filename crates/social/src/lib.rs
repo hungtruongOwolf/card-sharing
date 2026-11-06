@@ -58,6 +58,25 @@ macro_rules! friends_unblocked_sql {
     };
 }
 
+/// SQL predicate (a string literal): accounts `$a` and `$b` block each other in either direction.
+/// For other modules that keep blocked users apart (board co-membership, AC-19.8).
+#[macro_export]
+macro_rules! blocked_either_way_sql {
+    ($a:literal, $b:literal) => {
+        concat!(
+            "EXISTS (SELECT 1 FROM social.blocks sbx WHERE (sbx.blocker_id = ",
+            $a,
+            " AND sbx.blocked_id = ",
+            $b,
+            ") OR (sbx.blocker_id = ",
+            $b,
+            " AND sbx.blocked_id = ",
+            $a,
+            "))"
+        )
+    };
+}
+
 /// SQL predicate (a string literal): `$request` is a friend request to `$recipient` that the
 /// recipient still sees as open at `$now` (pending, not expired) and neither side blocks the other.
 /// For other modules' read-time filters (the activity tab).

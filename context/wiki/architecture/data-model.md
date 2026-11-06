@@ -207,7 +207,12 @@ gives `blocked`; failed, deleted or missing media give `failed`; anything still 
 
 Implemented (T-98, `migrations/20261117000001_boards.sql`): `boards.boards` (title `CHECK char_length 1–400`, graphemes 1–60 checked
 by the API; `backdrop JSONB NULL`; `version` starts at 1; `created_at`, `updated_at`) and `boards.board_members` (the owner is a member
-with role `owner`, one owner per board by a partial unique index). Invitations join with T-106.
+with role `owner`, one owner per board by a partial unique index).
+Implemented (T-106, `migrations/20261117000003_boards_invitations.sql`): `boards.board_invitations` as above plus `created_at`; the
+unique "one open invitation per board and invitee" index covers `pending`, `declined` and `dropped` (all look open to the owner until
+expiry). Expired rows are marked by the worker's `BoardJanitor` (and by each invite transaction for its board); accepted, cancelled and
+expired rows are deleted 30 days after they ended. The re-invite cooldown counts from the expiry of the last declined, dropped or
+expired invitation, so a decline is indistinguishable from no answer.
 Implemented (T-99, `migrations/20261117000002_boards_pins.sql`): `boards.pins` as above, with `x, y, scale, rotation DOUBLE PRECISION`
 and CHECKs for the API ranges (x/y 0..=1, scale 0.1..=10, rotation [-180, 180), `z_key ~ '^[0-9A-Za-z]{1,32}$'`, `kind` ↔ `card_id` /
 `decoration`), `created_at`/`updated_at`; `boards.board_ops` adds `pin_id` (replays are answered from it). Only applied ops are logged.

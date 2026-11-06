@@ -388,6 +388,22 @@ status comes from `AgeService::status` (computed per day from the DOB / OS signa
 people the viewer is not friends with; a failed lookup counts as a minor and an unknown viewer as an adult (fail closed).
 `GET /v1/boards/{id}/members` → `{items: [{id, role, display_name, handle?, is_me, joined_at}]}`, owner first; `handle` is omitted for a
 restricted member (no avatars exist yet; when they do they follow `handle`). Non-members → the missing 404.
+Implemented (T-106, `crates/boards/src/invitations.rs`, `apps/api/src/routes/board_invitations.rs`, `BoardJanitor` every 10 min in
+the worker): `POST /v1/boards/{id}/invitations {user_id}` (owner only, `Idempotency-Key` required, limit `boards.invitations.create`
+30/day) → 201 `{invitation: {id, invitee_id, invitee_display_name, status: "pending", expires_at}}`. A board the caller does not own, a
+target who is not the owner's current friend (no block), the owner themself or a malformed id → the same 404 as a missing board. A member
+or an open invitation → 409 `ALREADY_INVITED`; collaborators + open invitations ≥ `boards.max_collaborators` (8) → 409
+`COLLABORATOR_LIMIT_REACHED` (counted under a per-board advisory lock). "Open" = `pending`, `declined` or `dropped` and unexpired: declines
+and drops look pending to the owner and keep their seat until `expires_at` (7 days, `invitations.ttl_days`). Re-inviting after an
+unanswered invitation (declined, dropped or expired — the owner cannot tell which) → 429 `REINVITE_COOLDOWN` with `Retry-After` until
+`invitations.reinvite_cooldown_days` (7) after its expiry; a cancelled one has no cooldown. A block between the invitee and any member
+(either way) stores the invitation as `dropped` with the same 201. `GET /v1/boards/{id}/invitations` (owner) lists open invitations,
+all `pending`. `DELETE /v1/board-invitations/{id}` (inviter) → 204 or 404. `GET /v1/me/board-invitations` → `{items: [{id, board_id,
+board_title, owner_display_name, member_count, expires_at}]}` (pending, unexpired, live boards; dropped never listed; no member list).
+`POST /v1/board-invitations/{id}/accept` (ses + att log-only) re-checks in one transaction under the board lock: the caller's own
+pending, unexpired invitation to a live board; still the owner's friend; no block with any member; the cap → 200 `{board_id}` and a
+`board_members` row (`role = collaborator`, `invitation_id`); any failure is the byte-identical 404. `POST …/decline` → 204 (silent) or
+404. Push notifications for invitations join with T-109.
 
 ### Sharing (public links) & web
 | Method | Path | Purpose | Auth | Role | Object rule | Rate limit | Idem. | US |
@@ -632,7 +648,7 @@ on `code`); `requestId` equals the `X-Request-Id` response header. Generic codes
 | 404 | `NOT_FOUND` (also for every object-level denial, incl. non-pending/expired board invitations), `INVITE_EXPIRED` (reset, expired or use cap reached) |
 | 409 | `ALREADY_FRIENDS`, `HANDLE_TAKEN`, `PIN_VERSION_CONFLICT` / `BOARD_VERSION_CONFLICT`, `IDEMPOTENCY_IN_PROGRESS`, `FRIEND_LIMIT_REACHED`, `BOARD_LIMIT_REACHED`, `PIN_LIMIT_REACHED`, `COLLABORATOR_LIMIT_REACHED` (members + pending invitations), `ALREADY_INVITED`, `CARD_HELD_FOR_REVIEW` (owner pins/links a held card), `APPEAL_ALREADY_FILED` |
 | 413/415 | `MEDIA_TOO_LARGE` (uploads), `PAYLOAD_TOO_LARGE` (any other body over the limit), `MEDIA_TYPE_UNSUPPORTED` |
-| 429 | `RATE_LIMITED`, `HANDLE_CHANGE_COOLDOWN`, `EXPORT_COOLDOWN`, `REINVITE_COOLDOWN` (generic "try later" copy on auth/search) |
+| 429 | `RATE_LIMITED`, `HANDLE_CHANGE_COOLDOWN`, `EXPORT_COOLDOWN`, `REINVITE_COOLDOWN` (+ `Retry-After`; generic "try later" copy on auth/search) |
 | 503 | `TEMPORARILY_UNAVAILABLE` (+ `Retry-After`) |
 
 ## Conventions

@@ -5,9 +5,10 @@ use utoipa_axum::routes;
 
 use crate::access::{ApiRouter, Idempotency, RoutePolicy};
 use crate::routes::{
-    activity, age_signal, app_config, attestation, auth, blocks, board_members, board_ops,
-    board_read, boards, cards, devices, feed, friend_requests, friends, health, invites, me, media,
-    media_files, notification_preferences, public_invites, sessions, user_search, widget,
+    activity, age_signal, app_config, attestation, auth, blocks, board_invitations, board_members,
+    board_ops, board_read, boards, cards, devices, feed, friend_requests, friends, health, invites,
+    me, media, media_files, notification_preferences, public_invites, sessions, user_search,
+    widget,
 };
 use crate::state::AppState;
 use platform::problem::ProblemDetails;
@@ -315,6 +316,34 @@ pub fn router() -> ApiRouter<AppState> {
         .route(
             RoutePolicy::session().limited("boards.members.read"),
             routes!(board_members::list_board_members),
+        )
+        .route(
+            RoutePolicy::session()
+                .limited("boards.invitations.create")
+                .idempotency(Idempotency::Required),
+            routes!(board_invitations::create_board_invitation),
+        )
+        .route(
+            RoutePolicy::session().limited("boards.invitations.read"),
+            routes!(board_invitations::list_board_invitations),
+        )
+        .route(
+            RoutePolicy::session().limited("boards.invitations.cancel"),
+            routes!(board_invitations::cancel_board_invitation),
+        )
+        .route(
+            RoutePolicy::session().limited("boards.invitations.mine"),
+            routes!(board_invitations::list_my_board_invitations),
+        )
+        .route(
+            RoutePolicy::session()
+                .limited("boards.invitations.accept")
+                .with_attestation(),
+            routes!(board_invitations::accept_board_invitation),
+        )
+        .route(
+            RoutePolicy::session().limited("boards.invitations.decline"),
+            routes!(board_invitations::decline_board_invitation),
         )
         .undocumented_policy(
             &Method::GET,

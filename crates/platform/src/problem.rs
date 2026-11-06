@@ -112,6 +112,15 @@ pub enum ApiError {
     /// The caller already owns the maximum number of boards (AC-18.2).
     #[error("board limit reached")]
     BoardLimitReached,
+    /// Collaborators plus open invitations reached the board's cap (AC-19.1).
+    #[error("collaborator limit reached")]
+    CollaboratorLimitReached,
+    /// The user is already a member of the board or has an open invitation to it.
+    #[error("already invited")]
+    AlreadyInvited,
+    /// Re-inviting this user to this board must wait (the reason is not revealed).
+    #[error("reinvite cooldown")]
+    ReinviteCooldown { retry_after_secs: u64 },
     #[error("method not allowed")]
     MethodNotAllowed,
     #[error("request timed out")]
@@ -154,11 +163,15 @@ impl ApiError {
             | Self::IdempotencyInProgress
             | Self::AlreadyFriends
             | Self::FriendLimitReached
-            | Self::BoardLimitReached => StatusCode::CONFLICT,
+            | Self::BoardLimitReached
+            | Self::CollaboratorLimitReached
+            | Self::AlreadyInvited => StatusCode::CONFLICT,
             Self::IdempotencyKeyReused | Self::UnknownRegistryId => {
                 StatusCode::UNPROCESSABLE_ENTITY
             }
-            Self::HandleChangeCooldown { .. } => StatusCode::TOO_MANY_REQUESTS,
+            Self::HandleChangeCooldown { .. } | Self::ReinviteCooldown { .. } => {
+                StatusCode::TOO_MANY_REQUESTS
+            }
             Self::MethodNotAllowed => StatusCode::METHOD_NOT_ALLOWED,
             Self::RequestTimeout => StatusCode::REQUEST_TIMEOUT,
             Self::UpgradeRequired => StatusCode::UPGRADE_REQUIRED,
@@ -189,6 +202,9 @@ impl ApiError {
             Self::AlreadyFriends => "ALREADY_FRIENDS",
             Self::FriendLimitReached => "FRIEND_LIMIT_REACHED",
             Self::BoardLimitReached => "BOARD_LIMIT_REACHED",
+            Self::CollaboratorLimitReached => "COLLABORATOR_LIMIT_REACHED",
+            Self::AlreadyInvited => "ALREADY_INVITED",
+            Self::ReinviteCooldown { .. } => "REINVITE_COOLDOWN",
             Self::HandleTaken => "HANDLE_TAKEN",
             Self::IdempotencyKeyReused => "IDEMPOTENCY_KEY_REUSED",
             Self::UnknownRegistryId => "UNKNOWN_REGISTRY_ID",
@@ -207,7 +223,8 @@ impl ApiError {
         match self {
             Self::RateLimited { retry_after_secs }
             | Self::Unavailable { retry_after_secs }
-            | Self::HandleChangeCooldown { retry_after_secs } => Some(*retry_after_secs),
+            | Self::HandleChangeCooldown { retry_after_secs }
+            | Self::ReinviteCooldown { retry_after_secs } => Some(*retry_after_secs),
             _ => None,
         }
     }
@@ -299,6 +316,11 @@ mod tests {
             ApiError::AlreadyFriends,
             ApiError::FriendLimitReached,
             ApiError::BoardLimitReached,
+            ApiError::CollaboratorLimitReached,
+            ApiError::AlreadyInvited,
+            ApiError::ReinviteCooldown {
+                retry_after_secs: 1,
+            },
             ApiError::IdempotencyKeyReused,
             ApiError::UnknownRegistryId,
             ApiError::IdempotencyInProgress,

@@ -10,3 +10,14 @@ boards:
   max_pins: 100
   # Ops one POST /v1/boards/{id}/ops request may carry (more is 400).
   max_ops_per_batch: 50
+  # AC-19.1: collaborators plus open invitations per board (the owner is not counted). The next
+  # invitation is 409 COLLABORATOR_LIMIT_REACHED.
+  max_collaborators: 8
+
+invitations:
+  # AC-19.8: an invitation stays open this many days; declined and silently dropped invitations
+  # look pending to the owner until then.
+  ttl_days: 7
+  # Re-inviting the same user to the same board after an unanswered invitation (declined, dropped
+  # or expired, indistinguishable to the owner) waits this many days after its expiry.
+  reinvite_cooldown_days: 7

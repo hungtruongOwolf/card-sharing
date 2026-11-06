@@ -2,6 +2,8 @@
 //! schema (migrations/*_boards*.sql). Cards, friendships and accounts belong to other modules;
 //! this crate stores ids and decides card visibility on boards through their SQL predicates.
 
+pub mod invitations;
+pub mod janitor;
 pub mod members;
 pub mod ops;
 pub mod pins;
@@ -9,6 +11,8 @@ pub mod resolve;
 pub mod service;
 pub mod settings;
 
+pub use invitations::{InviteOutcome, OwnerInvitation, ReceivedInvitation};
+pub use janitor::BoardJanitor;
 pub use members::Member;
 pub use ops::{BatchResult, OpResult, Outcome, PinOp, RejectCode};
 pub use pins::{Pin, PinContent, Transform, TransformError, TransformPatch};

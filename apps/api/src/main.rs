@@ -245,6 +245,7 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
         Arc::clone(&clock),
         social.retention_days,
     ));
+    let board_janitor = Arc::new(boards::BoardJanitor::new(pool.clone(), Arc::clone(&clock)));
     let media = Arc::new(media::MediaService::new(
         pool.clone(),
         Arc::clone(&clock),
@@ -349,6 +350,11 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
             Arc::new(IdempotencyPurge(idempotency)),
         )
         .periodic(
+            "boards.expire_invitations",
+            std::time::Duration::from_secs(600),
+            Arc::new(BoardHousekeeping(board_janitor)),
+        )
+        .periodic(
             "social.expire_requests",
             std::time::Duration::from_secs(600),
             Arc::new(SocialHousekeeping(janitor)),
@@ -418,6 +424,20 @@ impl PeriodicTask for SocialHousekeeping {
                 purged_requests = report.purged_requests,
                 purged_invites = report.purged_invites
             );
+            Ok(())
+        })
+    }
+}
+
+/// Expires board invitations past 7 days (AC-19.8) and purges ended ones.
+struct BoardHousekeeping(Arc<boards::BoardJanitor>);
+
+impl PeriodicTask for BoardHousekeeping {
+    fn run(&self) -> PeriodicFuture {
+        let janitor = Arc::clone(&self.0);
+        Box::pin(async move {
+            let (expired, purged) = janitor.run_once().await.map_err(|e| e.to_string())?;
+            tracing::info!(event = "boards.housekeeping", expired, purged);
             Ok(())
         })
     }
