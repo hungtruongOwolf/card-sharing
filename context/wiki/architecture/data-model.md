@@ -152,6 +152,18 @@ to avoid deadlocks), count, then insert (AC-5.2). Caps come from `PolicyService`
 
 Implemented (T-70, `migrations/*_media_objects.sql`): `media_objects` without the scan columns, which arrive with the gates (T-72,
 T-73). Uploads insert the row and the `media.process` job in one transaction.
+Implemented (T-71, `migrations/*_media_derivatives.sql`, `crates/media/src/{process,pipeline}.rs`): `media.process` decodes
+only the sniffed format with the `image` crate (PNG/JPEG/WebP, pure Rust) in `spawn_blocking`, with limits of 4096 px per side
+and 192 MiB of decoder allocations and a 20 s timeout; it applies the EXIF orientation and re-encodes from raw pixels to
+lossless WebP, so no metadata (EXIF/GPS/ICC/XMP) or trailing/polyglot bytes survive. `media_objects` gains `processed_at` and
+`failure_code` (`missing_object`, `decode_error`, `decode_timeout`, `decode_panic`, `encode_error`; required iff `state =
+failed`); the main row then points at the re-encode (`content_type = image/webp`, re-encoded size) and keeps the raw
+upload's key in `raw_storage_key` until the gates decide (CSAM evidence; deleted once clean, held or failed). `media_derivatives` gets `bucket`, `width`, `height`, `byte_size` and `UNIQUE(media_id, variant)`; card renders get
+`feed_1080`/`widget_512`/`thumb_256`, masks `feed_1080`, avatars `thumb_256`, originals none (fit inside the box, never
+upscaled). Everything stays in `quarantine`, state `scanning`, until the gates pass. A failed decode or a timeout is terminal
+(no retry, never delivered); storage and database errors retry. A mask must have exactly the render's size
+(`MediaService::mask_fits`, checked when a card is created). Follow-up: lossy WebP for photos (the `image` encoder is lossless
+only).
 Originals (`kind=original`) get no recipient derivatives and are signed only for their owner (AC-13.6); recipients only ever receive
 `feed_1080` / `widget_512` / `thumb_256`. The `og` variant is a watermarked composite of the owner's card pins (AC-24.7), keyed by
 link id; it is deleted and purged on revoke, but copies already fetched by social crawlers are outside our control (accepted risk D4).
