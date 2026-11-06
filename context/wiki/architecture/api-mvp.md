@@ -187,7 +187,7 @@ VP8/VP8L/VP8X) is read while streaming, before anything is stored or decoded: a 
 `VALIDATION_FAILED` from the first chunk. Bytes go to the private `quarantine` bucket under a random 128-bit key and the
 `media.process` job is queued in the same transaction. Same bytes + kind + owner → 200 with the existing upload (instead of
 `Idempotency-Key`, whose replay buffer is 1 MiB); a new upload → 201. Responses never carry a URL, key or hash. No object storage
-configured (`API_MEDIA_STORAGE_DIR` unset, until the R2 adapter lands) → 503 `TEMPORARILY_UNAVAILABLE`.
+configured (neither `API_S3_ENDPOINT` nor `API_MEDIA_STORAGE_DIR` set) → 503 `TEMPORARILY_UNAVAILABLE`.
 
 ### Social
 | Method | Path | Purpose | Auth | Role | Object rule | Rate limit | Idem. | US |

@@ -2,7 +2,7 @@
 title: ADR-0008 Hosting & infrastructure for MVP/beta
 type: decision
 status: accepted
-updated: 2026-11-04
+updated: 2026-11-06
 sources: [raw/discussions/2026-11-04-infra-qa.md]
 related: [[overview]], [[data-model]], [[ADR-0005-media-pipeline]], [[ADR-0006-job-queue]], [[ADR-0004-auth-sessions]], [[security-baseline]]
 ---
@@ -36,8 +36,10 @@ in-house auth ([[ADR-0004-auth-sessions]]), private media with signed per-viewer
     statements and `LISTEN/NOTIFY` used by the job queue). `sslmode=verify-full`.
   - Enable PITR/backups; region chosen close to compute (start: US East; EU project later per [[region-policy]] / residency needs).
   - Service-role key and DB passwords live only in Fly secrets — never in apps/web or the mobile bundle.
-- **Media: Cloudflare R2** buckets (`quarantine`, `media`, `public-derivatives`) + Cloudflare CDN with signed tokens
-  validated at the edge (TTL ≤ 10 min, per viewer). Web (`apps/web`) also sits behind Cloudflare (WAF, bot management, rate limiting).
+- **Media: Cloudflare R2** private buckets `quarantine` (48 h lifecycle rule), `clean` (the only one behind the CDN) and
+  `legal-hold` (object lock), per [[ADR-0005-media-pipeline]] + Cloudflare CDN with signed tokens validated at the edge
+  (TTL ≤ 10 min, per viewer). The API talks to R2 through `media::S3ObjectStore` (in-house SigV4 over hyper/rustls, no
+  SDK; `API_S3_*` env, #251); buckets and their rules are provisioned by infrastructure, not by the app. Web (`apps/web`) also sits behind Cloudflare (WAF, bot management, rate limiting).
 - **Compute: Fly.io** — `api` and `worker` process groups from one Rust image; `web` (Next.js) as a separate app; private networking to Redis.
 - **Redis: Upstash** (cache + rate limits only, never durable state).
 - **Email: Postmark** (transactional, magic links); **push**: APNs + FCM direct.
