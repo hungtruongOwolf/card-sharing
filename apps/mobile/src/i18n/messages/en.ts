@@ -188,6 +188,51 @@ export const en = {
   'drafts.retry': 'Try again',
   'drafts.saveFailed': 'We couldn’t save this draft. You can keep editing.',
   'drafts.full': 'Your drafts are full. Delete some to save new ones.',
+  'drafts.send': 'Send',
+  'drafts.send.a11y': 'Send draft {title}',
+
+  'send.title': 'Send your card',
+  'send.intro':
+    'Only the friends you choose get this card. Nothing is uploaded until you tap Send.',
+  'send.friends.loading': 'Getting your friends…',
+  'send.friends.error': 'We couldn’t load your friends.',
+  'send.friends.empty': 'Add a friend first. Cards go only to your friends.',
+  'send.friends.add': 'Add friends',
+  'send.audience.title': 'Who gets it',
+  'send.audience.all': '{count, plural, one {My friend} other {All # friends}}',
+  'send.audience.some': 'Choose friends',
+  'send.audience.picked':
+    '{count, plural, =0 {Pick at least one friend} one {# friend picked} other {# friends picked}}',
+  'send.audience.tooMany': 'You can send to at most {max} friends.',
+  'send.friend.a11y': 'Send to {name}',
+  'send.keepOriginal': 'Keep the original photo',
+  'send.keepOriginal.hint':
+    'Saves the full photo with the card. Only you can ever see it; friends get the card.',
+  'send.send': 'Send',
+  'send.sending': 'Sending…',
+  'send.retry': 'Try again',
+  'send.asNew': 'Send as a new card',
+  'send.edit': 'Edit card',
+  'send.done': 'Done',
+  'send.error.offline':
+    'We couldn’t send this card right now. Check your connection and try again.',
+  'send.error.rateLimited': 'You’ve sent a lot of cards today. Please try again later.',
+  'send.error.notAllowed': 'Your account can’t send cards right now.',
+  'send.error.staleStyle':
+    'A style on this card isn’t available anymore. Edit the card and try again.',
+  'send.error.prepare': 'We couldn’t get this card ready to send. Edit it and try again.',
+  'send.error.changed':
+    'This card changed after an earlier try, so we can’t tell if that one arrived.',
+  'send.status.pending':
+    '{count, plural, =0 {Sent.} one {On its way to # friend.} other {On its way to # friends.}}',
+  'send.status.pending.body': 'Every card gets a quick automatic check before it arrives.',
+  'send.status.active':
+    '{count, plural, =0 {Sent.} one {Delivered to # friend.} other {Delivered to # friends.}}',
+  'send.status.held': 'This card is waiting for a review.',
+  'send.status.held.body': 'Only you can see it for now. Nobody has received it yet.',
+  'send.status.stopped': 'This card couldn’t be sent.',
+  'send.appeal': 'Ask for a review',
+  'send.appeal.soon': 'Asking for a review comes in an app update.',
   'editor.title': 'Style your card',
   'editor.loading': 'Getting your photo ready…',
   'editor.error.title': 'We couldn’t open that photo',

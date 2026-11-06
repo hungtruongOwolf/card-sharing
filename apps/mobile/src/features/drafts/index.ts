@@ -22,7 +22,7 @@ export {
   unknownStorageInfo,
   type StorageInfo,
 } from './housekeeping';
-export { AUTOSAVE_DELAY_MS, useDraftAutosave } from './useDraftAutosave';
+export { AUTOSAVE_DELAY_MS, useDraftAutosave, type DraftAutosave } from './useDraftAutosave';
 
 let deviceStore: DraftStore | null = null;
 

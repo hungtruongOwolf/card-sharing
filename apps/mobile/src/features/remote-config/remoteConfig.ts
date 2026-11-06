@@ -5,7 +5,7 @@ import { parseTextFilterConfig, type TextFilterConfig } from '../../text';
 /**
  * Public client config (`GET /v1/config`, T-27): feature flags, registry kill switches and product limits.
  * Unauthenticated and CDN-cached, so it carries no user data. Display only: the server enforces its own copy.
- * Read so far: the registry part, the caption limit and the text filter hints.
+ * Read so far: the registry part, the caption and recipient limits and the text filter hints.
  */
 export interface RemoteConfig {
   registry: RemoteRegistryConfig;
@@ -13,6 +13,8 @@ export interface RemoteConfig {
   captionMaxGraphemes?: number;
   /** `text_filter`: term lists for caption hints (#213), when present and well formed. */
   textFilter?: TextFilterConfig;
+  /** `limits.card_recipients_max`: most friends one card can go to (T-77), when present and sane. */
+  cardRecipientsMax?: number;
 }
 
 /** Upper bound accepted for a served length limit; anything else falls back to the app's default. */
@@ -42,9 +44,13 @@ export function parseRemoteConfig(body: unknown): RemoteConfig | null {
   const captionMaxGraphemes = isRecord(body.limits)
     ? positiveLimit(body.limits.caption_max_chars)
     : undefined;
+  const cardRecipientsMax = isRecord(body.limits)
+    ? positiveLimit(body.limits.card_recipients_max)
+    : undefined;
   const textFilter = parseTextFilterConfig(body.text_filter);
   return {
     ...(captionMaxGraphemes === undefined ? {} : { captionMaxGraphemes }),
+    ...(cardRecipientsMax === undefined ? {} : { cardRecipientsMax }),
     ...(textFilter === undefined ? {} : { textFilter }),
     registry: {
       flags: flags as Record<string, boolean>,

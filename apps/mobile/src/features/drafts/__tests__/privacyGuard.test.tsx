@@ -79,8 +79,8 @@ describe('privacy guard: drafts never upload', () => {
         ),
       });
       await act(async () => {
-        result.current(draft);
-        result.current({ ...draft, caption: 'offline 2' });
+        result.current.onDraftChange(draft);
+        result.current.onDraftChange({ ...draft, caption: 'offline 2' });
         jest.advanceTimersByTime(AUTOSAVE_DELAY_MS);
       });
       jest.useRealTimers();

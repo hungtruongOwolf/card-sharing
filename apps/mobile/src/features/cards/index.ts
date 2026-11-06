@@ -4,7 +4,10 @@ export {
   bakeCard,
   bakeSize,
   encodeMask,
+  encodeOriginal,
+  ORIGINAL_MAX_SIDE,
   rasterSurface,
+  resampleMask,
   usesMask,
   type BakedCard,
   type BakedImage,
@@ -22,3 +25,4 @@ export {
   type StyleBlockResult,
   type StyleRef,
 } from './localCard';
+export { prepareForSend, type PrepareDeps, type PreparedCard } from './prepare';

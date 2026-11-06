@@ -2,7 +2,7 @@
 title: Effects Catalog (Tier 0) & Effect Registry
 type: spec
 status: draft
-updated: 2026-11-05
+updated: 2026-11-06
 sources: [raw/discussions/2026-11-05-sprint-1-kickoff-qa.md, raw/discussions/2026-11-04-prd-design-qa.md, raw/research/2026-11-04-zero-download-ai.md, raw/research/2026-11-04-subject-cutout.md, raw/research/2026-11-04-on-device-genai.md, raw/research/2026-11-04-frontend-stack.md, raw/discussions/2026-11-04-idea-round-1.md, raw/discussions/2026-11-04-idea-round-5.md]
 related: [[ADR-0003-effects-tiers]], [[subject-cutout]], [[design-system]], [[change-management]], [[monetization]], [[region-policy]], [[vision]], [[genai-effects]]
 ---
@@ -177,8 +177,11 @@ Export rules:
   Implemented (T-67, `apps/mobile/src/features/cards/bake.ts`): `bakeCard` draws `drawCard` on a CPU raster surface
   (byte-stable: the same draft bakes to the same PNG bytes, unlike a GPU surface across devices) at long side 1080
   (`send`) or 2048 (`export`) from the full-resolution photo. Every card is a PNG with alpha (even `cut.none` has
-  rounded corners, so no JPEG path yet). The 8-bit mask is encoded as a grayscale PNG at its own resolution, and only
-  when the cut style reads it (`mask`/`contour` input, not a whole-photo card), so unused masks never leave the device.
+  rounded corners, so no JPEG path yet). The 8-bit mask is resampled (bilinear) to the render's exact size, because
+  `POST /v1/cards` refuses any other mask size (T-77), and encoded as a grayscale PNG only when the cut style reads it
+  (`mask`/`contour` input, not a whole-photo card), so unused masks never leave the device. A kept original
+  (`encodeOriginal`, "keep original" only) is the photo re-encoded as JPEG at most 4096 px per side, which also drops
+  EXIF on the device. `prepareForSend` (`cards/prepare.ts`) bakes all of it when the user taps Send.
   Bakes stay in memory; only the send flow (T-77) uploads them. The local card model (`localCard.ts`: client id reused
   as `client_card_id`, photo reference, `{id, version, params}` per slot, timestamps) keeps the card re-editable until
   sent (AC-21.5; the editor takes an `initialDraft`), and `styleBlock` builds the `POST /v1/cards` `style` block with

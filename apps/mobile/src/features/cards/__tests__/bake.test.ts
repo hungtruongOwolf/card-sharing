@@ -8,7 +8,17 @@ import { registry, type EffectEntry } from '@card-sharing/effects-registry';
 
 import { styleChoice, type CardDraft } from '../../editor/editorState';
 import { syntheticMask } from '../../editor/maskSource';
-import { BAKE_LONG_SIDE, BakeError, bakeCard, bakeSize, encodeMask, usesMask } from '../bake';
+import {
+  BAKE_LONG_SIDE,
+  BakeError,
+  bakeCard,
+  bakeSize,
+  encodeMask,
+  encodeOriginal,
+  ORIGINAL_MAX_SIDE,
+  resampleMask,
+  usesMask,
+} from '../bake';
 
 jest.mock('@shopify/react-native-skia', () =>
   // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -74,7 +84,7 @@ describe('bakeSize', () => {
 describe('bakeCard', () => {
   const mask = syntheticMask(60, 80);
 
-  it('renders a sticker as a PNG with alpha, plus the mask it was cut from', () => {
+  it('renders a sticker as a PNG with alpha, plus the mask it was cut from at the render size', () => {
     const baked = bakeCard({
       registry,
       draft: draft('cut.raw', 'fx.glossy'),
@@ -83,15 +93,18 @@ describe('bakeCard', () => {
       purpose: 'send',
       longSide: LONG_SIDE,
     });
-    expect(Array.from(baked.render.png.slice(0, 4))).toEqual(PNG_MAGIC);
-    const render = decode(baked.render.png);
+    expect(baked.render.contentType).toBe('image/png');
+    expect(Array.from(baked.render.bytes.slice(0, 4))).toEqual(PNG_MAGIC);
+    const render = decode(baked.render.bytes);
     expect([render.width, render.height]).toEqual([72, 96]);
     expect(render.at(1, 1)[3]).toBe(0);
     expect(render.at(36, 58)[3]).toBe(255);
     expect(baked.mask).not.toBeNull();
-    const decodedMask = decode(baked.mask!.png);
-    expect([decodedMask.width, decodedMask.height]).toEqual([60, 80]);
-    expect(decodedMask.at(30, 48).slice(0, 3)).toEqual([255, 255, 255]);
+    // POST /v1/cards refuses a mask whose size differs from the render's.
+    expect([baked.mask!.width, baked.mask!.height]).toEqual([72, 96]);
+    const decodedMask = decode(baked.mask!.bytes);
+    expect([decodedMask.width, decodedMask.height]).toEqual([72, 96]);
+    expect(decodedMask.at(36, 58).slice(0, 3)).toEqual([255, 255, 255]);
     expect(decodedMask.at(1, 1).slice(0, 3)).toEqual([0, 0, 0]);
   });
 
@@ -106,7 +119,7 @@ describe('bakeCard', () => {
           purpose: 'send',
           longSide: LONG_SIDE,
         });
-      expect(bake().render.png).toEqual(bake().render.png);
+      expect(bake().render.bytes).toEqual(bake().render.bytes);
     }
   });
 
@@ -141,6 +154,37 @@ describe('bakeCard', () => {
   it('encodes masks at their own resolution', () => {
     const encoded = encodeMask(syntheticMask(16, 8));
     expect([encoded.width, encoded.height]).toEqual([16, 8]);
-    expect(Array.from(encoded.png.slice(0, 4))).toEqual(PNG_MAGIC);
+    expect(Array.from(encoded.bytes.slice(0, 4))).toEqual(PNG_MAGIC);
+  });
+});
+
+describe('resampleMask', () => {
+  it('keeps a mask of the right size and scales others with the subject in place', () => {
+    const mask = syntheticMask(60, 80);
+    expect(resampleMask(mask, 60, 80)).toBe(mask);
+    const big = resampleMask(mask, 120, 160);
+    expect([big.width, big.height, big.data.length]).toEqual([120, 160, 120 * 160]);
+    expect(big.data[96 * 120 + 60]).toBe(255);
+    expect(big.data[2 * 120 + 2]).toBe(0);
+    const small = resampleMask(mask, 15, 20);
+    expect(small.data[12 * 15 + 7]).toBe(255);
+    expect(small.data[0]).toBe(0);
+  });
+});
+
+describe('encodeOriginal', () => {
+  const JPEG_MAGIC = [0xff, 0xd8, 0xff];
+
+  it('re-encodes the photo as a JPEG at its own size', () => {
+    const original = encodeOriginal(photo(120, 160));
+    expect(original.contentType).toBe('image/jpeg');
+    expect(Array.from(original.bytes.slice(0, 3))).toEqual(JPEG_MAGIC);
+    expect([original.width, original.height]).toEqual([120, 160]);
+  });
+
+  it('caps the long side at the upload limit', () => {
+    const original = encodeOriginal(photo(ORIGINAL_MAX_SIDE + 100, 10));
+    expect(original.width).toBe(ORIGINAL_MAX_SIDE);
+    expect(decode(original.bytes).width).toBe(ORIGINAL_MAX_SIDE);
   });
 });

@@ -29,17 +29,19 @@ async function setup(storageFree: number | null = null) {
   await store.save(fresh);
   await store.save(old);
   const onOpen = jest.fn();
+  const onSend = jest.fn();
   await renderThemed(
     <DraftsScreen
       store={store}
       now={() => NOW}
       storageInfo={{ freeBytes: () => Promise.resolve(storageFree) }}
       onOpen={onOpen}
+      onSend={onSend}
       onNew={jest.fn()}
     />,
   );
   await screen.findByTestId('drafts');
-  return { store, fresh, old, onOpen };
+  return { store, fresh, old, onOpen, onSend };
 }
 
 describe('DraftsScreen', () => {
@@ -52,6 +54,14 @@ describe('DraftsScreen', () => {
       .setup()
       .press(screen.getByRole('button', { name: t('drafts.open.a11y', { title: 'beach day' }) }));
     expect(onOpen).toHaveBeenCalledWith(fresh);
+  });
+
+  it('sends a draft from the tray', async () => {
+    const { fresh, onSend } = await setup();
+    await userEvent
+      .setup()
+      .press(screen.getByRole('button', { name: t('drafts.send.a11y', { title: 'beach day' }) }));
+    expect(onSend).toHaveBeenCalledWith(fresh);
   });
 
   it('offers to clean up drafts older than 30 days, after a confirm', async () => {

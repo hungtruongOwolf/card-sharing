@@ -22,6 +22,8 @@ export interface DraftsScreenProps {
   /** Clock seam for tests. */
   now?: () => Date;
   onOpen: (card: LocalCard) => void;
+  /** Send a draft (T-77); without it the tray has no Send button. */
+  onSend?: (card: LocalCard) => void;
   onNew: () => void;
 }
 
@@ -38,6 +40,7 @@ export function DraftsScreen({
   storageInfo = unknownStorageInfo,
   now = () => new Date(),
   onOpen,
+  onSend,
   onNew,
 }: DraftsScreenProps) {
   const toast = useToast();
@@ -144,6 +147,14 @@ export function DraftsScreen({
               accessibilityLabel={t('drafts.open.a11y', { title })}
               onPress={() => onOpen(card)}
             />
+            {onSend ? (
+              <Button
+                variant="secondary"
+                label={t('drafts.send')}
+                accessibilityLabel={t('drafts.send.a11y', { title })}
+                onPress={() => onSend(card)}
+              />
+            ) : null}
             <Button
               variant="ghost"
               label={t('drafts.delete')}
@@ -184,8 +195,8 @@ export function DraftsScreen({
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: space[3] },
-  grow: { flex: 1 },
+  row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: space[3] },
+  grow: { flex: 1, minWidth: 120 },
   thumb: { width: THUMB, height: THUMB, borderRadius: radius.sm },
   banner: { gap: space[2] },
 });
