@@ -24,8 +24,27 @@ is checked in code and measured later on a device.
 | Mobile (one agent) | T-103 Skia board canvas → T-104 gestures → T-111 backdrops/decorations → T-105 offline sync (after T-101) → T-108 shared board experience (after T-106/T-107) | Canvas work needs no server; sync waits for contracts on origin/main |
 | Lead | Reviews, merges once CI is green, wiki ingest | |
 
+## Progress
+| Ticket | Issue | PR | Result |
+|---|---|---|---|
+| T-98 boards CRUD | #100 | #285 | Merged. `crates/boards`, `config/boards.yaml`; client-generated UUIDv7 ids; 20-board cap (409 `BOARD_LIMIT_REACHED`). |
+| T-99 pin op batches | #101 | #287 | Merged. Append-only `board_ops`; per-op applied/conflict/rejected; idempotent `op_id`; 100 pins, 50 ops per batch. |
+| T-100 pin authz | #102 | #288 | Merged. Pin only cards the pinner can view; held own card returns `CARD_HELD_FOR_REVIEW`, everything else `NOT_FOUND`. |
+| T-101 per-viewer resolution + delta | #103 | #290 | Merged. Pins resolve per viewer on every read; denied pins become id-less `private_tile`s. |
+| T-102 minor rule | #104 | #291 | Merged. Plus `GET /v1/boards/{id}/members`; stricter than spec (see EM decisions). |
+| T-106 invitations | #108 | #293 | Merged. Acceptance required; declined/dropped invites look pending to the owner; re-invite cooldown. |
+| T-107 remove/leave | #109 | #294 | Merged. Block between members removes one of them. Follow-up #295 (block non-friends). |
+| T-112 rename/duplicate/delete | #114 | #296 | Merged. `BOARD_VERSION_CONFLICT`; soft delete; `boards.board_deleted` event. |
+| T-109 board notifications | #111 | #297 | Server part merged; issue stays open for the on-device p95 60 s check (AC-19.4). |
+| T-110 property tests | #112 | #300 | Merged. Seeded SplitMix64 generator (no proptest in the lockfile); replay with `BOARD_PROPERTY_SEED`. |
+
+Pending EM decisions (defaults applied): AC-19.5 vs AC-19.7 resolved to "only recipients see a pinned card"; board push
+rides the `friend` toggle; minor rule applies even when the card owner is not a member; the re-invite cooldown covers
+declined, dropped and expired invites. Not done yet: Activity items for boards, revoking public links on board delete,
+backdrop/decoration registry entries.
+
 ## Exit checklist
 - [ ] Every sprint-6 ticket above is merged with CI green and its issue closed, or explicitly carried over.
-- [ ] T-110 property tests green: no media URL reaches a viewer who is not entitled to it.
-- [ ] Invitations require acceptance; the minor rule truth table passes.
+- [x] T-110 property tests green: no media URL reaches a viewer who is not entitled to it.
+- [x] Invitations require acceptance; the minor rule truth table passes.
 - [ ] Wiki facts updated (api-mvp, data-model) and the sprint progress recorded here.
