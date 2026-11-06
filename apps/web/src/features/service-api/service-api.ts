@@ -96,6 +96,33 @@ export async function serviceGet(
   }
 }
 
+/** POSTs a JSON body to one `svc` route. Same rules as [`serviceGet`]. */
+export async function servicePost(
+  path: string,
+  body: unknown,
+  config: ServiceApiConfig,
+  clientIp: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<Response | null> {
+  try {
+    return await fetchImpl(new URL(path, config.apiUrl), {
+      method: 'POST',
+      headers: {
+        accept: 'application/json',
+        'content-type': 'application/json',
+        'x-service-credential': config.credential,
+        'x-client-ip': clientIp,
+      },
+      body: JSON.stringify(body),
+      cache: 'no-store',
+      redirect: 'error',
+      signal: AbortSignal.timeout(SERVICE_TIMEOUT_MS),
+    });
+  } catch {
+    return null;
+  }
+}
+
 /** Reads a JSON body; `undefined` when it is not JSON. */
 export async function readJson(response: Response): Promise<unknown> {
   try {
