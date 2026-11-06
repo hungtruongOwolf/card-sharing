@@ -113,6 +113,10 @@ searches are rate-limited, and a result only allows sending a request that must 
 - **US-8 (M):** As a user, I refine the mask with brush/eraser and undo/redo.
   - AC-8.1: Given I paint with brush/eraser, Then the cutout updates live at ≥ 30 fps; undo/redo supports ≥ 20 steps.
 - **US-9 (S):** As a user, my captures auto-save to a private in-app "Drafts" tray so I can finish later (works offline).
+  - Implemented (T-68): the editor auto-saves every change (400 ms debounce) as a local card; `/drafts` lists drafts
+    newest first, reopens one in the editor (re-editable until sent), deletes after a confirm and offers cleanup for
+    drafts not edited in 30 days. Storage and the privacy guard: [[security-baseline]] §7. The < 500 MB warning is built
+    behind a `StorageInfo` seam that reports "unknown" until a free-space API is a dependency (follow-up).
 
 ### E4 — Card styles
 - **US-10 (M):** As a user, I choose a cut style for my card.
