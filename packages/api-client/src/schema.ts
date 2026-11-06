@@ -155,6 +155,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The live moderation queue. Auth: staff (moderator or admin). Audited. */
+        get: operations["listModerationQueue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/reports/{id}/actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Decide a live queue item. Auth: staff (moderator; `ban` admin only) + `X-CSRF-Token`. */
+        post: operations["applyModerationAction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/staff": {
         parameters: {
             query?: never;
@@ -1619,6 +1653,33 @@ export interface components {
             /** @example pending_age */
             status: string;
         };
+        ActionEnvelope: {
+            action: components["schemas"]["ActionResult"];
+        };
+        /** @description Body of `POST /v1/admin/reports/{id}/actions`. */
+        ActionRequest: {
+            action: components["schemas"]["ActionRequestKind"];
+            /** @description Why (1 to 500 characters); stored with the action, never shown to the user. */
+            reason: string;
+            /**
+             * Format: date-time
+             * @description End of the suspension: required for `suspend` (future, at most 365 days ahead), refused
+             *     for every other action.
+             */
+            until?: string | null;
+        };
+        /** @enum {string} */
+        ActionRequestKind: "dismiss" | "remove_content" | "revoke_link" | "warn" | "suspend" | "ban";
+        ActionResult: {
+            action: string;
+            /**
+             * Format: uuid
+             * @description The recorded action (absent while a ban waits for the second admin).
+             */
+            id?: string | null;
+            /** @description `applied` or `pending_second_admin`. */
+            status: string;
+        };
         ActivityItemView: {
             /**
              * Format: uuid
@@ -2608,6 +2669,32 @@ export interface components {
             /** @description The provider token: APNs hex device token, or FCM registration token. */
             token: string;
         };
+        QueueItemView: {
+            /** Format: date-time */
+            first_reported_at: string;
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            last_reported_at: string;
+            /** Format: int32 */
+            priority: number;
+            /** Format: int32 */
+            report_count: number;
+            /** @description `open` or `in_review`. */
+            status: string;
+            /** Format: uuid */
+            target_id: string;
+            /** Format: uuid */
+            target_owner_id: string;
+            /** @description `card`, `board`, `public_link` or `user`. */
+            target_type: string;
+            /** Format: float */
+            weight: number;
+        };
+        QueueList: {
+            /** @description Live items in review order (priority, weight, age), at most 100. */
+            items: components["schemas"]["QueueItemView"][];
+        };
         QuietHours: {
             enabled: boolean;
             /**
@@ -3348,6 +3435,116 @@ export interface operations {
             };
             /** @description FORBIDDEN: IP not on the staff allow-list. */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    listModerationQueue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Live queue items, worst first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueList"];
+                };
+            };
+            /** @description UNAUTHENTICATED: no live staff session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description FORBIDDEN: IP not on the staff allow-list. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    applyModerationAction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The queue item id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ActionRequest"];
+            };
+        };
+        responses: {
+            /** @description Applied and recorded; the item is closed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionEnvelope"];
+                };
+            };
+            /** @description Ban recorded as pending: a second admin must confirm within 48 hours. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionEnvelope"];
+                };
+            };
+            /** @description VALIDATION_FAILED: reason, until, or an action that does not fit the target type. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description UNAUTHENTICATED: no live staff session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description FORBIDDEN: missing CSRF token, `ban` by a moderator, or IP not allowed. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND: no live queue item with this id (missing or already decided). */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

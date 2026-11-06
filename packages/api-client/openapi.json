@@ -515,6 +515,164 @@
         }
       }
     },
+    "/v1/admin/reports": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "The live moderation queue. Auth: staff (moderator or admin). Audited.",
+        "operationId": "listModerationQueue",
+        "responses": {
+          "200": {
+            "description": "Live queue items, worst first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED: no live staff session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN: IP not on the staff allow-list.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "staff": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "staff",
+          "rateLimit": "admin.read",
+          "role": "moderator",
+          "versionGate": true
+        }
+      }
+    },
+    "/v1/admin/reports/{id}/actions": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Decide a live queue item. Auth: staff (moderator; `ban` admin only) + `X-CSRF-Token`.",
+        "operationId": "applyModerationAction",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The queue item id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Applied and recorded; the item is closed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionEnvelope"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Ban recorded as pending: a second admin must confirm within 48 hours.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED: reason, until, or an action that does not fit the target type.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED: no live staff session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN: missing CSRF token, `ban` by a moderator, or IP not allowed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: no live queue item with this id (missing or already decided).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "staff": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "staff",
+          "rateLimit": "admin.actions",
+          "role": "moderator",
+          "versionGate": true
+        }
+      }
+    },
     "/v1/admin/staff": {
       "get": {
         "tags": [
@@ -7619,6 +7777,80 @@
           }
         }
       },
+      "ActionEnvelope": {
+        "type": "object",
+        "required": [
+          "action"
+        ],
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/ActionResult"
+          }
+        }
+      },
+      "ActionRequest": {
+        "type": "object",
+        "description": "Body of `POST /v1/admin/reports/{id}/actions`.",
+        "required": [
+          "action",
+          "reason"
+        ],
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/ActionRequestKind"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why (1 to 500 characters); stored with the action, never shown to the user.",
+            "maxLength": 500,
+            "minLength": 1
+          },
+          "until": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "End of the suspension: required for `suspend` (future, at most 365 days ahead), refused\nfor every other action."
+          }
+        },
+        "additionalProperties": false
+      },
+      "ActionRequestKind": {
+        "type": "string",
+        "enum": [
+          "dismiss",
+          "remove_content",
+          "revoke_link",
+          "warn",
+          "suspend",
+          "ban"
+        ]
+      },
+      "ActionResult": {
+        "type": "object",
+        "required": [
+          "action",
+          "status"
+        ],
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "The recorded action (absent while a ban waits for the second admin)."
+          },
+          "status": {
+            "type": "string",
+            "description": "`applied` or `pending_second_admin`."
+          }
+        }
+      },
       "ActivityItemView": {
         "type": "object",
         "required": [
@@ -10150,6 +10382,78 @@
           }
         },
         "additionalProperties": false
+      },
+      "QueueItemView": {
+        "type": "object",
+        "required": [
+          "id",
+          "target_type",
+          "target_id",
+          "target_owner_id",
+          "priority",
+          "weight",
+          "report_count",
+          "status",
+          "first_reported_at",
+          "last_reported_at"
+        ],
+        "properties": {
+          "first_reported_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "last_reported_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "priority": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "report_count": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "status": {
+            "type": "string",
+            "description": "`open` or `in_review`."
+          },
+          "target_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "target_owner_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "target_type": {
+            "type": "string",
+            "description": "`card`, `board`, `public_link` or `user`."
+          },
+          "weight": {
+            "type": "number",
+            "format": "float"
+          }
+        }
+      },
+      "QueueList": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QueueItemView"
+            },
+            "description": "Live items in review order (priority, weight, age), at most 100."
+          }
+        }
       },
       "QuietHours": {
         "type": "object",

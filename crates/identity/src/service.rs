@@ -654,6 +654,45 @@ impl IdentityService {
         Ok(suspended)
     }
 
+    /// Bans an account (from any status but deleting/deleted) and revokes every live session
+    /// (T-146). Returns `false` when it was already banned. Idempotent.
+    pub async fn ban_account(&self, account_id: Uuid) -> Result<bool, StoreError> {
+        let now = self.clock.now();
+        let mut tx = self.pool.begin().await?;
+        let banned = sqlx::query(
+            "UPDATE identity.accounts SET status = 'banned', updated_at = $2
+             WHERE id = $1 AND status IN ('pending_age', 'pending_profile', 'active', 'suspended')",
+        )
+        .bind(account_id)
+        .bind(now)
+        .execute(&mut *tx)
+        .await?
+        .rows_affected()
+            == 1;
+        if banned {
+            let entry = AuditEntry::new(Actor::System, AuditAction::AccountBanned)
+                .target("account", account_id);
+            audit::record(&mut *tx, &entry, now).await?;
+        }
+        tx.commit().await?;
+        self.revoke_all_sessions(account_id, RevokeReason::Suspended)
+            .await?;
+        Ok(banned)
+    }
+
+    /// When the account was created, if it exists.
+    pub async fn account_created_at(
+        &self,
+        account_id: Uuid,
+    ) -> Result<Option<OffsetDateTime>, StoreError> {
+        Ok(
+            sqlx::query_scalar("SELECT created_at FROM identity.accounts WHERE id = $1")
+                .bind(account_id)
+                .fetch_optional(&self.pool)
+                .await?,
+        )
+    }
+
     /// Drops cached lookups for every live session of an account, so a status change (age gate,
     /// suspension) takes effect on the next request instead of after the cache TTL.
     pub async fn invalidate_cached_sessions(&self, account_id: Uuid) -> Result<(), StoreError> {

@@ -1,5 +1,6 @@
 pub mod activity;
 pub mod admin_auth;
+pub mod admin_reports;
 pub mod age_signal;
 pub mod app_config;
 pub mod attestation;

@@ -38,6 +38,12 @@ pub enum AuditAction {
     DeletionCancelled,
     /// A deleted account's data was erased after the grace period.
     AccountErased,
+    /// A moderator or admin decided a queue item (T-146).
+    ModerationAction,
+    /// A staff member viewed moderation data (T-146, AC-27.2: every staff view is audited).
+    StaffView,
+    /// An account was banned (T-146).
+    AccountBanned,
 }
 
 impl AuditAction {
@@ -55,6 +61,9 @@ impl AuditAction {
             Self::DeletionRequested => "privacy.deletion_requested",
             Self::DeletionCancelled => "privacy.deletion_cancelled",
             Self::AccountErased => "privacy.account_erased",
+            Self::ModerationAction => "moderation.action",
+            Self::StaffView => "moderation.staff_view",
+            Self::AccountBanned => "account.banned",
         }
     }
 }

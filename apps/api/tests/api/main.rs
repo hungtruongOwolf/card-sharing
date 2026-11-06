@@ -52,6 +52,7 @@ mod media_process;
 mod media_urls;
 mod metrics;
 mod minor_hint;
+mod moderation_actions;
 mod notification_preferences;
 mod outbox;
 mod personal_data;
