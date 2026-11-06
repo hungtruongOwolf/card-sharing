@@ -2,7 +2,7 @@
 title: Threat model — MVP (capture → card → send → board → share)
 type: spec
 status: proposed
-updated: 2026-11-04
+updated: 2026-11-06
 sources: [raw/discussions/2026-11-04-security-qa.md, raw/discussions/2026-11-04-prd-design-qa.md]
 related: [[security-baseline]], [[prd-mvp]], [[region-policy]], [[subject-cutout]], [[overview]], [[data-model]], [[api-mvp]], [[effects-catalog]], [[monetization]], [[ADR-0002-cross-platform-stack]], [[ADR-0003-effects-tiers]], [[glossary]]
 ---
@@ -158,7 +158,7 @@ L = likelihood (H/M/L, given free tools). I = impact (Crit/H/M/L). SR = requirem
 | SR-6 | AddPin verifies card visibility; board reads filter pins per viewer; third-party cards on shared boards show as a tile to non-recipients | NEW AC-19.7 |
 | SR-7 | Board mutations: `created_by`/owner from the session; per-pin version check; removed members' writes rejected; append-only board audit (who moved/removed which pin) | AC-19.2/19.3/19.6 |
 | SR-8 | Media only through signed URLs bound to exact key + expiry, TTL ≤10 min (app) / ≤10 min (web); random object keys; OAC, bucket not public or listable | AC-24.5, matrix footer |
-| SR-9 | Unfriend/block/delete push a purge event; clients drop cached items on next sync (best effort) | AC-6.1, AC-14.1 |
+| SR-9 | Unfriend/block/delete purge cached items: clients send their cached card ids to `POST /v1/feed/purges` on every sync (≤ 30 s while open) and drop what it lists (best effort, T-83) | AC-6.1, AC-14.1 |
 | SR-10 | Per-user signed-URL issuance and media-fetch budgets; anomaly alerts (rate, many IPs) | NEW (abuse) |
 | SR-11 | Originals (if kept) are owner-only; recipients get display derivatives; EXIF stripped | NEW AC-13.6, AC-13.4 |
 | SR-12 | Recipients intersected server-side with current friends at send time; idempotency keys scoped per user | AC-13.1, NFR reliability |

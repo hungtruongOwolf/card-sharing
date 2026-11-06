@@ -186,4 +186,31 @@ impl CardService {
             .map(|row| row.into_visible(viewer))
             .collect()
     }
+
+    /// Purge instructions for a client's cached cards (T-83, SR-9): the ids in `card_ids` the
+    /// viewer may no longer see, in request order without duplicates. "No longer visible" is the
+    /// card-read predicate, so unfriend, block, delete, suspension and account deletion are all
+    /// covered, and an unknown id is answered exactly like a purged one (no existence oracle).
+    pub async fn purged_of(&self, viewer: Uuid, card_ids: &[Uuid]) -> Result<Vec<Uuid>, CardError> {
+        let mut unique = Vec::with_capacity(card_ids.len());
+        for id in card_ids {
+            if !unique.contains(id) {
+                unique.push(*id);
+            }
+        }
+        let visible: Vec<Uuid> = sqlx::query_scalar(concat!(
+            "SELECT c.id FROM cards.cards c
+              LEFT JOIN cards.card_recipients r ON r.card_id = c.id AND r.recipient_id = $2
+              WHERE c.id = ANY($1)
+                AND ((c.owner_id = $2 AND c.status <> 'deleted') OR ",
+            recipient_visible_sql!(),
+            ")"
+        ))
+        .bind(&unique)
+        .bind(viewer)
+        .fetch_all(&self.pool)
+        .await?;
+        unique.retain(|id| !visible.contains(id));
+        Ok(unique)
+    }
 }
