@@ -1,3 +1,4 @@
+import { problem } from '../../../test/fakeAuthServer';
 import { fakeJpeg, fakePng, FakeCardsServer } from '../../../test/fakeCardsServer';
 import { ME } from '../../../test/fakeSocialServer';
 import { memoryStore } from '../../../test/onboardingHarness';
@@ -11,6 +12,7 @@ import {
   mediaUrl,
   parseCard,
   parseFeedPage,
+  parsePurges,
   parseSentCard,
   type NewCard,
 } from '../cardsApi';
@@ -221,6 +223,44 @@ describe('cards api: requests', () => {
     const before = server.auth.requests.length;
     await expect(api.getCard('../feed')).rejects.toMatchObject({ kind: 'not_found' });
     expect(server.auth.requests.length).toBe(before);
+  });
+});
+
+describe('cards api: purge check (T-83)', () => {
+  it('lists the cached cards I can no longer see, in batches of 100, and only ids I asked about', async () => {
+    const { server, api } = setup();
+    const mai = server.addUser('Mai');
+    const ben = server.addUser('Ben');
+    server.friends.add(mai.id);
+    server.friends.add(ben.id);
+    const kept = server.addIncomingCard(mai.id);
+    const unfriended = server.addIncomingCard(ben.id);
+    server.friends.delete(ben.id);
+    const unknown = 'c0000000-0000-4000-8000-0000000009ff';
+    const many = Array.from(
+      { length: 150 },
+      (_, i) => `c0000000-0000-4000-8000-${String(1000 + i).padStart(12, '0')}`,
+    );
+    const purged = await api.checkPurges([kept.id, unfriended.id, unknown, unknown, ...many]);
+    expect(purged).toEqual([unfriended.id, unknown, ...many]);
+    expect(server.count('POST', '/v1/feed/purges')).toBe(2);
+    expect(await api.checkPurges(['../x'])).toEqual([]);
+    expect(server.count('POST', '/v1/feed/purges')).toBe(2);
+  });
+
+  it('validates the answer and never deletes on a guess', () => {
+    const id = 'c0000000-0000-4000-8000-000000000001';
+    expect(parsePurges({ purge: [id, '../x', 7] })).toEqual([id]);
+    expect(parsePurges({ purge: 'all' })).toBeNull();
+    expect(parsePurges(null)).toBeNull();
+  });
+
+  it('maps a failed check to a retryable error', async () => {
+    const { server, api } = setup();
+    server.overrides.set('POST /v1/feed/purges', problem(503, 'TEMPORARILY_UNAVAILABLE'));
+    await expect(api.checkPurges(['c0000000-0000-4000-8000-000000000001'])).rejects.toMatchObject({
+      kind: 'unavailable',
+    });
   });
 });
 

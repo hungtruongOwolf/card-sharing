@@ -22,7 +22,9 @@ import {
 import type { CachedFeed, CachedFeedItem, FeedCache } from './feedCache';
 import { REACTION_DISPLAY, shownReactions } from './reactions';
 
-export const FEED_QUERY_KEY = ['feed'] as const;
+import { FEED_QUERY_KEY } from './queryKeys';
+
+export { FEED_QUERY_KEY };
 
 export interface FeedScreenProps {
   api: CardsApi;

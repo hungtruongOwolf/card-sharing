@@ -8,7 +8,8 @@ import type { CardItem } from '../sharing/cardsApi';
  *
  * Storage: the drafts' SecureStore seam (`WHEN_UNLOCKED_THIS_DEVICE_ONLY`, no backups), split into chunks under the
  * 2 KB value limit. The copy is replaced on every successful load (so unfriended, blocked or deleted cards drop out
- * on the next sync, SR-9) and cleared on sign-out.
+ * on the next sync, SR-9), purged cards are removed as soon as the server lists them (T-83, `purges.ts`), and the
+ * copy is cleared on sign-out.
  */
 export interface CachedFeedItem {
   readonly id: string;
@@ -31,6 +32,8 @@ export interface FeedCache {
   load(now?: number): Promise<CachedFeed | null>;
   /** Replaces the copy with the newest {@link FEED_CACHE_MAX_ITEMS} items. */
   save(items: readonly CardItem[], now?: number): Promise<void>;
+  /** Deletes these cards from the copy, keeping the rest and its age (T-83 purge instructions). */
+  remove(cardIds: readonly string[]): Promise<void>;
   clear(): Promise<void>;
 }
 
@@ -117,6 +120,31 @@ export function createFeedCache(kv: KeyValueStore = secureKeyValueStore()): Feed
     }
   };
 
+  const readItems = async (count: number): Promise<CachedFeedItem[]> => {
+    const items: CachedFeedItem[] = [];
+    for (let i = 0; i < count; i++) {
+      try {
+        const parsed: unknown = JSON.parse((await kv.getItem(feedCacheChunkKey(i))) ?? '[]');
+        if (Array.isArray(parsed)) {
+          for (const raw of parsed) {
+            const item = parseItem(raw);
+            if (item) items.push(item);
+          }
+        }
+      } catch {
+        // A corrupt chunk loses its items, never the whole feed.
+      }
+    }
+    return items.slice(0, FEED_CACHE_MAX_ITEMS);
+  };
+
+  const write = async (items: readonly CachedFeedItem[], savedAt: number) => {
+    const chunks = chunk(items.slice(0, FEED_CACHE_MAX_ITEMS));
+    await removeAll();
+    for (const [i, value] of chunks.entries()) await kv.setItem(feedCacheChunkKey(i), value);
+    await kv.setItem(FEED_CACHE_META_KEY, JSON.stringify({ savedAt, chunks: chunks.length }));
+  };
+
   const removeAll = async () => {
     const meta = await readMeta();
     await kv.deleteItem(FEED_CACHE_META_KEY);
@@ -130,31 +158,18 @@ export function createFeedCache(kv: KeyValueStore = secureKeyValueStore()): Feed
         if (!meta || now - meta.savedAt > FEED_CACHE_MAX_AGE_MS || meta.savedAt > now + 60_000) {
           return null;
         }
-        const items: CachedFeedItem[] = [];
-        for (let i = 0; i < meta.chunks; i++) {
-          try {
-            const parsed: unknown = JSON.parse((await kv.getItem(feedCacheChunkKey(i))) ?? '[]');
-            if (Array.isArray(parsed)) {
-              for (const raw of parsed) {
-                const item = parseItem(raw);
-                if (item) items.push(item);
-              }
-            }
-          } catch {
-            // A corrupt chunk loses its items, never the whole feed.
-          }
-        }
-        return { savedAt: meta.savedAt, items: items.slice(0, FEED_CACHE_MAX_ITEMS) };
+        return { savedAt: meta.savedAt, items: await readItems(meta.chunks) };
       }),
     save: (cards, now = Date.now()) =>
+      enqueue(() => write(cards.slice(0, FEED_CACHE_MAX_ITEMS).map(toCached), now)),
+    remove: (cardIds) =>
       enqueue(async () => {
-        const chunks = chunk(cards.slice(0, FEED_CACHE_MAX_ITEMS).map(toCached));
-        await removeAll();
-        for (const [i, value] of chunks.entries()) await kv.setItem(feedCacheChunkKey(i), value);
-        await kv.setItem(
-          FEED_CACHE_META_KEY,
-          JSON.stringify({ savedAt: now, chunks: chunks.length }),
-        );
+        const meta = await readMeta();
+        if (!meta) return;
+        const gone = new Set(cardIds);
+        const items = await readItems(meta.chunks);
+        const kept = items.filter((item) => !gone.has(item.id));
+        if (kept.length !== items.length) await write(kept, meta.savedAt);
       }),
     clear: () => enqueue(removeAll),
   };

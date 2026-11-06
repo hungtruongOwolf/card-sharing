@@ -27,9 +27,9 @@ import {
   type CardsApi,
   type FeedPage,
 } from '../sharing/cardsApi';
-import { FEED_QUERY_KEY } from './FeedScreen';
+import { cardQueryKey, FEED_QUERY_KEY } from './queryKeys';
 
-export const cardQueryKey = (id: string) => ['card', id] as const;
+export { cardQueryKey };
 
 export interface CardViewerScreenProps {
   api: CardsApi;
