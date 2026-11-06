@@ -75,6 +75,7 @@ dependencies = [
  "identity",
  "image",
  "media",
+ "notifications",
  "platform",
  "policy",
  "registry",
@@ -1391,6 +1392,23 @@ checksum = "d273983c5a657a70a3e8f2a01329822f3b8c8172b73826411a55751e404a0a4a"
 dependencies = [
  "memchr",
  "minimal-lexical",
+]
+
+[[package]]
+name = "notifications"
+version = "0.1.0"
+dependencies = [
+ "identity",
+ "platform",
+ "serde",
+ "serde_json",
+ "serde_norway",
+ "sha2 0.11.1",
+ "sqlx",
+ "thiserror",
+ "time",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]

@@ -44,6 +44,8 @@ pub struct AppState {
     pub social: Arc<SocialService>,
     /// Cards: send, deliver, read, delete, reactions (T-75+).
     pub cards: Arc<cards::CardService>,
+    /// Push tokens of device sessions (T-85).
+    pub push_tokens: Arc<notifications::PushTokens>,
     /// Quarantine uploads and media state (T-70).
     pub media: Arc<MediaService>,
     /// Signs media URLs (T-74). `None` = no key configured: media URLs answer 503.
@@ -101,6 +103,11 @@ impl AppState {
             cards: Arc::new(cards::CardService::new(
                 identity.pool().clone(),
                 identity.clock(),
+            )),
+            push_tokens: Arc::new(notifications::PushTokens::new(
+                identity.pool().clone(),
+                identity.clock(),
+                Arc::clone(&field_cipher),
             )),
             media: Arc::new(MediaService::new(
                 identity.pool().clone(),

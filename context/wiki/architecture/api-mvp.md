@@ -388,6 +388,18 @@ Kill switches are not enforced server-side yet.
 | DELETE | /v1/devices/{deviceId}/push-tokens | Remove device tokens | onb/ses | user | own device | 30/day d | yes | US-16 AC-16.2 |
 | GET / PUT | /v1/me/notification-preferences | Toggles per type + quiet hours + tz | ses | user | self | 30/h u | yes | US-31 AC-31.1 |
 
+Implemented (T-85, server part of #87, `crates/notifications`, `apps/api/src/routes/devices.rs`, limit `devices.push_tokens`
+30/day per device): `PUT /v1/devices/{deviceId}/push-tokens {provider: apns|fcm, kind: alert|widget, token}` (ses) → 204 and
+`DELETE` (onb/ses, idempotent) → 204. `deviceId` must be the calling session's own device (the session's `device_id`); any
+other id, another account's device, a malformed id or a session without a device → the same 404. Tokens are shape-checked
+(APNs: 64..200 hex, lower-cased; FCM: 1..4096 of `[A-Za-z0-9_:-]`), stored as `FieldCipher(token)` (associated data = account
+id) with `SHA-256(token)` UNIQUE, one row per `(account, device, kind)`; registering a token held by any other row deletes that
+row in the same transaction (moved from A to B ⇒ A stops receiving). Each row keeps the registering `session_id`; senders read
+`PushTokens::live_targets` = not invalidated ∧ `identity::session_live_sql!` ∧ `identity::account_active_sql!`, so logout,
+"log out everywhere", suspension and deletion stop pushes at once; the worker's `notifications.push_tokens.prune` (10 min)
+deletes rows that were invalidated or whose session ended. Tokens are never returned or logged (`PushToken` Debug is redacted).
+APNs/FCM credentials stay in the secret manager when the real adapters land (T-86 follow-up).
+
 US-28 (CSAM hashing + nudity classifier) has no scan endpoint: the `media.process` job gates delivery ([[ADR-0005-media-pipeline]]);
 the only user touchpoint is `POST /v1/cards/{id}/appeal`. Email change does not exist in MVP; when added it requires `re` (AC-1.4).
 

@@ -5,8 +5,8 @@ use utoipa_axum::routes;
 
 use crate::access::{ApiRouter, Idempotency, RoutePolicy};
 use crate::routes::{
-    age_signal, app_config, attestation, auth, blocks, cards, feed, friend_requests, friends,
-    health, invites, me, media, media_files, public_invites, sessions, user_search,
+    age_signal, app_config, attestation, auth, blocks, cards, devices, feed, friend_requests,
+    friends, health, invites, me, media, media_files, public_invites, sessions, user_search,
 };
 use crate::state::AppState;
 use platform::problem::ProblemDetails;
@@ -30,6 +30,7 @@ Every operation carries `x-policy` (auth kind, role, attestation) from its deny-
         (name = auth::TAG, description = "Sign-in and session lifecycle (ADR-0004)"),
         (name = attestation::TAG, description = "Device attestation challenges and keys (SR-13)"),
         (name = sessions::TAG, description = "The caller's device sessions (AC-1.4)"),
+        (name = devices::TAG, description = "Push tokens of the caller's device (US-31, US-16)"),
         (name = me::TAG, description = "The caller's own account and onboarding"),
         (name = invites::TAG, description = "Invites, friend requests, friends, blocks and handle search (US-4, US-5, US-5a, US-6, US-26)"),
         (name = cards::TAG, description = "Cards: send to friends, read, delete, react (US-13..US-17)"),
@@ -134,6 +135,14 @@ pub fn router() -> ApiRouter<AppState> {
         .route(
             RoutePolicy::session().limited("sessions.revoke_all"),
             routes!(sessions::revoke_all_sessions),
+        )
+        .route(
+            RoutePolicy::session().limited("devices.push_tokens"),
+            routes!(devices::put_push_token),
+        )
+        .route(
+            RoutePolicy::onboarding_or_session().limited("devices.push_tokens"),
+            routes!(devices::delete_push_tokens),
         )
         .route(
             RoutePolicy::onboarding_or_session().limited("attestation.challenge"),

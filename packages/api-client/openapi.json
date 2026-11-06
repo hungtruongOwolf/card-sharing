@@ -1377,6 +1377,182 @@
         }
       }
     },
+    "/v1/devices/{deviceId}/push-tokens": {
+      "put": {
+        "tags": [
+          "devices"
+        ],
+        "summary": "Register a push token for this device. Auth: ses.",
+        "description": "Replaces the device's token of the same kind. A token already registered elsewhere (another\naccount or device) moves here; the old holder stops receiving. The token only works while the\nsession that registered it is live (logout, suspension or deletion stop pushes).",
+        "operationId": "putPushToken",
+        "parameters": [
+          {
+            "name": "deviceId",
+            "in": "path",
+            "description": "The calling session's device id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PushTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Registered."
+          },
+          "400": {
+            "description": "VALIDATION_FAILED: unknown provider or kind, or a malformed token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: not the calling session's device.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "devices.push_tokens",
+          "role": "user",
+          "versionGate": true
+        }
+      },
+      "delete": {
+        "tags": [
+          "devices"
+        ],
+        "summary": "Remove this device's push tokens. Auth: onb/ses.",
+        "description": "Idempotent: a device without tokens also answers 204.",
+        "operationId": "deletePushTokens",
+        "parameters": [
+          {
+            "name": "deviceId",
+            "in": "path",
+            "description": "The calling session's device id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removed."
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: not the calling session's device.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "onb/ses",
+          "rateLimit": "devices.push_tokens",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
     "/v1/feed": {
       "get": {
         "tags": [
@@ -4965,6 +5141,32 @@
           }
         }
       },
+      "PushTokenRequest": {
+        "type": "object",
+        "description": "Body of `PUT /v1/devices/{deviceId}/push-tokens`.",
+        "required": [
+          "provider",
+          "kind",
+          "token"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "description": "`alert` (user-visible notifications) or `widget` (silent widget refreshes).",
+            "example": "alert"
+          },
+          "provider": {
+            "type": "string",
+            "description": "`apns` (iOS) or `fcm` (Android).",
+            "example": "apns"
+          },
+          "token": {
+            "type": "string",
+            "description": "The provider token: APNs hex device token, or FCM registration token."
+          }
+        },
+        "additionalProperties": false
+      },
       "ReactionList": {
         "type": "object",
         "required": [
@@ -5431,6 +5633,10 @@
     {
       "name": "sessions",
       "description": "The caller's device sessions (AC-1.4)"
+    },
+    {
+      "name": "devices",
+      "description": "Push tokens of the caller's device (US-31, US-16)"
     },
     {
       "name": "me",
