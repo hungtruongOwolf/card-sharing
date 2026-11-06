@@ -57,6 +57,8 @@ pub fn test_config() -> Config {
         content_safety: api::config::ContentSafetyConfig {
             env: api::config::AppEnv::Test,
             csam_matcher: api::config::SafetyAdapter::Fake,
+            nudity_classifier: api::config::SafetyAdapter::Fake,
+            nudity_threshold: 0.5,
         },
         apple_client_ids: vec![APPLE_CLIENT_ID.to_owned()],
         google_client_ids: vec![GOOGLE_CLIENT_ID.to_owned()],

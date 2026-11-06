@@ -1,5 +1,7 @@
 //! The `media.process` job: re-encodes one quarantined upload in a sandboxed blocking task
-//! (T-71), then runs the content gates on the decoded image (T-72: known-CSAM hash matcher).
+//! (T-71), then runs the content gates on the decoded image: the known-CSAM hash matcher (T-72),
+//! then, for card renders and avatars, the nudity classifier (T-73; a flag holds the media in
+//! quarantine for review).
 //! Only a pass on every gate moves the sanitized image and its derivatives to the `clean`
 //! bucket. A match blocks the media, preserves the raw upload in legal hold, opens an incident
 //! and queues the account's suspension (outbox). A gate that errs, times out or answers
@@ -139,6 +141,20 @@ struct MediaKeys {
     derivatives: Vec<ObjectKey>,
 }
 
+struct GateSubject {
+    id: Uuid,
+    owner: Uuid,
+    kind: MediaKind,
+}
+
+/// What the gates said, stored on the media row for audit.
+struct ScanRecord {
+    provider: String,
+    list_version: String,
+    /// `(score, model)` when the classifier ran.
+    classifier: Option<(f32, String)>,
+}
+
 struct CsamHit {
     category: MatchCategory,
     exact: bool,
@@ -202,15 +218,13 @@ impl MediaService {
                 Err(code) => return self.fail(id, code).await,
             }
         };
-        self.run_gates(
-            store.as_ref(),
+        let subject = GateSubject {
             id,
-            pending.owner_id,
-            &main,
-            &pixels,
-            settings,
-        )
-        .await
+            owner: pending.owner_id,
+            kind,
+        };
+        self.run_gates(store.as_ref(), &subject, &main, &pixels, settings)
+            .await
     }
 
     /// Runs the gates in order. Any unavailability retries the job (the media stays
@@ -218,12 +232,12 @@ impl MediaService {
     async fn run_gates(
         &self,
         store: &dyn ObjectStore,
-        id: Uuid,
-        owner: Uuid,
+        subject: &GateSubject,
         main: &Bytes,
         pixels: &RgbaImage,
         settings: &ProcessSettings,
     ) -> Result<(), JobError> {
+        let (id, owner) = (subject.id, subject.owner);
         let mut sha256 = [0u8; 32];
         sha256.copy_from_slice(&Sha256::digest(main));
         let input = ScanInput {
@@ -261,8 +275,85 @@ impl MediaService {
             Ok(HashVerdict::NoMatch {
                 provider,
                 list_version,
-            }) => self.promote(store, id, &provider, &list_version).await,
+            }) => {
+                let scan = ScanRecord {
+                    provider: short(&provider),
+                    list_version: short(&list_version),
+                    classifier: None,
+                };
+                self.classify(store, subject, &input, scan, settings).await
+            }
         }
+    }
+
+    /// The nudity classifier (card renders and avatars only, AC-28.3): a flag holds the media,
+    /// an outage retries the job.
+    async fn classify(
+        &self,
+        store: &dyn ObjectStore,
+        subject: &GateSubject,
+        input: &ScanInput<'_>,
+        mut scan: ScanRecord,
+        settings: &ProcessSettings,
+    ) -> Result<(), JobError> {
+        if !matches!(subject.kind, MediaKind::CardRender | MediaKind::Avatar) {
+            return self.promote(store, subject.id, &scan).await;
+        }
+        let verdict = match settings.gates.classifier_verdict(input).await {
+            Ok(verdict) => verdict,
+            Err(err) => {
+                tracing::warn!(
+                    event = "media.scan_unavailable",
+                    media_id = %subject.id,
+                    gate = "nudity_classifier",
+                    error = %err
+                );
+                return Err(JobError::Retry(err.to_string()));
+            }
+        };
+        let held = settings.gates.holds(&verdict);
+        scan.classifier = Some((verdict.score, short(&verdict.model)));
+        if held {
+            self.hold(store, subject.id, &scan).await
+        } else {
+            self.promote(store, subject.id, &scan).await
+        }
+    }
+
+    /// Classifier flag: the media is `held` and stays in quarantine (never signed); the raw
+    /// upload is deleted, the sanitized copies stay for the moderator (release or uphold).
+    async fn hold(
+        &self,
+        store: &dyn ObjectStore,
+        id: Uuid,
+        scan: &ScanRecord,
+    ) -> Result<(), JobError> {
+        let keys = self.object_keys(id).await?;
+        let (score, model) = scan.classifier.clone().unzip();
+        let now = self.clock.now();
+        let updated = sqlx::query(
+            "UPDATE media.media_objects
+             SET state = 'held', raw_storage_key = NULL, scan_provider = $2,
+                 scan_list_version = $3, scanned_at = $4, updated_at = $4,
+                 classifier_score = $5, classifier_model = $6
+             WHERE id = $1 AND state = 'scanning'",
+        )
+        .bind(id)
+        .bind(&scan.provider)
+        .bind(&scan.list_version)
+        .bind(now)
+        .bind(score)
+        .bind(model)
+        .execute(&self.pool)
+        .await
+        .map_err(retry)?;
+        if updated.rows_affected() == 1
+            && let Some(raw) = &keys.raw
+        {
+            self.delete_quiet(store, Bucket::Quarantine, raw).await;
+        }
+        tracing::info!(event = "media.held", media_id = %id, "media held by the nudity classifier");
+        Ok(())
     }
 
     /// Writes the sanitized objects and records them; the raw upload stays for the gates.
@@ -375,9 +466,9 @@ impl MediaService {
         &self,
         store: &dyn ObjectStore,
         id: Uuid,
-        provider: &str,
-        list_version: &str,
+        scan: &ScanRecord,
     ) -> Result<(), JobError> {
+        let (score, model) = scan.classifier.clone().unzip();
         let keys = self.object_keys(id).await?;
         let served: Vec<&ObjectKey> = std::iter::once(&keys.main)
             .chain(&keys.derivatives)
@@ -393,13 +484,16 @@ impl MediaService {
         let updated = sqlx::query(
             "UPDATE media.media_objects
              SET state = 'clean', bucket = 'clean', raw_storage_key = NULL, scan_provider = $2,
-                 scan_list_version = $3, scanned_at = $4, updated_at = $4
+                 scan_list_version = $3, scanned_at = $4, updated_at = $4,
+                 classifier_score = $5, classifier_model = $6
              WHERE id = $1 AND state = 'scanning'",
         )
         .bind(id)
-        .bind(short(provider))
-        .bind(short(list_version))
+        .bind(&scan.provider)
+        .bind(&scan.list_version)
         .bind(now)
+        .bind(score)
+        .bind(model)
         .execute(&mut *tx)
         .await
         .map_err(retry)?;

@@ -15,8 +15,9 @@ pub use pipeline::{
 };
 pub use process::{Encoded, ProcessError, Processed, Variant};
 pub use safety::{
-    ContentGates, FakeHashMatcher, HashMatcher, HashVerdict, MatchCategory, ScanInput, Unavailable,
-    UnconfiguredHashMatcher,
+    ClassifierVerdict, ContentClassifier, ContentGates, DEFAULT_NUDITY_THRESHOLD, FakeClassifier,
+    FakeHashMatcher, HashMatcher, HashVerdict, MatchCategory, ScanInput, Unavailable,
+    UnconfiguredClassifier, UnconfiguredHashMatcher,
 };
 pub use service::{
     MAX_UPLOAD_BYTES, MediaError, MediaKind, MediaRecord, MediaService, MediaState, PROCESS_JOB,

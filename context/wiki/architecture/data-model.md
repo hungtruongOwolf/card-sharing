@@ -167,7 +167,10 @@ Implemented (T-72, `migrations/*_media_csam_gate.sql`): `media_objects.scan_prov
 schema `moderation` with `csam_incidents` (`category`, `exact_match`, `provider`, `list_version`, `provider_ref`,
 `evidence_key` in the legal-hold bucket, `UNIQUE(media_id)`, no foreign keys). Clean media: objects copied to `clean` under the
 same keys, `bucket = clean`, raw upload deleted. Blocked media: `bucket = legal_hold`, `storage_key` = the evidence copy,
-derivatives deleted. Follow-up: lossy WebP for photos (the `image` encoder is lossless
+derivatives deleted.
+Implemented (T-73, `migrations/*_media_nudity_hold.sql`): `classifier_score REAL CHECK 0â€“1` and `classifier_model` (set
+together) on every classified media (card renders, avatars). Held media keep their sanitized copies in quarantine (raw
+upload deleted) for the moderator. Follow-up: lossy WebP for photos (the `image` encoder is lossless
 only).
 Originals (`kind=original`) get no recipient derivatives and are signed only for their owner (AC-13.6); recipients only ever receive
 `feed_1080` / `widget_512` / `thumb_256`. The `og` variant is a watermarked composite of the owner's card pins (AC-24.7), keyed by

@@ -1,5 +1,5 @@
-//! Content-safety ports (ADR-0005, content-safety.md): the known-CSAM `HashMatcher` (T-72).
-//! Real vendors wait for the EM's decisions; until then
+//! Content-safety ports (ADR-0005, content-safety.md): the known-CSAM `HashMatcher` (T-72) and
+//! the nudity `ContentClassifier` (T-73). Real vendors wait for the EM's decisions; until then
 //! only the `unconfigured` adapters (always unavailable, so nothing is ever delivered) and the
 //! deterministic `fake` adapters (development, test and staging only; refused in production
 //! at startup) exist. Every error, timeout or unknown answer is treated as "unavailable" by the
@@ -117,10 +117,76 @@ impl HashMatcher for FakeHashMatcher {
     }
 }
 
+/// Default hold threshold until the EM picks one from the evaluation set (content-safety.md,
+/// open decision 4). Low on purpose: false positives wait for review, false negatives deliver.
+pub const DEFAULT_NUDITY_THRESHOLD: f32 = 0.5;
+
+/// Classifier output for one image.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ClassifierVerdict {
+    /// Probability of sexual content in `[0, 1]`.
+    pub score: f32,
+    /// Model id and version, stored for audit.
+    pub model: String,
+}
+
+pub trait ContentClassifier: Send + Sync {
+    fn classify<'a>(
+        &'a self,
+        input: &'a ScanInput<'a>,
+    ) -> BoxFuture<'a, Result<ClassifierVerdict, Unavailable>>;
+}
+
+/// Top-left pixel the fake classifier scores as sexual content (yellow).
+pub const FAKE_NUDITY_MARKER: [u8; 4] = [255, 255, 0, 255];
+/// Top-left pixel that makes the fake classifier fail as unavailable (blue).
+pub const FAKE_CLASSIFIER_DOWN_MARKER: [u8; 4] = [0, 0, 255, 255];
+
+/// No classifier configured: every check is unavailable, so nothing is ever delivered.
+pub struct UnconfiguredClassifier;
+
+impl ContentClassifier for UnconfiguredClassifier {
+    fn classify<'a>(
+        &'a self,
+        _: &'a ScanInput<'a>,
+    ) -> BoxFuture<'a, Result<ClassifierVerdict, Unavailable>> {
+        Box::pin(async { Err(Unavailable("no nudity classifier is configured".to_owned())) })
+    }
+}
+
+/// Deterministic stand-in (development, tests, staging; refused in production): a yellow
+/// top-left pixel scores 0.99, a blue one is an outage, anything else scores 0.01.
+pub struct FakeClassifier;
+
+impl ContentClassifier for FakeClassifier {
+    fn classify<'a>(
+        &'a self,
+        input: &'a ScanInput<'a>,
+    ) -> BoxFuture<'a, Result<ClassifierVerdict, Unavailable>> {
+        let verdict = match top_left(input) {
+            Some(FAKE_CLASSIFIER_DOWN_MARKER) => {
+                Err(Unavailable("fake classifier outage".to_owned()))
+            }
+            marker => Ok(ClassifierVerdict {
+                score: if marker == Some(FAKE_NUDITY_MARKER) {
+                    0.99
+                } else {
+                    0.01
+                },
+                model: "fake-nudity-1".to_owned(),
+            }),
+        };
+        Box::pin(async move { verdict })
+    }
+}
+
 /// The gates the pipeline runs, with their time budget.
 #[derive(Clone)]
 pub struct ContentGates {
     pub matcher: Arc<dyn HashMatcher>,
+    pub classifier: Arc<dyn ContentClassifier>,
+    /// `score >= nudity_threshold` holds the media for review (`moderation.nudity_threshold`).
+    pub nudity_threshold: f32,
     /// Upper bound on one provider call; a slower answer counts as unavailable.
     pub timeout: Duration,
 }
@@ -130,8 +196,32 @@ impl ContentGates {
     pub fn unconfigured() -> Self {
         Self {
             matcher: Arc::new(UnconfiguredHashMatcher),
+            classifier: Arc::new(UnconfiguredClassifier),
+            nudity_threshold: DEFAULT_NUDITY_THRESHOLD,
             timeout: Duration::from_secs(10),
         }
+    }
+
+    /// The classifier's verdict. Errors, timeouts and scores outside `[0, 1]` (or NaN) are
+    /// [`Unavailable`]: an answer we cannot trust never lets an image through.
+    pub async fn classifier_verdict(
+        &self,
+        input: &ScanInput<'_>,
+    ) -> Result<ClassifierVerdict, Unavailable> {
+        let verdict =
+            match tokio::time::timeout(self.timeout, self.classifier.classify(input)).await {
+                Ok(result) => result?,
+                Err(_) => return Err(Unavailable("classifier timed out".to_owned())),
+            };
+        if !(0.0..=1.0).contains(&verdict.score) {
+            return Err(Unavailable("classifier score out of range".to_owned()));
+        }
+        Ok(verdict)
+    }
+
+    /// Whether a verdict holds the media for review.
+    pub fn holds(&self, verdict: &ClassifierVerdict) -> bool {
+        verdict.score >= self.nudity_threshold
     }
 
     /// The hash matcher's verdict; errors and timeouts are [`Unavailable`].
@@ -167,7 +257,7 @@ mod tests {
     async fn fake_matcher_follows_its_markers() {
         let gates = ContentGates {
             matcher: Arc::new(FakeHashMatcher),
-            timeout: Duration::from_secs(1),
+            ..ContentGates::unconfigured()
         };
         let clean = input([10, 20, 30, 255]);
         assert!(matches!(
@@ -184,6 +274,55 @@ mod tests {
         ));
         let down = input(FAKE_MATCHER_DOWN_MARKER);
         assert!(gates.hash_verdict(&scan(&down)).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn fake_classifier_follows_its_markers_and_bad_scores_are_unavailable() {
+        let gates = ContentGates {
+            classifier: Arc::new(FakeClassifier),
+            ..ContentGates::unconfigured()
+        };
+        let plain = input([10, 20, 30, 255]);
+        let verdict = gates.classifier_verdict(&scan(&plain)).await.unwrap();
+        assert!(!gates.holds(&verdict));
+        let flagged = input(FAKE_NUDITY_MARKER);
+        let verdict = gates.classifier_verdict(&scan(&flagged)).await.unwrap();
+        assert!(gates.holds(&verdict));
+        assert_eq!(verdict.model, "fake-nudity-1");
+        let down = input(FAKE_CLASSIFIER_DOWN_MARKER);
+        assert!(gates.classifier_verdict(&scan(&down)).await.is_err());
+        assert!(
+            ContentGates::unconfigured()
+                .classifier_verdict(&scan(&plain))
+                .await
+                .is_err()
+        );
+
+        struct Weird(f32);
+        impl ContentClassifier for Weird {
+            fn classify<'a>(
+                &'a self,
+                _: &'a ScanInput<'a>,
+            ) -> BoxFuture<'a, Result<ClassifierVerdict, Unavailable>> {
+                let score = self.0;
+                Box::pin(async move {
+                    Ok(ClassifierVerdict {
+                        score,
+                        model: "weird".to_owned(),
+                    })
+                })
+            }
+        }
+        for score in [f32::NAN, -0.1, 1.5] {
+            let gates = ContentGates {
+                classifier: Arc::new(Weird(score)),
+                ..ContentGates::unconfigured()
+            };
+            assert!(
+                gates.classifier_verdict(&scan(&plain)).await.is_err(),
+                "{score}"
+            );
+        }
     }
 
     #[tokio::test]
@@ -214,6 +353,7 @@ mod tests {
         let gates = ContentGates {
             matcher: Arc::new(Slow),
             timeout: Duration::from_millis(10),
+            ..ContentGates::unconfigured()
         };
         assert!(gates.hash_verdict(&scan(&clean)).await.is_err());
     }

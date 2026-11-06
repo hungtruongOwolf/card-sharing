@@ -42,6 +42,8 @@ fn test_config() -> Config {
         content_safety: api::config::ContentSafetyConfig {
             env: api::config::AppEnv::Test,
             csam_matcher: api::config::SafetyAdapter::Fake,
+            nudity_classifier: api::config::SafetyAdapter::Fake,
+            nudity_threshold: 0.5,
         },
         apple_client_ids: Vec::new(),
         google_client_ids: Vec::new(),
