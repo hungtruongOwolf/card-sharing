@@ -5,15 +5,23 @@ import { Image, Pressable, StyleSheet, useWindowDimensions, View } from 'react-n
 import { useSharedValue } from 'react-native-reanimated';
 
 import { fitCamera, sceneBounds, screenToBoard, type Camera } from '@card-sharing/canvas-engine';
-import type { Registry, RemoteRegistryConfig } from '@card-sharing/effects-registry';
+import {
+  defaultParams,
+  killedIds,
+  registry as shippedRegistry,
+  type EffectEntry,
+  type Registry,
+  type RemoteRegistryConfig,
+} from '@card-sharing/effects-registry';
 import { radius, space } from '@card-sharing/tokens';
 
-import { t } from '../../i18n';
+import { t, type MessageKey } from '../../i18n';
 import { Button, Screen, Sheet, Text, useTheme, useToast } from '../../ui';
 import type { CardItem } from '../sharing/cardsApi';
 import { BoardCanvas, type PinPose } from './BoardCanvas';
 import { BOARD_SIZE, clampToBoard, pinGeometry, type Board, type BoardPin } from './boardModel';
 import {
+  addDecorationOp,
   addPinOp,
   applyOps,
   BOARD_PIN_LIMIT,
@@ -21,9 +29,11 @@ import {
   pinActionOp,
   removePinOp,
   updatePinOp,
+  type NewPinContent,
   type PinAction,
   type PinOp,
 } from './boardOps';
+import { hasBoardRenderer } from './boardDecor';
 import type { BoardRepository } from './boardRepository';
 import type { TextureCache } from './textureCache';
 import { uuidv7 } from './uuidv7';
@@ -102,7 +112,11 @@ function BoardEditor({
   const [initialCamera] = useState(() => openingCamera(board, view));
   const camera = useSharedValue<Camera>(initialCamera);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [pickerOpen, setPickerOpen] = useState(false);
+  const [sheet, setSheet] = useState<'cards' | 'backdrop' | 'decorate' | null>(null);
+  const decor = useMemo(
+    () => boardDecorChoices(registry ?? shippedRegistry, remoteConfig),
+    [registry, remoteConfig],
+  );
   const selected = board.pins.find((p) => p.id === selectedId) ?? null;
 
   /** Applies ops optimistically on screen, then through the repository (the sync seam). */
@@ -135,22 +149,27 @@ function BoardEditor({
     setSelectedId(null);
     apply([removePinOp(pin)]);
     const content = pin.content;
+    const restore: NewPinContent | null =
+      content.kind === 'card'
+        ? { card: content.card }
+        : content.kind === 'decoration'
+          ? { decoration: content.decoration }
+          : null;
     toast.show({
       message: t('boards.removed'),
-      action:
-        content.kind === 'card'
-          ? {
-              label: t('common.undo'),
-              onPress: () =>
-                apply([
-                  {
-                    type: 'pin.add',
-                    opId: uuidv7(),
-                    pin: { ...pinFields(pin), id: uuidv7(), card: content.card },
-                  },
-                ]),
-            }
-          : undefined,
+      action: restore
+        ? {
+            label: t('common.undo'),
+            onPress: () =>
+              apply([
+                {
+                  type: 'pin.add',
+                  opId: uuidv7(),
+                  pin: { ...pinFields(pin), id: uuidv7(), ...restore },
+                },
+              ]),
+          }
+        : undefined,
     });
   };
   const onAction = (id: string, action: PinAction) => {
@@ -159,16 +178,24 @@ function BoardEditor({
     if (action === 'remove') remove(pin);
     else apply([pinActionOp(board, pin, action)]);
   };
-  const pin = (card: CardItem) => {
-    setPickerOpen(false);
+  const place = (makeOp: (centre: { x: number; y: number }) => PinOp) => {
+    setSheet(null);
     if (board.pins.length >= BOARD_PIN_LIMIT) {
       toast.show({ message: t('boards.limit', { max: BOARD_PIN_LIMIT }), variant: 'error' });
       return;
     }
-    const centre = screenToBoard(camera.get(), { x: view.width / 2, y: view.height / 2 });
-    const op = addPinOp(board, card, centre);
+    const op = makeOp(screenToBoard(camera.get(), { x: view.width / 2, y: view.height / 2 }));
     apply([op]);
     if (op.type === 'pin.add') setSelectedId(op.pin.id);
+  };
+  const setBackdrop = (entry: EffectEntry) => {
+    setSheet(null);
+    const backdrop = { id: entry.id, version: entry.version, params: defaultParams(entry) };
+    const key = boardQueryKey(board.id);
+    queryClient.setQueryData(key, { ...board, backdrop });
+    void repository.setBackdrop(board.id, backdrop).then((next) => {
+      if (next) queryClient.setQueryData(key, next);
+    });
   };
 
   return (
@@ -193,7 +220,19 @@ function BoardEditor({
             />
           </>
         ) : (
-          <Button label={t('boards.add')} onPress={() => setPickerOpen(true)} />
+          <>
+            <Button label={t('boards.add')} onPress={() => setSheet('cards')} />
+            <Button
+              label={t('boards.decorate.open')}
+              variant="secondary"
+              onPress={() => setSheet('decorate')}
+            />
+            <Button
+              label={t('boards.backdrop.open')}
+              variant="secondary"
+              onPress={() => setSheet('backdrop')}
+            />
+          </>
         )}
       </View>
       <Text tone="muted">
@@ -202,6 +241,7 @@ function BoardEditor({
       <View style={styles.canvas}>
         <BoardCanvas
           pins={board.pins}
+          backdropId={board.backdrop?.id ?? null}
           width={view.width}
           height={view.height}
           textures={textures}
@@ -218,13 +258,70 @@ function BoardEditor({
         />
       </View>
       <PinPicker
-        visible={pickerOpen}
+        visible={sheet === 'cards'}
         source={pinnableCards}
-        onPick={pin}
-        onClose={() => setPickerOpen(false)}
+        onPick={(card) => place((centre) => addPinOp(board, card, centre))}
+        onClose={() => setSheet(null)}
       />
+      <Sheet
+        visible={sheet === 'decorate'}
+        onClose={() => setSheet(null)}
+        title={t('boards.decorate.title')}
+        testID="decorate-sheet"
+      >
+        <View style={styles.grid}>
+          {decor.decorations.map((entry) => (
+            <Button
+              key={entry.id}
+              variant="secondary"
+              label={t(entry.name as MessageKey)}
+              accessibilityLabel={t(entry.a11yLabel as MessageKey)}
+              onPress={() => place((centre) => addDecorationOp(board, entry, centre))}
+            />
+          ))}
+        </View>
+      </Sheet>
+      <Sheet
+        visible={sheet === 'backdrop'}
+        onClose={() => setSheet(null)}
+        title={t('boards.backdrop.title')}
+        testID="backdrop-sheet"
+      >
+        <View style={styles.grid} accessibilityRole="radiogroup">
+          {decor.backdrops.map((entry) => {
+            const chosen = (board.backdrop?.id ?? DEFAULT_BACKDROP_ID) === entry.id;
+            return (
+              <Button
+                key={entry.id}
+                variant={chosen ? 'primary' : 'secondary'}
+                label={t(entry.name as MessageKey)}
+                accessibilityLabel={t(entry.a11yLabel as MessageKey)}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: chosen }}
+                onPress={() => setBackdrop(entry)}
+              />
+            );
+          })}
+        </View>
+      </Sheet>
     </View>
   );
+}
+
+/** The backdrop a board without one shows (`drawBackdrop` falls back to it). */
+const DEFAULT_BACKDROP_ID = 'bg.paper';
+
+/**
+ * Backdrops and decorations the board offers: registry entries of those kinds that this app can draw and that
+ * `/v1/config` has not switched off (the editor's own picker never lists them).
+ */
+export function boardDecorChoices(registry: Registry, config: RemoteRegistryConfig | undefined) {
+  const killed = killedIds(config);
+  const usable = (entry: EffectEntry) => hasBoardRenderer(entry) && !killed.has(entry.id);
+  return {
+    backdrops: registry.byKind('backdrop').filter(usable),
+    decorations: registry.byKind('decoration').filter(usable),
+  };
 }
 
 const pinFields = ({ x, y, scale, rotation, zKey }: BoardPin) => ({ x, y, scale, rotation, zKey });

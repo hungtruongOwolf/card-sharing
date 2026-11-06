@@ -24,3 +24,4 @@ export {
   toServerRegistry,
 } from './registryJson';
 export { ENTRIES } from './entries';
+export { BACKDROPS, DECORATIONS, TAPE_COLORS } from './entries/board';

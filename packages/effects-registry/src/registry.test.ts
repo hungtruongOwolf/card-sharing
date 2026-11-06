@@ -164,3 +164,32 @@ describe('validateEntry', () => {
     expect(validateEntry(withChanges(changes)).join('\n')).toMatch(message);
   });
 });
+
+describe('board backdrops and decorations (T-111, AC-18.4)', () => {
+  it('ships at least 6 backdrops and 10 decorations, all valid and static', () => {
+    const backdrops = registry.byKind('backdrop');
+    const decorations = registry.byKind('decoration');
+    expect(backdrops.length).toBeGreaterThanOrEqual(6);
+    expect(decorations.length).toBeGreaterThanOrEqual(10);
+    for (const entry of [...backdrops, ...decorations]) {
+      expect(validateEntry(entry)).toEqual([]);
+      expect(entry.inputs).toEqual([]);
+      expect(entry.cost.liveAllowed).toBe(false);
+      expect(entry.tags).not.toContain('finish');
+    }
+  });
+
+  it('refuses photo inputs on board kinds and missing inputs on card kinds', () => {
+    const [bg] = registry.byKind('backdrop');
+    if (!bg) throw new Error('no backdrop');
+    expect(validateEntry({ ...bg, inputs: ['image'] })).toContain(
+      'board backdrops and decorations take no input',
+    );
+    const [cut] = registry.byKind('cutStyle');
+    if (!cut) throw new Error('no cut style');
+    expect(validateEntry({ ...cut, inputs: [] })).toContain('inputs must not be empty');
+    expect(validateEntry({ ...bg, id: 'deco.paper' })).toContain(
+      'id prefix does not match kind backdrop',
+    );
+  });
+});

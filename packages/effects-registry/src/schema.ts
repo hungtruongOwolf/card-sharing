@@ -6,7 +6,16 @@
  * Stored cards keep `{id, version, params}`; the server validates them against the exported JSON (T-60).
  */
 
-export const EFFECT_KINDS = ['cutStyle', 'filter', 'overlay', 'prop', 'frame', 'layout'] as const;
+export const EFFECT_KINDS = [
+  'cutStyle',
+  'filter',
+  'overlay',
+  'prop',
+  'frame',
+  'layout',
+  'backdrop',
+  'decoration',
+] as const;
 export type EffectKind = (typeof EFFECT_KINDS)[number];
 
 /** Id prefix each kind must use (`kind.slug`). `fx.*` covers filters and finishes. */
@@ -17,7 +26,12 @@ export const KIND_PREFIXES: Record<EffectKind, readonly string[]> = {
   prop: ['prop'],
   frame: ['frame'],
   layout: ['layout'],
+  backdrop: ['bg'],
+  decoration: ['deco'],
 };
+
+/** Kinds that dress a board rather than a card (T-111): they take no photo input and carry no user content. */
+export const BOARD_KINDS: readonly EffectKind[] = ['backdrop', 'decoration'];
 
 export const TIERS = ['0', '1', '1b', '2'] as const;
 export type Tier = (typeof TIERS)[number];
@@ -49,6 +63,8 @@ export const RENDERER_TYPES = [
   'skottie',
   'layout',
   'composite',
+  'pattern',
+  'vector',
 ] as const;
 export type RendererType = (typeof RENDERER_TYPES)[number];
 

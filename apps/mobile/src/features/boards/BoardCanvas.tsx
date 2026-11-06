@@ -54,7 +54,8 @@ import { animateTo, useTheme } from '../../ui';
 import { GyroTiltDriver } from '../holo-card/GyroTiltDriver';
 import type { Tilt } from '../holo-card/gyroTilt';
 import { STATIC_TILT } from '../holo-card/holoLab';
-import { pinGeometry, sortByZ, type BoardPin } from './boardModel';
+import { drawBackdrop } from './boardDecor';
+import { BOARD_SIZE, pinGeometry, sortByZ, type BoardPin } from './boardModel';
 import { PIN_ACTIONS, type PinAction } from './boardOps';
 import { CULL_MARGIN, planBoardScene } from './boardScene';
 import {
@@ -83,6 +84,8 @@ export interface PinPose {
 
 export interface BoardCanvasProps {
   pins: readonly BoardPin[];
+  /** Registry backdrop id (T-111); null = the default desk paper. */
+  backdropId?: string | null;
   width: number;
   height: number;
   textures: TextureCache<SkImage>;
@@ -142,7 +145,7 @@ function useTextureVersion(textures: TextureCache<SkImage>): number {
   return version;
 }
 
-function pinLabel(pin: BoardPin): string {
+function pinLabel(pin: BoardPin, registry: Registry): string {
   switch (pin.content.kind) {
     case 'card': {
       if (pin.content.card.isMine) return t('boards.pin.card.mine');
@@ -153,6 +156,12 @@ function pinLabel(pin: BoardPin): string {
       return t('boards.pin.private');
     case 'removed':
       return t('boards.pin.removed');
+    case 'decoration': {
+      const entry = registry.get(pin.content.decoration.id);
+      return entry?.kind === 'decoration'
+        ? t('boards.pin.decoration', { name: t(entry.name as MessageKey) })
+        : t('boards.pin.decoration.unknown');
+    }
   }
 }
 
@@ -192,7 +201,7 @@ function PinBody({ pin, image, liveIntensity, tilt, palette, selected }: PinBody
     () =>
       createPicture((canvas) => {
         if (!live) drawPinContent(canvas, { pin, image }, palette);
-        if (selected) drawSelection(canvas, palette);
+        if (selected) drawSelection(canvas, palette, pin);
       }),
     [live, pin, image, palette, selected],
   );
@@ -223,6 +232,7 @@ function PinBody({ pin, image, liveIntensity, tilt, palette, selected }: PinBody
  */
 export function BoardCanvas({
   pins,
+  backdropId = null,
   width,
   height,
   textures,
@@ -241,7 +251,10 @@ export function BoardCanvas({
 }: BoardCanvasProps) {
   const theme = useTheme();
   const reducedMotion = theme.reducedMotion;
-  const palette = useMemo(() => boardPalette(theme.color), [theme.color]);
+  const palette = useMemo(
+    () => boardPalette(theme.color, theme.scheme),
+    [theme.color, theme.scheme],
+  );
   const own = useSharedValue<Camera>(initialCamera);
   const camera = external ?? own;
   // The parent's camera starts at `initialCamera` too; reading the shared value during render is not allowed.
@@ -286,6 +299,21 @@ export function BoardCanvas({
     },
     [view],
   );
+
+  // The backdrop covers the board area inside the recorded window; beyond the board is the desk.
+  const backdrop = useMemo(() => {
+    const w = plan.window;
+    const x0 = Math.max(0, w.x);
+    const y0 = Math.max(0, w.y);
+    const x1 = Math.min(BOARD_SIZE.width, w.x + w.width);
+    const y1 = Math.min(BOARD_SIZE.height, w.y + w.height);
+    if (x1 <= x0 || y1 <= y0) return null;
+    const area = { x: x0, y: y0, width: x1 - x0, height: y1 - y0 };
+    return createPicture(
+      (canvas) => drawBackdrop(canvas, backdropId, area, palette.decor, registry),
+      Skia.XYWHRect(area.x, area.y, area.width, area.height),
+    );
+  }, [plan.window, backdropId, palette, registry]);
 
   const pictures = useMemo(
     () =>
@@ -512,6 +540,7 @@ export function BoardCanvas({
         <Canvas style={StyleSheet.absoluteFill}>
           <Fill color={palette.desk} />
           <Group transform={transform}>
+            {backdrop ? <Picture picture={backdrop} /> : null}
             {plan.layers.map((layer, i) => {
               if (layer.kind === 'static') {
                 const picture = pictures[i];
@@ -563,7 +592,7 @@ export function BoardCanvas({
                 testID={`board-pin-${pin.id}`}
                 accessible
                 accessibilityRole="image"
-                accessibilityLabel={pinLabel(pin)}
+                accessibilityLabel={pinLabel(pin, registry)}
                 accessibilityHint={editable ? t('boards.pin.hint') : undefined}
                 accessibilityState={editable ? { selected: pin.id === selectedId } : undefined}
                 accessibilityActions={editable ? A11Y_ACTIONS : undefined}

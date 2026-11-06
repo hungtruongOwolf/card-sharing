@@ -18,12 +18,12 @@ baked still, plus an optional short loop for time-driven effects. Cost figures a
 | `id` | string, namespaced `kind.slug` | Stable forever, e.g. `cut.diecut`, `fx.holo`, `prop.crown`. Stored in card/board JSON |
 | `version` | int | Bump on param/visual change; stored items keep `{id, version, params}`; migrations upgrade old versions |
 | `name` / `description` | i18n keys | UI copy (English first) |
-| `kind` | `cutStyle \| filter \| overlay \| prop \| frame \| layout` | Drives the effect picker tabs + composition |
+| `kind` | `cutStyle \| filter \| overlay \| prop \| frame \| layout \| backdrop \| decoration` | Drives the effect picker tabs + composition; `backdrop` (`bg.*`) and `decoration` (`deco.*`) dress boards, not cards (T-111) |
 | `tier` | `0 \| 1 \| 1b \| 2` | From [[ADR-0003-effects-tiers]] |
-| `inputs` | set of `image, mask, contour, faceLandmarks, animalPose, bodyPose, gyro, time, touch, text, multiPhoto` | Pipeline computes only what is required |
+| `inputs` | set of `image, mask, contour, faceLandmarks, animalPose, bodyPose, gyro, time, touch, text, multiPhoto` | Pipeline computes only what is required; must be empty for board kinds (they never see a photo) |
 | `anchor` | `none \| bbox \| head \| eyes \| mouth \| top \| userPoints` | For props; `userPoints` = manual fallback |
 | `params` | `ParamSpec` per name: `number`/`integer` `{min, max, default}`, `boolean`, `color` (`#RRGGBB`), `enum` `{values}`, plus `ui` | e.g. `borderWidthPct: 0.5–6, default 3`; validated by a hand-written validator (no zod dependency, T-59) |
-| `renderer` | `{type: sksl \| imageFilter \| pathEffect \| particles \| anchoredAsset \| skottie \| layout \| composite, ref}` | `ref` = shader in `packages/shaders`, asset id, or composite of other ids. Rive only for UI chrome (renders outside the Skia canvas → not exportable) |
+| `renderer` | `{type: sksl \| imageFilter \| pathEffect \| particles \| anchoredAsset \| skottie \| layout \| composite \| pattern \| vector, ref}` (`pattern` = board backdrop, `vector` = board decoration) | `ref` = shader in `packages/shaders`, asset id, or composite of other ids. Rive only for UI chrome (renders outside the Skia canvas → not exportable) |
 | `layer` | `under \| subject \| over \| frame` | Composition order: cutStyle → filter(s) → under/over overlays & props → frame |
 | `stackable` | bool + `conflictsWith: id[]` | e.g. only one `cutStyle`, one `frame` |
 | `platforms` | `{ios:{min, requires[]}, android:{min, requires[], fallback}, webPreview:'baked'\|'live'}` | `requires` e.g. `animalPose`, `playServices` |
@@ -230,3 +230,19 @@ All derive from the 8-bit mask (source of truth); one `cutStyle` per item; resul
 - Unlock defaults (`free` vs `ad`) per effect — owned by [[monetization]]; proposal: all MVP 10 free, ad-unlock for "random extra" variants.
 - Validate cost estimates and the Android pet fallback UX in the week-1 Tier-0 spike.
 - Prop/sticker art pipeline (in-house vs commissioned; licence must allow commercial use and modification).
+
+## Board backdrops and decorations (T-111, AC-18.4)
+Registry entries of kind `backdrop` (`bg.*`) and `decoration` (`deco.*`), defined in
+`packages/effects-registry/src/entries/board.ts` and drawn by `apps/mobile/src/features/boards/boardDecor.ts` by `renderer.ref`.
+Boards store `backdrop: {id, version, params}` and decoration pins store `decoration: {id, version, params}`; the server validates
+both against the exported registry JSON (unknown id or param outside its range is refused). Decorations carry no user content.
+All are Tier 0, free, static (`liveAllowed: false`), recorded into the board picture.
+
+| Kind | Entries | Params |
+|---|---|---|
+| Backdrop (6) | `bg.paper` (default), `bg.kraft`, `bg.grid`, `bg.dots`, `bg.lined`, `bg.cork` | none; colours follow the colour scheme |
+| Decoration (10) | `deco.washi-dots`, `deco.washi-stripes`, `deco.washi-grid`, `deco.ribbon`, `deco.pushpin` | `tapeColor`: `mustard \| sky \| mint \| coral \| lilac` (tape palette, 85% alpha for washi) |
+| | `deco.ticket`, `deco.star`, `deco.heart`, `deco.arrow`, `deco.squiggle` | none |
+
+An unknown or killed backdrop draws the default paper; an unknown decoration draws nothing (placeholder frame for hit tests), so
+boards saved by newer app versions still open.
