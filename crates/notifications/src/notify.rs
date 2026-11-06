@@ -27,6 +27,9 @@ const CARD_DELETED: &str = "cards.deleted";
 const FRIEND_REQUEST_CREATED: &str = "social.friend_request_created";
 const FRIENDSHIP_CREATED: &str = "social.friendship_created";
 const FRIENDSHIP_REMOVED: &str = "social.friendship_removed";
+const BOARD_INVITATION_CREATED: &str = "boards.invitation_created";
+const BOARD_MEMBER_JOINED: &str = "boards.member_joined";
+const BOARD_UPDATED: &str = "boards.board_updated";
 
 /// One push to one account.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -111,6 +114,30 @@ pub fn recipients_of(topic: &str, payload: &Value) -> Vec<Recipient> {
             .flatten()
             .map(|r| to(r, Notification::widget_refresh()))
             .collect(),
+        BOARD_INVITATION_CREATED => match (id("invitation_id"), id("invitee_id")) {
+            (Some(invitation), Some(invitee)) => vec![to(
+                invitee,
+                Notification::about(PushKind::BoardInvite, invitation),
+            )],
+            _ => Vec::new(),
+        },
+        BOARD_MEMBER_JOINED => match (id("board_id"), id("owner_id"), id("member_id")) {
+            (Some(board), Some(owner), Some(member)) if owner != member => {
+                vec![to(owner, Notification::about(PushKind::BoardJoined, board))]
+            }
+            _ => Vec::new(),
+        },
+        // Every member's devices re-sync (the actor's other devices need the change too).
+        BOARD_UPDATED => match (
+            id("board_id"),
+            payload.get("version").and_then(Value::as_i64),
+        ) {
+            (Some(board), Some(version)) => ids("member_ids")
+                .into_iter()
+                .map(|m| to(m, Notification::board_updated(board, version)))
+                .collect(),
+            _ => Vec::new(),
+        },
         _ => Vec::new(),
     }
 }
@@ -132,6 +159,9 @@ impl Subscriber for PushOnEvents {
             FRIEND_REQUEST_CREATED,
             FRIENDSHIP_CREATED,
             FRIENDSHIP_REMOVED,
+            BOARD_INVITATION_CREATED,
+            BOARD_MEMBER_JOINED,
+            BOARD_UPDATED,
         ]
     }
 
@@ -226,13 +256,15 @@ impl Notifier {
         recipient: &Recipient,
     ) -> Result<Outcome, StoreError> {
         let kind = recipient.notification.kind();
-        if kind == PushKind::WidgetRefresh {
+        if kind.is_silent() {
+            // Silent and idempotent: no toggle, cap, log or quiet hours.
+            let tokens = if kind == PushKind::WidgetRefresh {
+                TokenKind::Widget
+            } else {
+                TokenKind::Alert
+            };
             return self
-                .deliver(
-                    recipient.account_id,
-                    TokenKind::Widget,
-                    &recipient.notification,
-                )
+                .deliver(recipient.account_id, tokens, &recipient.notification)
                 .await;
         }
         let now = self.clock.now();
@@ -524,6 +556,45 @@ impl JobHandler for NotifyJob {
 mod tests {
     #![allow(clippy::unwrap_used)]
     use super::*;
+
+    #[test]
+    fn board_events_reach_the_right_members() {
+        let owner = Uuid::now_v7();
+        let member = Uuid::now_v7();
+        let board = Uuid::now_v7();
+        let invitation = Uuid::now_v7();
+        let invited = recipients_of(
+            BOARD_INVITATION_CREATED,
+            &json!({ "invitation_id": invitation, "board_id": board, "invitee_id": member }),
+        );
+        assert_eq!(
+            invited,
+            vec![Recipient {
+                account_id: member,
+                notification: Notification::about(PushKind::BoardInvite, invitation)
+            }]
+        );
+        let joined = recipients_of(
+            BOARD_MEMBER_JOINED,
+            &json!({ "board_id": board, "owner_id": owner, "member_id": member }),
+        );
+        assert_eq!(joined[0].account_id, owner);
+        assert_eq!(
+            joined[0].notification,
+            Notification::about(PushKind::BoardJoined, board)
+        );
+        let updated = recipients_of(
+            BOARD_UPDATED,
+            &json!({ "board_id": board, "version": 9, "member_ids": [owner, member] }),
+        );
+        assert_eq!(updated.len(), 2);
+        assert!(
+            updated
+                .iter()
+                .all(|r| r.notification == Notification::board_updated(board, 9))
+        );
+        assert!(recipients_of(BOARD_UPDATED, &json!({ "board_id": board })).is_empty());
+    }
 
     #[test]
     fn events_map_to_content_free_recipients() {

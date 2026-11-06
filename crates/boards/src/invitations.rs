@@ -12,10 +12,19 @@
 //! - Accepting re-checks, in one transaction under the board lock: still pending and unexpired,
 //!   still the owner's friend, no block with any member, cap. Any failure is the missing 404.
 
+use platform::outbox::{self, Event};
+use serde_json::json;
 use time::OffsetDateTime;
 use uuid::Uuid;
 
+use crate::changes::schedule_changed;
+
 use crate::service::{BoardError, BoardService};
+
+/// Topic of a pending invitation: `{invitation_id, board_id, invitee_id}` (push to the invitee).
+pub const INVITATION_CREATED: &str = "boards.invitation_created";
+/// Topic of an accepted invitation: `{board_id, owner_id, member_id}` (push to the owner).
+pub const MEMBER_JOINED: &str = "boards.member_joined";
 
 /// Invitation statuses that look open to the owner (while unexpired).
 pub(crate) const OPEN: &[&str] = &["pending", "declined", "dropped"];
@@ -204,6 +213,16 @@ impl BoardService {
         .bind(invitation.expires_at)
         .execute(&mut *tx)
         .await?;
+        if status == "pending" {
+            // A dropped invitation never reaches the invitee, not even as a push.
+            let event = Event {
+                topic: INVITATION_CREATED,
+                payload: json!({
+                    "invitation_id": invitation.id, "board_id": board_id, "invitee_id": invitee,
+                }),
+            };
+            outbox::publish(&mut *tx, &event, now).await?;
+        }
         tx.commit().await?;
         Ok(InviteOutcome::Invited(invitation))
     }
@@ -360,6 +379,12 @@ impl BoardService {
         .bind(now)
         .execute(&mut *tx)
         .await?;
+        let event = Event {
+            topic: MEMBER_JOINED,
+            payload: json!({ "board_id": board_id, "owner_id": owner, "member_id": invitee }),
+        };
+        outbox::publish(&mut *tx, &event, now).await?;
+        schedule_changed(&mut tx, board_id, now).await?;
         tx.commit().await?;
         Ok(board_id)
     }

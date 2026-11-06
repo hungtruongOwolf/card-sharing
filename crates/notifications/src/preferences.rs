@@ -29,9 +29,13 @@ impl Category {
         match kind {
             PushKind::CardNew | PushKind::CardsNewMany => Some(Self::CardNew),
             PushKind::ReactionNew => Some(Self::Reaction),
-            PushKind::FriendRequest | PushKind::FriendAccepted => Some(Self::Friend),
+            // Board invitations and joins are social events; a dedicated toggle may follow.
+            PushKind::FriendRequest
+            | PushKind::FriendAccepted
+            | PushKind::BoardInvite
+            | PushKind::BoardJoined => Some(Self::Friend),
             PushKind::CardHeld => Some(Self::CardReview),
-            PushKind::WidgetRefresh => None,
+            PushKind::WidgetRefresh | PushKind::BoardUpdated => None,
         }
     }
 }
@@ -212,7 +216,9 @@ mod tests {
         for kind in PushKind::ALERTS {
             assert!(Category::of(kind).is_some(), "{kind:?}");
         }
-        assert_eq!(Category::of(PushKind::WidgetRefresh), None);
+        for kind in PushKind::SILENT {
+            assert_eq!(Category::of(kind), None, "{kind:?}");
+        }
         let mut prefs = Preferences::default();
         assert!(prefs.allows(Category::Reaction));
         prefs.reaction = false;
