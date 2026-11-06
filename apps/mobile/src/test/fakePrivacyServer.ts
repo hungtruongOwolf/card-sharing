@@ -18,6 +18,9 @@ export const GRACE_MS = 7 * 24 * HOUR;
 export const EXPORT_DELAY_MS = 48 * HOUR;
 const EXPORT_COOLDOWN_MS = 24 * HOUR;
 
+/** The n-th single-use download token the fake issues (a placeholder in the server's shape). */
+export const downloadToken = (n: number) => `dl${'x'.repeat(16)}${n}`;
+
 interface FakeExport {
   id: string;
   status: 'queued' | 'building' | 'ready' | 'downloaded' | 'expired' | 'cancelled' | 'failed';
@@ -72,7 +75,7 @@ export class FakePrivacyServer {
     let downloadPath: string | null = null;
     if (withDownload && item.status === 'ready') {
       this.downloadCounter += 1;
-      downloadPath = `/v1/exports/${item.id}/download?token=dl-token-${String(this.downloadCounter).padStart(16, '0')}`;
+      downloadPath = `/v1/exports/${item.id}/download?token=${downloadToken(this.downloadCounter)}`;
     }
     return {
       export: {

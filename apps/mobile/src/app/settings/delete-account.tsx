@@ -28,6 +28,7 @@ export default function DeleteAccountRoute() {
         });
         await authClient.signOut();
       }}
+      onOpenExport={() => router.push('/settings/data-export')}
       onBack={() => (router.canGoBack() ? router.back() : router.replace('/'))}
     />
   );

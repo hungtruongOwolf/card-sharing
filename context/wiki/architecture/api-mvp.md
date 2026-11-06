@@ -618,7 +618,11 @@ and the account's clean images re-encoded as PNG under `media/<kind>/<id>.png`; 
 (auth none, `privacy.exports.download` 20/h per IP) serves `application/zip` once; a used, replaced, expired or wrong token
 and an unknown id are the same 404. Expired files are deleted by the same task. Another account's export id is the same 404
 as a missing one. The privacy module's own PersonalData impl exports export metadata and erases the files and rows. Tests:
-`tests/api/exports.rs`.
+`tests/api/exports.rs`. App (T-155, #157): Home → Download your data requests after a re-auth, remembers the
+export id and times on the device (no list route; status reads need `re`), shows the 48-hour wait and offers "Cancel
+request" without re-auth; after `available_at`, "Download" re-authenticates, reads the export and hands the single-use
+`download_path` (allow-listed shape on the API origin only) to the system browser. `EXPORT_COOLDOWN` shows the
+`Retry-After` hours.
 | PUT | /v1/devices/{deviceId}/push-tokens | Upsert `{provider, kind: alert\|widget, token}` | ses | user | device owned by caller | 30/day d | yes | US-31, US-16 |
 | DELETE | /v1/devices/{deviceId}/push-tokens | Remove device tokens | onb/ses | user | own device | 30/day d | yes | US-16 AC-16.2 |
 | GET / PUT | /v1/me/notification-preferences | Toggles per type + quiet hours + tz | ses | user | self | 30/h u | yes | US-31 AC-31.1 |

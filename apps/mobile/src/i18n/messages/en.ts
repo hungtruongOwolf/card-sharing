@@ -535,6 +535,37 @@ export const en = {
   'deletionPending.cancelled': 'Deletion cancelled. Welcome back!',
   'deletionPending.gone': 'There’s no deletion to cancel any more.',
   'deletionPending.signOut': 'Sign out',
+  'dataExport.open': 'Download your data',
+  'dataExport.title': 'Download your data',
+  'dataExport.intro':
+    'Get a ZIP with your account details, profile, friends (names only), cards with their images, reactions and boards.',
+  'dataExport.timing':
+    'For your safety the file is prepared 48 hours after you ask, and every signed-in device is told. You can ask once a day.',
+  'dataExport.loading': 'Loading your export',
+  'dataExport.request': 'Request my data',
+  'dataExport.reauth.title': 'Confirm it’s you',
+  'dataExport.reauth.request':
+    'Sign in with the account you use for this app to request a copy of your data.',
+  'dataExport.reauth.download':
+    'Sign in with the account you use for this app to download your data.',
+  'dataExport.requestedAt': 'Requested {date}',
+  'dataExport.waiting': 'Your file will be ready after {date}. You can cancel until then.',
+  'dataExport.checkReady': 'Your file should be ready. Download it within 24 hours.',
+  'dataExport.download': 'Download',
+  'dataExport.cancel': 'Cancel request',
+  'dataExport.cancelled': 'Request cancelled.',
+  'dataExport.cancelTooLate':
+    'Your file is already being prepared, so the request can’t be cancelled.',
+  'dataExport.stillBuilding': 'Your file is still being prepared. Please check again later.',
+  'dataExport.downloadStarted':
+    'Your download opened in the browser. The link works once; download again to get a new one.',
+  'dataExport.cooldown':
+    '{hours, plural, one {You can ask for your data once a day. Try again in about # hour.} other {You can ask for your data once a day. Try again in about # hours.}}',
+  'dataExport.finished.downloaded': 'Your file was already downloaded. You can ask for a new one.',
+  'dataExport.finished.expired': 'Your file has expired. You can ask for a new one.',
+  'dataExport.finished.cancelled': 'That request was cancelled. You can ask for a new one.',
+  'dataExport.finished.failed': 'We couldn’t prepare your file. Please ask again.',
+  'deleteAccount.exportFirst': 'Download your data first',
   'friends.open': 'Friends',
   'friends.title': 'Friends',
   'friends.loading': 'Loading your friends',
