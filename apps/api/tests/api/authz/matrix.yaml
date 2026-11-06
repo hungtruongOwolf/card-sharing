@@ -240,6 +240,12 @@ routes:
   - route: GET /v1/feed
     expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 200, suspended: 403 }
 
+  # Purge check (T-83). A card the caller may not see is purged like an unknown one; unfriend,
+  # block and delete cells are in tests/api/feed_purges.rs.
+  - route: POST /v1/feed/purges
+    body: { card_ids: ['0192f0c1-7c1e-7a3b-9d2e-123456789abc'] }
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 200, suspended: 403 }
+
   # Delete a card (T-82). Owner only; a recipient's, a stranger's, a missing or an already deleted
   # card is the same 404 (tests/api/cards_delete.rs).
   - route: DELETE /v1/cards/{id}

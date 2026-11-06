@@ -315,6 +315,7 @@ request goes out with the opaque `ref`, a silent drop looks like a sent request)
 | DELETE | /v1/cards/{id} | Delete sent card (≤ 60 s everywhere) | ses | user | owner | 60/h u | yes | US-14 |
 | GET | /v1/me/cards | My cards (pin picker, re-download for export) | ses | user | owner | 60/min u | yes | US-18, US-23 |
 | GET | /v1/feed | Cards delivered to me, newest first (`limit` ≤ 30) | ses | user | recipient = caller, sender ∈ current friends, not hidden | 120/min u | yes | US-15 |
+| POST | /v1/feed/purges | Purge instructions for cached cards `{card_ids ≤ 100}` → `{purge}` (T-83) | ses | user | ids the caller may no longer see under the card-read predicate; unknown = purged | 120/min u | yes | US-6 AC-6.1, US-14, SR-9 |
 | GET | /v1/widget | Latest card (`?friend_id=` S) — minimal DTO; re-evaluated on every call (unfriend/block/delete ⇒ empty) | wid | user | as feed; `friend_id` must be a friend else empty | 60/h d | yes | US-16 AC-16.4 |
 | PUT | /v1/cards/{id}/reaction | Set/replace my reaction `{kind}` | ses | user | caller is recipient & friend | 120/h u | yes | US-17 |
 | DELETE | /v1/cards/{id}/reaction | Remove my reaction | ses | user | same | 120/h u | yes | US-17 AC-17.2 |
@@ -442,6 +443,14 @@ reads and the feed on the next request (widget and boards inherit the same predi
 purges each media object no other live card uses (objects removed from `clean` and `quarantine`, row `deleted`; blocked media
 keep their legal-hold evidence), so outstanding signed URLs stop resolving as soon as the purge runs (well within the TTL).
 Widget refresh pushes and board placeholders subscribe to `cards.deleted` with their tickets.
+Implemented (T-83, server part of #85, `CardService::purged_of`, `POST /v1/feed/purges`, limit `feed.purges` 120/min): the
+app sends the ids it keeps offline (feed copy, widget, boards; 1..100, malformed → 400) and gets back `{purge: [ids]}` = the
+ids it may no longer see under the card-read predicate (unfriend or block either way, deleted card, suspended or deleted
+sender), in request order without duplicates. Stateless by design: no purge-event table to fan out or expire, nothing missed
+after a long offline period, and an unknown id is answered exactly like a purged one (no existence oracle; a visible card is
+never listed). The app checks on start, on foreground, on every feed refresh and at least every 30 s while open, which keeps
+AC-6.1 / AC-14.1 within 60 s; widget refresh pushes on `cards.deleted` / `social.friendship_removed` come with T-86. There is
+still no Redis friend/block cache, so nothing needs invalidating.
 
 Implemented (T-84, `crates/cards/src/reactions.rs`): `PUT /v1/cards/{id}/reaction {kind}` and `DELETE …/reaction` (limit
 `cards.react` 120/h) for a recipient who may see the card under the read predicate (never the owner) → 204; anyone else the

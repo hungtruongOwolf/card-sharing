@@ -255,6 +255,10 @@ pub fn router() -> ApiRouter<AppState> {
             RoutePolicy::session().limited("feed.read"),
             routes!(feed::get_feed),
         )
+        .route(
+            RoutePolicy::session().limited("feed.purges"),
+            routes!(feed::check_purges),
+        )
         .undocumented_policy(
             &Method::GET,
             "/openapi.json",

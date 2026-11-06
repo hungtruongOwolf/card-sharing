@@ -19,6 +19,7 @@ mod cards_reactions;
 mod cards_read;
 mod cards_send;
 mod feed;
+mod feed_purges;
 mod findable;
 mod friend_requests;
 mod friends;
