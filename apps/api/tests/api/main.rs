@@ -23,6 +23,7 @@ mod invites;
 mod jobs;
 mod magic_link;
 mod me;
+mod media;
 mod minor_hint;
 mod outbox;
 mod profile;

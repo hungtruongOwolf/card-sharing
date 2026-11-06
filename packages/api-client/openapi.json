@@ -2244,6 +2244,227 @@
         }
       }
     },
+    "/v1/media": {
+      "post": {
+        "tags": [
+          "media"
+        ],
+        "summary": "Upload an image into quarantine. Auth: onb/ses.",
+        "description": "The body is the raw image (`Content-Type: image/png`, `image/jpeg`, `image/webp` or\n`application/octet-stream`), at most 10 MiB, at most 4096 px per side. The format comes from\nthe magic bytes; a declared image type that disagrees with them is refused. The same bytes of\nthe same kind return the existing upload (200) instead of a new one (201). The image is\nre-encoded and scanned before anyone can see it; this endpoint never returns a URL.",
+        "operationId": "uploadMedia",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "query",
+            "description": "`card_render`, `mask`, `original` (keep-original only) or `avatar`.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "The raw image bytes.",
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "$ref": "#/components/schemas/ImageBytes"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "The same image of this kind was uploaded before.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaEnvelope"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Stored in quarantine.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED: bad kind, malformed header or dimensions out of range.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "MEDIA_TOO_LARGE: above 10 MiB.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "MEDIA_TYPE_UNSUPPORTED: not PNG, JPEG or WebP.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "TEMPORARILY_UNAVAILABLE: object storage is down or not configured.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "onb/ses",
+          "rateLimit": "media.upload",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
+    "/v1/media/{id}": {
+      "get": {
+        "tags": [
+          "media"
+        ],
+        "summary": "State of one of my uploads. Auth: onb/ses. Owner only; never returns a URL.",
+        "operationId": "getMedia",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The media id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The upload's state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: no upload of mine with this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "onb/ses",
+          "rateLimit": "media.read",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
     "/v1/public/invites/{token}": {
       "get": {
         "tags": [
@@ -3254,6 +3475,11 @@
         },
         "additionalProperties": false
       },
+      "ImageBytes": {
+        "type": "string",
+        "format": "binary",
+        "description": "Raw image bytes (request body of the upload)."
+      },
       "InvitePreviewResponse": {
         "type": "object",
         "required": [
@@ -3368,6 +3594,64 @@
           },
           "settings": {
             "$ref": "#/components/schemas/SettingsView"
+          }
+        }
+      },
+      "MediaEnvelope": {
+        "type": "object",
+        "required": [
+          "media"
+        ],
+        "properties": {
+          "media": {
+            "$ref": "#/components/schemas/MediaView"
+          }
+        }
+      },
+      "MediaView": {
+        "type": "object",
+        "description": "An upload as its owner sees it. Never carries a URL or a storage key.",
+        "required": [
+          "id",
+          "kind",
+          "state",
+          "content_type",
+          "byte_size",
+          "width",
+          "height",
+          "created_at"
+        ],
+        "properties": {
+          "byte_size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "content_type": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "height": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "description": "`card_render`, `mask`, `original` or `avatar`."
+          },
+          "state": {
+            "type": "string",
+            "description": "`uploaded`, `scanning`, `clean`, `held`, `blocked`, `failed` or `deleted`."
+          },
+          "width": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },
@@ -3921,6 +4205,10 @@
     {
       "name": "social",
       "description": "Invites, friend requests, friends, blocks and handle search (US-4, US-5, US-5a, US-6, US-26)"
+    },
+    {
+      "name": "media",
+      "description": "Image uploads into quarantine and their state (ADR-0005)"
     },
     {
       "name": "config",

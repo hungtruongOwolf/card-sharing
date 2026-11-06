@@ -13,7 +13,6 @@ use http::{HeaderValue, Method, StatusCode, header};
 use tower::{BoxError, ServiceBuilder};
 use tower_http::catch_panic::CatchPanicLayer;
 use tower_http::cors::{AllowOrigin, CorsLayer};
-use tower_http::limit::RequestBodyLimitLayer;
 use tower_http::set_header::SetResponseHeaderLayer;
 use tower_http::trace::{DefaultOnResponse, TraceLayer};
 use tracing::Level;
@@ -60,9 +59,47 @@ pub fn apply(router: Router, config: &Config) -> Router {
         .layer(cors(config))
         .layer(HandleErrorLayer::new(handle_middleware_error))
         .timeout(config.request_timeout)
-        .layer(RequestBodyLimitLayer::new(config.body_limit_bytes));
+        .layer(middleware::from_fn_with_state(
+            config.body_limit_bytes,
+            limit_body,
+        ));
 
     router.layer(stack)
+}
+
+/// Routes that read their own body as a bounded stream and enforce their own limit (uploads).
+const STREAMED_ROUTES: &[(Method, &str)] = &[(Method::POST, crate::routes::media::UPLOAD_PATH)];
+
+/// Request body limit (`API_BODY_LIMIT_BYTES`): a declared length above it is refused before the
+/// body is read, and the body stream is capped either way. Streamed upload routes enforce their
+/// own (larger) limit.
+async fn limit_body(
+    axum::extract::State(limit): axum::extract::State<usize>,
+    request: Request,
+    next: middleware::Next,
+) -> Response {
+    let streamed = request
+        .extensions()
+        .get::<MatchedPath>()
+        .is_some_and(|path| {
+            STREAMED_ROUTES
+                .iter()
+                .any(|(method, route)| method == request.method() && *route == path.as_str())
+        });
+    if streamed {
+        return next.run(request).await;
+    }
+    let declared = request
+        .headers()
+        .get(header::CONTENT_LENGTH)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.parse::<u64>().ok());
+    if declared.is_some_and(|len| len > limit as u64) {
+        return ApiError::PayloadTooLarge.into_response();
+    }
+    let request =
+        request.map(|body| axum::body::Body::new(http_body_util::Limited::new(body, limit)));
+    next.run(request).await
 }
 
 /// Logs the route template, never the raw path/query (share tokens must not reach logs).

@@ -12,6 +12,7 @@ license = "UNLICENSED"
 # internal
 attestation = { path = "crates/attestation" }
 identity = { path = "crates/identity" }
+media = { path = "crates/media" }
 registry = { path = "crates/registry" }
 platform = { path = "crates/platform" }
 policy = { path = "crates/policy" }

@@ -102,6 +102,10 @@ async fn main() -> anyhow::Result<()> {
         attestation_service(&config.attestation)?,
         config.attestation.mode,
     );
+    let state = match media_store(&config) {
+        Some(store) => state.with_media_store(store),
+        None => state,
+    };
     let sign_in = sign_in_service(&config, identity, Arc::clone(&state.field_cipher), clock)?;
     let state = state.with_sign_in(Arc::new(sign_in));
 
@@ -118,6 +122,23 @@ async fn main() -> anyhow::Result<()> {
 
     tracing::info!("shut down cleanly");
     Ok(())
+}
+
+/// Object storage for media from config; `None` = uploads answer 503 (fail closed).
+fn media_store(config: &Config) -> Option<Arc<dyn media::ObjectStore>> {
+    match &config.media_storage_dir {
+        Some(dir) => {
+            tracing::warn!(
+                dir = %dir.display(),
+                "filesystem media storage (local development and CI only)"
+            );
+            Some(Arc::new(media::FsObjectStore::new(dir.clone())))
+        }
+        None => {
+            tracing::warn!("API_MEDIA_STORAGE_DIR is unset: media uploads answer 503");
+            None
+        }
+    }
 }
 
 /// App Attest (Apple's root) and Play Integrity verifiers from config; an unconfigured platform's

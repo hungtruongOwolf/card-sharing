@@ -53,6 +53,10 @@ pub struct Config {
     pub text_filter_config_path: PathBuf,
     /// `API_PROFILE_CONFIG_PATH` — default `config/profile.yaml` (display name and handle rules).
     pub profile_config_path: PathBuf,
+    /// `API_MEDIA_STORAGE_DIR` — filesystem object storage root for local development and CI
+    /// (`<dir>/<bucket>/<key>`). Unset (default) = no object storage: uploads answer 503 and media
+    /// jobs retry (fail closed). Production uses the S3-compatible adapter (ADR-0008).
+    pub media_storage_dir: Option<PathBuf>,
     /// `API_SOCIAL_CONFIG_PATH` — default `config/social.yaml` (invite links, friend caps, search).
     pub social_config_path: PathBuf,
     /// `API_APPLE_CLIENT_IDS` — comma-separated `aud` values accepted in Apple ID tokens (the iOS
@@ -212,6 +216,10 @@ impl Config {
         let social_config_path = env
             .optional("API_SOCIAL_CONFIG_PATH")
             .map_or_else(|| PathBuf::from("config/social.yaml"), PathBuf::from);
+        let media_storage_dir = env
+            .optional("API_MEDIA_STORAGE_DIR")
+            .filter(|dir| !dir.trim().is_empty())
+            .map(PathBuf::from);
         let apple_client_ids = client_ids(env, "API_APPLE_CLIENT_IDS")?;
         let google_client_ids = client_ids(env, "API_GOOGLE_CLIENT_IDS")?;
         let auth_clock_skew_secs = env.in_range("API_AUTH_CLOCK_SKEW_SECS", 60, 0..=300)?;
@@ -239,6 +247,7 @@ impl Config {
             text_filter_config_path,
             profile_config_path,
             social_config_path,
+            media_storage_dir,
             apple_client_ids,
             google_client_ids,
             auth_clock_skew: Duration::from_secs(auth_clock_skew_secs),

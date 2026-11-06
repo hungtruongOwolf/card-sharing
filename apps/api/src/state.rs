@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use http::{HeaderMap, HeaderName};
 use identity::{AgeService, AttestationService, IdentityService, ProfileRules, ProviderSignIn};
+use media::{MediaService, ObjectStore};
 use platform::crypto::FieldCipher;
 use platform::idempotency::{IdempotencySettings, IdempotencyStore};
 use platform::rate_limit::RateLimiter;
@@ -36,6 +37,8 @@ pub struct AppState {
     pub age: Arc<AgeService>,
     /// Invites, friend requests, friendships, blocks and handle search.
     pub social: Arc<SocialService>,
+    /// Quarantine uploads and media state (T-70).
+    pub media: Arc<MediaService>,
     /// Resolves bearer tokens for the access-policy gate (identity sessions by default).
     pub sessions: Arc<dyn SessionResolver>,
     pub limiter: Arc<RateLimiter>,
@@ -86,6 +89,11 @@ impl AppState {
             attestation_mode: AttestationMode::LogOnly,
             age,
             social,
+            media: Arc::new(MediaService::new(
+                identity.pool().clone(),
+                identity.clock(),
+                None,
+            )),
             policy,
             sessions: Arc::new(IdentitySessions(Arc::clone(&identity))),
             idempotency: Arc::new(IdempotencyStore::new(
@@ -120,6 +128,16 @@ impl AppState {
         ));
         let settings = self.social.settings().clone();
         self.with_social_settings(settings)
+    }
+
+    /// Installs object storage for media (`API_MEDIA_STORAGE_DIR`; tests use memory).
+    pub fn with_media_store(mut self, store: Arc<dyn ObjectStore>) -> Self {
+        self.media = Arc::new(MediaService::new(
+            self.identity.pool().clone(),
+            self.identity.clock(),
+            Some(store),
+        ));
+        self
     }
 
     /// Installs the social rules (`config/social.yaml`).

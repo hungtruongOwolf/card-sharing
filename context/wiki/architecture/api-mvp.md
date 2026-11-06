@@ -174,8 +174,20 @@ reservation); same 400/403 rules. Before the age gate both routes → 403 `ONBOA
 ### Media
 | Method | Path | Purpose | Auth | Role | Object rule | Rate limit | Idem. | US |
 |---|---|---|---|---|---|---|---|---|
-| POST | /v1/media | Multipart upload (`kind`: card_render/mask/original/avatar, ≤ 10 MB) to quarantine | onb/ses | user | owner = caller; dedupe `(owner, sha256, kind)` | 60/h u, 300/day u | `Idempotency-Key` | US-3, US-13 AC-13.4, US-28 |
-| GET | /v1/media/{id} | Upload state (uploaded/scanning/clean/held/blocked) — no URL | onb/ses | user | owner only | 120/min u | yes | US-13 |
+| POST | /v1/media?kind= | Raw image body (`kind`: card_render/mask/original/avatar, ≤ 10 MiB) streamed to quarantine | onb/ses | user | owner = caller; dedupe `(owner, sha256, kind)` | 60/h u, 300/day u | dedupe (same bytes → same upload) | US-3, US-13 AC-13.4, US-28 |
+| GET | /v1/media/{id} | Upload state (uploaded/scanning/clean/held/blocked/failed/deleted) — no URL | onb/ses | user | owner only | 120/min u | yes | US-13 |
+
+Implemented (T-70, `crates/media` + `apps/api/src/routes/media.rs`): the body is the raw image, not multipart (one file per
+request, no multipart parser on the attack surface, no new crate). `Content-Type` must be `image/png`, `image/jpeg`,
+`image/webp` or `application/octet-stream`; the **magic bytes decide**, and a declared image type that disagrees with them is
+415 `MEDIA_TYPE_UNSUPPORTED` (so is HTML renamed `.png`, and HEIC until a memory-safe decoder exists — follow-up). Size: a
+`Content-Length` above 10 MiB, or a stream that grows past it, is 413 `MEDIA_TOO_LARGE` (this route enforces its own limit; every
+other route keeps `API_BODY_LIMIT_BYTES`, now answering 413 `PAYLOAD_TOO_LARGE`). The container header (PNG IHDR, JPEG SOFn, WebP
+VP8/VP8L/VP8X) is read while streaming, before anything is stored or decoded: a side of 0 or above 4096 px is 400
+`VALIDATION_FAILED` from the first chunk. Bytes go to the private `quarantine` bucket under a random 128-bit key and the
+`media.process` job is queued in the same transaction. Same bytes + kind + owner → 200 with the existing upload (instead of
+`Idempotency-Key`, whose replay buffer is 1 MiB); a new upload → 201. Responses never carry a URL, key or hash. No object storage
+configured (`API_MEDIA_STORAGE_DIR` unset, until the R2 adapter lands) → 503 `TEMPORARILY_UNAVAILABLE`.
 
 ### Social
 | Method | Path | Purpose | Auth | Role | Object rule | Rate limit | Idem. | US |
@@ -433,7 +445,7 @@ on `code`); `requestId` equals the `X-Request-Id` response header. Generic codes
 | 403 | `ONBOARDING_INCOMPLETE`, `AGE_GATE_REFUSED` (neutral copy), `AGE_ALREADY_SUBMITTED` (DOB locked), `FORBIDDEN` (wrong session kind for the route), `ACCOUNT_SUSPENDED`, `POLICY_DISALLOWED` (e.g. public link < min age), `ATTESTATION_FAILED`, `MFA_REQUIRED` |
 | 404 | `NOT_FOUND` (also for every object-level denial, incl. non-pending/expired board invitations), `INVITE_EXPIRED` (reset, expired or use cap reached) |
 | 409 | `ALREADY_FRIENDS`, `HANDLE_TAKEN`, `PIN_VERSION_CONFLICT` / `BOARD_VERSION_CONFLICT`, `IDEMPOTENCY_IN_PROGRESS`, `FRIEND_LIMIT_REACHED`, `BOARD_LIMIT_REACHED`, `PIN_LIMIT_REACHED`, `COLLABORATOR_LIMIT_REACHED` (members + pending invitations), `ALREADY_INVITED`, `CARD_HELD_FOR_REVIEW` (owner pins/links a held card), `APPEAL_ALREADY_FILED` |
-| 413/415 | `MEDIA_TOO_LARGE`, `MEDIA_TYPE_UNSUPPORTED` |
+| 413/415 | `MEDIA_TOO_LARGE` (uploads), `PAYLOAD_TOO_LARGE` (any other body over the limit), `MEDIA_TYPE_UNSUPPORTED` |
 | 429 | `RATE_LIMITED`, `HANDLE_CHANGE_COOLDOWN`, `EXPORT_COOLDOWN`, `REINVITE_COOLDOWN` (generic "try later" copy on auth/search) |
 | 503 | `TEMPORARILY_UNAVAILABLE` (+ `Retry-After`) |
 

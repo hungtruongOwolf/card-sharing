@@ -8,6 +8,9 @@
 # rust
 target/
 
+# local media object storage (API_MEDIA_STORAGE_DIR)
+.data/
+
 # node / next
 node_modules/
 .next/
