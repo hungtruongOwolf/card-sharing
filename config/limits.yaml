@@ -284,6 +284,11 @@ limits:
     requests: 30
     per_secs: 3600
     on_store_failure: open
+  boards.ops: # POST /v1/boards/{id}/ops (offline queues flush in batches of up to 50 ops)
+    scope: user
+    requests: 600
+    per_secs: 3600
+    on_store_failure: open
   boards.read: # GET /v1/boards/{id}
     scope: user
     requests: 120

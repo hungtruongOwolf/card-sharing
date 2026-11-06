@@ -335,3 +335,11 @@ routes:
     path: /v1/boards/0192f0c1-7c1e-7a3b-9d2e-123456789abc
     missing_path: /v1/boards/0192f0c1-7c1e-7a3b-9d2e-000000000000
     expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }
+
+  # Pin op batches (T-99). Per-op results, conflicts, pin ownership and replays are in
+  # tests/api/board_ops.rs; a non-member's batch is the same 404 as for a missing board.
+  - route: POST /v1/boards/{id}/ops
+    path: /v1/boards/0192f0c1-7c1e-7a3b-9d2e-123456789abc/ops
+    missing_path: /v1/boards/0192f0c1-7c1e-7a3b-9d2e-000000000000/ops
+    body: { ops: [{ type: pin.remove, op_id: '0192f0c1-7c1e-7a3b-9d2e-0000000000aa', pin_id: '0192f0c1-7c1e-7a3b-9d2e-0000000000bb', base_version: 1 }] }
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }

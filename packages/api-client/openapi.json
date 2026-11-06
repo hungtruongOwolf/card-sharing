@@ -1247,6 +1247,122 @@
         }
       }
     },
+    "/v1/boards/{id}/ops": {
+      "post": {
+        "tags": [
+          "boards"
+        ],
+        "summary": "Apply a batch of pin ops. Auth: ses. Members only.",
+        "description": "`pin.add` places a card or decoration (at most 100 live pins per board); for a card, the\ncaller must be able to pin it now (own active card). `pin.update` / `pin.remove` carry the pin\n`base_version`: a mismatch is `conflict` with the current pin. Collaborators move and remove\nonly pins they created (`PIN_NOT_YOURS`); the owner may change any pin. A replayed `op_id`\n(or a retried `pin.add` of the caller's own pin) is `applied` again without changing anything.\nA board the caller is not a member of is the missing 404.",
+        "operationId": "applyBoardOps",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The board id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PinOpsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Per-op results.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PinOpsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED: no ops, too many ops, duplicate op ids, values out of range, unknown fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: no board of which the caller is a member.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "UNKNOWN_REGISTRY_ID: a decoration is not a known decoration.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "boards.ops",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
     "/v1/cards": {
       "post": {
         "tags": [
@@ -4785,6 +4901,24 @@
           }
         }
       },
+      "AddPinOp": {
+        "type": "object",
+        "required": [
+          "op_id",
+          "pin"
+        ],
+        "properties": {
+          "op_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Client idempotency key of this op."
+          },
+          "pin": {
+            "$ref": "#/components/schemas/NewPinRequest"
+          }
+        },
+        "additionalProperties": false
+      },
       "AdsView": {
         "type": "object",
         "required": [
@@ -5899,6 +6033,65 @@
           }
         }
       },
+      "NewPinRequest": {
+        "type": "object",
+        "description": "A new pin (`pin.add`). Exactly one of `card_id` and `decoration`.",
+        "required": [
+          "id",
+          "x",
+          "y",
+          "scale",
+          "rotation",
+          "z_key"
+        ],
+        "properties": {
+          "card_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "A card the caller may pin (see the operation description)."
+          },
+          "decoration": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "Registry reference `{id, version, params?}` of kind `decoration`."
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Client-generated UUIDv7."
+          },
+          "rotation": {
+            "type": "number",
+            "format": "double",
+            "description": "Degrees, -360..=360 (stored normalized to [-180, 180))."
+          },
+          "scale": {
+            "type": "number",
+            "format": "double",
+            "description": "0.1..=10."
+          },
+          "x": {
+            "type": "number",
+            "format": "double",
+            "description": "Centre, as a fraction of the board width (0..=1)."
+          },
+          "y": {
+            "type": "number",
+            "format": "double",
+            "description": "Centre, as a fraction of the board height (0..=1)."
+          },
+          "z_key": {
+            "type": "string",
+            "description": "Fractional index for z-order: 1..=32 of `[0-9A-Za-z]`, compared as bytes."
+          }
+        },
+        "additionalProperties": false
+      },
       "NotificationPreferences": {
         "type": "object",
         "description": "Body of `PUT` and answer of both routes.",
@@ -5970,6 +6163,269 @@
             "$ref": "#/components/schemas/OnboardingStep"
           }
         }
+      },
+      "PinLayoutView": {
+        "type": "object",
+        "description": "A pin's placement as the caller may see it in op results. Card contents are never part of an\nop result: `card_id` is only echoed on pins the caller created; read the board to see cards.",
+        "required": [
+          "id",
+          "kind",
+          "x",
+          "y",
+          "scale",
+          "rotation",
+          "z_key",
+          "version",
+          "mine",
+          "removed"
+        ],
+        "properties": {
+          "card_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "decoration": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "description": "`card` or `decoration`."
+          },
+          "mine": {
+            "type": "boolean",
+            "description": "The caller created this pin (collaborators may move/remove only these)."
+          },
+          "removed": {
+            "type": "boolean",
+            "description": "The pin was removed (tombstone)."
+          },
+          "rotation": {
+            "type": "number",
+            "format": "double"
+          },
+          "scale": {
+            "type": "number",
+            "format": "double"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "x": {
+            "type": "number",
+            "format": "double"
+          },
+          "y": {
+            "type": "number",
+            "format": "double"
+          },
+          "z_key": {
+            "type": "string"
+          }
+        }
+      },
+      "PinOpRequest": {
+        "oneOf": [
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AddPinOp"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "type"
+                ],
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "pin.add"
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UpdatePinOp"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "type"
+                ],
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "pin.update"
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RemovePinOp"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "type"
+                ],
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "pin.remove"
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        "description": "One op, discriminated by `type`."
+      },
+      "PinOpResultView": {
+        "type": "object",
+        "required": [
+          "op_id",
+          "status"
+        ],
+        "properties": {
+          "code": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`rejected`: `NOT_FOUND`, `PIN_NOT_YOURS`, `PIN_LIMIT_REACHED` or `CARD_HELD_FOR_REVIEW`."
+          },
+          "current": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PinLayoutView",
+                "description": "`conflict`: the pin as it is now (replace the local copy)."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "op_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "pin": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PinLayoutView",
+                "description": "`applied`: the pin after the op."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "description": "`applied`, `conflict` or `rejected`."
+          }
+        }
+      },
+      "PinOpsRequest": {
+        "type": "object",
+        "description": "Body of `POST /v1/boards/{id}/ops`.",
+        "required": [
+          "ops"
+        ],
+        "properties": {
+          "ops": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PinOpRequest"
+            },
+            "description": "1..=50 ops with distinct `op_id`s, applied in order."
+          }
+        },
+        "additionalProperties": false
+      },
+      "PinOpsResponse": {
+        "type": "object",
+        "required": [
+          "board_version",
+          "results"
+        ],
+        "properties": {
+          "board_version": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The board version after the batch (the delta-sync cursor)."
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PinOpResultView"
+            },
+            "description": "One result per op, in request order."
+          }
+        }
+      },
+      "PinSetRequest": {
+        "type": "object",
+        "description": "The fields a `pin.update` changes (at least one), same ranges as [`NewPinRequest`].",
+        "properties": {
+          "rotation": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "scale": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "x": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "y": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "z_key": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
       },
       "PolicyView": {
         "type": "object",
@@ -6290,6 +6746,29 @@
         },
         "additionalProperties": false
       },
+      "RemovePinOp": {
+        "type": "object",
+        "required": [
+          "op_id",
+          "pin_id",
+          "base_version"
+        ],
+        "properties": {
+          "base_version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "op_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "pin_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
       "RequestItemView": {
         "type": "object",
         "required": [
@@ -6605,6 +7084,34 @@
             "example": "Bearer"
           }
         }
+      },
+      "UpdatePinOp": {
+        "type": "object",
+        "required": [
+          "op_id",
+          "pin_id",
+          "base_version",
+          "set"
+        ],
+        "properties": {
+          "base_version": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The pin `version` the client last saw."
+          },
+          "op_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "pin_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "set": {
+            "$ref": "#/components/schemas/PinSetRequest"
+          }
+        },
+        "additionalProperties": false
       },
       "UserSummaryView": {
         "type": "object",

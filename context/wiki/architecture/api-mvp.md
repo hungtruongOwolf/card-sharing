@@ -351,6 +351,22 @@ only) is counted under a per-owner advisory lock → 409 `BOARD_LIMIT_REACHED`. 
 created_at, updated_at}`. `GET /v1/boards` lists boards where the caller is a member (owner or collaborator), most recently changed
 first; `GET /v1/boards/{id}` → `{board}` for members, the missing 404 for everyone else (friendship alone gives no access).
 
+Implemented (T-99, `crates/boards/src/{pins,ops}.rs`, `apps/api/src/routes/board_ops.rs`, limit `boards.ops` 600/h):
+`POST /v1/boards/{id}/ops {ops: [...]}` — ops are discriminated by `type` (`pin.add {op_id, pin: {id, card_id | decoration, x, y, scale,
+rotation, z_key}}`, `pin.update {op_id, pin_id, base_version, set: {x?, y?, scale?, rotation?, z_key?}}`, `pin.remove {op_id, pin_id,
+base_version}`). Board units: `x`, `y` = pin centre as a fraction of board width/height (0..=1); `scale` 0.1..=10; `rotation` degrees,
+|r| ≤ 360, stored normalized to [-180, 180); `z_key` 1–32 of `[0-9A-Za-z]` (byte order). The batch is validated as a whole (1..=50 ops,
+`boards.max_ops_per_batch`; distinct `op_id`s; pin ids UUIDv7; exactly one of `card_id`/`decoration`; ranges; unknown fields) → 400, an
+unknown decoration → 422. Then the board row is locked (`FOR UPDATE`) and each op gets a result: `applied` (`pin` after the op; board
+version + 1 per applied op, appended to `boards.board_ops` with the actor), `conflict` (`current` pin, on a `base_version` mismatch; other
+ops still apply, AC-19.3) or `rejected` with `code` `NOT_FOUND` (missing/removed pin, someone else's pin or op id, a card the caller may
+not pin), `PIN_NOT_YOURS` (collaborator, AC-19.2; checked before the version so a collaborator never sees another member's pin through a
+conflict), `PIN_LIMIT_REACHED` (100 live pins, `boards.max_pins`), `CARD_HELD_FOR_REVIEW`. A replayed `op_id` of the same actor and a
+retried `pin.add` of the actor's own pin are `applied` without a change. Response `{board_version, results: [{op_id, status, pin? |
+current? | code?}]}`; pin views in op results are layout only (`id, kind, x, y, scale, rotation, z_key, version, mine, removed`, a
+decoration's reference) and echo `card_id` only on the caller's own pins. Pin-add authorization here: the caller's own `active` card
+(T-100 extends it).
+
 ### Sharing (public links) & web
 | Method | Path | Purpose | Auth | Role | Object rule | Rate limit | Idem. | US |
 |---|---|---|---|---|---|---|---|---|
