@@ -83,6 +83,14 @@ Rules: dependency graph is acyclic (CI: `cargo depgraph` check + grep for foreig
 called directly — producers emit events (`CardDelivered`, `CardHeld`, `ReactionSet`, `FriendRequestCreated`, `BoardInvitationCreated`,
 `MemberJoined`, `BoardChanged`, `NewLogin`).
 Each module implements `PersonalData { export, hide, erase }` so `privacy` never touches foreign tables.
+Implemented (T-150): `platform::personal_data::{PersonalData, PersonalDataRegistry}`; impls in identity, platform
+(idempotency rows), social, media, cards (incl. `moderation.content_holds`), boards, notifications and sharing, registered in
+`apps/api/src/privacy.rs` (identity first, so it erases the account row last; erase runs in reverse order). Each impl
+declares its tables; `tests/api/personal_data.rs` fails CI when a database table is neither covered nor in `EXEMPT_TABLES`
+(magic links, CSAM incidents under legal retention, audit events, jobs, outbox). Exports name every column explicitly (no
+hashes, ciphertexts or tokens; the DOB is decrypted); files are listed as `{path, media_id}` for the ZIP (T-154). `hide` is a
+no-op where read predicates already require an active account; sharing revokes live links (`owner_ineligible`) and
+schedules their purge; notifications invalidates push tokens. Owned shared boards and pins on others' boards are T-151.
 
 ## 4. Key flows
 ### 4.1 Capture → send → widget update (US-7, US-13, US-16, US-28)

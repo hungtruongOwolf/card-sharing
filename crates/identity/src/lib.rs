@@ -11,6 +11,7 @@ mod magic_link;
 pub mod mail;
 mod model;
 pub mod oidc;
+pub mod personal_data;
 mod profile;
 mod service;
 mod sessions;
@@ -28,6 +29,7 @@ pub use magic_link::{
     normalize_email,
 };
 pub use model::{AccountStatus, RegionSignals, SessionScope, UnknownValue};
+pub use personal_data::IdentityPersonalData;
 pub use profile::{
     HandleError, HandleRules, Profile, ProfileConfigError, ProfileError, ProfileRules,
     ProfileUpdate, PublicProfile, normalize_handle,

@@ -9,6 +9,7 @@ pub mod manage;
 pub mod members;
 pub mod membership;
 pub mod ops;
+pub mod personal_data;
 pub mod pins;
 #[cfg(test)]
 mod properties;
@@ -28,6 +29,7 @@ pub use membership::{
     USER_BLOCKED,
 };
 pub use ops::{BatchResult, OpResult, Outcome, PinOp, RejectCode};
+pub use personal_data::BoardsPersonalData;
 pub use pins::{Pin, PinContent, Transform, TransformError, TransformPatch};
 pub use resolve::{BoardRead, CardFacts, Resolution, ResolvedPin, ViewerContext, resolve_pin};
 pub use service::{BoardError, BoardService, BoardSummary, Created, NewBoard, Role};

@@ -11,6 +11,7 @@ pub mod db;
 pub mod identity_adapter;
 pub mod middleware;
 pub mod openapi;
+pub mod privacy;
 pub mod routes;
 pub mod seed;
 pub mod state;

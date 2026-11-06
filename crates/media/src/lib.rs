@@ -3,6 +3,7 @@
 //! Owns the `media` Postgres schema (migrations/*_media_*.sql). Nothing in this module decides
 //! who may see a media object: callers check access, then ask for a signed URL.
 
+pub mod personal_data;
 pub mod pipeline;
 pub mod process;
 pub mod purge;
@@ -13,6 +14,7 @@ pub mod signer;
 pub mod sniff;
 pub mod store;
 
+pub use personal_data::MediaPersonalData;
 pub use pipeline::{
     CSAM_MATCHED, FailureCode, MEDIA_SETTLED, ProcessMediaJob, ProcessSettings, sandboxed,
     sandboxed_decode,

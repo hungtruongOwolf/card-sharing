@@ -6,6 +6,7 @@
 
 pub mod activity;
 pub mod notify;
+pub mod personal_data;
 pub mod preferences;
 pub mod push;
 pub mod settings;
@@ -15,6 +16,7 @@ pub use activity::{ACTIVITY_JOB, Activity, ActivityItem, ActivityJob, ActivityOn
 pub use notify::{
     NOTIFY_JOB, Notifier, NotifyJob, Outcome, PushOnEvents, Recipient, recipients_of,
 };
+pub use personal_data::NotificationsPersonalData;
 pub use preferences::{Category, PreferenceStore, Preferences, PreferencesError};
 pub use push::{
     Delivery, FAKE_INVALID_FCM_PREFIX, FakePushSender, Notification, PushError, PushKind,

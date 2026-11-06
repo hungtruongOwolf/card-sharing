@@ -9,6 +9,7 @@ mod friends;
 mod graph;
 mod invites;
 mod janitor;
+pub mod personal_data;
 mod requests;
 mod search;
 mod service;
@@ -19,6 +20,7 @@ pub use error::{InviteError, SocialError};
 pub use friends::FRIENDSHIP_REMOVED;
 pub use invites::{INVITE_TOKEN_LEN, InvitePreview, MyInvite, PublicInvitePreview, ResolvedInvite};
 pub use janitor::{JanitorReport, SocialJanitor};
+pub use personal_data::SocialPersonalData;
 pub use requests::{
     AnswerError, Direction, FriendSummary, RequestError, RequestHint, RequestItem, SentRequest,
 };
