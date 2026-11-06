@@ -303,10 +303,24 @@ async fn traffic_over_the_per_link_limit_disables_the_link() {
         return;
     };
     let s = setup(&env).await;
-    for i in 0..600 {
-        let response = og(&env, &s.token).await;
-        assert_eq!(response.status(), StatusCode::OK, "request {i}");
-    }
+    // Use up the link's whole minute (600 requests) at once: a slow test loop would let the
+    // bucket refill while it runs.
+    let subject = platform::rate_limit::Subject {
+        account: Some(platform::rate_limit::AccountSubject {
+            id: Uuid::parse_str(&s.link_id).unwrap(),
+            created_at: time::OffsetDateTime::UNIX_EPOCH,
+        }),
+        device: None,
+        ip: None,
+    };
+    let decision = env
+        .state
+        .limiter
+        .check_cost(api::routes::public_boards::TOKEN_LIMIT, &subject, 600)
+        .await
+        .unwrap();
+    assert_eq!(decision, platform::rate_limit::Decision::Allowed);
+    assert_eq!(og(&env, &s.token).await.status(), StatusCode::NOT_FOUND);
     assert_neutral(&env, &s.token, "disabled").await;
     let reason: Option<String> =
         sqlx::query_scalar("SELECT revoked_reason FROM sharing.public_links WHERE id = $1::uuid")
