@@ -162,7 +162,12 @@ upload's key in `raw_storage_key` until the gates decide (CSAM evidence; deleted
 `feed_1080`/`widget_512`/`thumb_256`, masks `feed_1080`, avatars `thumb_256`, originals none (fit inside the box, never
 upscaled). Everything stays in `quarantine`, state `scanning`, until the gates pass. A failed decode or a timeout is terminal
 (no retry, never delivered); storage and database errors retry. A mask must have exactly the render's size
-(`MediaService::mask_fits`, checked when a card is created). Follow-up: lossy WebP for photos (the `image` encoder is lossless
+(`MediaService::mask_fits`, checked when a card is created).
+Implemented (T-72, `migrations/*_media_csam_gate.sql`): `media_objects.scan_provider`, `scan_list_version`, `scanned_at`;
+schema `moderation` with `csam_incidents` (`category`, `exact_match`, `provider`, `list_version`, `provider_ref`,
+`evidence_key` in the legal-hold bucket, `UNIQUE(media_id)`, no foreign keys). Clean media: objects copied to `clean` under the
+same keys, `bucket = clean`, raw upload deleted. Blocked media: `bucket = legal_hold`, `storage_key` = the evidence copy,
+derivatives deleted. Follow-up: lossy WebP for photos (the `image` encoder is lossless
 only).
 Originals (`kind=original`) get no recipient derivatives and are signed only for their owner (AC-13.6); recipients only ever receive
 `feed_1080` / `widget_512` / `thumb_256`. The `og` variant is a watermarked composite of the owner's card pins (AC-24.7), keyed by

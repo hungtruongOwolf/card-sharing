@@ -1,5 +1,6 @@
 //! T-71: `media.process` re-encodes an upload in the sandboxed task. The sanitized image and its
-//! derivatives stay in quarantine (state `scanning`) until the content gates pass; undecodable
+//! derivatives stay in quarantine (state `scanning`) until the content gates pass (here they are
+//! unconfigured, so the job asks to be retried); undecodable
 //! uploads and decoder timeouts end `failed` without crashing the worker.
 
 use std::time::Duration;
@@ -66,7 +67,7 @@ async fn processing_stores_sanitized_copies_and_keeps_them_quarantined() {
         .media
         .process_one(id, &ProcessSettings::default())
         .await
-        .unwrap();
+        .expect_err("unconfigured gates retry");
 
     let (state, failure, content_type, processed) = row(&env, id).await;
     assert_eq!(state, "scanning", "nothing is clean before the gates");
@@ -98,7 +99,7 @@ async fn processing_stores_sanitized_copies_and_keeps_them_quarantined() {
         .media
         .process_one(id, &ProcessSettings::default())
         .await
-        .unwrap();
+        .expect_err("unconfigured gates retry");
     assert_eq!(env.media_store.count(Bucket::Quarantine), before + 5);
 
     let response = call(&env, "GET", &format!("/v1/media/{id}"), &user, None).await;
@@ -116,6 +117,7 @@ async fn decoder_timeout_marks_the_media_failed() {
     let id = uploaded_id(&env, &user, "card_render", real_png(512, 512)).await;
     let settings = ProcessSettings {
         decode_timeout: Duration::ZERO,
+        ..ProcessSettings::default()
     };
     // The job itself succeeds (no retry storm); the media is failed for good.
     env.state.media.process_one(id, &settings).await.unwrap();
@@ -129,7 +131,7 @@ async fn decoder_timeout_marks_the_media_failed() {
         .media
         .process_one(next, &ProcessSettings::default())
         .await
-        .unwrap();
+        .expect_err("unconfigured gates retry");
     assert_eq!(row(&env, next).await.0, "scanning");
 }
 

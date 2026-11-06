@@ -108,6 +108,21 @@ pub fn process(
     format: ImageFormat,
     kind: MediaKind,
 ) -> Result<Processed, ProcessError> {
+    let pixels = decode(bytes, format)?;
+    let main = encode(&pixels)?;
+    let mut derivatives = Vec::new();
+    for variant in Variant::for_kind(kind) {
+        derivatives.push((*variant, encode(&fit(&pixels, variant.max_side()))?));
+    }
+    Ok(Processed {
+        main,
+        derivatives,
+        pixels,
+    })
+}
+
+/// Decodes `bytes` as `format` within the limits and applies the EXIF orientation. CPU-bound.
+pub fn decode(bytes: &[u8], format: ImageFormat) -> Result<RgbaImage, ProcessError> {
     let decode = |e: image::ImageError| ProcessError::Decode(e.to_string());
     let mut reader = ImageReader::with_format(Cursor::new(bytes), image_format(format));
     let mut limits = Limits::default();
@@ -119,19 +134,7 @@ pub fn process(
     let orientation = decoder.orientation().map_err(decode)?;
     let mut image = DynamicImage::from_decoder(decoder).map_err(decode)?;
     image.apply_orientation(orientation);
-    let pixels = image.to_rgba8();
-    drop(image);
-
-    let main = encode(&pixels)?;
-    let mut derivatives = Vec::new();
-    for variant in Variant::for_kind(kind) {
-        derivatives.push((*variant, encode(&fit(&pixels, variant.max_side()))?));
-    }
-    Ok(Processed {
-        main,
-        derivatives,
-        pixels,
-    })
+    Ok(image.to_rgba8())
 }
 
 /// Scales down to fit `max_side` (aspect ratio kept); smaller images are copied as they are.

@@ -14,6 +14,7 @@ pub mod openapi;
 pub mod routes;
 pub mod state;
 pub mod telemetry;
+pub mod workers;
 
 use std::sync::Arc;
 
