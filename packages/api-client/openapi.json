@@ -976,6 +976,248 @@
         }
       }
     },
+    "/v1/board-invitations/{id}": {
+      "delete": {
+        "tags": [
+          "boards"
+        ],
+        "summary": "Cancel an open invitation I sent. Auth: ses.",
+        "operationId": "cancelBoardInvitation",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The invitation id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Cancelled."
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: no open invitation sent by the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "boards.invitations.cancel",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
+    "/v1/board-invitations/{id}/accept": {
+      "post": {
+        "tags": [
+          "boards"
+        ],
+        "summary": "Accept a board invitation. Auth: ses (+ device attestation).",
+        "description": "Re-checks in one transaction: the invitation is mine, pending and unexpired; I am still the\nowner's friend; no member and I block each other; the collaborator cap holds. Any failure,\nand anyone else's invitation id, is the missing 404.",
+        "operationId": "acceptBoardInvitation",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The invitation id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Joined the board as a collaborator.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcceptedInvitation"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE, ACCOUNT_SUSPENDED or ATTESTATION_FAILED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: no invitation the caller can accept.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": true,
+          "auth": "ses",
+          "rateLimit": "boards.invitations.accept",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
+    "/v1/board-invitations/{id}/decline": {
+      "post": {
+        "tags": [
+          "boards"
+        ],
+        "summary": "Decline a board invitation. Auth: ses. Silent to the owner.",
+        "operationId": "declineBoardInvitation",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The invitation id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Declined."
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: no pending invitation of the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "boards.invitations.decline",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
     "/v1/boards": {
       "get": {
         "tags": [
@@ -1272,6 +1514,206 @@
           "attestation": false,
           "auth": "ses",
           "rateLimit": "boards.read",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
+    "/v1/boards/{id}/invitations": {
+      "get": {
+        "tags": [
+          "boards"
+        ],
+        "summary": "Open invitations of my board. Auth: ses. Owner only.",
+        "operationId": "listBoardInvitations",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The board id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Open invitations (declined and dropped ones look pending until they expire).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnerInvitationList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: no board of the caller with this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "boards.invitations.read",
+          "role": "user",
+          "versionGate": true
+        }
+      },
+      "post": {
+        "tags": [
+          "boards"
+        ],
+        "summary": "Invite a friend to a board. Auth: ses. Owner only. Requires `Idempotency-Key`.",
+        "description": "The invitee must be the owner's current friend (no block) and not a member yet; members plus\nopen invitations stay within 8. If the invitee and any member block each other, the answer is\nthe same 201 but nothing reaches the invitee. Invitations expire after 7 days. Re-inviting\nafter an unanswered invitation waits 7 days after its expiry. A board the caller does not own,\nand a target who is not their friend, are the missing 404.",
+        "operationId": "createBoardInvitation",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The board id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InviteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Invited (also when silently dropped).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED, or a missing Idempotency-Key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: no board of the caller, or the target is not their friend.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "ALREADY_INVITED (member or open invitation) or COLLABORATOR_LIMIT_REACHED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED or REINVITE_COOLDOWN (with Retry-After).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "idempotency": "required",
+          "rateLimit": "boards.invitations.create",
           "role": "user",
           "versionGate": true
         }
@@ -3360,6 +3802,70 @@
         }
       }
     },
+    "/v1/me/board-invitations": {
+      "get": {
+        "tags": [
+          "boards"
+        ],
+        "summary": "Board invitations I received. Auth: ses.",
+        "description": "Pending, unexpired invitations to live boards: board title, owner name, member count and\nexpiry. The member list is only visible after accepting.",
+        "operationId": "listMyBoardInvitations",
+        "responses": {
+          "200": {
+            "description": "The caller's pending invitations.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceivedInvitationList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "boards.invitations.mine",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
     "/v1/me/handle": {
       "put": {
         "tags": [
@@ -4931,6 +5437,19 @@
           }
         }
       },
+      "AcceptedInvitation": {
+        "type": "object",
+        "description": "`{board_id}` of the board just joined.",
+        "required": [
+          "board_id"
+        ],
+        "properties": {
+          "board_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
       "AccountView": {
         "type": "object",
         "required": [
@@ -6119,6 +6638,17 @@
         "format": "binary",
         "description": "Raw image bytes (request body of the upload)."
       },
+      "InvitationEnvelope": {
+        "type": "object",
+        "required": [
+          "invitation"
+        ],
+        "properties": {
+          "invitation": {
+            "$ref": "#/components/schemas/OwnerInvitationView"
+          }
+        }
+      },
       "InvitePreviewResponse": {
         "type": "object",
         "required": [
@@ -6134,6 +6664,20 @@
             "description": "The caller opened their own invite (\"That's you!\"); sending a request is refused."
           }
         }
+      },
+      "InviteRequest": {
+        "type": "object",
+        "description": "Body of `POST /v1/boards/{id}/invitations`.",
+        "required": [
+          "user_id"
+        ],
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
       },
       "InviteResponse": {
         "type": "object",
@@ -6437,6 +6981,55 @@
         "properties": {
           "step": {
             "$ref": "#/components/schemas/OnboardingStep"
+          }
+        }
+      },
+      "OwnerInvitationList": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OwnerInvitationView"
+            },
+            "description": "Oldest first."
+          }
+        }
+      },
+      "OwnerInvitationView": {
+        "type": "object",
+        "description": "An invitation as the owner sees it: always `pending` until it is accepted, cancelled or\nexpires (declines and drops are not revealed).",
+        "required": [
+          "id",
+          "invitee_id",
+          "status",
+          "expires_at"
+        ],
+        "properties": {
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "invitee_display_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "invitee_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "description": "Always `pending`."
           }
         }
       },
@@ -7004,6 +7597,60 @@
           "status": {
             "type": "string",
             "example": "ready"
+          }
+        }
+      },
+      "ReceivedInvitationList": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReceivedInvitationView"
+            },
+            "description": "Newest first."
+          }
+        }
+      },
+      "ReceivedInvitationView": {
+        "type": "object",
+        "description": "A pending invitation as its invitee sees it. No member list before accepting.",
+        "required": [
+          "id",
+          "board_id",
+          "board_title",
+          "member_count",
+          "expires_at"
+        ],
+        "properties": {
+          "board_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "board_title": {
+            "type": "string"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "member_count": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Members including the owner."
+          },
+          "owner_display_name": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },

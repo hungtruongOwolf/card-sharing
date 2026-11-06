@@ -237,6 +237,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/board-invitations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Cancel an open invitation I sent. Auth: ses. */
+        delete: operations["cancelBoardInvitation"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/board-invitations/{id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept a board invitation. Auth: ses (+ device attestation).
+         * @description Re-checks in one transaction: the invitation is mine, pending and unexpired; I am still the
+         *     owner's friend; no member and I block each other; the collaborator cap holds. Any failure,
+         *     and anyone else's invitation id, is the missing 404.
+         */
+        post: operations["acceptBoardInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/board-invitations/{id}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Decline a board invitation. Auth: ses. Silent to the owner. */
+        post: operations["declineBoardInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/boards": {
         parameters: {
             query?: never;
@@ -280,6 +336,31 @@ export interface paths {
         get: operations["getBoard"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/boards/{id}/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Open invitations of my board. Auth: ses. Owner only. */
+        get: operations["listBoardInvitations"];
+        put?: never;
+        /**
+         * Invite a friend to a board. Auth: ses. Owner only. Requires `Idempotency-Key`.
+         * @description The invitee must be the owner's current friend (no block) and not a member yet; members plus
+         *     open invitations stay within 8. If the invitee and any member block each other, the answer is
+         *     the same 201 but nothing reaches the invitee. Invitations expire after 7 days. Re-inviting
+         *     after an unanswered invitation waits 7 days after its expiry. A board the caller does not own,
+         *     and a target who is not their friend, are the missing 404.
+         */
+        post: operations["createBoardInvitation"];
         delete?: never;
         options?: never;
         head?: never;
@@ -714,6 +795,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/board-invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Board invitations I received. Auth: ses.
+         * @description Pending, unexpired invitations to live boards: board title, owner name, member count and
+         *     expiry. The member list is only visible after accepting.
+         */
+        get: operations["listMyBoardInvitations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/handle": {
         parameters: {
             query?: never;
@@ -1092,6 +1194,11 @@ export interface components {
         AcceptResponse: {
             /** @description The new friend. */
             friend: components["schemas"]["UserSummaryView"];
+        };
+        /** @description `{board_id}` of the board just joined. */
+        AcceptedInvitation: {
+            /** Format: uuid */
+            board_id: string;
         };
         AccountView: {
             /** @example 0192f0c1-7c1e-7a3b-9d2e-123456789abc */
@@ -1545,10 +1652,18 @@ export interface components {
          * @description Raw image bytes (request body of the upload).
          */
         ImageBytes: string;
+        InvitationEnvelope: {
+            invitation: components["schemas"]["OwnerInvitationView"];
+        };
         InvitePreviewResponse: {
             inviter: components["schemas"]["InviterView"];
             /** @description The caller opened their own invite ("That's you!"); sending a request is refused. */
             is_self: boolean;
+        };
+        /** @description Body of `POST /v1/boards/{id}/invitations`. */
+        InviteRequest: {
+            /** Format: uuid */
+            user_id: string;
         };
         /** @description My personal invite link. Share it as a link or QR code. */
         InviteResponse: {
@@ -1679,6 +1794,25 @@ export interface components {
         OnboardingStep: "age" | "profile" | "done";
         OnboardingView: {
             step: components["schemas"]["OnboardingStep"];
+        };
+        OwnerInvitationList: {
+            /** @description Oldest first. */
+            items: components["schemas"]["OwnerInvitationView"][];
+        };
+        /**
+         * @description An invitation as the owner sees it: always `pending` until it is accepted, cancelled or
+         *     expires (declines and drops are not revealed).
+         */
+        OwnerInvitationView: {
+            /** Format: date-time */
+            expires_at: string;
+            /** Format: uuid */
+            id: string;
+            invitee_display_name?: string | null;
+            /** Format: uuid */
+            invitee_id: string;
+            /** @description Always `pending`. */
+            status: string;
         };
         /**
          * @description A pin's placement as the caller may see it in op results. Card contents are never part of an
@@ -1889,6 +2023,26 @@ export interface components {
             checks: components["schemas"]["ReadinessChecks"];
             /** @example ready */
             status: string;
+        };
+        ReceivedInvitationList: {
+            /** @description Newest first. */
+            items: components["schemas"]["ReceivedInvitationView"][];
+        };
+        /** @description A pending invitation as its invitee sees it. No member list before accepting. */
+        ReceivedInvitationView: {
+            /** Format: uuid */
+            board_id: string;
+            board_title: string;
+            /** Format: date-time */
+            expires_at: string;
+            /** Format: uuid */
+            id: string;
+            /**
+             * Format: int64
+             * @description Members including the owner.
+             */
+            member_count: number;
+            owner_display_name?: string | null;
         };
         /**
          * @description Body of `POST /v1/auth/refresh`. Only the refresh token: the session (and therefore the
@@ -2804,6 +2958,179 @@ export interface operations {
             };
         };
     };
+    cancelBoardInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The invitation id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cancelled. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND: no open invitation sent by the caller. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    acceptBoardInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The invitation id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Joined the board as a collaborator. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcceptedInvitation"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE, ACCOUNT_SUSPENDED or ATTESTATION_FAILED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND: no invitation the caller can accept. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    declineBoardInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The invitation id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Declined. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND: no pending invitation of the caller. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     listBoards: {
         parameters: {
             query?: never;
@@ -3021,6 +3348,146 @@ export interface operations {
             };
             /** @description TEMPORARILY_UNAVAILABLE: media signing not configured. */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    listBoardInvitations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The board id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Open invitations (declined and dropped ones look pending until they expire). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnerInvitationList"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND: no board of the caller with this id. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    createBoardInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The board id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InviteRequest"];
+            };
+        };
+        responses: {
+            /** @description Invited (also when silently dropped). */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvitationEnvelope"];
+                };
+            };
+            /** @description VALIDATION_FAILED, or a missing Idempotency-Key. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND: no board of the caller, or the target is not their friend. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ALREADY_INVITED (member or open invitation) or COLLABORATOR_LIMIT_REACHED. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED or REINVITE_COOLDOWN (with Retry-After). */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4517,6 +4984,53 @@ export interface operations {
             };
             /** @description NOT_FOUND: OS age-signal ingestion is disabled. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    listMyBoardInvitations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The caller's pending invitations. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReceivedInvitationList"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

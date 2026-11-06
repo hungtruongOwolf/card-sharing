@@ -14,6 +14,7 @@ mod attestation;
 mod audit;
 mod authz_matrix;
 mod blocks;
+mod board_invitations;
 mod board_minor_rule;
 mod board_ops;
 mod board_pin_authz;

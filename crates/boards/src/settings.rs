@@ -29,6 +29,13 @@ pub struct BoardSettings {
     pub max_pins: i64,
     /// Ops per `POST /v1/boards/{id}/ops` request.
     pub max_ops_per_batch: usize,
+    /// Collaborators plus open invitations per board (AC-19.1).
+    pub max_collaborators: i64,
+    /// How long an invitation stays open (AC-19.8).
+    pub invitation_ttl: time::Duration,
+    /// After an invitation to the same user and board ended unanswered (declined, dropped or
+    /// expired), re-inviting waits this long after its expiry.
+    pub reinvite_cooldown: time::Duration,
 }
 
 impl Default for BoardSettings {
@@ -38,6 +45,9 @@ impl Default for BoardSettings {
             max_per_owner: 20,
             max_pins: 100,
             max_ops_per_batch: 50,
+            max_collaborators: 8,
+            invitation_ttl: time::Duration::days(7),
+            reinvite_cooldown: time::Duration::days(7),
         }
     }
 }
@@ -47,6 +57,7 @@ impl Default for BoardSettings {
 struct RawConfig {
     version: u32,
     boards: RawBoards,
+    invitations: RawInvitations,
 }
 
 #[derive(Deserialize)]
@@ -55,6 +66,14 @@ struct RawBoards {
     max_per_owner: i64,
     max_pins: i64,
     max_ops_per_batch: i64,
+    max_collaborators: i64,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawInvitations {
+    ttl_days: i64,
+    reinvite_cooldown_days: i64,
 }
 
 fn in_range(
@@ -88,6 +107,21 @@ impl BoardSettings {
                 "boards.max_ops_per_batch",
             )?)
             .map_err(|_| SettingsError::Invalid("boards.max_ops_per_batch".to_owned()))?,
+            max_collaborators: in_range(
+                raw.boards.max_collaborators,
+                1..=50,
+                "boards.max_collaborators",
+            )?,
+            invitation_ttl: time::Duration::days(in_range(
+                raw.invitations.ttl_days,
+                1..=30,
+                "invitations.ttl_days",
+            )?),
+            reinvite_cooldown: time::Duration::days(in_range(
+                raw.invitations.reinvite_cooldown_days,
+                0..=90,
+                "invitations.reinvite_cooldown_days",
+            )?),
         })
     }
 
@@ -116,27 +150,17 @@ mod tests {
 
     #[test]
     fn rejects_bad_values() {
-        assert!(
-            BoardSettings::from_yaml_str(
-                "version: 1\nboards: {max_per_owner: 20, max_pins: 100, max_ops_per_batch: 50}"
-            )
-            .is_ok()
-        );
-        assert!(
-            BoardSettings::from_yaml_str(
-                "version: 1\nboards: {max_per_owner: 0, max_pins: 100, max_ops_per_batch: 50}"
-            )
-            .is_err()
-        );
-        assert!(
-            BoardSettings::from_yaml_str(
-                "version: 2\nboards: {max_per_owner: 20, max_pins: 100, max_ops_per_batch: 50}"
-            )
-            .is_err()
-        );
-        assert!(
-            BoardSettings::from_yaml_str("version: 1\nboards: {max_per_owner: 20, max_pins: 100, max_ops_per_batch: 50, extra: 1}")
-                .is_err()
-        );
+        let yaml = |version: u32, max_per_owner: i64, ttl: i64, extra: &str| {
+            let boards = format!(
+                "{{max_per_owner: {max_per_owner}, max_pins: 100, max_ops_per_batch: 50, max_collaborators: 8{extra}}}"
+            );
+            let invitations = format!("{{ttl_days: {ttl}, reinvite_cooldown_days: 7}}");
+            format!("version: {version}\nboards: {boards}\ninvitations: {invitations}\n")
+        };
+        assert!(BoardSettings::from_yaml_str(&yaml(1, 20, 7, "")).is_ok());
+        assert!(BoardSettings::from_yaml_str(&yaml(1, 0, 7, "")).is_err());
+        assert!(BoardSettings::from_yaml_str(&yaml(2, 20, 7, "")).is_err());
+        assert!(BoardSettings::from_yaml_str(&yaml(1, 20, 0, "")).is_err());
+        assert!(BoardSettings::from_yaml_str(&yaml(1, 20, 7, ", extra: 1")).is_err());
     }
 }
