@@ -651,6 +651,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/notification-preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My notification preferences. Auth: ses.
+         * @description Defaults until saved: every type on, quiet hours 22:00-08:00 (applied once `time_zone` is set).
+         */
+        get: operations["getNotificationPreferences"];
+        /**
+         * Replace my notification preferences. Auth: ses.
+         * @description A type turned off sends no push (the activity tab still shows the event). During quiet hours
+         *     alerts are held and sent when the window ends (AC-31.1).
+         */
+        put: operations["putNotificationPreferences"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/profile": {
         parameters: {
             query?: never;
@@ -1260,6 +1285,27 @@ export interface components {
             /** Format: int32 */
             width: number;
         };
+        /** @description Body of `PUT` and answer of both routes. */
+        NotificationPreferences: {
+            quiet_hours: components["schemas"]["QuietHours"];
+            /**
+             * @description IANA time zone of the device (e.g. `Europe/Paris`). Quiet hours apply only once it is
+             *     known; `null` = not sent yet.
+             */
+            time_zone?: string | null;
+            types: components["schemas"]["NotificationTypes"];
+        };
+        /** @description One toggle per alert type. */
+        NotificationTypes: {
+            /** @description New cards from friends (single and batched). */
+            card_new: boolean;
+            /** @description My card held for review. */
+            card_review: boolean;
+            /** @description Friend requests and accepted requests. */
+            friend: boolean;
+            /** @description Reactions on my cards. */
+            reaction: boolean;
+        };
         /** @enum {string} */
         OnboardingStep: "age" | "profile" | "done";
         OnboardingView: {
@@ -1357,6 +1403,19 @@ export interface components {
             provider: string;
             /** @description The provider token: APNs hex device token, or FCM registration token. */
             token: string;
+        };
+        QuietHours: {
+            enabled: boolean;
+            /**
+             * @description Local time `HH:MM` (24 h); may be earlier than `start` (overnight window).
+             * @example 08:00
+             */
+            end: string;
+            /**
+             * @description Local time `HH:MM` (24 h).
+             * @example 22:00
+             */
+            start: string;
         };
         ReactionList: {
             /** @description Newest first; only people who are still my friends. */
@@ -3696,6 +3755,113 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InviteResponse"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    getNotificationPreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The caller's preferences. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationPreferences"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    putNotificationPreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationPreferences"];
+            };
+        };
+        responses: {
+            /** @description Saved; the stored preferences. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationPreferences"];
+                };
+            };
+            /** @description VALIDATION_FAILED: bad time, unknown time zone, empty quiet window or unknown field. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
             /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */

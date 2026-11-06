@@ -2989,6 +2989,152 @@
         }
       }
     },
+    "/v1/me/notification-preferences": {
+      "get": {
+        "tags": [
+          "me"
+        ],
+        "summary": "My notification preferences. Auth: ses.",
+        "description": "Defaults until saved: every type on, quiet hours 22:00-08:00 (applied once `time_zone` is set).",
+        "operationId": "getNotificationPreferences",
+        "responses": {
+          "200": {
+            "description": "The caller's preferences.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationPreferences"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "me.notification_preferences",
+          "role": "user",
+          "versionGate": true
+        }
+      },
+      "put": {
+        "tags": [
+          "me"
+        ],
+        "summary": "Replace my notification preferences. Auth: ses.",
+        "description": "A type turned off sends no push (the activity tab still shows the event). During quiet hours\nalerts are held and sent when the window ends (AC-31.1).",
+        "operationId": "putNotificationPreferences",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationPreferences"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Saved; the stored preferences.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationPreferences"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED: bad time, unknown time zone, empty quiet window or unknown field.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "me.notification_preferences",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
     "/v1/me/profile": {
       "put": {
         "tags": [
@@ -4949,6 +5095,59 @@
           }
         }
       },
+      "NotificationPreferences": {
+        "type": "object",
+        "description": "Body of `PUT` and answer of both routes.",
+        "required": [
+          "types",
+          "quiet_hours"
+        ],
+        "properties": {
+          "quiet_hours": {
+            "$ref": "#/components/schemas/QuietHours"
+          },
+          "time_zone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "IANA time zone of the device (e.g. `Europe/Paris`). Quiet hours apply only once it is\nknown; `null` = not sent yet."
+          },
+          "types": {
+            "$ref": "#/components/schemas/NotificationTypes"
+          }
+        },
+        "additionalProperties": false
+      },
+      "NotificationTypes": {
+        "type": "object",
+        "description": "One toggle per alert type.",
+        "required": [
+          "card_new",
+          "reaction",
+          "friend",
+          "card_review"
+        ],
+        "properties": {
+          "card_new": {
+            "type": "boolean",
+            "description": "New cards from friends (single and batched)."
+          },
+          "card_review": {
+            "type": "boolean",
+            "description": "My card held for review."
+          },
+          "friend": {
+            "type": "boolean",
+            "description": "Friend requests and accepted requests."
+          },
+          "reaction": {
+            "type": "boolean",
+            "description": "Reactions on my cards."
+          }
+        },
+        "additionalProperties": false
+      },
       "OnboardingStep": {
         "type": "string",
         "enum": [
@@ -5163,6 +5362,30 @@
           "token": {
             "type": "string",
             "description": "The provider token: APNs hex device token, or FCM registration token."
+          }
+        },
+        "additionalProperties": false
+      },
+      "QuietHours": {
+        "type": "object",
+        "required": [
+          "enabled",
+          "start",
+          "end"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "end": {
+            "type": "string",
+            "description": "Local time `HH:MM` (24 h); may be earlier than `start` (overnight window).",
+            "example": "08:00"
+          },
+          "start": {
+            "type": "string",
+            "description": "Local time `HH:MM` (24 h).",
+            "example": "22:00"
           }
         },
         "additionalProperties": false
