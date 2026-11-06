@@ -409,6 +409,42 @@
       }
     },
     {
+      "id": "fx.sparkles",
+      "version": 1,
+      "kind": "overlay",
+      "stackable": false,
+      "conflicts_with": [],
+      "params": {
+        "amount": {
+          "type": "integer",
+          "min": 10,
+          "max": 300,
+          "default": 60
+        },
+        "seed": {
+          "type": "integer",
+          "min": 1,
+          "max": 9999,
+          "default": 1
+        },
+        "shape": {
+          "type": "enum",
+          "values": [
+            "stars",
+            "hearts",
+            "confetti"
+          ],
+          "default": "stars"
+        },
+        "size": {
+          "type": "number",
+          "min": 0.5,
+          "max": 2,
+          "default": 1
+        }
+      }
+    },
+    {
       "id": "overlay.speech",
       "version": 1,
       "kind": "overlay",

@@ -1,0 +1,71 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`golden signatures on the dark canvas matches for every preset 1`] = `
+{
+  "confetti": [
+    "1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff",
+    "1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff",
+    "1a1512ff 1a1512ff ec8a78ff 3366ccff 3366ccff b7a4b0ff 1a1512ff 1a1512ff",
+    "1a1512ff 1a1512ff 3366ccff 3366ccff 3366ccff 3366ccff 1a1512ff 1a1512ff",
+    "1a1512ff 1a1512ff 3366ccff 3366ccff 3366ccff 3366ccff 1a1512ff 1a1512ff",
+    "1a1512ff 1a1512ff 93c5afff 3366ccff 3366ccff c68f88ff 1a1512ff 1a1512ff",
+    "1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff",
+    "1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff",
+  ],
+  "hearts": [
+    "1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff",
+    "1a1512ff 1a1512ff 1a1512ff 5f303eff 1a1512ff 1a1512ff 1a1512ff 1a1512ff",
+    "1a1512ff 1a1512ff fa6da2ff 3366ccff 3366ccff d9608dff 1a1512ff 1a1512ff",
+    "1a1512ff 1a1512ff 3366ccff 3366ccff 3366ccff 3366ccff 1a1512ff 1a1512ff",
+    "1a1512ff 1a1512ff 3366ccff 3366ccff 3366ccff 3366ccff 1a1512ff 1a1512ff",
+    "1a1512ff 1a1512ff f66c9fff 3366ccff 3366ccff df6291ff 1a1512ff 1a1512ff",
+    "1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff",
+    "1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff",
+  ],
+  "stars": [
+    "1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff",
+    "1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff",
+    "1a1512ff 1a1512ff e9dfb1ff 3366ccff 3366ccff 39332aff 1a1512ff 1a1512ff",
+    "1a1512ff 1a1512ff 3366ccff 3366ccff 3366ccff 3366ccff 1a1512ff 1a1512ff",
+    "1a1512ff 1a1512ff 3366ccff 3366ccff 3366ccff 3366ccff 1a1512ff 1a1512ff",
+    "1a1512ff 1a1512ff 655e4bff 3366ccff 3366ccff c3b993ff 1a1512ff 1a1512ff",
+    "1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff",
+    "1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff",
+  ],
+}
+`;
+
+exports[`golden signatures on the light canvas matches for every preset 1`] = `
+{
+  "confetti": [
+    "f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff",
+    "f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff",
+    "f6efe3ff f6efe3ff f08e7cff 3366ccff 3366ccff d0bdc8ff f6efe3ff f6efe3ff",
+    "f6efe3ff f6efe3ff 3366ccff 3366ccff 3366ccff 3366ccff f6efe3ff f6efe3ff",
+    "f6efe3ff f6efe3ff 3366ccff 3366ccff 3366ccff 3366ccff f6efe3ff f6efe3ff",
+    "f6efe3ff f6efe3ff a3d5beff 3366ccff 3366ccff d8a199ff f6efe3ff f6efe3ff",
+    "f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff",
+    "f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff",
+  ],
+  "hearts": [
+    "f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff",
+    "f6efe3ff f6efe3ff f6efe3ff f9c9d0ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff",
+    "f6efe3ff f6efe3ff ff72a6ff 3366ccff 3366ccff fd84afff f6efe3ff f6efe3ff",
+    "f6efe3ff f6efe3ff 3366ccff 3366ccff 3366ccff 3366ccff f6efe3ff f6efe3ff",
+    "f6efe3ff f6efe3ff 3366ccff 3366ccff 3366ccff 3366ccff f6efe3ff f6efe3ff",
+    "f6efe3ff f6efe3ff ff74a7ff 3366ccff 3366ccff fe81adff f6efe3ff f6efe3ff",
+    "f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff",
+    "f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff",
+  ],
+  "stars": [
+    "f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff",
+    "f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff",
+    "f6efe3ff f6efe3ff fef3c5ff 3366ccff 3366ccff f7f0dfff f6efe3ff f6efe3ff",
+    "f6efe3ff f6efe3ff 3366ccff 3366ccff 3366ccff 3366ccff f6efe3ff f6efe3ff",
+    "f6efe3ff f6efe3ff 3366ccff 3366ccff 3366ccff 3366ccff f6efe3ff f6efe3ff",
+    "f6efe3ff f6efe3ff f8f1d8ff 3366ccff 3366ccff fdf3cbff f6efe3ff f6efe3ff",
+    "f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff",
+    "f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff",
+  ],
+}
+`;

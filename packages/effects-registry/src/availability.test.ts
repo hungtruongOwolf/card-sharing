@@ -114,6 +114,7 @@ describe('visibleEntries', () => {
       'frame.polaroid',
       'overlay.washi',
       'overlay.speech',
+      'fx.sparkles',
     ]);
   });
 
@@ -131,6 +132,7 @@ describe('visibleEntries', () => {
       'frame.polaroid',
       'overlay.washi',
       'overlay.speech',
+      'fx.sparkles',
     ]);
   });
 });

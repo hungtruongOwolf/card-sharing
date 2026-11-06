@@ -1,6 +1,7 @@
 import type { EffectRenderers } from './effectRenderers';
 import { paperLift } from './renderers/paperLift';
 import { polaroid } from './renderers/polaroid';
+import { sparklesRenderer } from './renderers/sparkles';
 import { speech } from './renderers/speech';
 import { washi } from './renderers/washi';
 
@@ -13,6 +14,7 @@ export const EFFECT_RENDERERS: EffectRenderers = {
     'shadow:paperLift': paperLift,
     'tape:washi': washi,
     'text:speech': speech,
+    'particles:sparkles': sparklesRenderer,
   },
   frames: {
     'frame:polaroid': polaroid,
