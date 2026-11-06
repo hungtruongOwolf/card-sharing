@@ -13,7 +13,7 @@ import { space } from '@card-sharing/tokens';
 
 import { t, type MessageKey } from '../../i18n';
 import type { TextFilterConfig } from '../../text';
-import { Button, Screen, Text, useToast } from '../../ui';
+import { Button, Screen, Text, useTheme, useToast } from '../../ui';
 import type { CapturedPhoto } from '../capture';
 import { CAPTION_MAX_GRAPHEMES, CaptionSheet } from '../captions';
 import { downscalePhoto, drawCard, previewSize, subjectFor } from './cardScene';
@@ -27,6 +27,8 @@ import {
   type CardDraft,
   type StyleSlot,
 } from './editorState';
+import { planFinishModes } from './liveFinish';
+import { LiveFinishPreview } from './LiveFinishPreview';
 import type { MaskSource } from './maskSource';
 import { ParamControls } from './ParamControls';
 import {
@@ -162,6 +164,7 @@ function Editor({
   const [activeSlot, setActiveSlot] = useState<StyleSlot>('cut');
   const [captionOpen, setCaptionOpen] = useState(false);
   const toast = useToast();
+  const { reducedMotion } = useTheme();
 
   const draft = history.present;
   const hasSubject = subject !== null && !draft.wholePhoto;
@@ -183,13 +186,18 @@ function Editor({
     () => ({ width: size.width, height: size.height, photo: image, subject }),
     [size.width, size.height, image, subject],
   );
-  const shownKey = JSON.stringify(shown);
+  // The preview is the focused card: a live finish (holo) animates there unless reduced motion is on.
+  const [finishMode] = planFinishModes([finish?.entry ?? null], { reducedMotion });
+  const liveFinish = finishMode === 'live' && shown?.finish ? shown.finish : null;
+  // A live finish is drawn by LiveFinishPreview over a picture of the card without it.
+  const drawn: CardDraft | null = shown && liveFinish ? { ...shown, finish: null } : shown;
+  const drawnKey = JSON.stringify(drawn);
   const picture = useMemo(
     () =>
-      shown ? createPicture((canvas) => drawCard(canvas, registry, shown, scene), size) : null,
-    // `shown` is rebuilt every render; its JSON is the stable identity.
+      drawn ? createPicture((canvas) => drawCard(canvas, registry, drawn, scene), size) : null,
+    // `drawn` is rebuilt every render; its JSON is the stable identity.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [shownKey, scene, registry],
+    [drawnKey, scene, registry],
   );
 
   const activeTab = tabs.find((tab) => tab.slot === activeSlot) ?? cutTab;
@@ -242,7 +250,14 @@ function Editor({
         accessibilityLabel={previewLabel}
         testID="editor-preview"
       >
-        {picture ? (
+        {picture && liveFinish ? (
+          <LiveFinishPreview
+            picture={picture}
+            width={size.width}
+            height={size.height}
+            intensity={Number(liveFinish.params.intensity ?? 1)}
+          />
+        ) : picture ? (
           <Canvas style={size}>
             <Picture picture={picture} />
           </Canvas>

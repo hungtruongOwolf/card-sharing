@@ -27,7 +27,12 @@ describe('shipped registry', () => {
       'cut.shape.circle',
       'cut.shape.heart',
     ]);
-    expect(registry.byTag('finish').map((e) => e.id)).toEqual(['fx.holo', 'fx.paper-lift']);
+    expect(registry.byTag('finish').map((e) => e.id)).toEqual([
+      'fx.matte',
+      'fx.glossy',
+      'fx.holo',
+      'fx.paper-lift',
+    ]);
     expect(registry.get('fx.holo')?.renderer).toEqual({ type: 'sksl', ref: 'holo' });
   });
 

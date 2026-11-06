@@ -72,7 +72,7 @@ each `{id, version, params?}`; the id must exist at exactly the exported version
 `filter`, `effects` = any non-cut kind); non-stackable entries appear once, `conflicts_with` pairs are refused; params follow the same
 strict rules as `resolveParams` and missing ones are stored with their defaults. Any violation → 422 `UNKNOWN_REGISTRY_ID` with no
 detail. Shipped entries so far: `cut.none`, `cut.raw`, `cut.diecut`, `cut.torn`, `cut.shape.rounded-square`,
-`cut.shape.circle`, `cut.shape.heart`, `fx.holo`, `fx.paper-lift`; the other MVP
+`cut.shape.circle`, `cut.shape.heart`, `fx.matte`, `fx.glossy`, `fx.holo`, `fx.paper-lift`; the other MVP
 entries land with their tickets.
 
 **Cut style rendering (T-62, `apps/mobile/src/features/cut-styles`):** `drawCutStyle(canvas, entry, params, scene)` draws
@@ -99,6 +99,19 @@ pure reducer of `{cut, finish, wholePhoto}` choices (`{id, version, params}`, pa
 steps. The default cut is the first contour-tracing (sticker) style when there is a subject, else the first listed one;
 a selection that becomes hidden (kill switch, whole photo) falls back to the default. The preview is a Skia `<Picture>`
 of `drawCard` (cut style, then the finish with SrcATop so it covers only the card's pixels; holo at the fixed still tilt).
+
+**Finishes (T-65):** three entries tagged `finish`, one per card: `fx.matte` (milky wash + deterministic per-pixel paper
+grain, `MATTE_SKSL`, at most 35 % alpha so the photo stays readable), `fx.glossy` (faint overall sheen + diagonal specular
+band + corner highlight, `GLOSS_SKSL`) and `fx.holo`. All three are SkSL runtime shaders in `packages/shaders`, drawn
+SrcATop with `intensity` as alpha; matte and glossy are static (`cost.gpu: 'S'`, `liveAllowed: false`) and render
+byte-stable for golden tests. The ids keep the `fx.*` prefix the schema requires for `kind: filter` (the ticket's
+`finish.*` names were a placeholder). Live finishes are planned by `planFinishModes` (`features/editor/liveFinish.ts`):
+a finish animates only with `cost.liveAllowed`, a `gyro` input and a live renderer for its `renderer.ref` (only `holo`),
+never under reduced motion, and at most `cost.maxLive` cards per finish id in priority order (holo: 3, T-52). The editor
+preview is the focused card: with holo and motion allowed, `LiveFinishPreview` draws the finish-less card picture plus the
+holo shader SrcATop in a layer, uniforms driven on the UI thread by `GyroTiltDriver` (gravity sensor, mounted only while
+live) around `STATIC_TILT` and the ambient clock; reduced motion keeps the static sheen and never registers the sensor.
+The 60 fps with 3 live holo cards budget is the T-52 estimate and still needs a device measurement.
 Masks come from a `MaskSource` seam: development builds use a synthetic subject, release builds `noMaskSource`
 (whole-photo cards) until the segmenters T-54/T-55 plug in.
 
@@ -194,7 +207,8 @@ All derive from the 8-bit mask (source of truth); one `cutStyle` per item; resul
 | `cut.shape.ticket` / `.scallop` | Ticket stub / scalloped badge | `Path1D` stamping on edge | image | `notchSize` | S | MVP+ |
 | `frame.polaroid` | Instant-photo frame | see §3 #11 | image, mask | `popOut`, `captionArea` | S | MVP |
 | `fx.paper-lift` | Drop shadow / lift | Shadow image filter, animated on drag | mask/contour | `height` 0–3 | S | MVP |
-| `fx.holo` (finish) | Gloss / holographic | RuntimeShader with tilt uniforms | mask, gyro | `intensity`, `pattern` | M live | MVP |
+| `fx.matte` / `fx.glossy` (finish) | Matte grain / glossy laminate | Static RuntimeShader, SrcATop | image | `intensity` | S baked | MVP (T-65) |
+| `fx.holo` (finish) | Holographic foil | RuntimeShader with tilt uniforms | mask, gyro | `intensity` | M live | MVP |
 | `pre.edgeCleanup` | (pipeline step, not user-facing) | Erode 1 px + 0.5–1 px feather; server colour decontamination optional | mask | — | S | MVP |
 `frame.*` and `fx.*` entries are shared with §3 — one entry, listed in both pickers via `kind` + tags, never duplicated.
 

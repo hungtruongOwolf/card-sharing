@@ -45,7 +45,10 @@ async function loadImage() {
   return surface.makeImageSnapshot();
 }
 
-async function renderEditor(props: Partial<CardEditorScreenProps> = {}) {
+async function renderEditor(
+  props: Partial<CardEditorScreenProps> = {},
+  options: { reducedMotion?: boolean } = {},
+) {
   await renderThemed(
     <CardEditorScreen
       photo={photo}
@@ -55,6 +58,7 @@ async function renderEditor(props: Partial<CardEditorScreenProps> = {}) {
       onBack={jest.fn()}
       {...props}
     />,
+    options,
   );
   return screen.findByTestId('editor');
 }
@@ -131,6 +135,37 @@ describe('CardEditorScreen', () => {
         ),
       ).toBeTruthy();
       expect(screen.getByRole('adjustable', { name: t('effects.param.intensity') })).toBeTruthy();
+      // The focused card gets the live gyro shine.
+      expect(screen.getByTestId('editor-live-finish')).toBeTruthy();
+    },
+    RENDER_TIMEOUT_MS,
+  );
+
+  it(
+    'offers matte, glossy and holo, and keeps holo static under reduced motion',
+    async () => {
+      await renderEditor({}, { reducedMotion: true });
+      const user = userEvent.setup();
+      await user.press(screen.getByRole('tab', { name: t('editor.tab.finish') }));
+      for (const key of [
+        'effects.fx.matte.name',
+        'effects.fx.glossy.name',
+        'effects.fx.holo.name',
+      ] as const) {
+        expect(tile(key)).toBeTruthy();
+      }
+      await user.press(screen.getByRole('button', { name: t('effects.fx.holo.name') }));
+      expect(selected('effects.fx.holo.name')).toBe(true);
+      expect(screen.queryByTestId('editor-live-finish')).toBeNull();
+      await user.press(screen.getByRole('button', { name: t('effects.fx.matte.name') }));
+      expect(
+        screen.getByLabelText(
+          t('editor.preview.labelWithFinish', {
+            style: t('effects.cut.diecut.a11y'),
+            finish: t('effects.fx.matte.a11y'),
+          }),
+        ),
+      ).toBeTruthy();
     },
     RENDER_TIMEOUT_MS,
   );

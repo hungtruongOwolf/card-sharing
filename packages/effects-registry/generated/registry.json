@@ -144,6 +144,21 @@
       }
     },
     {
+      "id": "fx.glossy",
+      "version": 1,
+      "kind": "filter",
+      "stackable": false,
+      "conflicts_with": [],
+      "params": {
+        "intensity": {
+          "type": "number",
+          "min": 0,
+          "max": 1,
+          "default": 0.7
+        }
+      }
+    },
+    {
       "id": "fx.holo",
       "version": 1,
       "kind": "filter",
@@ -155,6 +170,21 @@
           "min": 0,
           "max": 1,
           "default": 0.8
+        }
+      }
+    },
+    {
+      "id": "fx.matte",
+      "version": 1,
+      "kind": "filter",
+      "stackable": false,
+      "conflicts_with": [],
+      "params": {
+        "intensity": {
+          "type": "number",
+          "min": 0,
+          "max": 1,
+          "default": 0.6
         }
       }
     },

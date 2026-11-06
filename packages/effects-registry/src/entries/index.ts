@@ -6,7 +6,9 @@ import { cutShapeCircle } from './cut.shape.circle';
 import { cutShapeHeart } from './cut.shape.heart';
 import { cutShapeRoundedSquare } from './cut.shape.rounded-square';
 import { cutTorn } from './cut.torn';
+import { fxGlossy } from './fx.glossy';
 import { fxHolo } from './fx.holo';
+import { fxMatte } from './fx.matte';
 import { fxPaperLift } from './fx.paper-lift';
 
 /**
@@ -21,6 +23,8 @@ export const ENTRIES: readonly EffectEntry[] = [
   cutShapeRoundedSquare,
   cutShapeCircle,
   cutShapeHeart,
+  fxMatte,
+  fxGlossy,
   fxHolo,
   fxPaperLift,
 ];
