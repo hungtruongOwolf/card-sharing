@@ -58,19 +58,24 @@ pub trait PersonalData: Send + Sync {
     fn erase(&self, account: Uuid) -> PersonalDataFuture<'_, ()>;
 }
 
-/// Runs `sql` (one row, one `jsonb` column, `$1` = the account id) and returns its value;
-/// `null` becomes an empty array. Helper for exports built with `jsonb_agg`/`jsonb_build_object`
-/// that name every exported column (never `to_jsonb(row)`, which would leak hashes and secrets).
+/// Runs `sql` (`$1` = the account id; it returns one `jsonb` column) and returns its value: an
+/// aggregate over no rows (`NULL`) becomes an empty array, a single-object query that matches no
+/// row becomes `null`. Helper for exports built with `jsonb_agg`/`jsonb_build_object` that name
+/// every exported column (never `to_jsonb(row)`, which would leak hashes and secrets).
 pub async fn query_json(
     pool: &sqlx::PgPool,
     sql: &'static str,
     account: Uuid,
 ) -> Result<Value, PersonalDataError> {
-    let value: Option<Value> = sqlx::query_scalar(sql)
+    let value: Option<Option<Value>> = sqlx::query_scalar(sql)
         .bind(account)
-        .fetch_one(pool)
+        .fetch_optional(pool)
         .await?;
-    Ok(value.unwrap_or_else(|| Value::Array(Vec::new())))
+    Ok(match value {
+        None => Value::Null,
+        Some(None) => Value::Array(Vec::new()),
+        Some(Some(value)) => value,
+    })
 }
 
 /// Platform tables keyed by an account: Idempotency-Key replay rows (they can hold response
