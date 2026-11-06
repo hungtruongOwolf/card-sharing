@@ -97,6 +97,14 @@ async fn upload_lands_in_quarantine_and_dedupes() {
     assert_eq!(mask.status(), StatusCode::CREATED);
 }
 
+/// A 404 body with its per-request id removed (everything else must be byte-identical).
+pub fn without_request_id(bytes: axum::body::Bytes) -> String {
+    let text = String::from_utf8(bytes.to_vec()).unwrap();
+    let start = text.find(",\"requestId\"").unwrap_or(text.len());
+    let end = text[start..].find('}').map_or(text.len(), |i| start + i);
+    format!("{}{}", &text[..start], &text[end..])
+}
+
 fn assert_no_url(body: &Value) {
     let text = body.to_string();
     for needle in ["url", "storage_key", "http"] {
@@ -227,7 +235,7 @@ async fn media_state_is_owner_only_and_404_otherwise() {
 
     let theirs = call(&env, "GET", &format!("/v1/media/{id}"), &other, None).await;
     assert_eq!(theirs.status(), StatusCode::NOT_FOUND);
-    let denied = body_bytes(theirs).await;
+    let denied = without_request_id(body_bytes(theirs).await);
     let missing = call(
         &env,
         "GET",
@@ -236,7 +244,7 @@ async fn media_state_is_owner_only_and_404_otherwise() {
         None,
     )
     .await;
-    assert_eq!(body_bytes(missing).await, denied);
+    assert_eq!(without_request_id(body_bytes(missing).await), denied);
     let malformed = call(&env, "GET", "/v1/media/not-a-uuid", &other, None).await;
     assert_eq!(malformed.status(), StatusCode::NOT_FOUND);
 }

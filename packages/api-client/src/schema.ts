@@ -529,6 +529,47 @@ export interface paths {
         patch: operations["updateSettings"];
         trace?: never;
     };
+    "/v1/media": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload an image into quarantine. Auth: onb/ses.
+         * @description The body is the raw image (`Content-Type: image/png`, `image/jpeg`, `image/webp` or
+         *     `application/octet-stream`), at most 10 MiB, at most 4096 px per side. The format comes from
+         *     the magic bytes; a declared image type that disagrees with them is refused. The same bytes of
+         *     the same kind return the existing upload (200) instead of a new one (201). The image is
+         *     re-encoded and scanned before anyone can see it; this endpoint never returns a URL.
+         */
+        post: operations["uploadMedia"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/media/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** State of one of my uploads. Auth: onb/ses. Owner only; never returns a URL. */
+        get: operations["getMedia"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/public/invites/{token}": {
         parameters: {
             query?: never;
@@ -871,6 +912,11 @@ export interface components {
             /** @description Blocked when the folded text has a whole word equal to the term. */
             words?: string[];
         };
+        /**
+         * Format: binary
+         * @description Raw image bytes (request body of the upload).
+         */
+        ImageBytes: string;
         InvitePreviewResponse: {
             inviter: components["schemas"]["InviterView"];
             /** @description The caller opened their own invite ("That's you!"); sending a request is refused. */
@@ -913,6 +959,27 @@ export interface components {
             /** @description What the caller has set so far (empty fields before the profile step). */
             profile: components["schemas"]["ProfileView"];
             settings: components["schemas"]["SettingsView"];
+        };
+        MediaEnvelope: {
+            media: components["schemas"]["MediaView"];
+        };
+        /** @description An upload as its owner sees it. Never carries a URL or a storage key. */
+        MediaView: {
+            /** Format: int32 */
+            byte_size: number;
+            content_type: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: int32 */
+            height: number;
+            /** Format: uuid */
+            id: string;
+            /** @description `card_render`, `mask`, `original` or `avatar`. */
+            kind: string;
+            /** @description `uploaded`, `scanning`, `clean`, `held`, `blocked`, `failed` or `deleted`. */
+            state: string;
+            /** Format: int32 */
+            width: number;
         };
         /** @enum {string} */
         OnboardingStep: "age" | "profile" | "done";
@@ -2771,6 +2838,165 @@ export interface operations {
             };
             /** @description POLICY_DISALLOWED (under the discovery age), ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    uploadMedia: {
+        parameters: {
+            query: {
+                /** @description `card_render`, `mask`, `original` (keep-original only) or `avatar`. */
+                kind: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The raw image bytes. */
+        requestBody: {
+            content: {
+                "application/octet-stream": components["schemas"]["ImageBytes"];
+            };
+        };
+        responses: {
+            /** @description The same image of this kind was uploaded before. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaEnvelope"];
+                };
+            };
+            /** @description Stored in quarantine. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaEnvelope"];
+                };
+            };
+            /** @description VALIDATION_FAILED: bad kind, malformed header or dimensions out of range. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description MEDIA_TOO_LARGE: above 10 MiB. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description MEDIA_TYPE_UNSUPPORTED: not PNG, JPEG or WebP. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description TEMPORARILY_UNAVAILABLE: object storage is down or not configured. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    getMedia: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The media id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The upload's state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaEnvelope"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND: no upload of mine with this id. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
