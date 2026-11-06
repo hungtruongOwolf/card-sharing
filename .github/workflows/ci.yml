@@ -31,32 +31,30 @@ jobs:
       - name: Context wiki lint (broken links, orphans, front matter)
         run: python3 tools/wiki_graph.py lint
 
-  rust:
-    name: Rust (fmt, clippy, test)
+  # Rust is split into parallel jobs; the "Rust (fmt, clippy, test)" job at the end aggregates them so the required
+  # check name in branch protection stays the same.
+  rust-lint:
+    name: Rust lint (fmt, clippy)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    # Integration tests (apps/api/tests) use real Postgres and Valkey; images match infra/docker-compose.yml.
-    services:
-      postgres:
-        image: postgres:17.11-alpine
-        env:
-          POSTGRES_USER: cardsharing
-          POSTGRES_PASSWORD: ci-only-not-a-secret
-          POSTGRES_DB: cardsharing
-        ports: ['5432:5432']
-        options: >-
-          --health-cmd "pg_isready -U cardsharing -d cardsharing"
-          --health-interval 5s --health-timeout 5s --health-retries 10
-      valkey:
-        image: valkey/valkey:8.1.11-alpine3.24
-        ports: ['6379:6379']
-        options: >-
-          --health-cmd "valkey-cli ping"
-          --health-interval 5s --health-timeout 3s --health-retries 10
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          shared-key: rust-lint
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+  rust-unit:
+    name: Rust tests (crates, api unit, S3 adapter)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
     env:
       REQUIRE_INTEGRATION_TESTS: '1'
-      TEST_DATABASE_URL: postgres://cardsharing:ci-only-not-a-secret@127.0.0.1:5432/cardsharing
-      TEST_REDIS_URL: redis://127.0.0.1:6379/0
       # S3 adapter tests (crates/media/tests/s3.rs) against MinIO, started below: service containers
       # cannot pass the `server` command. Same image as infra/docker-compose.yml.
       MINIO_IMAGE: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
@@ -79,11 +77,84 @@ jobs:
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch
         with:
           toolchain: stable
-          components: rustfmt, clippy
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
-      - run: cargo fmt --all --check
-      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
-      - run: cargo test --workspace --locked
+        with:
+          shared-key: rust-test
+      - name: Workspace tests except the api crate
+        run: cargo test --workspace --exclude api --locked
+      - name: api unit tests (lib and bins)
+        run: cargo test -p api --lib --bins --locked
+      - name: api doc tests
+        run: cargo test -p api --doc --locked
+
+  rust-api:
+    name: Rust api integration tests (shard ${{ matrix.shard }}/3)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2]
+    # Integration tests (apps/api/tests) use real Postgres and Valkey; images match infra/docker-compose.yml.
+    services:
+      postgres:
+        image: postgres:17.11-alpine
+        env:
+          POSTGRES_USER: cardsharing
+          POSTGRES_PASSWORD: ci-only-not-a-secret
+          POSTGRES_DB: cardsharing
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U cardsharing -d cardsharing"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      valkey:
+        image: valkey/valkey:8.1.11-alpine3.24
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "valkey-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      REQUIRE_INTEGRATION_TESTS: '1'
+      TEST_DATABASE_URL: postgres://cardsharing:ci-only-not-a-secret@127.0.0.1:5432/cardsharing
+      TEST_REDIS_URL: redis://127.0.0.1:6379/0
+      SHARD: ${{ matrix.shard }}
+      SHARDS: 3
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          shared-key: rust-test
+      - run: cargo test -p api --test api --locked --no-run
+      # Each test is assigned by its top-level module (the part before the first `::`), so every test runs in
+      # exactly one shard and new modules are picked up without editing this file.
+      - name: Run this shard's modules
+        run: |
+          cargo test -p api --test api --locked -q -- --list --format terse | sed -n 's/: test$//p' > all-tests.txt
+          test -s all-tests.txt || { echo "::error::no api integration tests listed"; exit 1; }
+          awk -F'::' -v shard="$SHARD" -v shards="$SHARDS" '
+            !($1 in idx) { idx[$1] = n++ }
+            idx[$1] % shards == shard { print }
+          ' all-tests.txt > shard-tests.txt
+          echo "Shard $SHARD/$SHARDS runs $(wc -l < shard-tests.txt) of $(wc -l < all-tests.txt) tests"
+          test -s shard-tests.txt || exit 0
+          xargs -a shard-tests.txt cargo test -p api --test api --locked -- --exact
+
+  rust:
+    name: Rust (fmt, clippy, test)
+    if: always()
+    needs: [rust-lint, rust-unit, rust-api]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fail unless every Rust job passed
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
+        run: |
+          echo "::error::A Rust job did not pass: ${{ join(needs.*.result, ', ') }}"
+          exit 1
+      - run: echo "Rust jobs passed"
 
   cargo-deny:
     name: Rust supply chain (cargo-deny)
@@ -95,10 +166,11 @@ jobs:
         with:
           command: check advisories bans licenses sources
 
-  js:
-    name: JS (format, lint, boundaries, typecheck, test, web build)
+  # JS is split into parallel jobs; the "JS (...)" job at the end aggregates them so the required check name stays.
+  js-static:
+    name: JS static (audit, format, lint, boundaries, typecheck)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1 (version from packageManager)
@@ -109,8 +181,8 @@ jobs:
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .turbo/cache
-          key: turbo-${{ runner.os }}-${{ github.sha }}
-          restore-keys: turbo-${{ runner.os }}-
+          key: turbo-${{ runner.os }}-${{ github.job }}-${{ github.sha }}
+          restore-keys: turbo-${{ runner.os }}-${{ github.job }}-
       - run: pnpm install --frozen-lockfile
       # Fails on high/critical advisories in production deps; reviewed exceptions live in pnpm-workspace.yaml (auditConfig).
       # Rust advisories are covered by the cargo-deny job (RustSec database), so no separate cargo-audit step.
@@ -119,8 +191,58 @@ jobs:
       - run: pnpm lint
       - run: pnpm lint:boundaries
       - run: pnpm typecheck
+
+  js-test:
+    name: JS tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1 (version from packageManager)
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-${{ github.job }}-${{ github.sha }}
+          restore-keys: turbo-${{ runner.os }}-${{ github.job }}-
+      - run: pnpm install --frozen-lockfile
       - run: pnpm test
+
+  js-web:
+    name: JS web build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1 (version from packageManager)
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-${{ github.job }}-${{ github.sha }}
+          restore-keys: turbo-${{ runner.os }}-${{ github.job }}-
+      - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @card-sharing/web build
+
+  js:
+    name: JS (format, lint, boundaries, typecheck, test, web build)
+    if: always()
+    needs: [js-static, js-test, js-web]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fail unless every JS job passed
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
+        run: |
+          echo "::error::A JS job did not pass: ${{ join(needs.*.result, ', ') }}"
+          exit 1
+      - run: echo "JS jobs passed"
 
   contract:
     name: API contract (OpenAPI → TS client drift)
