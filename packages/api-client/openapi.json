@@ -976,6 +976,277 @@
         }
       }
     },
+    "/v1/boards": {
+      "get": {
+        "tags": [
+          "boards"
+        ],
+        "summary": "Boards I own or collaborate on. Auth: ses.",
+        "operationId": "listBoards",
+        "responses": {
+          "200": {
+            "description": "The caller's boards.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "boards.list",
+          "role": "user",
+          "versionGate": true
+        }
+      },
+      "post": {
+        "tags": [
+          "boards"
+        ],
+        "summary": "Create a board. Auth: ses.",
+        "description": "The caller becomes its owner (at most 20 live boards, `boards.max_per_owner`). Retrying with\nthe same `id` returns the existing board with 200 (the id is the idempotency key); an `id`\nused by another account, or by one of the caller's deleted boards, is 404.",
+        "operationId": "createBoard",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBoardRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Retry of a create: the caller's existing board with this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardEnvelope"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED: bad id or title, unknown field.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: the id is not available to the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "BOARD_LIMIT_REACHED (AC-18.2).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "UNKNOWN_REGISTRY_ID: the backdrop is not a known backdrop.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "boards.create",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
+    "/v1/boards/{id}": {
+      "get": {
+        "tags": [
+          "boards"
+        ],
+        "summary": "Read one board. Auth: ses. Members only.",
+        "description": "Anyone who is not a member of the board, and any malformed id, gets the same 404 as a missing\nor deleted board.",
+        "operationId": "getBoard",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The board id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The board as the caller sees it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: no board of which the caller is a member.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "boards.read",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
     "/v1/cards": {
       "post": {
         "tags": [
@@ -4824,6 +5095,77 @@
           }
         }
       },
+      "BoardEnvelope": {
+        "type": "object",
+        "required": [
+          "board"
+        ],
+        "properties": {
+          "board": {
+            "$ref": "#/components/schemas/BoardView"
+          }
+        }
+      },
+      "BoardList": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BoardView"
+            },
+            "description": "Boards the caller owns or collaborates on, most recently changed first."
+          }
+        }
+      },
+      "BoardView": {
+        "type": "object",
+        "description": "A board's metadata as the caller sees it.",
+        "required": [
+          "id",
+          "title",
+          "role",
+          "version",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "backdrop": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "Normalized registry reference, or `null` for the default backdrop."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "role": {
+            "type": "string",
+            "description": "The caller's role: `owner` or `collaborator`."
+          },
+          "title": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Change cursor: bumped on every change to the board or its pins."
+          }
+        }
+      },
       "CardEnvelope": {
         "type": "object",
         "required": [
@@ -5051,6 +5393,33 @@
             "type": "integer",
             "format": "int32",
             "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreateBoardRequest": {
+        "type": "object",
+        "description": "Body of `POST /v1/boards`.",
+        "required": [
+          "id",
+          "title"
+        ],
+        "properties": {
+          "backdrop": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "Registry reference `{id, version, params?}` of kind `backdrop`; `null` = the default."
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Client-generated UUIDv7 (lets the app create boards offline)."
+          },
+          "title": {
+            "type": "string",
+            "description": "1..=60 grapheme clusters after sanitizing; filtered like every user-written name."
           }
         },
         "additionalProperties": false
@@ -6379,6 +6748,10 @@
     {
       "name": "cards",
       "description": "Cards: send to friends, read, delete, react (US-13..US-17)"
+    },
+    {
+      "name": "boards",
+      "description": "Personal and shared boards of pinned cards (US-18..US-20, ADR-0007)"
     },
     {
       "name": "media",

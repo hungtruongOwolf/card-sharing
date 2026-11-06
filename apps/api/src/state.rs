@@ -44,6 +44,8 @@ pub struct AppState {
     pub social: Arc<SocialService>,
     /// Cards: send, deliver, read, delete, reactions (T-75+).
     pub cards: Arc<cards::CardService>,
+    /// Boards, pins and their per-viewer resolution (M5).
+    pub boards: Arc<boards::BoardService>,
     /// The activity tab (T-88).
     pub activity: Arc<notifications::Activity>,
     /// Notification toggles and quiet hours (T-87).
@@ -107,6 +109,11 @@ impl AppState {
             cards: Arc::new(cards::CardService::new(
                 identity.pool().clone(),
                 identity.clock(),
+            )),
+            boards: Arc::new(boards::BoardService::new(
+                identity.pool().clone(),
+                identity.clock(),
+                boards::BoardSettings::default(),
             )),
             activity: Arc::new(notifications::Activity::new(
                 identity.pool().clone(),
@@ -229,6 +236,16 @@ impl AppState {
             }
         })?;
         Ok(signer.sign(key, viewer, UrlAudience::App, self.identity.clock().now()))
+    }
+
+    /// Installs the board rules (`config/boards.yaml`).
+    pub fn with_board_settings(mut self, settings: boards::BoardSettings) -> Self {
+        self.boards = Arc::new(boards::BoardService::new(
+            self.identity.pool().clone(),
+            self.identity.clock(),
+            settings,
+        ));
+        self
     }
 
     /// Installs the social rules (`config/social.yaml`).

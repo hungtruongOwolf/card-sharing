@@ -200,6 +200,7 @@ fn substitute(value: &Value, values: &Placeholders) -> Value {
         Value::String(s) if s == "$HANDLE" => Value::String(values.handle.clone()),
         Value::String(s) if s == "$EMAIL" => Value::String(values.email.clone()),
         Value::String(s) if s == "$CODE_CHALLENGE" => Value::String(values.code_challenge.clone()),
+        Value::String(s) if s == "$UUID_V7" => Value::String(Uuid::now_v7().to_string()),
         Value::String(s) if s == "$GOOGLE_ID_TOKEN" => {
             Value::String(values.google_id_token.clone())
         }

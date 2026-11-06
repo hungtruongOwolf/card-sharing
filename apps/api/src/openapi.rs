@@ -5,7 +5,7 @@ use utoipa_axum::routes;
 
 use crate::access::{ApiRouter, Idempotency, RoutePolicy};
 use crate::routes::{
-    activity, age_signal, app_config, attestation, auth, blocks, cards, devices, feed,
+    activity, age_signal, app_config, attestation, auth, blocks, boards, cards, devices, feed,
     friend_requests, friends, health, invites, me, media, media_files, notification_preferences,
     public_invites, sessions, user_search, widget,
 };
@@ -37,6 +37,7 @@ Every operation carries `x-policy` (auth kind, role, attestation) from its deny-
         (name = me::TAG, description = "The caller's own account and onboarding"),
         (name = invites::TAG, description = "Invites, friend requests, friends, blocks and handle search (US-4, US-5, US-5a, US-6, US-26)"),
         (name = cards::TAG, description = "Cards: send to friends, read, delete, react (US-13..US-17)"),
+        (name = boards::TAG, description = "Personal and shared boards of pinned cards (US-18..US-20, ADR-0007)"),
         (name = media::TAG, description = "Image uploads into quarantine and their state (ADR-0005)"),
         (name = app_config::TAG, description = "Public client configuration"),
         (name = public_invites::TAG, description = "Server-to-server routes for the web share app (svc, /v1/public/*)")
@@ -294,6 +295,18 @@ pub fn router() -> ApiRouter<AppState> {
         .route(
             RoutePolicy::session().limited("feed.purges"),
             routes!(feed::check_purges),
+        )
+        .route(
+            RoutePolicy::session().limited("boards.create"),
+            routes!(boards::create_board),
+        )
+        .route(
+            RoutePolicy::session().limited("boards.list"),
+            routes!(boards::list_boards),
+        )
+        .route(
+            RoutePolicy::session().limited("boards.read"),
+            routes!(boards::get_board),
         )
         .undocumented_policy(
             &Method::GET,

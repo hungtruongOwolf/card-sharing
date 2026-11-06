@@ -14,6 +14,7 @@ mod attestation;
 mod audit;
 mod authz_matrix;
 mod blocks;
+mod boards;
 mod cards_delete;
 mod cards_deliver;
 mod cards_reactions;

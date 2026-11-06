@@ -341,6 +341,16 @@ request goes out with the opaque `ref`, a silent drop looks like a sent request)
 | POST | /v1/board-invitations/{id}/accept | Accept → membership | ses | user | `invitee_id` = caller, pending, unexpired; still owner's friend; no block with any member; cap re-checked in tx; else 404 | 60/h u | yes | US-19 AC-19.8 |
 | POST | /v1/board-invitations/{id}/decline | Decline (silent to owner) | ses | user | `invitee_id` = caller, pending | 60/h u | yes | US-19 AC-19.8 |
 
+Implemented (T-98, `crates/boards`, `apps/api/src/routes/boards.rs`, tag `boards`, limits `boards.create` 30/h, `boards.list`
+60/min, `boards.read` 120/min): `POST /v1/boards {id, title, backdrop?}` — `id` must be a UUIDv7 (else 400); the title goes through
+the text filter (1–60 graphemes); `backdrop` is `null` (default) or a registry reference of kind `backdrop` (anything else 422
+`UNKNOWN_REGISTRY_ID`; the registry has no backdrop entries until T-111, so only `null` passes today); owner = caller. The id is the
+idempotency key: the same owner retrying a live board's id gets it back with 200 (unchanged); an id used by another account or by one
+of the caller's deleted boards is the byte-identical 404. The cap (`boards.max_per_owner` = 20 in `config/boards.yaml`, live boards
+only) is counted under a per-owner advisory lock → 409 `BOARD_LIMIT_REACHED`. `BoardView` = `{id, title, backdrop, role, version,
+created_at, updated_at}`. `GET /v1/boards` lists boards where the caller is a member (owner or collaborator), most recently changed
+first; `GET /v1/boards/{id}` → `{board}` for members, the missing 404 for everyone else (friendship alone gives no access).
+
 ### Sharing (public links) & web
 | Method | Path | Purpose | Auth | Role | Object rule | Rate limit | Idem. | US |
 |---|---|---|---|---|---|---|---|---|

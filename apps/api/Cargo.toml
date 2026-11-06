@@ -10,6 +10,7 @@ default-run = "api"
 
 [dependencies]
 attestation.workspace = true
+boards.workspace = true
 cards.workspace = true
 identity.workspace = true
 media.workspace = true

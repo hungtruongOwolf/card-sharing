@@ -4,6 +4,7 @@ pub mod app_config;
 pub mod attestation;
 pub mod auth;
 pub mod blocks;
+pub mod boards;
 pub mod cards;
 pub mod devices;
 pub mod feed;

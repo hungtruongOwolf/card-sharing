@@ -68,6 +68,7 @@ dependencies = [
  "attestation",
  "axum",
  "base64 0.23.1",
+ "boards",
  "bytes",
  "cards",
  "http",
@@ -304,6 +305,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2f6c7dbe95a6ed67ad9f18e57daf93a2f034c524b99fd2b76d18fdfeb6660aa"
 dependencies = [
  "hybrid-array",
+]
+
+[[package]]
+name = "boards"
+version = "0.1.0"
+dependencies = [
+ "cards",
+ "identity",
+ "platform",
+ "serde",
+ "serde_json",
+ "serde_norway",
+ "social",
+ "sqlx",
+ "thiserror",
+ "time",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]
