@@ -5,9 +5,9 @@ use utoipa_axum::routes;
 
 use crate::access::{ApiRouter, Idempotency, RoutePolicy};
 use crate::routes::{
-    age_signal, app_config, attestation, auth, blocks, cards, devices, feed, friend_requests,
-    friends, health, invites, me, media, media_files, notification_preferences, public_invites,
-    sessions, user_search,
+    activity, age_signal, app_config, attestation, auth, blocks, cards, devices, feed,
+    friend_requests, friends, health, invites, me, media, media_files, notification_preferences,
+    public_invites, sessions, user_search,
 };
 use crate::state::AppState;
 use platform::problem::ProblemDetails;
@@ -31,6 +31,7 @@ Every operation carries `x-policy` (auth kind, role, attestation) from its deny-
         (name = auth::TAG, description = "Sign-in and session lifecycle (ADR-0004)"),
         (name = attestation::TAG, description = "Device attestation challenges and keys (SR-13)"),
         (name = sessions::TAG, description = "The caller's device sessions (AC-1.4)"),
+        (name = activity::TAG, description = "The caller's activity tab (US-31)"),
         (name = devices::TAG, description = "Push tokens of the caller's device (US-31, US-16)"),
         (name = me::TAG, description = "The caller's own account and onboarding"),
         (name = invites::TAG, description = "Invites, friend requests, friends, blocks and handle search (US-4, US-5, US-5a, US-6, US-26)"),
@@ -272,6 +273,14 @@ pub fn router() -> ApiRouter<AppState> {
         .route(
             RoutePolicy::session().limited("feed.read"),
             routes!(feed::get_feed),
+        )
+        .route(
+            RoutePolicy::session().limited("activity.read"),
+            routes!(activity::get_activity),
+        )
+        .route(
+            RoutePolicy::session().limited("activity.mark_read"),
+            routes!(activity::mark_activity_read),
         )
         .route(
             RoutePolicy::session().limited("feed.purges"),

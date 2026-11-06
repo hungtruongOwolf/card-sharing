@@ -7,6 +7,7 @@
 mod common;
 
 mod access;
+mod activity;
 mod age_gate;
 mod age_service;
 mod attestation;

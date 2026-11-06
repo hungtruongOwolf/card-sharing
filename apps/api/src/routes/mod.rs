@@ -1,3 +1,4 @@
+pub mod activity;
 pub mod age_signal;
 pub mod app_config;
 pub mod attestation;

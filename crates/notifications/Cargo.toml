@@ -11,6 +11,9 @@ license.workspace = true
 # identity only for its SQL predicates (session_live_sql!, account_active_sql!), so its schema
 # stays owned by it.
 identity.workspace = true
+# cards and social only for their SQL predicates (activity read-time filters).
+cards.workspace = true
+social.workspace = true
 platform.workspace = true
 
 serde.workspace = true

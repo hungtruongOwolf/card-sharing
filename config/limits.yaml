@@ -244,6 +244,16 @@ limits:
     requests: 120
     per_secs: 60
     on_store_failure: open
+  activity.read: # GET /v1/activity (T-88)
+    scope: user
+    requests: 60
+    per_secs: 60
+    on_store_failure: open
+  activity.mark_read: # POST /v1/activity/read (T-88)
+    scope: user
+    requests: 60
+    per_secs: 60
+    on_store_failure: open
   feed.purges: # POST /v1/feed/purges (T-83): every sync, at least every 30 s while the app is open
     scope: user
     requests: 120

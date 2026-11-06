@@ -44,6 +44,8 @@ pub struct AppState {
     pub social: Arc<SocialService>,
     /// Cards: send, deliver, read, delete, reactions (T-75+).
     pub cards: Arc<cards::CardService>,
+    /// The activity tab (T-88).
+    pub activity: Arc<notifications::Activity>,
     /// Notification toggles and quiet hours (T-87).
     pub notification_prefs: Arc<notifications::PreferenceStore>,
     /// Push tokens of device sessions (T-85).
@@ -103,6 +105,10 @@ impl AppState {
             age,
             social,
             cards: Arc::new(cards::CardService::new(
+                identity.pool().clone(),
+                identity.clock(),
+            )),
+            activity: Arc::new(notifications::Activity::new(
                 identity.pool().clone(),
                 identity.clock(),
             )),

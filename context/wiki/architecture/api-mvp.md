@@ -499,6 +499,21 @@ in `kill_switches.reactions`, else 400. One row per `(card, reactor)` (replace o
 reactor_id}` feeds the reaction push later. `GET /v1/cards/{id}/reactions` (owner only, `cards.reactions.read` 60/min) lists
 reactions from people who are still friends without a block; recipients see only their own via `my_reaction` in `CardView`.
 
+Implemented (T-88, server part of #90, `crates/notifications/src/activity.rs`, `apps/api/src/routes/activity.rs`, limits
+`activity.read` / `activity.mark_read` 60/min per user): the `ActivityOnEvents` outbox subscriber records one item per
+alert-worthy event and recipient (`card.new`, `reaction.new`, `friend.request`, `friend.accepted`, `card.held`; unique per
+event, recipient and kind), independent of the push path, so every event reaches the tab whether the push was sent, denied,
+toggled off, capped or held (AC-31.3). `GET /v1/activity?cursor=&limit=` (1..50, default 30) → `{items: [{id, type,
+subject_id, actor_id | null, created_at, unread}], unread_count (≤ 100), next_cursor}`, newest first; ids only, the app
+resolves cards, requests and people through their own routes. Each item is re-checked on every read with the owning module's
+predicate: `card.new` = `cards::recipient_card_visible_sql!`, `reaction.new` = own undeleted card
+(`cards::owner_card_sql!`) and still friends with the reactor, `card.held` = own undeleted card, `friend.request` =
+`social::request_open_to_sql!` (pending, unexpired, no block), `friend.accepted` = still friends without a block; so
+unfriend, block, delete and answered requests drop items (and they never count as unread). The cursor is the last item id
+plus an HMAC tag (`UrlSigner::token_tag`, purpose `activity_cursor`); tampered → 400. `POST /v1/activity/read {up_to}` marks
+that item and everything older read (a per-account watermark that never moves back); an id that is not the caller's item →
+404. Items are kept 90 days (`notifications.activity.purge`).
+
 ### Board read resolution (per viewer V, AC-19.7, AC-19.9, SR-6, SR-21)
 For each card pin (card C, owner O, pinner P): return the card with signed URLs only if C is `active` **and** (V = O, or V is a
 current recipient of C ∧ friends(V, O) ∧ ¬blocked(V, O)) **and** not (V is an adult ∧ P or O is a minor member ∧ ¬friends(V, that

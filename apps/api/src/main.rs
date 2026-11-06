@@ -265,9 +265,14 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
         notifications::NotifySettings::from_path(&config.notifications_config_path)
             .context("failed to load notifications config")?,
     ));
+    let activity = Arc::new(notifications::Activity::new(
+        pool.clone(),
+        Arc::clone(&clock),
+    ));
     let relay = Arc::new(
         OutboxRelay::new(pool, clock)
             .subscribe(Arc::new(notifications::PushOnEvents))
+            .subscribe(Arc::new(notifications::ActivityOnEvents))
             .subscribe(Arc::new(api::workers::CsamSuspension))
             .subscribe(Arc::new(cards::EvaluateOnEvents))
             .subscribe(Arc::new(cards::PurgeOnDelete)),
@@ -286,6 +291,10 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
         )
         .handle(cards::EVALUATE_JOB, Arc::new(card_jobs))
         .handle(cards::PURGE_JOB, Arc::new(purge_jobs))
+        .handle(
+            notifications::ACTIVITY_JOB,
+            Arc::new(notifications::ActivityJob(Arc::clone(&activity))),
+        )
         .handle(
             notifications::NOTIFY_JOB,
             Arc::new(notifications::NotifyJob(Arc::clone(&notifier))),
@@ -308,6 +317,11 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
             "notifications.push_tokens.prune",
             std::time::Duration::from_secs(600),
             Arc::new(PushTokenPrune(push_tokens)),
+        )
+        .periodic(
+            "notifications.activity.purge",
+            std::time::Duration::from_secs(3600),
+            Arc::new(ActivityPurge(activity)),
         )
         .periodic(
             "notifications.push_log.purge",
@@ -404,6 +418,20 @@ impl PeriodicTask for PushTokenPrune {
         Box::pin(async move {
             let pruned = tokens.prune().await.map_err(|e| e.to_string())?;
             tracing::info!(event = "notifications.push_tokens.pruned", pruned);
+            Ok(())
+        })
+    }
+}
+
+/// Deletes activity items older than 90 days.
+struct ActivityPurge(Arc<notifications::Activity>);
+
+impl PeriodicTask for ActivityPurge {
+    fn run(&self) -> PeriodicFuture {
+        let activity = Arc::clone(&self.0);
+        Box::pin(async move {
+            let purged = activity.purge().await.map_err(|e| e.to_string())?;
+            tracing::info!(event = "notifications.activity.purged", purged);
             Ok(())
         })
     }
