@@ -216,3 +216,9 @@
   invite endpoint + `svc` principal). Attestation header for social calls noted on #38 (T-36).
 - EM ([[sprint-3]], raw/discussions/2026-11-05-sprint-3-decisions-qa.md): turning 18 stays unfindable until opt-in;
   term lists via `/v1/config` (#213); keep minor invite cap 5, 150 ms search floor and other defaults.
+
+## [2026-11-05] progress | Sprint 3 done
+- #236 (1982bd2) turning 18 stays unfindable; #237 (0fbe6d2) public invite endpoint + `svc`; T-48 #239 (4f1dec6) invite
+  landing page; #240 (731bb35) term lists via `/v1/config`. Issues #235, #234, #50, #213 closed. Follow-up #238.
+- Open for the EM: real store links (no store accounts yet); the findable migration resets every existing profile to
+  hidden (no real users yet). T-49 stays deferred.

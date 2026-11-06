@@ -30,9 +30,11 @@ pulled forward from M3 (T-64, T-63, T-69) landed in [[sprint-2]].
 | T-49 deferred deep link | A domain, Universal/App Links and a device build |
 
 ## Exit checklist
-- [ ] Every sprint-3 ticket above is merged with CI green and its issue closed, or explicitly carried over.
-- [ ] Handle-search timing test passes (KS p > 0.05, identical bytes for found / not found / not findable).
-- [ ] Wiki facts updated (api-mvp, data-model) and the sprint progress recorded here.
+- [x] Every sprint-3 ticket above is merged with CI green and its issue closed, or explicitly carried over (T-49).
+- [x] Handle-search timing test passes (KS p > 0.05, identical bytes for found / not found / not findable).
+- [x] Wiki facts updated (api-mvp, data-model) and the sprint progress recorded here.
+
+Sprint 3 done in code on 2026-11-05; device checks (QR scan, deep links) wait for a device build.
 
 ## Progress
 | Ticket | PR | Commit | Notes |
@@ -49,7 +51,10 @@ pulled forward from M3 (T-64, T-63, T-69) landed in [[sprint-2]].
 | T-45 findable toggle (`PATCH /v1/me/settings`) | #226 | 67538a9 | |
 | T-46 friends list, silent unfriend | #227 | 91ec42d | |
 | T-47 block/unblock, silent | #228 | 4f7ad0f | #225 widen "related" to senders/board members |
-| T-48 invite landing page | | | Blocked on #234 (public invite endpoint + `svc` principal) |
+| #235 turning 18 stays unfindable until opt-in (EM) | #236 | 1982bd2 | Migration resets existing profiles to hidden |
+| #234 public invite endpoint + `svc` principal | #237 | 0fbe6d2 | `API_SERVICE_CREDENTIAL` env |
+| T-48 invite landing page `/i/<token>` | #239 | 4f1dec6 | Store links point to the home page until store accounts exist; #238 no-referrer on `/b/*` |
+| #213 term lists via `/v1/config` (EM) | #240 | 731bb35 | ETag/304 |
 | #216 mobile friend screens (API, friends/requests, invite + QR, privacy) | #229-#232 | 00d3176, 645c929, 576a950, aeff0aa | Pure-TS QR encoder (v1-10); scan on a device pending |
 | T-44 find a friend by handle | #233 | fb48503 | |
 
