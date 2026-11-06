@@ -634,6 +634,12 @@ auth kind except `wid`; `wid` admits a widget or full session of an active accou
 = the feed's read predicate, newest delivery first, optionally one sender (a non-friend id → `null`, malformed → 400),
 evaluated on every call (AC-16.4); `image_url` is the render's `widget_512` rendition signed for the viewer (10 min, charged to
 the URL budget); no caption; a card without a `widget_512` rendition → `null`.
+App part (T-91, `apps/mobile/src/features/widget`): while signed in, `WidgetTokenSync` mints a token on launch and on
+foreground only when none is stored or the stored one has expired (the token carries the session's absolute expiry, so
+early renewal gains nothing and the 20/day limit is never spent on it); a token minted after the device signed out is
+dropped. It is stored through the `WidgetTokenStore` seam: today expo-secure-store (`cs.widget.token.v1`,
+`AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY`, readable on the locked device per D3); the native widgets (T-92..T-95) swap in
+App Group Keychain / EncryptedSharedPreferences. Sign-out clears it with the other device copies (AC-16.2).
 
 ## Push & widget payloads (no media URLs, no captions, no names — AC-31.2)
 Implemented (T-86, `crates/notifications/src/push.rs`): every payload is a type `t`, localisation keys the app resolves on the
