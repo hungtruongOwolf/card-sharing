@@ -75,6 +75,20 @@ routes:
   - route: POST /v1/sessions/revoke-all
     expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 204, suspended: 403 }
 
+  # Notification preferences (T-87). Always the caller's own; there is no id to point elsewhere.
+  # Defaults, toggles, quiet hours and validation: tests/api/notification_preferences.rs.
+  - route: GET /v1/me/notification-preferences
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 200, suspended: 403 }
+
+  - route: PUT /v1/me/notification-preferences
+    body:
+      {
+        types: { card_new: true, reaction: true, friend: true, card_review: true },
+        quiet_hours: { enabled: true, start: '22:00', end: '08:00' },
+        time_zone: null,
+      }
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 200, suspended: 403 }
+
   # Push tokens (T-85). Only the calling session's own device; any other device id (another
   # account's included) is the same 404. Registration, moves, logout: tests/api/push_tokens.rs.
   - route: PUT /v1/devices/{deviceId}/push-tokens

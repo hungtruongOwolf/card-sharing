@@ -6,7 +6,8 @@ use utoipa_axum::routes;
 use crate::access::{ApiRouter, Idempotency, RoutePolicy};
 use crate::routes::{
     age_signal, app_config, attestation, auth, blocks, cards, devices, feed, friend_requests,
-    friends, health, invites, me, media, media_files, public_invites, sessions, user_search,
+    friends, health, invites, me, media, media_files, notification_preferences, public_invites,
+    sessions, user_search,
 };
 use crate::state::AppState;
 use platform::problem::ProblemDetails;
@@ -103,6 +104,14 @@ pub fn router() -> ApiRouter<AppState> {
         .route(
             RoutePolicy::session().limited("me.settings.update"),
             routes!(me::update_settings),
+        )
+        .route(
+            RoutePolicy::session().limited("me.notification_preferences"),
+            routes!(notification_preferences::get_notification_preferences),
+        )
+        .route(
+            RoutePolicy::session().limited("me.notification_preferences"),
+            routes!(notification_preferences::put_notification_preferences),
         )
         .route(
             RoutePolicy::public().limited("auth.signin"),

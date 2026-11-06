@@ -400,6 +400,18 @@ row in the same transaction (moved from A to B ⇒ A stops receiving). Each row 
 deletes rows that were invalidated or whose session ended. Tokens are never returned or logged (`PushToken` Debug is redacted).
 APNs/FCM credentials stay in the secret manager when the real adapters land (T-86 follow-up).
 
+Implemented (T-87, server part of #89, `crates/notifications/src/preferences.rs`,
+`apps/api/src/routes/notification_preferences.rs`, limit `me.notification_preferences` 30/h per user): `GET` and `PUT
+/v1/me/notification-preferences` (ses; no id anywhere, always the caller's own) with `{types: {card_new, reaction, friend,
+card_review}, quiet_hours: {enabled, start: "HH:MM", end: "HH:MM"}, time_zone: IANA | null}`; `PUT` replaces all and answers
+the stored value. Defaults until saved: every type on, quiet hours 22:00-08:00, `time_zone` null. Validation: strict `HH:MM`,
+start ≠ end (an overnight window is allowed), the zone must exist in Postgres' `pg_timezone_names` (unknown → 400), unknown
+fields → 400. In the notifier, a type turned off → `disabled` (no push; the activity tab still has the event); inside quiet
+hours → `held`: the push is re-queued as one deferred `notify.push` job (unique per event, recipient and kind) at the instant
+the local window ends, computed by Postgres (`AT TIME ZONE`, DST-aware), and decided then (cap and batching apply at send
+time). Quiet hours apply only once the app has sent `time_zone`; widget refreshes are silent and never held. No push type is
+treated as urgent yet (auth.new_login would be, when it exists).
+
 US-28 (CSAM hashing + nudity classifier) has no scan endpoint: the `media.process` job gates delivery ([[ADR-0005-media-pipeline]]);
 the only user touchpoint is `POST /v1/cards/{id}/appeal`. Email change does not exist in MVP; when added it requires `re` (AC-1.4).
 

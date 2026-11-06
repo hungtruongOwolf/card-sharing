@@ -44,6 +44,8 @@ pub struct AppState {
     pub social: Arc<SocialService>,
     /// Cards: send, deliver, read, delete, reactions (T-75+).
     pub cards: Arc<cards::CardService>,
+    /// Notification toggles and quiet hours (T-87).
+    pub notification_prefs: Arc<notifications::PreferenceStore>,
     /// Push tokens of device sessions (T-85).
     pub push_tokens: Arc<notifications::PushTokens>,
     /// Quarantine uploads and media state (T-70).
@@ -101,6 +103,10 @@ impl AppState {
             age,
             social,
             cards: Arc::new(cards::CardService::new(
+                identity.pool().clone(),
+                identity.clock(),
+            )),
+            notification_prefs: Arc::new(notifications::PreferenceStore::new(
                 identity.pool().clone(),
                 identity.clock(),
             )),
