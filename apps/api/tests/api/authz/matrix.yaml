@@ -99,6 +99,19 @@ routes:
     missing_path: /v1/reports
     expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }
 
+  # Guest reports (T-142): svc only; with a passing captcha an unknown token is the uniform 404.
+  # Captcha, dedupe, rate limit: tests/api/public_reports.rs.
+  - route: POST /v1/public/reports
+    body: { token: AAAAAAAAAAAAAAAAAAAAAA, reason: spam, captcha_token: fake-captcha-pass }
+    missing_path: /v1/public/reports
+    expect:
+      guest: 401
+      onboarding_age: 401
+      onboarding_profile: 401
+      user: 401
+      suspended: 401
+      service: 404
+
   - route: POST /v1/auth/refresh
     body: { refresh_token: $REFRESH_TOKEN }
     expect: { guest: 401, onboarding_age: 200, onboarding_profile: 200, user: 200, suspended: 401 }

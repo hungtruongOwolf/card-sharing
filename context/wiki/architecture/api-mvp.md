@@ -603,6 +603,18 @@ App (T-141, `features/reports`): "Report" on a friend's card (card viewer), on a
 the caller collaborates on opens one sheet with the seven reasons; tapping a reason sends it (two taps, AC-26.1) with one
 `Idempotency-Key` per opened sheet; 404 says the thing is gone, 429 the daily limit. No entry on the caller's own card or board.
 The note field and reporting a public link stay unused in the app (links are viewed on the web, T-142).
+
+Implemented (T-142, #144, server part): `routes/public_reports.rs`. `POST /v1/public/reports` (svc: `X-Service-Credential` +
+`X-Client-IP`; limit `public.reports.create` 5/h per visitor IP, fails closed) `{token, reason, note?, captcha_token}` → 202
+`{status: "received"}`. **The API verifies the captcha itself** through the `moderation::CaptchaVerifier` port (the web
+server forwards the widget token; a leaked service credential alone cannot file reports): `API_CAPTCHA_VERIFIER` = `none`
+(default: 503 `TEMPORARILY_UNAVAILABLE`, fail closed) | `fake` (accepts `fake-captcha-pass`, `fake-captcha-outage` = 503;
+refused when `API_ENV=production`); the real provider is an EM decision. Order: body validation → captcha (missing or failed →
+400 `VALIDATION_FAILED`, before any token lookup, so probing tokens costs a solved captcha each) → live link by token (anything
+unusable → one 404) → report stored with `source = guest` and `reporter_ip_hash` = `FieldCipher::keyed_digest` (HMAC-SHA256
+under a key derived from `API_DATA_ENCRYPTION_KEY`, label `moderation.guest_report_ip`), never the IP; one report per IP hash and
+link. Tests: `tests/api/public_reports.rs`.
+
 | DELETE | /v1/me/deletion | Cancel during 7-day grace | ses (deletion-pending allowed) | user | self, before `grace_until` | 10/day u | yes | US-29 AC-29.2 |
 
 Implemented (T-151, #153): `routes/deletion.rs` → `crates/privacy` (`DeletionService`). `POST /v1/me/deletion` (`re`: bearer +

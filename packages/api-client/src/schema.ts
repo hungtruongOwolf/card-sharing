@@ -1349,6 +1349,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/public/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Report a public link as a guest. Auth: svc (web server, with `X-Client-IP`). */
+        post: operations["createPublicReport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/reports": {
         parameters: {
             query?: never;
@@ -2455,6 +2472,23 @@ export interface components {
             /** Format: double */
             y: number;
             z_key: string;
+        };
+        PublicReportAccepted: {
+            /**
+             * @description Always `received`.
+             * @example received
+             */
+            status: string;
+        };
+        /** @description Body of `POST /v1/public/reports`. */
+        PublicReportRequest: {
+            /** @description The captcha widget token from the visitor's browser, verified by the API. */
+            captcha_token: string;
+            /** @description Optional context, at most 500 characters. */
+            note?: string | null;
+            reason: components["schemas"]["ReportReason"];
+            /** @description The public link token from the page URL (`/b/<token>`). */
+            token: string;
         };
         /** @description Body of `POST /v1/feed/purges`. */
         PurgeCheckRequest: {
@@ -7599,6 +7633,75 @@ export interface operations {
                 };
             };
             /** @description TEMPORARILY_UNAVAILABLE (rate limit store down; fails closed). */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    createPublicReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicReportRequest"];
+            };
+        };
+        responses: {
+            /** @description Report received (or already received from this visitor IP for this link). */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicReportAccepted"];
+                };
+            };
+            /** @description VALIDATION_FAILED: missing or failed captcha, reason, note, unknown fields, or a missing X-Client-IP. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description UNAUTHENTICATED: missing or wrong service credential. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND: the same answer for every unusable token (malformed, unknown, revoked, expired). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED: more than 5 reports per hour from this visitor IP. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description TEMPORARILY_UNAVAILABLE: captcha provider not configured or unreachable, or the rate-limit store is down. */
             503: {
                 headers: {
                     [name: string]: unknown;

@@ -6,10 +6,15 @@
 //! No automatic action is ever taken from reports (SR-31); only known-CSAM hash matches act on
 //! their own, in the media pipeline.
 
+pub mod captcha;
 pub mod personal_data;
 pub mod reports;
 pub mod settings;
 
+pub use captcha::{
+    CaptchaError, CaptchaFuture, CaptchaOutcome, CaptchaVerifier, FAKE_CAPTCHA_OUTAGE,
+    FAKE_CAPTCHA_PASS, FakeCaptcha, NoCaptcha,
+};
 pub use personal_data::ModerationPersonalData;
 pub use reports::{
     FiledReport, ModerationError, NOTE_MAX_CHARS, NewReport, Reason, ReportService, ReportTarget,

@@ -42,6 +42,11 @@ limits:
     requests: 30
     per_secs: 60
     on_store_failure: closed
+  public.reports.create: # POST /v1/public/reports (svc; 5/h per visitor IP from X-Client-IP, AC-26.3)
+    scope: ip
+    requests: 5
+    per_secs: 3600
+    on_store_failure: closed
   reports.create: # POST /v1/reports (20/day per user, US-26)
     scope: user
     requests: 20

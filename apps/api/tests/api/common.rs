@@ -60,6 +60,7 @@ pub fn test_config() -> Config {
         moderation_config_path: "unused-in-tests".into(),
         push_sender: api::config::SafetyAdapter::Fake,
         cdn_purger: api::config::SafetyAdapter::Fake,
+        captcha_verifier: api::config::SafetyAdapter::Fake,
         media_storage_dir: None,
         media_s3: None,
         media_signing_key: None,
@@ -226,7 +227,8 @@ impl TestEnv {
         )
         .with_ip_country_header(test_config().ip_country_header)
         .with_os_age_signals(test_config().os_age_signals_enabled)
-        .with_social_settings(social_settings());
+        .with_social_settings(social_settings())
+        .with_captcha(Arc::new(moderation::FakeCaptcha));
         let media_store = Arc::new(media::MemoryObjectStore::default());
         let state = state
             .with_media_store(media_store.clone())

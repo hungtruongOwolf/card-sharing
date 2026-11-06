@@ -26,6 +26,7 @@ pub mod notification_preferences;
 pub mod public_boards;
 pub mod public_invites;
 pub mod public_links;
+pub mod public_reports;
 pub mod reports;
 pub mod sessions;
 pub mod user_search;
