@@ -36,3 +36,12 @@ need a device build and stay out of this sprint.
 - [ ] Both gates fail closed: a vendor error or timeout never delivers a card.
 - [ ] Visibility is one SQL predicate with authorization-matrix tests; signed URLs are per viewer.
 - [ ] Wiki facts updated (api-mvp, data-model, content-safety) and the sprint progress recorded here.
+
+## Progress
+| Ticket | PR | Commit | Notes |
+|---|---|---|---|
+| T-65 matte/glossy/holo finishes (ids `fx.*`) | #241 | ae900ab | 60 fps with 3 live holo needs a device |
+| T-67 bake card + mask (PNG, deterministic CPU surface) | #242 | 412fc72 | |
+| T-68 private drafts tray (secure store, this device only) | #245 | 8cf7dd7 | #244 SQLite + file storage need `pnpm install` |
+| T-66 squish with haptics/sound seam | #247 | 0d2afa1 | #246 haptics/audio modules need `pnpm install`; no-op until then |
+| T-77 send UI, T-80 feed | | | Wait for backend T-75, T-79 and `GET /v1/feed` (added to the backend lane) |

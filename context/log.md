@@ -226,3 +226,8 @@
 ## [2026-11-05] plan | Sprint 4 started (M4 part 1)
 - [[sprint-4]]: backend T-70..T-76, T-79, T-82, T-84 with fake CSAM/nudity adapters (fail closed); mobile T-65, T-67,
   T-68, T-66, then T-77 and T-80. Push/widgets wait for a device build; real vendors wait for the 2026-11-18 decisions.
+
+## [2026-11-05] progress | Sprint 4 mobile first batch
+- T-65 #241, T-67 #242, T-68 #245, T-66 #247 merged; #67, #69, #70, #68 closed. Follow-ups #244, #246 need one
+  `pnpm install` (expo-sqlite, expo-file-system, expo-haptics, expo-audio) and licensed sounds: EM to schedule.
+  T-77/T-80 wait for backend; `GET /v1/feed` assigned to the backend lane.
