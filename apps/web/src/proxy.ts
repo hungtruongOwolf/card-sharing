@@ -10,11 +10,13 @@ import { type NextRequest, NextResponse } from 'next/server';
 export function proxy(request: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
   const isDev = process.env.NODE_ENV === 'development';
+  // Invite pages (/i/<token>) render text and links only: no WebAssembly, no blob/data images.
+  const isInvite = request.nextUrl.pathname.startsWith('/i/');
   const csp = [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'wasm-unsafe-eval'${isDev ? " 'unsafe-eval'" : ''}`,
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isInvite ? '' : " 'wasm-unsafe-eval'"}${isDev ? " 'unsafe-eval'" : ''}`,
     `style-src 'self' 'nonce-${nonce}'`,
-    "img-src 'self' blob: data:",
+    isInvite ? "img-src 'self'" : "img-src 'self' blob: data:",
     "font-src 'self'",
     "connect-src 'self'",
     "object-src 'none'",

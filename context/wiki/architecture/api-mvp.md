@@ -338,6 +338,14 @@ Implemented (#234): `routes/public_invites.rs` → `SocialService::public_invite
 preview, with "expired" folded into `NOT_FOUND`: unknown, malformed, reset, expired, used up, inviter suspended / banned /
 deletion pending / deleted all answer identical bytes). No avatar, handle or id. The token is never logged (spans record the
 route template only). Tests: `tests/api/public_invites.rs`.
+Web landing (T-48, `apps/web/src/app/i/[token]/page.tsx`): server component; `features/invite/invite.ts` calls this route with
+server env `API_URL` + `API_SERVICE_CREDENTIAL` (never `NEXT_PUBLIC_`) and `X-Client-IP` from `CLIENT_IP_HEADER` only (the
+header the edge overwrites; unset = one shared bucket, a forged `X-Forwarded-For` is never trusted). States: found (name +
+"Open in the app" = the invite URL itself as Universal / App Link + store links from `APP_STORE_URL` / `PLAY_STORE_URL`), one
+neutral "This invite expired" page for every 404 and malformed token, "could not open" for 429 / 5xx / not configured. Token-
+free metadata, `robots` noindex, `Referrer-Policy: no-referrer`, `X-Robots-Tag`, `Cache-Control: private, no-store` for `/i/*`
+(next.config.ts), nonce CSP without `wasm-unsafe-eval` or blob/data images on `/i/*` (proxy.ts). No logging. Tests:
+`node --test` (`invite.test.ts`).
 
 US-23 (export) is on-device; the server only supplies the owner's own media via `GET /v1/cards/{id}` / `/v1/me/cards`.
 US-7, US-8, US-10, US-11, US-21 are on-device by design (AC-7.5: nothing uploaded before send); their server touchpoints are the

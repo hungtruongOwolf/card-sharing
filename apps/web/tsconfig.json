@@ -4,6 +4,8 @@
     "lib": ["dom", "dom.iterable", "ES2023"],
     "allowJs": false,
     "jsx": "react-jsx",
+    // Tests run with Node's built-in runner (type stripping), which needs explicit .ts imports.
+    "allowImportingTsExtensions": true,
     "incremental": true,
     "plugins": [
       {
