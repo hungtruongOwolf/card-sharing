@@ -260,3 +260,7 @@
   stays open for a device build.
 - Defaults kept: widget token minted at sign-in (read-only, dies with the session); quiet hours in 30-minute steps
   saved with an explicit Save (30 writes/hour limit); opening Activity marks everything read.
+
+## [2026-11-06] plan | Sprint 6 started (M5 boards)
+- [[sprint-6]]: backend T-98..T-102, T-106, T-107, T-112, T-109, T-110; mobile T-103, T-104, T-111, then T-105 and
+  T-108 once their contracts merge.

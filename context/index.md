@@ -50,6 +50,7 @@ Tip: open `context/` as an Obsidian vault for graph/backlinks; run `python tools
 - [[sprint-3]] — wiki/progress/sprint-3.md — Sprint 3: friends (invites, requests, caps, handle search, unfriend, block, landing page) (accepted)
 - [[sprint-4]] — wiki/progress/sprint-4.md — Sprint 4: media pipeline, CSAM/nudity gates (fake adapters), send, deliver, feed (accepted)
 - [[sprint-5]] — wiki/progress/sprint-5.md — Sprint 5: purges, push (fake adapter), toggles, activity, widget endpoint, SLO metrics, R2/S3 (accepted)
+- [[sprint-6]] — wiki/progress/sprint-6.md — Sprint 6: boards (pin ops, per-viewer resolution, invitations, canvas, offline sync) (accepted)
 - backlog.json — wiki/progress/backlog.json — 169 tickets (source for GitHub issues); regenerate with `python tools/planning/gen.py`
 
 ## Raw sources
