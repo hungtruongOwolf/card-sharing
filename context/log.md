@@ -247,3 +247,10 @@
 ## [2026-11-06] plan | Sprint 5 started (M4 part 2, device-free)
 - [[sprint-5]]: backend #251, T-83, T-85, T-86 (fake push), T-87, T-88, T-91, T-97; mobile T-81, T-83, T-87, T-88.
   Native widgets, widget spikes and real push wait for a device build and store accounts.
+
+## [2026-11-06] progress | Sprint 5 backend lane done; T-81 and T-83 app merged
+- #267, #270, #274, #275, #277, #278, #279, #281 merged; #251, #88, #93, #99 closed; T-81 #269 and T-83 app #276 closed
+  #83, #263, #85. Follow-ups #268, #272, #280. CI log masking turned "Bearer token" into `***` in the drift diff; the
+  client was regenerated locally (lesson: verify log-extracted client diffs with a local generate).
+- Defaults pending EM: no sender name in push payloads; nothing bypasses quiet hours yet; widget endpoint returns the
+  sender name (per D3).

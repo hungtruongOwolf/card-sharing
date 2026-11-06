@@ -32,6 +32,19 @@ push registration wait for a device build. The R2/S3 storage adapter (#251) is a
 
 ## Exit checklist
 - [ ] Every sprint-5 ticket above is merged with CI green and its issue closed, or explicitly carried over.
-- [ ] Push payloads carry no content (test asserts payload fields).
-- [ ] Unfriend/block/delete purge reaches clients within 60 s in tests.
+- [x] Push payloads carry no content (test asserts payload fields).
+- [x] Unfriend/block/delete purge reaches clients within 60 s in tests.
 - [ ] Wiki facts updated and the sprint progress recorded here.
+
+## Progress
+| Ticket | PR | Commit | Notes |
+|---|---|---|---|
+| #251 R2/S3 adapter (own SigV4, no new crates, MinIO in CI) | #267 | 6f007bf | |
+| T-83 purge propagation (server `POST /v1/feed/purges` + app sync) | #270, #276 | 7b54983, 827a50f | Closed |
+| T-81 full-screen card + clock skew (#263) | #269 | a70fd91 | #268 Android FLAG_SECURE (EM) |
+| T-85 push tokens (server; crate `notifications`) | #274 | b09ecc7 | App part needs a device build |
+| T-86 content-free push (fake adapter, 30/day cap, bundling) | #275 | fce00e2 | #272 real APNs/FCM |
+| T-87 toggles + quiet hours (server) | #277 | 5cb30cd | App UI in progress |
+| T-88 activity (server) | #278 | ffd6a8d | App tab in progress |
+| T-91 widget token + endpoint (`wid` auth) | #279 | 7ae349e | Native widgets wait for a device build |
+| T-97 SLO and scan metrics, alerts | #281 | 06deeef | #280 staging dashboard |
