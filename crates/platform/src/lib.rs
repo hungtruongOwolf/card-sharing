@@ -25,6 +25,7 @@ pub mod ids;
 pub mod jobs;
 pub mod metrics;
 pub mod outbox;
+pub mod personal_data;
 pub mod problem;
 pub mod rate_limit;
 pub mod request_id;

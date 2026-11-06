@@ -50,6 +50,7 @@ mod metrics;
 mod minor_hint;
 mod notification_preferences;
 mod outbox;
+mod personal_data;
 mod profile;
 mod public_boards;
 mod public_invites;

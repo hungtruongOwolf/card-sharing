@@ -6,6 +6,7 @@
 pub mod access;
 pub mod delete;
 pub mod deliver;
+pub mod personal_data;
 pub mod reactions;
 pub mod service;
 
@@ -14,6 +15,7 @@ pub use delete::{CARD_DELETED, PURGE_JOB, PurgeJob, PurgeOnDelete};
 pub use deliver::{
     CARD_DELIVERED, CARD_HELD, EVALUATE_JOB, EvaluateJob, EvaluateOnEvents, Evaluation, HOLD_TTL,
 };
+pub use personal_data::CardsPersonalData;
 
 pub use reactions::{CARD_REACTED, Reaction};
 pub use service::{
