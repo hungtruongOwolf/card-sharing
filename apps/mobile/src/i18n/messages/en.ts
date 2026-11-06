@@ -127,6 +127,11 @@ export const en = {
   'onboarding.camera.library': 'Choose from your photos',
   'onboarding.camera.notNow': 'Not now',
 
+  'effectsLab.open': 'Effects lab',
+  'effectsLab.title': 'Effects lab',
+  'effectsLab.body':
+    'Redraws one effect every frame. Run a release build on the reference phones and note the p95 frame time.',
+  'effectsLab.count': '{count, plural, one {# card} other {# cards}}',
   'cutLab.open': 'Open cut lab',
   'cutLab.title': 'Cut lab',
   'cutLab.hint':

@@ -18,6 +18,11 @@ endpoint (including authz-negative cases), a few E2E tests for critical user jou
 | Security | authz matrix, fuzzing | negative tests per role, `cargo fuzz` on parsers | Playwright for auth flows |
 | Performance | latency/throughput | k6 / oha | Lighthouse CI, Web Vitals |
 
+Mobile rendering (implemented): Skia drawing is tested with CanvasKit WASM in jest (`@shopify/react-native-skia/jestEnv.js`),
+probing pixels and keeping 8×8 golden signatures on the light and dark canvas; every effects-registry entry has one in
+`registryGoldens.test.ts` (T-124, see [[effects-catalog]]). Frame times need a device: the dev labs (`/holo-lab`,
+`/board-lab`, `/effects-lab`) show the frame-time overlay on a release build.
+
 Backend practice (implemented, sprint 1):
 - API integration tests live in `apps/api/tests/api/` and compile into **one** test binary (one link step). They run against
   real Postgres and Valkey from `TEST_DATABASE_URL` / `TEST_REDIS_URL` (compose services locally, service containers in CI);

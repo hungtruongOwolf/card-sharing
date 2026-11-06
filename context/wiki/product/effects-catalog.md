@@ -205,8 +205,23 @@ applied), preferring entries not on the card yet, with random values for its vis
 pattern, tape colour...) on top of the usual auto-placement; a toast names it. It only ever runs on that tap (AC-21.4)
 and is one undo step like any other add.
 
-Rules: adding an effect = add entry + shader/asset + tests (golden snapshot); removing = remove entry **and** migrate stored
-references (fallback to `fx.none`) + update this page ([[change-management]]). Device-capability routing hides entries whose
+**Goldens, ledger and frame budgets (T-124):** `apps/mobile/src/features/effects/__tests__/registryGoldens.test.ts`
+renders **every** registry entry offscreen through the app's own path (card entries via `drawCard` on a disc-subject
+photo, built-ins under a sticker, board entries via the board decor) and compares an 8×8 signature per id with the
+committed snapshot; it also fails when an entry has no renderer or draws nothing. CI runs `jest --ci`, which never
+writes snapshots, so a new entry without a golden or a visual change fails until the snapshot is reviewed and
+updated. `packages/effects-registry/src/ledger.ts` keeps `SHIPPED_IDS` (append-only) and `RETIRED` (retired id →
+replacement or null); `ledger.test.ts` fails when an id leaves `ENTRIES` without a `RETIRED` migration or a new id is
+missing from the ledger. Drafts apply the ledger on read (`migrateChoice`: replacement with default params, dropped
+finish/effect, a retired cut without replacement falls back to the editor default). Frame budgets per instance from
+`cost.gpu` (S 1 ms, M 3 ms, L 6 ms, estimates) with an 8 ms effect pass per 60 fps frame (`effects/effectsLab.ts`); a
+test keeps every live effect-slot entry inside it (all new effects ship static, so today the check is trivially met).
+The **device lab** is the dev route `/effects-lab` (home → Effects lab): 1, 3 or 9 copies of one effect redrawn every
+frame at the effect clock with the frame-time overlay; run a release build on the reference phones and record p95 per
+effect (needs a device build, tracked with the other device checks).
+
+Rules: adding an effect = add entry + its id in the ledger + shader/asset + tests (golden snapshot); removing = remove
+entry **and** add a `RETIRED` migration for stored references + update this page ([[change-management]]). Device-capability routing hides entries whose
 `requires` fail and shows the `fallback` UX instead.
 
 ## 2. Input providers (Tier 0, zero download)

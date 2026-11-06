@@ -12,3 +12,4 @@ export {
   type MaskSource,
 } from './maskSource';
 export { editorParams, parseEditorPhoto } from './editorRoute';
+export { EffectsLabScreen } from './EffectsLabScreen';
