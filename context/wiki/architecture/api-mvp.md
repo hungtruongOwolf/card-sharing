@@ -80,7 +80,7 @@ sign-up opt in with their tickets.
 | POST | /v1/me/handle/check | Is handle available (no account info) | onb/ses | user | — | 20/min u, 100/day u | yes | US-3 AC-3.3 |
 | PUT | /v1/me/handle | Claim/change handle (30-day cooldown, reservation) | onb/ses | user | self | 10/h u | yes | US-3 AC-3.3 |
 | PATCH | /v1/me/settings | `findable_by_handle` (adults only) | ses | user | self; policy `discovery.min_age` | 20/h u | yes | US-5a |
-| POST | /v1/me/widget-token | Mint widget-scoped read-only token for this device (child of the device session) | ses | user | self device | 10/day d | no | US-16 AC-16.5 |
+| POST | /v1/me/widget-token | Mint widget-scoped read-only token for this device (child of the device session) | ses | user | self device | 20/day d | no | US-16 AC-16.5 |
 | GET | /v1/config | Limits, feature flags, registry kill switches (cut styles, finishes, effects, reactions), text filter hints | none/ses | — | public, no user data | CDN cached | yes | US-10, US-11, US-21 |
 | POST | /v1/devices | Register device (client UUID, platform, app version) | onb/ses | user | own device ids | 10/day u | yes | US-31 |
 
@@ -608,6 +608,18 @@ on `code`); `requestId` equals the `X-Request-Id` response header. Generic codes
   in front of R2 (Cloudflare Worker, devops follow-up).
 - **Versioning:** `/v1` additive only; breaking change → `/v2` or ADR. OpenAPI regenerated and diffed in CI.
 - **Headers:** `X-Request-Id` echoed; `X-App-Version` required from mobile (min-version gate → 426 `UPGRADE_REQUIRED`).
+
+Implemented (T-91, #93, `crates/identity/src/widget.rs`, `apps/api/src/routes/widget.rs`, limits `widget.token` 20/day and
+`widget.read` 60/h per device): `POST /v1/me/widget-token` (ses) → 201 `{token, expires_at}`: a new `identity.sessions` row with
+scope `widget`, `parent_session_id` = the caller's session, its device id, no refresh token, and access/idle/absolute expiry =
+the parent's absolute expiry. Minting again revokes the parent's previous widget token (one per device session). It dies with
+the parent: logout, revoke one/all, refresh-token reuse, suspension and deletion all revoke children (`revoke_in_tx` matches
+`parent_session_id`) and evict cached lookups. Route gate: a widget-scope principal is refused (403 `FORBIDDEN`) by every
+auth kind except `wid`; `wid` admits a widget or full session of an active account. `GET /v1/widget[?friend_id=]` (wid) →
+`{card: {id, sender_name, image_url, expires_at, deep_link: "cardsharing://card/<id>"} | null}`: `CardService::latest_for_widget`
+= the feed's read predicate, newest delivery first, optionally one sender (a non-friend id → `null`, malformed → 400),
+evaluated on every call (AC-16.4); `image_url` is the render's `widget_512` rendition signed for the viewer (10 min, charged to
+the URL budget); no caption; a card without a `widget_512` rendition → `null`.
 
 ## Push & widget payloads (no media URLs, no captions, no names — AC-31.2)
 Implemented (T-86, `crates/notifications/src/push.rs`): every payload is a type `t`, localisation keys the app resolves on the

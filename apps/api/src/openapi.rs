@@ -7,7 +7,7 @@ use crate::access::{ApiRouter, Idempotency, RoutePolicy};
 use crate::routes::{
     activity, age_signal, app_config, attestation, auth, blocks, cards, devices, feed,
     friend_requests, friends, health, invites, me, media, media_files, notification_preferences,
-    public_invites, sessions, user_search,
+    public_invites, sessions, user_search, widget,
 };
 use crate::state::AppState;
 use platform::problem::ProblemDetails;
@@ -32,6 +32,7 @@ Every operation carries `x-policy` (auth kind, role, attestation) from its deny-
         (name = attestation::TAG, description = "Device attestation challenges and keys (SR-13)"),
         (name = sessions::TAG, description = "The caller's device sessions (AC-1.4)"),
         (name = activity::TAG, description = "The caller's activity tab (US-31)"),
+        (name = widget::TAG, description = "Home-screen widget token and card (US-16)"),
         (name = devices::TAG, description = "Push tokens of the caller's device (US-31, US-16)"),
         (name = me::TAG, description = "The caller's own account and onboarding"),
         (name = invites::TAG, description = "Invites, friend requests, friends, blocks and handle search (US-4, US-5, US-5a, US-6, US-26)"),
@@ -281,6 +282,14 @@ pub fn router() -> ApiRouter<AppState> {
         .route(
             RoutePolicy::session().limited("activity.mark_read"),
             routes!(activity::mark_activity_read),
+        )
+        .route(
+            RoutePolicy::session().limited("widget.token"),
+            routes!(widget::create_widget_token),
+        )
+        .route(
+            RoutePolicy::widget_or_session().limited("widget.read"),
+            routes!(widget::get_widget),
         )
         .route(
             RoutePolicy::session().limited("feed.purges"),

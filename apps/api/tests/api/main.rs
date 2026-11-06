@@ -53,3 +53,4 @@ mod sign_in;
 mod sign_in_google;
 mod social_support;
 mod user_search;
+mod widget;
