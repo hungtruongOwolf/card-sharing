@@ -63,7 +63,7 @@ export async function renderCards(
     <QueryClientProvider client={queryClient}>
       <AuthProvider client={client}>{screen(apis)}</AuthProvider>
     </QueryClientProvider>,
-    { scheme, reducedMotion },
+    { scheme, reducedMotion, gestureRoot: true },
   );
   return { server, apis, user, client, queryClient, rendered };
 }

@@ -1,6 +1,6 @@
 /**
  * Fire breath (T-122) through the whole card pipeline with real Skia (CanvasKit WASM), on the anchor fallback.
- * @jest-environment @shopify/react-native-skia/jestEnv.js
+ * @jest-environment <rootDir>/jest.skia-environment.js
  */
 import { AlphaType, ColorType, Skia } from '@shopify/react-native-skia';
 

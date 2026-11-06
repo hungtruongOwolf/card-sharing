@@ -1,6 +1,6 @@
 /**
  * Renders cut styles with real Skia (CanvasKit WASM) offscreen and checks pixels.
- * @jest-environment @shopify/react-native-skia/jestEnv.js
+ * @jest-environment <rootDir>/jest.skia-environment.js
  */
 import { AlphaType, ColorType, Skia, type SkImage } from '@shopify/react-native-skia';
 

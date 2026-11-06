@@ -83,7 +83,7 @@ equivalent to mask DstIn) and `contour:stroke` (`cut.diecut`: path fill + round-
 colour, subject on top with a 0.75 px feather); T-63 adds `shape:roundedSquare`, `shape:circle`, `shape:heart`
 (`shapeCuts.ts`) and `torn:paper` (`tornCut.ts`), which need no mask. A new cut style reusing a ref is an entry file only. The subject path comes
 from T-61 contours via `subjectPath` (`Skia.Path.MakeFromSVGString`). Tests render with CanvasKit WASM in jest
-(`@shopify/react-native-skia/jestEnv.js`), probe pixels and keep 8×8 golden signatures on the light and dark canvas. A dev
+(`apps/mobile/jest.skia-environment.js`), probe pixels and keep 8×8 golden signatures on the light and dark canvas. A dev
 screen `/cut-lab` previews every cut style, its presets and slider params on a synthetic subject until segmenters exist.
 `CutScene.subject` is `null` for a whole-photo card; subject renderers (`mask:dstIn`, `contour:stroke`) refuse to draw
 without one.

@@ -1,5 +1,5 @@
 /**
- * @jest-environment @shopify/react-native-skia/jestEnv.js
+ * @jest-environment <rootDir>/jest.skia-environment.js
  */
 import type { SkImage } from '@shopify/react-native-skia';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -70,6 +70,7 @@ async function setup() {
         onClose={jest.fn()}
       />
     </QueryClientProvider>,
+    { gestureRoot: true },
   );
   return { server, repo };
 }

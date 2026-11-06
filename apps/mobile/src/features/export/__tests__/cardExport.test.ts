@@ -1,6 +1,6 @@
 /**
  * Card export (T-127) with real Skia (CanvasKit WASM).
- * @jest-environment @shopify/react-native-skia/jestEnv.js
+ * @jest-environment <rootDir>/jest.skia-environment.js
  */
 import { AlphaType, ColorType, Skia, type SkImage } from '@shopify/react-native-skia';
 

@@ -3,7 +3,7 @@
  * entries through `drawCard`, board entries through the board decor), and its coarse signature is compared with the
  * committed snapshot. Adding an entry without a golden, or changing how one looks, fails CI (`jest --ci` never
  * writes snapshots); removing one also needs a ledger migration (packages/effects-registry/src/ledger.test.ts).
- * @jest-environment @shopify/react-native-skia/jestEnv.js
+ * @jest-environment <rootDir>/jest.skia-environment.js
  */
 import { AlphaType, ColorType, Skia, type SkCanvas } from '@shopify/react-native-skia';
 

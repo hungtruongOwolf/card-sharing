@@ -1,6 +1,6 @@
 /**
  * Paper lift and the polaroid frame (T-118), drawn through the whole card pipeline with real Skia (CanvasKit WASM).
- * @jest-environment @shopify/react-native-skia/jestEnv.js
+ * @jest-environment <rootDir>/jest.skia-environment.js
  */
 import { AlphaType, ColorType, Skia } from '@shopify/react-native-skia';
 

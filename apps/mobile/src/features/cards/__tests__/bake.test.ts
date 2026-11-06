@@ -1,6 +1,6 @@
 /**
  * Bakes cards offscreen with real Skia (CanvasKit WASM) and decodes the PNGs back.
- * @jest-environment @shopify/react-native-skia/jestEnv.js
+ * @jest-environment <rootDir>/jest.skia-environment.js
  */
 import { AlphaType, ColorType, Skia, type SkImage } from '@shopify/react-native-skia';
 

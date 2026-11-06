@@ -1,5 +1,5 @@
 /**
- * @jest-environment @shopify/react-native-skia/jestEnv.js
+ * @jest-environment <rootDir>/jest.skia-environment.js
  */
 import { screen, userEvent } from '@testing-library/react-native';
 

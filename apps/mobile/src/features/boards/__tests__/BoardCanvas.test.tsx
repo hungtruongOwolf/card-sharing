@@ -1,5 +1,5 @@
 /**
- * @jest-environment @shopify/react-native-skia/jestEnv.js
+ * @jest-environment <rootDir>/jest.skia-environment.js
  */
 import { Skia, type SkImage } from '@shopify/react-native-skia';
 import { act, fireEvent, screen } from '@testing-library/react-native';
@@ -68,7 +68,7 @@ async function renderBoard(
       registry={registry}
       {...edit}
     />,
-    options,
+    { ...options, gestureRoot: true },
   );
   await act(async () => {});
   return { load, camera, textures };
