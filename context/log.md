@@ -271,3 +271,6 @@ Follow-up #295. Four EM decisions recorded with defaults in [[sprint-6]].
 
 ## [2026-11-06] progress | sprint 6 mobile lane done
 T-103, T-104, T-111, T-105, T-108 merged (#286-#301). Disclosure copy aligned with the per-viewer rule (#302). Follow-up #298.
+
+## [2026-11-06] decision | sprint 6 defaults accepted
+The EM accepted all six board defaults (raw/discussions/2026-11-06-sprint-6-decisions.md); recorded in [[sprint-6]].

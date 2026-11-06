@@ -3,7 +3,7 @@ title: Sprint 6 — boards (M5)
 type: status
 status: accepted
 updated: 2026-11-06
-sources: [raw/discussions/2026-11-05-sprint-3-decisions-qa.md]
+sources: [raw/discussions/2026-11-05-sprint-3-decisions-qa.md, raw/discussions/2026-11-06-sprint-6-decisions.md]
 related: [[mvp-plan]], [[sprint-5]], [[status]], [[prd-mvp]], [[api-mvp]], [[data-model]], [[threat-model-mvp]], [[effects-catalog]]
 ---
 # Sprint 6 — boards (M5)
@@ -43,11 +43,11 @@ is checked in code and measured later on a device.
 | T-105 offline sync | #107 | #299 | Merged. Local-first board with queued op batches of 50; per-pin conflict replace; Refresh button instead of pull-to-refresh. |
 | T-108 shared board experience | #110 | #301 | Merged. Members, invites, leave, invitation inbox; disclosure copy corrected to "only recipients see it" in #302. |
 
-Pending EM decisions (defaults applied): AC-19.5 vs AC-19.7 resolved to "only recipients see a pinned card"; board push
+EM decisions (accepted 2026-11-06, `raw/discussions/2026-11-06-sprint-6-decisions.md`): AC-19.5 vs AC-19.7 resolved to "only recipients see a pinned card"; board push
 rides the `friend` toggle; minor rule applies even when the card owner is not a member; the re-invite cooldown covers
 declined, dropped and expired invites. Not done yet: Activity items for boards, revoking public links on board delete,
 backdrop/decoration registry entries on the server side. Mobile follow-up #298 (sync backdrop via PATCH).
-Pending EM decisions from the mobile lane: Refresh button vs pull-to-refresh on the board; the one-time pin disclosure
+Also accepted: Refresh button vs pull-to-refresh on the board; the one-time pin disclosure
 is stored per device and cleared on sign-out (a per-account flag needs a server field).
 
 ## Exit checklist
