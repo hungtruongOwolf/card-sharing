@@ -202,7 +202,8 @@ async fn unappealed_holds_expire_after_30_days_and_their_card_is_deleted() {
     assert_eq!(status(&env, unappealed.card).await, "deleted");
     // An appealed hold waits for a moderator.
     assert_eq!(hold_status(&env, appealed.card).await, "appealed");
-    // Too late to appeal an expired hold.
-    let late = appeal(&env, &unappealed.sender, unappealed.card, &json!({})).await;
+    // Too late to appeal an expired hold (a fresh session: the old access token expired meanwhile).
+    let owner = signed_in_again(&env, &unappealed.sender).await;
+    let late = appeal(&env, &owner, unappealed.card, &json!({})).await;
     assert_eq!(late.status(), StatusCode::NOT_FOUND);
 }
