@@ -35,6 +35,8 @@ pub struct AgeStatus {
     pub is_minor: bool,
     /// Old enough to be returned by handle search (`discovery.min_age`).
     pub discoverable: bool,
+    /// Old enough to create public board links (`public_links.min_age`, AC-24.6).
+    pub public_links: bool,
 }
 
 impl AgeStatus {
@@ -42,6 +44,7 @@ impl AgeStatus {
     const UNKNOWN: Self = Self {
         is_minor: true,
         discoverable: false,
+        public_links: false,
     };
 }
 
@@ -160,6 +163,7 @@ impl AgeService {
         Ok(AgeStatus {
             is_minor: effective_age < adult_age,
             discoverable: effective_age >= i32::from(policy.discovery.min_age),
+            public_links: effective_age >= i32::from(policy.public_links.min_age),
         })
     }
 

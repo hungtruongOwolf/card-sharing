@@ -46,6 +46,8 @@ pub struct AppState {
     pub cards: Arc<cards::CardService>,
     /// Boards, pins and their per-viewer resolution (M5).
     pub boards: Arc<boards::BoardService>,
+    /// Public board links (US-24).
+    pub sharing: Arc<sharing::SharingService>,
     /// The activity tab (T-88).
     pub activity: Arc<notifications::Activity>,
     /// Notification toggles and quiet hours (T-87).
@@ -115,6 +117,11 @@ impl AppState {
                 identity.clock(),
                 boards::BoardSettings::default(),
                 Arc::clone(&age),
+            )),
+            sharing: Arc::new(sharing::SharingService::new(
+                identity.pool().clone(),
+                identity.clock(),
+                sharing::SharingSettings::default(),
             )),
             activity: Arc::new(notifications::Activity::new(
                 identity.pool().clone(),
@@ -248,6 +255,16 @@ impl AppState {
             self.identity.clock(),
             settings,
             Arc::clone(&self.age),
+        ));
+        self
+    }
+
+    /// Installs the sharing rules (`config/sharing.yaml`).
+    pub fn with_sharing_settings(mut self, settings: sharing::SharingSettings) -> Self {
+        self.sharing = Arc::new(sharing::SharingService::new(
+            self.identity.pool().clone(),
+            self.identity.clock(),
+            settings,
         ));
         self
     }

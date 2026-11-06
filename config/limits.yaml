@@ -284,6 +284,21 @@ limits:
     requests: 30
     per_secs: 3600
     on_store_failure: open
+  sharing.links.create: # POST /v1/boards/{id}/public-links (US-24: 20 per owner per day)
+    scope: user
+    requests: 20
+    per_secs: 86400
+    on_store_failure: open
+  sharing.links.read: # GET /v1/boards/{id}/public-links (owner)
+    scope: user
+    requests: 60
+    per_secs: 60
+    on_store_failure: open
+  sharing.links.revoke: # DELETE /v1/public-links/{id} (owner)
+    scope: user
+    requests: 60
+    per_secs: 3600
+    on_store_failure: open
   boards.invitations.create: # POST /v1/boards/{id}/invitations (30 per owner per day)
     scope: user
     requests: 30

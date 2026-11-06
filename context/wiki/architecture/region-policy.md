@@ -58,6 +58,11 @@ overrides:
   and stays off after the account reaches the discovery age until the user turns it on. Search still applies the age rule from
   `AgeService::status` on every query.
 
+## Implementation (T-129)
+- `public_links.min_age` (default 18, KR placeholder 19) is in `config/policy/regions.yaml`, resolved strictest (max); configs
+  without it default to 18. `AgeService::status` returns `public_links` (effective age, OS minor signal included, at or above
+  it). `POST /v1/boards/{id}/public-links` answers 403 `POLICY_DISALLOWED` below it (AC-24.6).
+
 ## Implementation (T-38)
 - `invites: {minor_ttl_days: 7, minor_max_uses: 5}` in `config/policy/regions.yaml` (strictest = the smaller value; fields
   missing from a config use these defaults). They apply to personal invite links whose owner is a minor (AC-4.4): stored on the

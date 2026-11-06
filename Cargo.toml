@@ -19,6 +19,7 @@ notifications = { path = "crates/notifications" }
 registry = { path = "crates/registry" }
 platform = { path = "crates/platform" }
 policy = { path = "crates/policy" }
+sharing = { path = "crates/sharing" }
 social = { path = "crates/social" }
 
 # external — keep versions here so every crate uses the same ones

@@ -1,0 +1,26 @@
+[package]
+name = "sharing"
+version = "0.1.0"
+description = "Sharing: public board links, public snapshots (see context/wiki/architecture/data-model.md)"
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+platform.workspace = true
+
+base64.workspace = true
+getrandom.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+serde_norway.workspace = true
+sha2.workspace = true
+sqlx.workspace = true
+thiserror.workspace = true
+time.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+
+[lints]
+workspace = true

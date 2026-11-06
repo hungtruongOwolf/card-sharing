@@ -7,8 +7,8 @@ use crate::access::{ApiRouter, Idempotency, RoutePolicy};
 use crate::routes::{
     activity, age_signal, app_config, attestation, auth, blocks, board_invitations, board_members,
     board_ops, board_read, boards, cards, devices, feed, friend_requests, friends, health, invites,
-    me, media, media_files, notification_preferences, public_invites, sessions, user_search,
-    widget,
+    me, media, media_files, notification_preferences, public_invites, public_links, sessions,
+    user_search, widget,
 };
 use crate::state::AppState;
 use platform::problem::ProblemDetails;
@@ -39,6 +39,7 @@ Every operation carries `x-policy` (auth kind, role, attestation) from its deny-
         (name = invites::TAG, description = "Invites, friend requests, friends, blocks and handle search (US-4, US-5, US-5a, US-6, US-26)"),
         (name = cards::TAG, description = "Cards: send to friends, read, delete, react (US-13..US-17)"),
         (name = boards::TAG, description = "Personal and shared boards of pinned cards (US-18..US-20, ADR-0007)"),
+        (name = public_links::TAG, description = "Public board links (US-24)"),
         (name = media::TAG, description = "Image uploads into quarantine and their state (ADR-0005)"),
         (name = app_config::TAG, description = "Public client configuration"),
         (name = public_invites::TAG, description = "Server-to-server routes for the web share app (svc, /v1/public/*)")
@@ -360,6 +361,20 @@ pub fn router() -> ApiRouter<AppState> {
         .route(
             RoutePolicy::session().limited("boards.invitations.decline"),
             routes!(board_invitations::decline_board_invitation),
+        )
+        .route(
+            RoutePolicy::session()
+                .limited("sharing.links.create")
+                .idempotency(Idempotency::Required),
+            routes!(public_links::create_public_link),
+        )
+        .route(
+            RoutePolicy::session().limited("sharing.links.read"),
+            routes!(public_links::list_public_links),
+        )
+        .route(
+            RoutePolicy::session().limited("sharing.links.revoke"),
+            routes!(public_links::revoke_public_link),
         )
         .undocumented_policy(
             &Method::GET,
