@@ -51,6 +51,7 @@ mod minor_hint;
 mod notification_preferences;
 mod outbox;
 mod profile;
+mod public_boards;
 mod public_invites;
 mod public_links;
 mod public_snapshots;
