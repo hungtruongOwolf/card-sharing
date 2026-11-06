@@ -435,15 +435,20 @@ impl PeriodicTask for SocialHousekeeping {
     }
 }
 
-/// Expires board invitations past 7 days (AC-19.8) and purges ended ones.
+/// Expires board invitations past 7 days (AC-19.8), purges ended ones and deleted boards.
 struct BoardHousekeeping(Arc<boards::BoardJanitor>);
 
 impl PeriodicTask for BoardHousekeeping {
     fn run(&self) -> PeriodicFuture {
         let janitor = Arc::clone(&self.0);
         Box::pin(async move {
-            let (expired, purged) = janitor.run_once().await.map_err(|e| e.to_string())?;
-            tracing::info!(event = "boards.housekeeping", expired, purged);
+            let report = janitor.run_once().await.map_err(|e| e.to_string())?;
+            tracing::info!(
+                event = "boards.housekeeping",
+                expired_invitations = report.expired_invitations,
+                purged_invitations = report.purged_invitations,
+                purged_boards = report.purged_boards
+            );
             Ok(())
         })
     }

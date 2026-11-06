@@ -336,6 +336,38 @@ export interface paths {
         get: operations["getBoard"];
         put?: never;
         post?: never;
+        /**
+         * Delete one of my boards. Auth: ses. Owner only.
+         * @description The board disappears for every member at once; open invitations are cancelled. Cards are
+         *     never deleted. Collaborators and non-members get the missing 404.
+         */
+        delete: operations["deleteBoard"];
+        options?: never;
+        head?: never;
+        /**
+         * Rename a board or change its backdrop. Auth: ses. Owner only.
+         * @description Applies only if the board is still at `base_version` (else 409 `BOARD_VERSION_CONFLICT`:
+         *     reload and retry). Collaborators and non-members get the missing 404.
+         */
+        patch: operations["updateBoard"];
+        trace?: never;
+    };
+    "/v1/boards/{id}/duplicate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Duplicate one of my personal boards. Auth: ses. Owner only.
+         * @description Only boards without collaborators can be duplicated. The copy counts against the 20-board cap
+         *     and holds my pins whose cards I may still pin, plus decorations. Retrying with the same `id`
+         *     returns the copy with 200.
+         */
+        post: operations["duplicateBoard"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1610,6 +1642,15 @@ export interface components {
             id: string;
             platform: components["schemas"]["DevicePlatform"];
         };
+        /** @description Body of `POST /v1/boards/{id}/duplicate`. */
+        DuplicateBoardRequest: {
+            /**
+             * Format: uuid
+             * @description Client-generated UUIDv7 of the copy (the idempotency key).
+             */
+            id: string;
+            title: string;
+        };
         /** @description Body of `POST /v1/auth/email/start`. */
         EmailStartRequest: {
             /**
@@ -2208,6 +2249,17 @@ export interface components {
             refresh_token: string;
             /** @example Bearer */
             token_type: string;
+        };
+        /** @description Body of `PATCH /v1/boards/{id}`. */
+        UpdateBoardRequest: {
+            /** @description A backdrop reference, or `null` to reset to the default; omit to keep the current one. */
+            backdrop?: Record<string, never> | null;
+            /**
+             * Format: int64
+             * @description The `board.version` the client last saw.
+             */
+            base_version: number;
+            title?: string | null;
         };
         UpdatePinOp: {
             /**
@@ -3370,6 +3422,243 @@ export interface operations {
             };
             /** @description TEMPORARILY_UNAVAILABLE: media signing not configured. */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    deleteBoard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The board id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND: no board of the caller with this id. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    updateBoard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The board id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateBoardRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BoardEnvelope"];
+                };
+            };
+            /** @description VALIDATION_FAILED: bad title, nothing to change, unknown field. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND: no board of the caller with this id. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description BOARD_VERSION_CONFLICT. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description UNKNOWN_REGISTRY_ID: the backdrop is not a known backdrop. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    duplicateBoard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The board to copy. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DuplicateBoardRequest"];
+            };
+        };
+        responses: {
+            /** @description Retry: the existing copy with this id. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BoardEnvelope"];
+                };
+            };
+            /** @description The copy. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BoardEnvelope"];
+                };
+            };
+            /** @description VALIDATION_FAILED: bad id or title, or the board is shared. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND: no board of the caller with this id, or the copy id is taken. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description BOARD_LIMIT_REACHED. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

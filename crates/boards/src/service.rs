@@ -23,8 +23,13 @@ pub enum BoardError {
     LimitReached,
     #[error("corrupt board row: {0}")]
     Corrupt(String),
+    /// The board changed since the client's `base_version`.
+    #[error("board version conflict")]
+    VersionConflict,
     #[error(transparent)]
     Database(#[from] sqlx::Error),
+    #[error(transparent)]
+    Outbox(#[from] platform::outbox::OutboxError),
 }
 
 /// A member's role on a board.
@@ -117,7 +122,10 @@ macro_rules! summary_columns {
 }
 
 /// Takes the per-owner lock that serializes board creates (the cap holds under concurrency).
-async fn lock_owner(tx: &mut sqlx::PgConnection, owner: Uuid) -> Result<(), sqlx::Error> {
+pub(crate) async fn lock_owner(
+    tx: &mut sqlx::PgConnection,
+    owner: Uuid,
+) -> Result<(), sqlx::Error> {
     sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended('boards.owner:' || $1::text, 0))")
         .bind(owner)
         .execute(tx)

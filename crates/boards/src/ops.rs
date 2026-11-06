@@ -108,7 +108,7 @@ pub struct BatchResult {
 
 /// Can `actor` pin `card` now?
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum CardCheck {
+pub(crate) enum CardCheck {
     Allowed,
     Held,
     Denied,
@@ -157,7 +157,7 @@ struct CardFactsRow {
     received_visible: bool,
 }
 
-async fn card_check(
+pub(crate) async fn card_check(
     conn: &mut PgConnection,
     actor: Uuid,
     role: Role,

@@ -310,6 +310,18 @@ pub fn router() -> ApiRouter<AppState> {
             routes!(board_read::get_board),
         )
         .route(
+            RoutePolicy::session().limited("boards.update"),
+            routes!(boards::update_board),
+        )
+        .route(
+            RoutePolicy::session().limited("boards.create"),
+            routes!(boards::duplicate_board),
+        )
+        .route(
+            RoutePolicy::session().limited("boards.delete"),
+            routes!(boards::delete_board),
+        )
+        .route(
             RoutePolicy::session().limited("boards.ops"),
             routes!(board_ops::apply_board_ops),
         )

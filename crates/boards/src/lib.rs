@@ -4,6 +4,7 @@
 
 pub mod invitations;
 pub mod janitor;
+pub mod manage;
 pub mod members;
 pub mod membership;
 pub mod ops;
@@ -13,7 +14,8 @@ pub mod service;
 pub mod settings;
 
 pub use invitations::{InviteOutcome, OwnerInvitation, ReceivedInvitation};
-pub use janitor::BoardJanitor;
+pub use janitor::{BoardJanitor, JanitorReport};
+pub use manage::{BOARD_DELETED, BoardPatch, DuplicateOutcome};
 pub use members::Member;
 pub use membership::{
     BlockResolver, RESOLVE_BLOCK_JOB, RemoveOutcome, ResolveBlockJob, ResolveBlocksOnEvents,

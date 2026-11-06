@@ -393,3 +393,22 @@ routes:
     path: /v1/boards/0192f0c1-7c1e-7a3b-9d2e-123456789abc/members/0192f0c1-7c1e-7a3b-9d2e-0000000000dd
     missing_path: /v1/boards/0192f0c1-7c1e-7a3b-9d2e-000000000000/members/0192f0c1-7c1e-7a3b-9d2e-0000000000dd
     expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }
+
+  # Rename, duplicate, delete (T-112). Owner only; collaborator cells and version conflicts are in
+  # tests/api/board_manage.rs.
+  - route: PATCH /v1/boards/{id}
+    path: /v1/boards/0192f0c1-7c1e-7a3b-9d2e-123456789abc
+    missing_path: /v1/boards/0192f0c1-7c1e-7a3b-9d2e-000000000000
+    body: { base_version: 1, title: Renamed }
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }
+
+  - route: POST /v1/boards/{id}/duplicate
+    path: /v1/boards/0192f0c1-7c1e-7a3b-9d2e-123456789abc/duplicate
+    missing_path: /v1/boards/0192f0c1-7c1e-7a3b-9d2e-000000000000/duplicate
+    body: { id: $UUID_V7, title: Copy }
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }
+
+  - route: DELETE /v1/boards/{id}
+    path: /v1/boards/0192f0c1-7c1e-7a3b-9d2e-123456789abc
+    missing_path: /v1/boards/0192f0c1-7c1e-7a3b-9d2e-000000000000
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }
