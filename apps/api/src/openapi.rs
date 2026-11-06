@@ -240,6 +240,18 @@ pub fn router() -> ApiRouter<AppState> {
             routes!(cards::delete_card),
         )
         .route(
+            RoutePolicy::session().limited("cards.react"),
+            routes!(cards::set_reaction),
+        )
+        .route(
+            RoutePolicy::session().limited("cards.react"),
+            routes!(cards::delete_reaction),
+        )
+        .route(
+            RoutePolicy::session().limited("cards.reactions.read"),
+            routes!(cards::list_reactions),
+        )
+        .route(
             RoutePolicy::session().limited("feed.read"),
             routes!(feed::get_feed),
         )

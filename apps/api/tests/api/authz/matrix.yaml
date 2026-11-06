@@ -246,3 +246,21 @@ routes:
     path: /v1/cards/0192f0c1-7c1e-7a3b-9d2e-123456789abc
     missing_path: /v1/cards/0192f0c1-7c1e-7a3b-9d2e-000000000000
     expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }
+
+  # Reactions (T-84). Non-recipients reacting and recipients listing are the same 404 as a missing
+  # card; privacy between recipients is in tests/api/cards_reactions.rs.
+  - route: PUT /v1/cards/{id}/reaction
+    path: /v1/cards/0192f0c1-7c1e-7a3b-9d2e-123456789abc/reaction
+    missing_path: /v1/cards/0192f0c1-7c1e-7a3b-9d2e-000000000000/reaction
+    body: { kind: react.heart }
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }
+
+  - route: DELETE /v1/cards/{id}/reaction
+    path: /v1/cards/0192f0c1-7c1e-7a3b-9d2e-123456789abc/reaction
+    missing_path: /v1/cards/0192f0c1-7c1e-7a3b-9d2e-000000000000/reaction
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }
+
+  - route: GET /v1/cards/{id}/reactions
+    path: /v1/cards/0192f0c1-7c1e-7a3b-9d2e-123456789abc/reactions
+    missing_path: /v1/cards/0192f0c1-7c1e-7a3b-9d2e-000000000000/reactions
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }

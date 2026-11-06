@@ -423,6 +423,13 @@ purges each media object no other live card uses (objects removed from `clean` a
 keep their legal-hold evidence), so outstanding signed URLs stop resolving as soon as the purge runs (well within the TTL).
 Widget refresh pushes and board placeholders subscribe to `cards.deleted` with their tickets.
 
+Implemented (T-84, `crates/cards/src/reactions.rs`): `PUT /v1/cards/{id}/reaction {kind}` and `DELETE …/reaction` (limit
+`cards.react` 120/h) for a recipient who may see the card under the read predicate (never the owner) → 204; anyone else the
+missing 404. `kind` must be in `reactions` of config/client.yaml (served by `GET /v1/config`; six emoji + `react.squish`) and not
+in `kill_switches.reactions`, else 400. One row per `(card, reactor)` (replace on PUT); `cards.reacted {card_id, owner_id,
+reactor_id}` feeds the reaction push later. `GET /v1/cards/{id}/reactions` (owner only, `cards.reactions.read` 60/min) lists
+reactions from people who are still friends without a block; recipients see only their own via `my_reaction` in `CardView`.
+
 ### Board read resolution (per viewer V, AC-19.7, AC-19.9, SR-6, SR-21)
 For each card pin (card C, owner O, pinner P): return the card with signed URLs only if C is `active` **and** (V = O, or V is a
 current recipient of C ∧ friends(V, O) ∧ ¬blocked(V, O)) **and** not (V is an adult ∧ P or O is a minor member ∧ ¬friends(V, that
