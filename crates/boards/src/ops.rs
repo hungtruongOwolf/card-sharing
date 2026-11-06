@@ -114,24 +114,75 @@ enum CardCheck {
     Denied,
 }
 
-/// The actor's own active card may be pinned (a held one is refused with its own code); anything
-/// else is denied like a missing card.
+/// What the pin-add rule needs to know about one card, from the actor's point of view.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct CardFacts {
+    /// The actor owns the card.
+    mine: bool,
+    active: bool,
+    held: bool,
+    /// The card was delivered to the actor and is visible to them under the card-read
+    /// predicate (SR-4: still friends with its owner, no block, card active, owner active).
+    received_visible: bool,
+}
+
+/// The pin-add rule (T-100, AC-19.7, SR-6): a collaborator may pin only their own active cards;
+/// the owner may also pin cards they received and can still see. The actor's own held card gets
+/// its own refusal; everything else (a stranger's card, a card no longer visible, a missing id) is
+/// denied exactly like a missing card.
+fn pin_permission(role: Role, card: Option<CardFacts>) -> CardCheck {
+    let Some(card) = card else {
+        return CardCheck::Denied;
+    };
+    if card.mine {
+        return if card.active {
+            CardCheck::Allowed
+        } else if card.held {
+            CardCheck::Held
+        } else {
+            CardCheck::Denied
+        };
+    }
+    if role == Role::Owner && card.received_visible {
+        CardCheck::Allowed
+    } else {
+        CardCheck::Denied
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct CardFactsRow {
+    mine: bool,
+    status: String,
+    received_visible: bool,
+}
+
 async fn card_check(
     conn: &mut PgConnection,
     actor: Uuid,
+    role: Role,
     card: Uuid,
 ) -> Result<CardCheck, sqlx::Error> {
-    let status: Option<String> =
-        sqlx::query_scalar("SELECT status FROM cards.cards WHERE id = $1 AND owner_id = $2")
-            .bind(card)
-            .bind(actor)
-            .fetch_optional(&mut *conn)
-            .await?;
-    Ok(match status.as_deref() {
-        Some("active") => CardCheck::Allowed,
-        Some("held_review") => CardCheck::Held,
-        _ => CardCheck::Denied,
-    })
+    let row: Option<CardFactsRow> = sqlx::query_as(concat!(
+        "SELECT c.owner_id = $2 AS mine, c.status,
+                (c.owner_id <> $2 AND r.recipient_id IS NOT NULL AND ",
+        cards::recipient_visible_sql!(),
+        ") AS received_visible
+         FROM cards.cards c
+         LEFT JOIN cards.card_recipients r ON r.card_id = c.id AND r.recipient_id = $2
+         WHERE c.id = $1"
+    ))
+    .bind(card)
+    .bind(actor)
+    .fetch_optional(&mut *conn)
+    .await?;
+    let facts = row.map(|row| CardFacts {
+        mine: row.mine,
+        active: row.status == "active",
+        held: row.status == "held_review",
+        received_visible: row.received_visible,
+    });
+    Ok(pin_permission(role, facts))
 }
 
 async fn load_pin(conn: &mut PgConnection, pin_id: Uuid) -> Result<Option<Pin>, sqlx::Error> {
@@ -275,11 +326,13 @@ impl Batch<'_> {
             return Ok(Outcome::Rejected(RejectCode::PinLimitReached));
         }
         let (card_id, decoration) = match content {
-            PinContent::Card(card) => match card_check(self.conn, self.actor, *card).await? {
-                CardCheck::Allowed => (Some(*card), None),
-                CardCheck::Held => return Ok(Outcome::Rejected(RejectCode::CardHeldForReview)),
-                CardCheck::Denied => return Ok(Outcome::Rejected(RejectCode::NotFound)),
-            },
+            PinContent::Card(card) => {
+                match card_check(self.conn, self.actor, self.role, *card).await? {
+                    CardCheck::Allowed => (Some(*card), None),
+                    CardCheck::Held => return Ok(Outcome::Rejected(RejectCode::CardHeldForReview)),
+                    CardCheck::Denied => return Ok(Outcome::Rejected(RejectCode::NotFound)),
+                }
+            }
             PinContent::Decoration(value) => (None, Some(value.clone())),
         };
         self.version += 1;
@@ -418,5 +471,48 @@ impl BoardService {
             board_version,
             results,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn facts(mine: bool, status: &str, received_visible: bool) -> Option<CardFacts> {
+        Some(CardFacts {
+            mine,
+            active: status == "active",
+            held: status == "held_review",
+            received_visible,
+        })
+    }
+
+    #[test]
+    fn the_pin_add_truth_table_holds() {
+        use CardCheck::{Allowed, Denied, Held};
+        for role in [Role::Owner, Role::Collaborator] {
+            assert_eq!(pin_permission(role, None), Denied);
+            assert_eq!(pin_permission(role, facts(true, "active", false)), Allowed);
+            assert_eq!(
+                pin_permission(role, facts(true, "held_review", false)),
+                Held
+            );
+            for status in ["pending_scan", "blocked", "failed", "deleted"] {
+                assert_eq!(pin_permission(role, facts(true, status, false)), Denied);
+            }
+            assert_eq!(pin_permission(role, facts(false, "active", false)), Denied);
+            assert_eq!(
+                pin_permission(role, facts(false, "held_review", false)),
+                Denied
+            );
+        }
+        assert_eq!(
+            pin_permission(Role::Owner, facts(false, "active", true)),
+            Allowed
+        );
+        assert_eq!(
+            pin_permission(Role::Collaborator, facts(false, "active", true)),
+            Denied
+        );
     }
 }

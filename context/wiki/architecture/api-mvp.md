@@ -364,8 +364,12 @@ not pin), `PIN_NOT_YOURS` (collaborator, AC-19.2; checked before the version so 
 conflict), `PIN_LIMIT_REACHED` (100 live pins, `boards.max_pins`), `CARD_HELD_FOR_REVIEW`. A replayed `op_id` of the same actor and a
 retried `pin.add` of the actor's own pin are `applied` without a change. Response `{board_version, results: [{op_id, status, pin? |
 current? | code?}]}`; pin views in op results are layout only (`id, kind, x, y, scale, rotation, z_key, version, mine, removed`, a
-decoration's reference) and echo `card_id` only on the caller's own pins. Pin-add authorization here: the caller's own `active` card
-(T-100 extends it).
+decoration's reference) and echo `card_id` only on the caller's own pins.
+Implemented (T-100, `pin_permission` in `crates/boards/src/ops.rs`, SR-6, AC-19.7): `pin.add` of a card is decided at that moment from
+one query: a collaborator may pin only their own `active` cards; the owner also cards delivered to them that are visible under the
+card-read predicate (`cards::recipient_visible_sql!`: still friends, no block, card active, sender active). The pinner's own
+`held_review` card → `CARD_HELD_FOR_REVIEW`; anything else (a stranger's card, a received card after unfriend/block/delete, a
+collaborator's received card, an unknown id) → `NOT_FOUND`, the same as a missing card.
 
 ### Sharing (public links) & web
 | Method | Path | Purpose | Auth | Role | Object rule | Rate limit | Idem. | US |
