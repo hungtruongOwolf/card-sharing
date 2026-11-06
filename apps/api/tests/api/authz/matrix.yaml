@@ -12,6 +12,9 @@
 #   onboarding_profile  onboarding session, account pending_profile (age gate passed)
 #   user                full session, account active
 #   suspended           session of a suspended account
+#   service             the web server: valid X-Service-Credential + X-Client-IP, no bearer token.
+#                       Optional cell: when a row omits it, the harness expects 403 (deny by default;
+#                       only svc routes under /v1/public/ accept the credential).
 #
 # Placeholders in `body`: "$REFRESH_TOKEN" = the role's own refresh token (guest: a random one),
 # "$ADULT_DOB" = a date of birth 30 years ago, "$NONCE" = a fresh raw nonce, "$APPLE_ID_TOKEN" = an
@@ -122,6 +125,18 @@ routes:
     path: /v1/invites/AAAAAAAAAAAAAAAAAAAAAA
     missing_path: /v1/invites/BBBBBBBBBBBBBBBBBBBBBB
     expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }
+
+  # #234: svc only (the web landing page). Bad tokens of every kind: tests/api/public_invites.rs.
+  - route: GET /v1/public/invites/{token}
+    path: /v1/public/invites/AAAAAAAAAAAAAAAAAAAAAA
+    missing_path: /v1/public/invites/BBBBBBBBBBBBBBBBBBBBBB
+    expect:
+      guest: 401
+      onboarding_age: 401
+      onboarding_profile: 401
+      user: 401
+      suspended: 401
+      service: 404
 
   - route: POST /v1/friend-requests
     body: { invite_token: AAAAAAAAAAAAAAAAAAAAAA }

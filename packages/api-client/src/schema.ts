@@ -525,6 +525,27 @@ export interface paths {
         patch: operations["updateSettings"];
         trace?: never;
     };
+    "/v1/public/invites/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Invite landing data for `/i/<token>`. Auth: svc (web server only).
+         * @description Unknown, malformed, reset, expired and used-up tokens, and invites whose inviter is suspended,
+         *     banned or deleted, all answer the identical 404 `NOT_FOUND`.
+         */
+        get: operations["getPublicInvite"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/sessions": {
         parameters: {
             query?: never;
@@ -941,6 +962,10 @@ export interface components {
              * @example mai.cat
              */
             handle?: string | null;
+        };
+        /** @description What the invite landing page shows. */
+        PublicInviteResponse: {
+            inviter: components["schemas"]["InviterView"];
         };
         ReadinessChecks: {
             /**
@@ -2713,6 +2738,77 @@ export interface operations {
             };
             /** @description RATE_LIMITED. */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    getPublicInvite: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The visitor's IP address as the web server saw it (keys the per-IP limit). */
+                "X-Client-IP": string;
+            };
+            path: {
+                /** @description The token part of an invite link (22 characters). */
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The inviter's display name. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicInviteResponse"];
+                };
+            };
+            /** @description VALIDATION_FAILED (X-Client-IP missing or not an IP address). */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description UNAUTHENTICATED (service credential missing or wrong). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND for every unusable token. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED (per visitor IP). */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description TEMPORARILY_UNAVAILABLE (rate limit store down; fails closed). */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

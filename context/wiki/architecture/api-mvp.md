@@ -19,12 +19,12 @@ creates, per-pin `base_version` for board edits, media only as short-lived signe
 | `ses` | Full user session (`Authorization: Bearer <opaque access token>`, 10 min, renewed via rotating refresh token), account `active` |
 | `wid` | Widget-scoped token (read-only, only `GET /v1/widget`; dies with its device session) or `ses` |
 | `re` | `ses` + `X-Reauth: <token>` minted ≤ 5 min ago by `/v1/auth/reauth` |
-| `svc` | Next.js server credential (mTLS or static secret) + `X-Client-IP`; only `/v1/public/*` |
+| `svc` | Next.js server credential (static secret `X-Service-Credential`) + `X-Client-IP`; only `/v1/public/*` |
 | `staff` | Staff cookie session (`__Host-`, HttpOnly, SameSite=Strict) + MFA + CSRF token |
 | `att` | Add-on: `X-Attestation` (App Attest assertion / Play Integrity token bound to a server nonce + request hash) |
 
 Enforcement (T-11, `apps/api/src/access`): routes are registered only through `ApiRouter::route(policy, handler)`; a middleware
-looks the policy up by method + route template on every request and refuses routes without one (404). `wid`, `re`, `svc`, `staff`
+looks the policy up by method + route template on every request and refuses routes without one (404). `wid`, `re`, `staff`
 and staff roles are denied until implemented. Each OpenAPI operation publishes its policy as `x-policy {auth, role, attestation}`.
 Request DTOs use `deny_unknown_fields`; any body problem is 400 `VALIDATION_FAILED` (415 `MEDIA_TYPE_UNSUPPORTED` for a wrong
 content type). Authenticated routes reject before the body is parsed. `onb`-only routes called with a full session → 403 `FORBIDDEN`.
@@ -36,6 +36,15 @@ scope `user` keys by account, falling back to device then client IP; `new_accoun
 `new_account.days` (7); optional `global` bucket = circuit breaker. Redis down: `on_store_failure: closed` limits (auth, search)
 return 503 `TEMPORARILY_UNAVAILABLE` + `Retry-After`; `open` limits fall back to a per-instance memory bucket. Client IP = TCP peer,
 or the header named by `API_CLIENT_IP_HEADER` (e.g. `fly-client-ip`) when a trusted proxy sets it.
+
+Service credential (#234, `svc`): `RoutePolicy::service()` (role guest) on `/v1/public/*` routes only. The web server sends
+`X-Service-Credential: <API_SERVICE_CREDENTIAL>` (env / secret manager, at least 32 characters; unset = every `svc` route
+answers 401) and the visitor's IP in `X-Client-IP`. The API keeps only the SHA-256 of the secret and compares digests in
+constant time. Deny by default: missing or wrong credential on an `svc` route → 401 `UNAUTHENTICATED` (a session bearer is not
+accepted there); a valid credential without a parseable `X-Client-IP` → 400 `VALIDATION_FAILED`; the credential header
+(valid or not) on any other route → 403 `FORBIDDEN`, so the web server's secret never opens user routes. `X-Client-IP` is
+trusted only after the credential checked out and keys the route's per-IP limit; it is ignored everywhere else. OpenAPI
+security scheme `service` (apiKey header). Authz matrix role `service`: 403 on every route except `svc` ones.
 
 Attestation (T-35, `att`): a route marked `RoutePolicy::with_attestation()` (authenticated routes only) needs
 `X-Attestation: base64url(JSON)` = `{platform: "ios", key_id, challenge, assertion}` (App Attest `generateAssertion` object,
@@ -323,7 +332,12 @@ request goes out with the opaque `ref`, a silent drop looks like a sent request)
 | DELETE | /v1/public-links/{id} | Revoke (CDN purge ≤ 60 s) | ses | owner | owner of link | 60/h u | yes | US-24 AC-24.1/24.4 |
 | GET | /v1/public/boards/{token} | Snapshot for SSR: owner pins + private tiles, watermarked signed URLs | svc | guest | token active, unexpired, owner eligible | 60/min per client IP, 600/min per token (anomaly → auto-disable) | yes | US-24, US-25 |
 | GET | /v1/public/boards/{token}/og | Fresh signed URL for the OG image = watermarked snapshot of the owner's cards (friends' pins as private tiles); Next.js 302s, `Cache-Control: s-maxage=60`; purged on revoke, but crawler copies may persist (accepted risk D4) | svc | guest | same | same | yes | US-24 AC-24.2/24.7 |
-| GET | /v1/public/invites/{token} | Invite landing data: name + avatar (name only if the inviter is under 18) | svc | guest | valid token (not expired, under use cap) | 30/min per client IP | yes | US-4 AC-4.2/4.4 |
+| GET | /v1/public/invites/{token} | Invite landing data `{inviter: {display_name}}` (avatar later; name only if the inviter is under 18) | svc | guest | valid token (not reset, expired or used up; inviter active); every bad token → one identical 404 `NOT_FOUND` | 30/min per client IP (`public.invites.read`, fails closed) | yes | US-4 AC-4.2/4.4 |
+
+Implemented (#234): `routes/public_invites.rs` → `SocialService::public_invite_preview` (the same resolution as the in-app
+preview, with "expired" folded into `NOT_FOUND`: unknown, malformed, reset, expired, used up, inviter suspended / banned /
+deletion pending / deleted all answer identical bytes). No avatar, handle or id. The token is never logged (spans record the
+route template only). Tests: `tests/api/public_invites.rs`.
 
 US-23 (export) is on-device; the server only supplies the owner's own media via `GET /v1/cards/{id}` / `/v1/me/cards`.
 US-7, US-8, US-10, US-11, US-21 are on-device by design (AC-7.5: nothing uploaded before send); their server touchpoints are the

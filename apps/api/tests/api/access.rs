@@ -164,6 +164,7 @@ async fn route_added_without_a_policy_is_refused() {
         identity: Arc::clone(&state.identity),
         attestation: Arc::clone(&state.attestation),
         attestation_mode: state.attestation_mode,
+        service_credential: None,
     };
     let router: Router = router
         .route("/raw", get(|| async { "should never be served" }))

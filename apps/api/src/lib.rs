@@ -24,6 +24,7 @@ use axum::routing::get;
 use crate::access::{AccessState, ApiRouter, ClientIpSource};
 use crate::config::Config;
 use crate::state::AppState;
+use platform::crypto::SecretDigest;
 use platform::problem::ApiError;
 
 /// Builds the full application: documented routes, `/openapi.json`, the access-policy gate,
@@ -49,6 +50,10 @@ pub fn build(routes: ApiRouter<AppState>, state: AppState, config: &Config) -> R
         identity: Arc::clone(&state.identity),
         attestation: Arc::clone(&state.attestation),
         attestation_mode: state.attestation_mode,
+        service_credential: config
+            .service_credential
+            .as_ref()
+            .map(|secret| Arc::new(SecretDigest::of(secret.expose().as_bytes()))),
     };
 
     let router = router

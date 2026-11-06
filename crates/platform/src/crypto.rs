@@ -12,6 +12,7 @@ use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 use chacha20poly1305::aead::{Aead, Payload};
 use chacha20poly1305::{KeyInit, XChaCha20Poly1305, XNonce};
+use sha2::{Digest, Sha256};
 
 const FORMAT_VERSION: u8 = 1;
 const NONCE_LEN: usize = 24;
@@ -104,6 +105,35 @@ impl FieldCipher {
     }
 }
 
+/// SHA-256 digest of a shared secret (e.g. the web server's service credential), compared in
+/// constant time. Hashing first gives both sides the same length, so neither the length nor
+/// the position of the first differing byte leaks through timing.
+#[derive(Clone)]
+pub struct SecretDigest(Vec<u8>);
+
+impl fmt::Debug for SecretDigest {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("SecretDigest(<redacted>)")
+    }
+}
+
+impl SecretDigest {
+    pub fn of(secret: &[u8]) -> Self {
+        Self(Sha256::digest(secret).to_vec())
+    }
+
+    /// Whether `candidate` is the secret. Runs in time independent of where they differ.
+    pub fn matches(&self, candidate: &[u8]) -> bool {
+        let other = Sha256::digest(candidate);
+        let diff = self
+            .0
+            .iter()
+            .zip(other.iter())
+            .fold(0u8, |acc, (a, b)| acc | (a ^ b));
+        std::hint::black_box(diff) == 0
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -154,5 +184,14 @@ mod tests {
     #[test]
     fn debug_does_not_print_key_material() {
         assert!(!format!("{:?}", cipher()).contains("AAAA"));
+    }
+
+    #[test]
+    fn secret_digest_matches_only_the_secret() {
+        let digest = SecretDigest::of(b"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        assert!(digest.matches(b"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
+        assert!(!digest.matches(b"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
+        assert!(!digest.matches(b""));
+        assert_eq!(format!("{digest:?}"), "SecretDigest(<redacted>)");
     }
 }

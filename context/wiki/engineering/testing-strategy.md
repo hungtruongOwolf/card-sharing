@@ -25,7 +25,8 @@ Backend practice (implemented, sprint 1):
   by fresh UUIDv7 ids per test (no per-test database). A `ManualClock` drives expiry, grace windows and cooldowns.
 - **Authorization matrix (SR-5):** `apps/api/tests/api/authz/matrix.yaml` has one row per registered route and one expected
   status per fixture role (guest, onboarding_age, onboarding_profile, user, suspended; owner/friend/collaborator/minor/moderator
-  join with their tickets). `authz_matrix.rs` fails on a route without a row (coverage report), a row for an unknown route, or
+  join with their tickets). The `service` role (web server credential + `X-Client-IP`, #234) is optional per row and defaults
+  to 403: only `svc` routes under `/v1/public/` list it. `authz_matrix.rs` fails on a route without a row (coverage report), a row for an unknown route, or
   any cell mismatch; a cell expecting 404 must name a `missing_path` and its body must be byte-identical to the missing-id body.
   Every new endpoint ticket adds its row.
 - **Provider sign-in (Apple/Google):** no developer accounts yet, so ID tokens are minted in tests. The `identity` crate's

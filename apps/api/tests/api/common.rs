@@ -69,8 +69,12 @@ pub fn test_config() -> Config {
             play_integrity: None,
         },
         os_age_signals_enabled: true,
+        service_credential: Some(Secret::new(TEST_SERVICE_CREDENTIAL)),
     }
 }
+
+/// The web server's credential in tests (`X-Service-Credential`). Test-only value.
+pub const TEST_SERVICE_CREDENTIAL: &str = "svc-test-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
 /// `aud` the test app accepts in Apple ID tokens.
 pub const APPLE_CLIENT_ID: &str = "app.cardsharing.test";

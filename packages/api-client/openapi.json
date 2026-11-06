@@ -2240,6 +2240,110 @@
         }
       }
     },
+    "/v1/public/invites/{token}": {
+      "get": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Invite landing data for `/i/<token>`. Auth: svc (web server only).",
+        "description": "Unknown, malformed, reset, expired and used-up tokens, and invites whose inviter is suspended,\nbanned or deleted, all answer the identical 404 `NOT_FOUND`.",
+        "operationId": "getPublicInvite",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "description": "The token part of an invite link (22 characters).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Client-IP",
+            "in": "header",
+            "description": "The visitor's IP address as the web server saw it (keys the per-IP limit).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The inviter's display name.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicInviteResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED (X-Client-IP missing or not an IP address).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED (service credential missing or wrong).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND for every unusable token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED (per visitor IP).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "TEMPORARILY_UNAVAILABLE (rate limit store down; fails closed).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "service": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "svc",
+          "rateLimit": "public.invites.read",
+          "role": "guest",
+          "versionGate": true
+        }
+      }
+    },
     "/v1/sessions": {
       "get": {
         "tags": [
@@ -3386,6 +3490,18 @@
           }
         }
       },
+      "PublicInviteResponse": {
+        "type": "object",
+        "description": "What the invite landing page shows.",
+        "required": [
+          "inviter"
+        ],
+        "properties": {
+          "inviter": {
+            "$ref": "#/components/schemas/InviterView"
+          }
+        }
+      },
       "ReadinessChecks": {
         "type": "object",
         "required": [
@@ -3707,6 +3823,11 @@
       "bearer": {
         "type": "http",
         "scheme": "bearer"
+      },
+      "service": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-service-credential"
       }
     }
   },
@@ -3738,6 +3859,10 @@
     {
       "name": "config",
       "description": "Public client configuration"
+    },
+    {
+      "name": "public",
+      "description": "Server-to-server routes for the web share app (svc, /v1/public/*)"
     }
   ]
 }
