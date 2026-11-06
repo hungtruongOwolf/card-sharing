@@ -16,6 +16,7 @@ mod authz_matrix;
 mod blocks;
 mod board_ops;
 mod board_pin_authz;
+mod board_read;
 mod boards;
 mod cards_delete;
 mod cards_deliver;

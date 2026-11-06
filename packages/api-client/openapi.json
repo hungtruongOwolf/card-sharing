@@ -1167,7 +1167,7 @@
           "boards"
         ],
         "summary": "Read one board. Auth: ses. Members only.",
-        "description": "Anyone who is not a member of the board, and any malformed id, gets the same 404 as a missing\nor deleted board.",
+        "description": "Each card pin is resolved for the caller on every read: the card (with signed media) only if\nit is active and the caller is its owner or a recipient who is still a friend of its owner\nwith no block either way; otherwise a `private_tile` without any card data; a deleted card's\npin is `removed`. With `since_version`, only pins changed since that board version (tombstones\nas `removed`) plus every live card pin come back (`full: false`); without it, or with a\nversion ahead of the board, a full snapshot (`full: true`). Anyone who is not a member, and\nany malformed id, gets the same 404 as a missing or deleted board.",
         "operationId": "getBoard",
         "parameters": [
           {
@@ -1179,6 +1179,16 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "since_version",
+            "in": "query",
+            "description": "The `board.version` of the caller's last sync: only pins changed since then (tombstones\nincluded) plus every live card pin are returned. Omit for a full snapshot.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
           }
         ],
         "responses": {
@@ -1187,7 +1197,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/BoardEnvelope"
+                  "$ref": "#/components/schemas/BoardDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED: bad since_version.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -1223,7 +1243,17 @@
             }
           },
           "429": {
-            "description": "RATE_LIMITED.",
+            "description": "RATE_LIMITED (requests or the signed-URL budget).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "TEMPORARILY_UNAVAILABLE: media signing not configured.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5229,6 +5259,31 @@
           }
         }
       },
+      "BoardDetail": {
+        "type": "object",
+        "required": [
+          "board",
+          "pins",
+          "full"
+        ],
+        "properties": {
+          "board": {
+            "$ref": "#/components/schemas/BoardView",
+            "description": "`board.version` is the cursor for the next `since_version`."
+          },
+          "full": {
+            "type": "boolean",
+            "description": "`true`: a full snapshot (replace every local pin); `false`: a delta to merge."
+          },
+          "pins": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BoardPinView"
+            },
+            "description": "Ordered by `z_key` (bottom first), then id."
+          }
+        }
+      },
       "BoardEnvelope": {
         "type": "object",
         "required": [
@@ -5252,6 +5307,87 @@
               "$ref": "#/components/schemas/BoardView"
             },
             "description": "Boards the caller owns or collaborates on, most recently changed first."
+          }
+        }
+      },
+      "BoardPinView": {
+        "type": "object",
+        "description": "One pin as the caller may see it, discriminated by `kind`:\n- `card`: `card` holds the card (per-viewer signed media);\n- `private_tile`: a card the caller may not view — no card id, owner, caption or media;\n- `decoration`: `decoration` holds the registry reference;\n- `removed`: the pin (or its card) is gone; drop it locally.",
+        "required": [
+          "id",
+          "kind",
+          "version"
+        ],
+        "properties": {
+          "card": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CardView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "decoration": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "mine": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "The caller created this pin (collaborators may move/remove only these); absent on `removed`."
+          },
+          "rotation": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "scale": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The pin's version (`base_version` for the next update)."
+          },
+          "x": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double",
+            "description": "Placement; absent on `removed`."
+          },
+          "y": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "z_key": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
