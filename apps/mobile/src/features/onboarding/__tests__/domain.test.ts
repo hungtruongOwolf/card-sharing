@@ -107,6 +107,15 @@ describe('resolvePhase', () => {
     }
   });
 
+  it('shows only the deletion-pending screen while the account waits out its grace period', () => {
+    for (const cameraHandled of [false, true]) {
+      expect(resolvePhase({ ...base, step: 'done', cameraHandled, deletionPending: true })).toBe(
+        'deletionPending',
+      );
+    }
+    expect(resolvePhase({ ...base, auth: 'signedOut', deletionPending: true })).toBe('signIn');
+  });
+
   it('keeps the refusal screen up while and after the session ends', () => {
     expect(resolvePhase({ ...base, refused: true, step: 'age' })).toBe('refused');
     expect(resolvePhase({ ...base, refused: true, auth: 'signedOut' })).toBe('refused');

@@ -46,6 +46,8 @@ export interface RecordedRequest {
   authorization: string | null;
   appVersion: string | null;
   idempotencyKey: string | null;
+  /** `X-Reauth` (T-26). */
+  reauth: string | null;
   contentType: string | null;
   /** Parsed JSON for string bodies. */
   body: unknown;
@@ -154,6 +156,7 @@ export class FakeAuthServer {
       authorization: headers.get('Authorization'),
       appVersion: headers.get('X-App-Version'),
       idempotencyKey: headers.get('Idempotency-Key'),
+      reauth: headers.get('X-Reauth'),
       contentType: headers.get('Content-Type'),
       body,
       rawBody: init?.body,
