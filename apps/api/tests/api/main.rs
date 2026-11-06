@@ -21,6 +21,7 @@ mod board_minor_rule;
 mod board_notify;
 mod board_ops;
 mod board_pin_authz;
+mod board_properties;
 mod board_read;
 mod boards;
 mod cards_delete;

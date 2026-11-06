@@ -10,6 +10,8 @@ pub mod members;
 pub mod membership;
 pub mod ops;
 pub mod pins;
+#[cfg(test)]
+mod properties;
 pub mod resolve;
 pub mod service;
 pub mod settings;
