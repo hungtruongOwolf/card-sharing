@@ -26,6 +26,7 @@ import { t, type MessageKey } from '../../i18n';
 import type { TextFilterConfig } from '../../text';
 import { Button, Screen, Text, useTheme, useToast } from '../../ui';
 import type { CapturedPhoto } from '../capture';
+import { canShareImages, exportDraftPng, shareImage } from '../export';
 import {
   loadEffectFonts,
   MOVE_STEP,
@@ -103,6 +104,8 @@ export interface CardEditorScreenProps {
   anchorSource?: AnchorProvider;
   /** Loads the fonts text effects draw with (tests inject one). */
   loadFonts?: () => Promise<void>;
+  /** Opens the share sheet with an exported PNG (T-127); resolves false when the platform cannot. */
+  shareExport?: (png: Uint8Array) => Promise<boolean>;
   /** Back to capture (also the way out of the error state). */
   onBack: () => void;
   /** Next step for the finished draft (send, a later ticket). Without it the editor has no Next button. */
@@ -194,6 +197,11 @@ function Editor({
   image,
   mask,
   native,
+  photo,
+  maskSource,
+  loadImage = loadImageFromUri,
+  loadFonts = loadEffectFonts,
+  shareExport = shareImage,
   appVersion,
   remoteConfig,
   registry = shippedRegistry,
@@ -596,6 +604,28 @@ function Editor({
       ) : null}
       {onNext && shown ? (
         <Button block label={t('editor.next')} onPress={() => onNext(shown)} />
+      ) : null}
+      {shown && canShareImages() ? (
+        <Button
+          block
+          variant="ghost"
+          label={t('card.export')}
+          accessibilityHint={t('card.export.hint')}
+          onPress={async () => {
+            // The user's own draft, from the full-resolution photo at the export size (T-127).
+            const [full, fullMask] = await Promise.all([
+              loadImage(photo.uri).catch(() => null),
+              shown.wholePhoto ? null : maskSource.maskFor(photo).catch(() => null),
+              loadFonts().catch(() => undefined),
+            ]);
+            const png = full
+              ? exportDraftPng({ registry, draft: shown, photo: full, mask: fullMask })
+              : null;
+            if (!png || !(await shareExport(png).catch(() => false))) {
+              toast.show({ message: t('card.export.failed') });
+            }
+          }}
+        />
       ) : null}
     </Screen>
   );

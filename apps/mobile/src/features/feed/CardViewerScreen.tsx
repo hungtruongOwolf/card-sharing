@@ -1,4 +1,4 @@
-import { useImage } from '@shopify/react-native-skia';
+import { Skia, useImage, type SkImage } from '@shopify/react-native-skia';
 import { useQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { Image, StyleSheet, useWindowDimensions, View } from 'react-native';
@@ -18,6 +18,7 @@ import { t } from '../../i18n';
 import { Button, Screen, Text, useTheme, useToast } from '../../ui';
 import { AuthError } from '../auth';
 import { LiveFinishPreview } from '../editor/LiveFinishPreview';
+import { canShareImages, exportRenderPng, shareImage } from '../export';
 import { planFinishModes } from '../editor/liveFinish';
 import { Squish } from '../feedback';
 import {
@@ -40,6 +41,9 @@ export interface CardViewerScreenProps {
   remoteConfig?: RemoteRegistryConfig;
   /** Device clock seam for tests (signed-URL expiries are on the device clock, see `createCardsApi`). */
   now?: () => number;
+  /** Export seams (T-127): decode the render, share the PNG. */
+  loadRender?: (url: string) => Promise<SkImage | null>;
+  share?: (png: Uint8Array) => Promise<boolean>;
   onClose: () => void;
 }
 
@@ -121,6 +125,8 @@ export function CardViewerScreen({
   registry = shippedRegistry,
   remoteConfig,
   now = Date.now,
+  loadRender = loadRenderFromUrl,
+  share = shareImage,
   onClose,
 }: CardViewerScreenProps) {
   const toast = useToast();
@@ -244,11 +250,30 @@ export function CardViewerScreen({
           </Squish>
           <Text variant="label.md">{name}</Text>
           {card.caption ? <Text variant="hand.md">{card.caption}</Text> : null}
+          {/* Export is for the owner's own cards only (AC-23.2): a friend's card never leaves the device here. */}
+          {card.isMine && media && canShareImages() ? (
+            <Button
+              variant="secondary"
+              label={t('card.export')}
+              accessibilityHint={t('card.export.hint')}
+              onPress={async () => {
+                const image = await loadRender(media.renderUrl).catch(() => null);
+                const png = image ? exportRenderPng(image) : null;
+                if (!png || !(await share(png).catch(() => false))) {
+                  toast.show({ message: t('card.export.failed') });
+                }
+              }}
+            />
+          ) : null}
         </>
       ) : null}
     </Screen>
   );
 }
+
+/** Decodes a sent card's render (a signed URL) with Skia for export. */
+const loadRenderFromUrl = async (url: string) =>
+  Skia.Image.MakeImageFromEncoded(await Skia.Data.fromURI(url));
 
 /**
  * The live finish over the render (T-65 renderer, gyro + ambient shimmer on the UI thread). The render already has

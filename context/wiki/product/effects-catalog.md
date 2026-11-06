@@ -291,6 +291,14 @@ Export rules:
   as `client_card_id`, photo reference, `{id, version, params}` per slot, timestamps) keeps the card re-editable until
   sent (AC-21.5; the editor takes an `initialDraft`), and `styleBlock` builds the `POST /v1/cards` `style` block with
   the strict check (exact version, slot kind, `resolveParams`).
+- **Image export (T-127, US-23, SR-18, `apps/mobile/src/features/export`):** a PNG with alpha plus an always-on brand
+  mark (white pill, sticker glyph and the app name in Anton, bottom-right, 5 % of the short side), shared through the OS
+  share sheet. Owner only (AC-23.2): the editor exports the user's own draft from the full photo at 2048 px
+  (`exportDraftPng`), the card viewer exports a sent card only when the server says `is_mine`, from its 1080 px render
+  (`exportRenderPng`); a friend's card shows no export action, and the server only returns `original_url` to the
+  owner (the app does not keep it; backend tests `cards_read.rs`, `feed.rs`). iOS shares a `data:image/png` URI through
+  React Native `Share`; Android has no image share without `expo-sharing` (not installed: no new dependencies this
+  sprint), so the action is hidden there for now (EM decision pending).
 - **Loop clip (procedural only, not AI video):** render N frames with the `time` uniform offscreen → encode MP4/animated WebP via a native encoder module (AVAssetWriter / MediaCodec); Skia video export is beta → Phase 2. EM confirmed 2026-11-04: procedural loops are allowed (not AI video) — **Phase 2**.
 - Web share pages show the baked still (`webPreview: 'baked'`). On enlarge, the holo runs as a small WebGL2 port of the
   same shader (`packages/shaders` uniforms), not CanvasKit: the T-126 spike measured CanvasKit at 2.9 MB gz, 15-17 s cold on
