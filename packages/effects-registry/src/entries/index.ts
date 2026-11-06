@@ -10,6 +10,7 @@ import { cutTorn } from './cut.torn';
 import { framePolaroid } from './frame.polaroid';
 import { fxGlossy } from './fx.glossy';
 import { fxHolo } from './fx.holo';
+import { fxLaserEyes } from './fx.laser-eyes';
 import { fxMatte } from './fx.matte';
 import { fxPaperLift } from './fx.paper-lift';
 import { fxSparkles } from './fx.sparkles';
@@ -38,6 +39,7 @@ export const ENTRIES: readonly EffectEntry[] = [
   overlaySpeech,
   fxSparkles,
   ...PROPS,
+  fxLaserEyes,
   ...BACKDROPS,
   ...DECORATIONS,
 ];
