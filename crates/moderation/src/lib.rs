@@ -8,6 +8,7 @@
 
 pub mod captcha;
 pub mod personal_data;
+pub mod queue;
 pub mod reports;
 pub mod settings;
 
@@ -16,6 +17,7 @@ pub use captcha::{
     FAKE_CAPTCHA_PASS, FakeCaptcha, NoCaptcha,
 };
 pub use personal_data::ModerationPersonalData;
+pub use queue::{ModerationQueue, QueueItem};
 pub use reports::{
     FiledReport, ModerationError, NOTE_MAX_CHARS, NewReport, Reason, ReportService, ReportTarget,
     Reporter, TargetType,

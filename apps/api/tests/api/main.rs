@@ -67,6 +67,7 @@ mod push_tokens;
 mod rate_limit;
 mod reauth;
 mod registry_style;
+mod report_queue;
 mod reports;
 mod request_answers;
 mod request_caps;

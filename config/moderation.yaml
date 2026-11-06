@@ -14,3 +14,12 @@ reports:
     harassment: 50
     spam: 20
     other: 10
+
+# Reporter reputation (T-143): each report adds
+#   age_factor * (1 + reporter's actioned reports) / (1 + reporter's dismissed reports)
+# to its queue item's weight, capped at max_weight. Weight only orders the queue; it never acts.
+reputation:
+  new_account_days: 7
+  new_account_factor: 0.25
+  guest_weight: 0.1
+  max_weight: 3.0
