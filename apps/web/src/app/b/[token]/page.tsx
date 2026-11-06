@@ -3,6 +3,8 @@ import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 
 import { type PublicBoard, pinStylesheet } from '../../../features/public-board/public-board';
+import { CardEnlarge } from '../../../features/public-board/CardEnlarge';
+import { type EnlargeCard, cardLabel } from '../../../features/public-board/enlarge';
 import { storeLinks } from '../../../features/store-links/store-links';
 import { SITE_NAME } from '../../../site';
 
@@ -79,6 +81,15 @@ export default async function PublicBoardPage({ params }: Props) {
   const { board } = result;
   const nonce = (await headers()).get('x-nonce') ?? undefined;
   const cardIndexes = board.pins.flatMap((pin, index) => (pin.kind === 'card' ? [index] : []));
+  // The enlarge dialog shows the same baked still (no live holo on the web for now, #179).
+  const cards: EnlargeCard[] = board.pins
+    .filter((pin) => pin.kind === 'card')
+    .map((pin, ordinal) => ({
+      src: pin.imageUrl,
+      width: pin.width,
+      height: pin.height,
+      label: cardLabel(ordinal, cardIndexes.length),
+    }));
 
   return (
     <main className="board-page">
@@ -92,23 +103,32 @@ export default async function PublicBoardPage({ params }: Props) {
       </header>
       {/* Pin placement as a nonce'd stylesheet: the CSP blocks style attributes. */}
       <style nonce={nonce}>{pinStylesheet(board.pins)}</style>
-      <section className="board-stage" aria-label="Board">
+      <CardEnlarge cards={cards}>
         {board.pins.map((pin, index) => {
           if (pin.kind === 'card') {
+            const ordinal = cardIndexes.indexOf(index);
+            const label = cardLabel(ordinal, cardIndexes.length);
             return (
-              // Plain <img>: the image is a signed URL of a baked derivative; next/image would add
-              // a style attribute that the CSP blocks.
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <button
                 key={index}
+                type="button"
                 className={`pin pin-${index} pin-card`}
-                src={pin.imageUrl}
-                alt={`Card ${cardIndexes.indexOf(index) + 1} of ${cardIndexes.length}`}
-                width={pin.width}
-                height={pin.height}
-                decoding="async"
-                referrerPolicy="no-referrer"
-              />
+                data-card={ordinal}
+                aria-haspopup="dialog"
+                aria-label={`Enlarge ${label.toLowerCase()}`}
+              >
+                {/* Plain <img>: the image is a signed URL of a baked derivative; next/image would
+                    add a style attribute that the CSP blocks. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={pin.imageUrl}
+                  alt=""
+                  width={pin.width}
+                  height={pin.height}
+                  decoding="async"
+                  referrerPolicy="no-referrer"
+                />
+              </button>
             );
           }
           return (
@@ -120,7 +140,7 @@ export default async function PublicBoardPage({ params }: Props) {
             />
           );
         })}
-      </section>
+      </CardEnlarge>
       <div className="invite-actions">
         {stores.map((store) => (
           <a key={store.href} className="invite-button" href={store.href} rel="noreferrer">
