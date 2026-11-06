@@ -585,6 +585,7 @@ Kill switches are not enforced server-side yet.
 | POST | /v1/admin/reports/{id}/actions | dismiss / remove_content / revoke_link / warn / suspend / ban / release_hold / uphold_hold `{reason, until?}` (release ⇒ card delivered) | staff | moderator (ban: admin) | target of that report | 120/min staff | `Idempotency-Key` | US-27 AC-27.1, AC-28.3 |
 | POST | /v1/admin/auth/login, /v1/admin/auth/mfa | Staff sign-in + MFA step | none → staff | staff | `staff_members` row, not disabled | 5/15 min ip | no | US-27 |
 | POST | /v1/me/deletion | Request deletion (logout everywhere, hide ≤ 60 s) | re | user | self | 3/day u | yes | US-29 |
+| DELETE | /v1/me/deletion | Cancel during 7-day grace | ses (deletion-pending allowed) | user | self, before `grace_until` | 10/day u | yes | US-29 AC-29.2 |
 
 Implemented (T-141, #143): `routes/reports.rs` → `crates/moderation` (`ReportService`, table `moderation.reports`).
 `POST /v1/reports` (ses, `Idempotency-Key` required, limit `reports.create` 20/day per user) `{target: {type:
@@ -614,8 +615,6 @@ refused when `API_ENV=production`); the real provider is an EM decision. Order: 
 unusable → one 404) → report stored with `source = guest` and `reporter_ip_hash` = `FieldCipher::keyed_digest` (HMAC-SHA256
 under a key derived from `API_DATA_ENCRYPTION_KEY`, label `moderation.guest_report_ip`), never the IP; one report per IP hash and
 link. Tests: `tests/api/public_reports.rs`.
-
-| DELETE | /v1/me/deletion | Cancel during 7-day grace | ses (deletion-pending allowed) | user | self, before `grace_until` | 10/day u | yes | US-29 AC-29.2 |
 
 Implemented (T-151, #153): `routes/deletion.rs` → `crates/privacy` (`DeletionService`). `POST /v1/me/deletion` (`re`: bearer +
 `X-Reauth`, else 401 `REAUTH_REQUIRED`; `privacy.deletion.request` 3/day) answers 202 `{deletion: {status: "pending",
