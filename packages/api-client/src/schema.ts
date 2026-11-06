@@ -261,6 +261,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/feed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My feed. Auth: ses.
+         * @description Cards delivered to the caller by current friends (no block either way, card active, sender
+         *     active), newest delivery first, `limit` <= 30. Unfriending, blocking or deleting removes a
+         *     card on the next read. Media are signed for the caller (10 min).
+         */
+        get: operations["getFeed"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/friend-requests": {
         parameters: {
             query?: never;
@@ -1014,6 +1036,11 @@ export interface components {
             code_challenge_method?: string | null;
             /** @example cat@example.com */
             email: string;
+        };
+        FeedPage: {
+            items: components["schemas"]["CardView"][];
+            /** @description Opaque; `null` on the last page. */
+            next_cursor?: string | null;
         };
         FriendList: {
             /** @description Most recent friendship first (at most the friend cap, 20). */
@@ -2126,6 +2153,76 @@ export interface operations {
             };
             /** @description RATE_LIMITED. */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    getFeed: {
+        parameters: {
+            query?: {
+                /** @description `next_cursor` of the previous page. */
+                cursor?: string;
+                /** @description 1..=30, default 30. */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of the feed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeedPage"];
+                };
+            };
+            /** @description VALIDATION_FAILED: bad limit or cursor. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED (requests or the signed-URL budget). */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description TEMPORARILY_UNAVAILABLE: media signing not configured. */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

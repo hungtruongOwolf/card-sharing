@@ -410,6 +410,12 @@ sent_at, is_mine, status + hold (owner only)}`. URLs are signed per viewer for d
 (`feed_1080` derivatives; the original = full re-encode) and charged to the URL budget; a pending or held card has
 `media: null` even for its owner. `my_reaction` joins with T-84.
 
+Implemented (feed, part of #82, `GET /v1/feed?cursor=&limit=`, limit `feed.read` 120/min): `CardService::feed` = the viewer's
+`card_recipients` joined with `cards` under `recipient_visible_sql!` (the read predicate), ordered by `(delivered_at DESC,
+card_id DESC)` on the feed index; `limit` 1..30 (default 30); response `{items: [CardView], next_cursor}`. The cursor is
+base64url of `(delivered_at µs, card_id)` plus an HMAC tag (`UrlSigner::token_tag`, purpose `feed_cursor`, domain separated
+from URL signatures); a tampered or malformed cursor is 400. Items carry per-viewer signed URLs (budgeted per page).
+
 ### Board read resolution (per viewer V, AC-19.7, AC-19.9, SR-6, SR-21)
 For each card pin (card C, owner O, pinner P): return the card with signed URLs only if C is `active` **and** (V = O, or V is a
 current recipient of C ∧ friends(V, O) ∧ ¬blocked(V, O)) **and** not (V is an adult ∧ P or O is a minor member ∧ ¬friends(V, that

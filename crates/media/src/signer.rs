@@ -65,6 +65,14 @@ pub enum VerifyError {
 #[error("invalid media signing key: {0}")]
 pub struct KeyError(String);
 
+fn token_message(purpose: &str, data: &[u8]) -> Vec<u8> {
+    let mut message = b"token\n".to_vec();
+    message.extend_from_slice(purpose.as_bytes());
+    message.push(b'\n');
+    message.extend_from_slice(data);
+    message
+}
+
 /// HMAC-SHA256 URL signer.
 pub struct UrlSigner {
     key: hmac::Key,
@@ -97,6 +105,19 @@ impl UrlSigner {
     fn mac(&self, key: &ObjectKey, expires: i64, viewer: Uuid) -> hmac::Tag {
         let message = format!("v1\n{}\n{expires}\n{}", key.as_str(), viewer.simple());
         hmac::sign(&self.key, message.as_bytes())
+    }
+
+    /// A tag over `data` for another server-issued token (e.g. feed cursors), domain separated
+    /// from URL signatures by `purpose` (a short lowercase code).
+    pub fn token_tag(&self, purpose: &str, data: &[u8]) -> Vec<u8> {
+        hmac::sign(&self.key, &token_message(purpose, data))
+            .as_ref()
+            .to_vec()
+    }
+
+    /// Constant-time check of a [`Self::token_tag`].
+    pub fn verify_token_tag(&self, purpose: &str, data: &[u8], tag: &[u8]) -> bool {
+        hmac::verify(&self.key, &token_message(purpose, data), tag).is_ok()
     }
 
     /// Signs one exact object for `viewer`, valid from `now` for the audience's TTL.
