@@ -54,6 +54,7 @@ fn test_config() -> Config {
             play_integrity: None,
         },
         os_age_signals_enabled: false,
+        service_credential: None,
     }
 }
 

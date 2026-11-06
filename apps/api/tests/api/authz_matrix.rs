@@ -47,18 +47,23 @@ enum Role {
     OnboardingProfile,
     User,
     Suspended,
+    /// The web server (`svc`): service credential + `X-Client-IP`, no session.
+    Service,
 }
 
-const ALL_ROLES: [Role; 5] = [
+const ALL_ROLES: [Role; 6] = [
     Role::Guest,
     Role::OnboardingAge,
     Role::OnboardingProfile,
     Role::User,
     Role::Suspended,
+    Role::Service,
 ];
 
 struct Fixture {
     access_token: Option<String>,
+    /// Send the web server's credential and a visitor IP.
+    service: bool,
     refresh_token: String,
     session_id: Uuid,
 }
@@ -112,9 +117,10 @@ fn matrix_covers_every_registered_route() {
 }
 
 async fn fixture(env: &TestEnv, role: Role) -> Fixture {
-    if role == Role::Guest {
+    if matches!(role, Role::Guest | Role::Service) {
         return Fixture {
             access_token: None,
+            service: role == Role::Service,
             refresh_token: format!("unknown-{}", Uuid::now_v7()),
             session_id: Uuid::now_v7(),
         };
@@ -125,7 +131,7 @@ async fn fixture(env: &TestEnv, role: Role) -> Fixture {
         Role::OnboardingProfile => "pending_profile",
         Role::User => "active",
         Role::Suspended => "suspended",
-        Role::Guest => unreachable!(),
+        Role::Guest | Role::Service => unreachable!(),
     };
     sqlx::query("UPDATE identity.accounts SET status = $2 WHERE id = $1")
         .bind(account)
@@ -137,6 +143,7 @@ async fn fixture(env: &TestEnv, role: Role) -> Fixture {
     let session = env.identity.start_session(account, None).await.unwrap();
     Fixture {
         access_token: Some(session.access_token.expose().to_owned()),
+        service: false,
         refresh_token: session.refresh_token.expose().to_owned(),
         session_id: session.session_id,
     }
@@ -214,6 +221,11 @@ fn request(
     }
     if let Some(token) = &fixture.access_token {
         builder = builder.header("authorization", format!("Bearer {token}"));
+    }
+    if fixture.service {
+        builder = builder
+            .header("x-service-credential", TEST_SERVICE_CREDENTIAL)
+            .header("x-client-ip", "203.0.113.7");
     }
     match body {
         Some(body) => builder

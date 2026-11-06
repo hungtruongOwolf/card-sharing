@@ -1,18 +1,20 @@
 use http::Method;
-use utoipa::openapi::security::{Http, HttpAuthScheme, SecurityScheme};
+use utoipa::openapi::security::{ApiKey, ApiKeyValue, Http, HttpAuthScheme, SecurityScheme};
 use utoipa::{Modify, OpenApi};
 use utoipa_axum::routes;
 
 use crate::access::{ApiRouter, Idempotency, RoutePolicy};
 use crate::routes::{
     age_signal, app_config, attestation, auth, blocks, friend_requests, friends, health, invites,
-    me, sessions, user_search,
+    me, public_invites, sessions, user_search,
 };
 use crate::state::AppState;
 use platform::problem::ProblemDetails;
 
 /// Name of the bearer security scheme referenced by authenticated operations.
 pub const BEARER: &str = "bearer";
+/// Name of the web server's credential scheme (`svc`, header `X-Service-Credential`).
+pub const SERVICE: &str = "service";
 
 #[derive(OpenApi)]
 #[openapi(
@@ -30,7 +32,8 @@ Every operation carries `x-policy` (auth kind, role, attestation) from its deny-
         (name = sessions::TAG, description = "The caller's device sessions (AC-1.4)"),
         (name = me::TAG, description = "The caller's own account and onboarding"),
         (name = invites::TAG, description = "Invites, friend requests, friends, blocks and handle search (US-4, US-5, US-5a, US-6, US-26)"),
-        (name = app_config::TAG, description = "Public client configuration")
+        (name = app_config::TAG, description = "Public client configuration"),
+        (name = public_invites::TAG, description = "Server-to-server routes for the web share app (svc, /v1/public/*)")
     )
 )]
 struct ApiDoc;
@@ -43,6 +46,10 @@ impl Modify for BearerScheme {
         components.add_security_scheme(
             BEARER,
             SecurityScheme::Http(Http::new(HttpAuthScheme::Bearer)),
+        );
+        components.add_security_scheme(
+            SERVICE,
+            SecurityScheme::ApiKey(ApiKey::Header(ApiKeyValue::new("x-service-credential"))),
         );
     }
 }
@@ -145,6 +152,10 @@ pub fn router() -> ApiRouter<AppState> {
         .route(
             RoutePolicy::session().limited("invites.preview"),
             routes!(friend_requests::preview_invite),
+        )
+        .route(
+            RoutePolicy::service().limited("public.invites.read"),
+            routes!(public_invites::get_public_invite),
         )
         .route(
             RoutePolicy::session()

@@ -23,7 +23,9 @@ pub enum AuthKind {
     WidgetOrSession,
     /// `re`: full session plus a fresh reauth token. Not implemented yet: always denied.
     Reauth,
-    /// `svc`: Next.js server credential. Not implemented yet: always denied.
+    /// `svc`: the web server's shared credential (`X-Service-Credential`) plus the visitor's IP in
+    /// `X-Client-IP`. Only for `/v1/public/*` routes with role guest; checked by
+    /// [`authorize_service`], never by [`authorize`] (which always denies it).
     Service,
     /// `staff`: staff cookie session with MFA. Not implemented yet: always denied.
     Staff,
@@ -126,6 +128,11 @@ impl RoutePolicy {
     /// `ses` / user.
     pub const fn session() -> Self {
         Self::new(AuthKind::Session, Role::User)
+    }
+
+    /// `svc` / guest: called by the web server on behalf of an anonymous visitor.
+    pub const fn service() -> Self {
+        Self::new(AuthKind::Service, Role::Guest)
     }
 
     pub const fn new(auth: AuthKind, role: Role) -> Self {
@@ -242,6 +249,33 @@ pub fn authorize(policy: &RoutePolicy, principal: Option<&Principal>) -> Result<
     }
 }
 
+/// Decides a request that carries (or should carry) the web server's credential.
+/// `credential_valid` = the request presented the configured credential. Deny by default:
+/// - an `svc` route needs a valid credential, role guest and a `/v1/public/` path;
+/// - any other route called with a service credential, valid or not, is refused (403), so the
+///   web server's secret can never reach user or staff routes.
+pub fn authorize_service(
+    policy: &RoutePolicy,
+    path: &str,
+    credential_valid: bool,
+) -> Result<(), ApiError> {
+    if policy.auth != AuthKind::Service {
+        return Err(ApiError::Forbidden);
+    }
+    if !path.starts_with(PUBLIC_PREFIX) || policy.role != Role::Guest {
+        // A misregistered route: refuse rather than serve it to the web server.
+        return Err(ApiError::Forbidden);
+    }
+    if credential_valid {
+        Ok(())
+    } else {
+        Err(ApiError::Unauthenticated)
+    }
+}
+
+/// The only path prefix `svc` routes may use.
+pub const PUBLIC_PREFIX: &str = "/v1/public/";
+
 /// Account states that block every authenticated route.
 fn check_account_status(status: AccountStatus) -> Result<(), ApiError> {
     match status {
@@ -349,6 +383,39 @@ mod tests {
             code(authorize(&moderator_only, Some(&full))),
             "UNAUTHENTICATED"
         );
+    }
+
+    #[test]
+    fn service_credential_only_opens_public_service_routes() {
+        let public = "/v1/public/invites/{token}";
+        let svc = RoutePolicy::service();
+        assert_eq!(code(authorize_service(&svc, public, true)), "OK");
+        assert_eq!(
+            code(authorize_service(&svc, public, false)),
+            "UNAUTHENTICATED"
+        );
+        // Outside /v1/public/ or with another role, even a valid credential is refused.
+        assert_eq!(
+            code(authorize_service(&svc, "/v1/me/invite", true)),
+            "FORBIDDEN"
+        );
+        let svc_user = RoutePolicy::new(AuthKind::Service, Role::User);
+        assert_eq!(
+            code(authorize_service(&svc_user, public, true)),
+            "FORBIDDEN"
+        );
+        // Every other auth kind refuses a request carrying the credential.
+        for policy in [
+            RoutePolicy::public(),
+            RoutePolicy::onboarding(),
+            RoutePolicy::onboarding_or_session(),
+            RoutePolicy::session(),
+        ] {
+            assert_eq!(code(authorize_service(&policy, public, true)), "FORBIDDEN");
+        }
+        // The session path never accepts svc.
+        let full = principal(SessionScope::Full, AccountStatus::Active);
+        assert_eq!(code(authorize(&svc, Some(&full))), "UNAUTHENTICATED");
     }
 
     #[test]

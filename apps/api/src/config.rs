@@ -76,6 +76,11 @@ pub struct Config {
     pub attestation: AttestationConfig,
     /// Outgoing email (T-22).
     pub mail: MailConfig,
+    /// `API_SERVICE_CREDENTIAL` — secret shared with the web server (`apps/web`), sent as
+    /// `X-Service-Credential` on `/v1/public/*` (auth kind `svc`). At least 32 characters, from
+    /// the secret manager (`openssl rand -base64 32`). Unset (default) = every `svc` route
+    /// answers 401.
+    pub service_credential: Option<Secret>,
 }
 
 #[derive(Debug, Clone)]
@@ -214,6 +219,7 @@ impl Config {
         let os_age_signals_enabled = env.flag("API_OS_AGE_SIGNALS_ENABLED", false)?;
         let attestation = attestation_config(env)?;
         let mail = mail_config(env)?;
+        let service_credential = service_credential(env)?;
 
         Ok(Self {
             bind_addr,
@@ -240,8 +246,28 @@ impl Config {
             os_age_signals_enabled,
             attestation,
             mail,
+            service_credential,
         })
     }
+}
+
+/// Minimum length of `API_SERVICE_CREDENTIAL` (base64 of 24+ random bytes).
+const MIN_SERVICE_CREDENTIAL_LEN: usize = 32;
+
+fn service_credential<F: Fn(&str) -> Option<String>>(
+    env: &Env<F>,
+) -> Result<Option<Secret>, ConfigError> {
+    let Some(raw) = env.optional("API_SERVICE_CREDENTIAL") else {
+        return Ok(None);
+    };
+    let value = raw.trim();
+    if value.len() < MIN_SERVICE_CREDENTIAL_LEN || !value.bytes().all(|b| b.is_ascii_graphic()) {
+        return Err(invalid(
+            "API_SERVICE_CREDENTIAL",
+            format!("must be at least {MIN_SERVICE_CREDENTIAL_LEN} printable ASCII characters"),
+        ));
+    }
+    Ok(Some(Secret::new(value)))
 }
 
 /// Comma-separated OAuth client ids: non-empty, no whitespace, at most 255 characters each.
@@ -439,6 +465,20 @@ mod tests {
         );
         assert_eq!(config.request_timeout, Duration::from_secs(15));
         assert_eq!(config.log_format, LogFormat::Json);
+    }
+
+    #[test]
+    fn service_credential_is_off_by_default_and_must_be_long() {
+        assert!(load(&[]).unwrap().service_credential.is_none());
+        let short = load(&[("API_SERVICE_CREDENTIAL", "too-short")]).unwrap_err();
+        assert!(short.to_string().contains("API_SERVICE_CREDENTIAL"));
+        assert!(
+            !short.to_string().contains("too-short"),
+            "never echo the value"
+        );
+        let long = "k".repeat(32);
+        let config = load(&[("API_SERVICE_CREDENTIAL", long.as_str())]).unwrap();
+        assert_eq!(config.service_credential.unwrap().expose(), long);
     }
 
     #[test]

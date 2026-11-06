@@ -52,6 +52,13 @@ pub struct InvitePreview {
     pub is_self: bool,
 }
 
+/// What the web landing page (`/i/<token>`) may show to an anonymous visitor: the inviter's
+/// display name only (no avatar yet; it stays hidden for minors' invites, AC-4.4).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PublicInvitePreview {
+    pub display_name: String,
+}
+
 /// Expiry and use cap of one invite.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) struct Limits {
@@ -274,6 +281,33 @@ impl SocialService {
         Ok(InvitePreview {
             display_name: profile.display_name.clone(),
             is_self: invite.owner_id == caller,
+        })
+    }
+
+    /// The preview for an anonymous visitor of the web landing page. Every unusable token
+    /// (unknown, malformed, reset, expired, used up, inviter suspended, banned or deleted) is
+    /// [`InviteError::NotFound`]: the page shows one neutral answer for all of them.
+    pub async fn public_invite_preview(
+        &self,
+        raw_token: &str,
+    ) -> Result<PublicInvitePreview, InviteError> {
+        let invite = self
+            .resolve_invite(raw_token)
+            .await
+            .map_err(|err| match err {
+                InviteError::Expired => InviteError::NotFound,
+                other => other,
+            })?;
+        let profiles = self
+            .identity
+            .public_profiles(&[invite.owner_id])
+            .await
+            .map_err(|err| SocialError::Identity(err.to_string()))?;
+        let profile = profiles
+            .get(&invite.owner_id)
+            .ok_or(InviteError::NotFound)?;
+        Ok(PublicInvitePreview {
+            display_name: profile.display_name.clone(),
         })
     }
 

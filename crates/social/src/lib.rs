@@ -17,7 +17,7 @@ mod settings;
 pub use blocks::BlockedAccount;
 pub use error::{InviteError, SocialError};
 pub use friends::FRIENDSHIP_REMOVED;
-pub use invites::{INVITE_TOKEN_LEN, InvitePreview, MyInvite, ResolvedInvite};
+pub use invites::{INVITE_TOKEN_LEN, InvitePreview, MyInvite, PublicInvitePreview, ResolvedInvite};
 pub use janitor::{JanitorReport, SocialJanitor};
 pub use requests::{
     AnswerError, Direction, FriendSummary, RequestError, RequestHint, RequestItem, SentRequest,

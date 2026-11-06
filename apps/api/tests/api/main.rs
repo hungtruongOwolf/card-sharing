@@ -26,6 +26,7 @@ mod me;
 mod minor_hint;
 mod outbox;
 mod profile;
+mod public_invites;
 mod rate_limit;
 mod registry_style;
 mod request_answers;

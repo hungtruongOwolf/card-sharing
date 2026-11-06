@@ -8,6 +8,7 @@ use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 use http::{HeaderMap, HeaderName, header};
 use identity::{AttestationService, IdentityService};
+use platform::crypto::SecretDigest;
 use platform::idempotency::IdempotencyStore;
 use platform::problem::ApiError;
 use platform::rate_limit::{AccountSubject, Decision, RateLimiter, Subject};
@@ -15,7 +16,7 @@ use platform::rate_limit::{AccountSubject, Decision, RateLimiter, Subject};
 use super::attest;
 use super::caller::SessionResolver;
 use super::idempotency;
-use super::policy::{Idempotency, PolicyTable, authorize};
+use super::policy::{AuthKind, Idempotency, PolicyTable, authorize, authorize_service};
 use crate::config::AttestationMode;
 
 /// State of the enforcement middleware.
@@ -33,7 +34,16 @@ pub struct AccessState {
     pub identity: Arc<IdentityService>,
     pub attestation: Arc<AttestationService>,
     pub attestation_mode: AttestationMode,
+    /// Digest of the web server's credential (`API_SERVICE_CREDENTIAL`); `None` = `svc` routes
+    /// always answer 401.
+    pub service_credential: Option<Arc<SecretDigest>>,
 }
+
+/// Header carrying the web server's credential on `svc` routes.
+pub const SERVICE_CREDENTIAL_HEADER: HeaderName = HeaderName::from_static("x-service-credential");
+/// The visitor's IP as the web server saw it. Trusted only together with a valid service
+/// credential; ignored everywhere else.
+pub const SERVICE_CLIENT_IP_HEADER: HeaderName = HeaderName::from_static("x-client-ip");
 
 /// The client IP of the current request as the access layer saw it (`None` when unknown).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -89,6 +99,12 @@ pub async fn enforce(
         && let Err(err) = check_app_version(request.headers(), &access.min_app_version)
     {
         return err.into_response();
+    }
+
+    // The web server's credential: only ever valid on `svc` routes (403 anywhere else).
+    let presented = request.headers().contains_key(SERVICE_CREDENTIAL_HEADER);
+    if presented || policy.auth == AuthKind::Service {
+        return serve_service(&access, &policy, route.as_str(), request, next).await;
     }
 
     let principal = if policy.auth.requires_principal() {
@@ -158,6 +174,49 @@ pub async fn enforce(
         next,
     )
     .await
+}
+
+/// A request on an `svc` route, or any request carrying the service credential. No session is
+/// resolved (a bearer token is ignored); the rate limit keys on the visitor IP from
+/// `X-Client-IP`, which is trusted only after the credential checked out.
+async fn serve_service(
+    access: &AccessState,
+    policy: &super::policy::RoutePolicy,
+    route: &str,
+    mut request: Request,
+    next: Next,
+) -> Response {
+    let valid = match (
+        access.service_credential.as_deref(),
+        request.headers().get(SERVICE_CREDENTIAL_HEADER),
+    ) {
+        (Some(expected), Some(presented)) => expected.matches(presented.as_bytes()),
+        _ => false,
+    };
+    if let Err(err) = authorize_service(policy, route, valid) {
+        return err.into_response();
+    }
+    let Some(ip) = request
+        .headers()
+        .get(SERVICE_CLIENT_IP_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.trim().parse::<IpAddr>().ok())
+    else {
+        return ApiError::Validation("X-Client-IP must be the visitor's IP address".to_owned())
+            .into_response();
+    };
+    request.extensions_mut().insert(ClientIp(Some(ip)));
+    if let Some(limit) = policy.rate_limit {
+        let subject = Subject {
+            account: None,
+            device: None,
+            ip: Some(ip),
+        };
+        if let Err(err) = rate_limit(&access.limiter, limit, &subject).await {
+            return err.into_response();
+        }
+    }
+    next.run(request).await
 }
 
 /// `X-App-Version` (semver) below the minimum → 426. Absent → allowed (web, tools); the
