@@ -43,6 +43,12 @@ pub enum ApiError {
     Validation(String),
     #[error("unsupported media type")]
     UnsupportedMediaType,
+    /// An upload above the media size limit (10 MiB).
+    #[error("media too large")]
+    MediaTooLarge,
+    /// A request body above the server's body limit.
+    #[error("payload too large")]
+    PayloadTooLarge,
     /// No credentials, or credentials that do not identify a live session.
     #[error("unauthenticated")]
     Unauthenticated,
@@ -129,6 +135,7 @@ impl ApiError {
         match self {
             Self::Validation(_) => StatusCode::BAD_REQUEST,
             Self::UnsupportedMediaType => StatusCode::UNSUPPORTED_MEDIA_TYPE,
+            Self::MediaTooLarge | Self::PayloadTooLarge => StatusCode::PAYLOAD_TOO_LARGE,
             Self::Unauthenticated | Self::SessionExpired | Self::SessionRevoked => {
                 StatusCode::UNAUTHORIZED
             }
@@ -161,6 +168,8 @@ impl ApiError {
         match self {
             Self::Validation(_) => "VALIDATION_FAILED",
             Self::UnsupportedMediaType => "MEDIA_TYPE_UNSUPPORTED",
+            Self::MediaTooLarge => "MEDIA_TOO_LARGE",
+            Self::PayloadTooLarge => "PAYLOAD_TOO_LARGE",
             Self::Unauthenticated => "UNAUTHENTICATED",
             Self::SessionExpired => "SESSION_EXPIRED",
             Self::SessionRevoked => "SESSION_REVOKED",
@@ -261,6 +270,8 @@ mod tests {
         let errors = [
             ApiError::Validation("x".into()),
             ApiError::UnsupportedMediaType,
+            ApiError::MediaTooLarge,
+            ApiError::PayloadTooLarge,
             ApiError::Unauthenticated,
             ApiError::SessionExpired,
             ApiError::SessionRevoked,

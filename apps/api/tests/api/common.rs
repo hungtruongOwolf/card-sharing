@@ -53,6 +53,7 @@ pub fn test_config() -> Config {
         text_filter_config_path: "unused-in-tests".into(),
         profile_config_path: "unused-in-tests".into(),
         social_config_path: "unused-in-tests".into(),
+        media_storage_dir: None,
         apple_client_ids: vec![APPLE_CLIENT_ID.to_owned()],
         google_client_ids: vec![GOOGLE_CLIENT_ID.to_owned()],
         auth_clock_skew: Duration::from_secs(60),
@@ -163,6 +164,8 @@ pub struct TestEnv {
     pub jwks: MockJwks,
     /// Fake for Apple's token endpoint.
     pub apple_tokens: Arc<FakeAppleTokens>,
+    /// In-memory object storage behind the media module.
+    pub media_store: Arc<media::MemoryObjectStore>,
 }
 
 impl TestEnv {
@@ -199,6 +202,8 @@ impl TestEnv {
         .with_ip_country_header(test_config().ip_country_header)
         .with_os_age_signals(test_config().os_age_signals_enabled)
         .with_social_settings(social_settings());
+        let media_store = Arc::new(media::MemoryObjectStore::default());
+        let state = state.with_media_store(media_store.clone());
         let jwks = MockJwks::start(vec![TestRsaKey::shared().jwk()]).await;
         let apple_tokens = Arc::new(FakeAppleTokens::default());
         let sign_in = test_sign_in(
@@ -218,6 +223,7 @@ impl TestEnv {
             redis,
             jwks,
             apple_tokens,
+            media_store,
         })
     }
 

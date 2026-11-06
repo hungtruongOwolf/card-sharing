@@ -6,7 +6,7 @@ use utoipa_axum::routes;
 use crate::access::{ApiRouter, Idempotency, RoutePolicy};
 use crate::routes::{
     age_signal, app_config, attestation, auth, blocks, friend_requests, friends, health, invites,
-    me, public_invites, sessions, user_search,
+    me, media, public_invites, sessions, user_search,
 };
 use crate::state::AppState;
 use platform::problem::ProblemDetails;
@@ -32,6 +32,7 @@ Every operation carries `x-policy` (auth kind, role, attestation) from its deny-
         (name = sessions::TAG, description = "The caller's device sessions (AC-1.4)"),
         (name = me::TAG, description = "The caller's own account and onboarding"),
         (name = invites::TAG, description = "Invites, friend requests, friends, blocks and handle search (US-4, US-5, US-5a, US-6, US-26)"),
+        (name = media::TAG, description = "Image uploads into quarantine and their state (ADR-0005)"),
         (name = app_config::TAG, description = "Public client configuration"),
         (name = public_invites::TAG, description = "Server-to-server routes for the web share app (svc, /v1/public/*)")
     )
@@ -207,6 +208,14 @@ pub fn router() -> ApiRouter<AppState> {
         .route(
             RoutePolicy::session().limited("blocks.remove"),
             routes!(blocks::unblock_user),
+        )
+        .route(
+            RoutePolicy::onboarding_or_session().limited("media.upload"),
+            routes!(media::upload_media),
+        )
+        .route(
+            RoutePolicy::onboarding_or_session().limited("media.read"),
+            routes!(media::get_media),
         )
         .undocumented_policy(
             &Method::GET,

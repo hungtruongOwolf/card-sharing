@@ -38,6 +38,7 @@ fn test_config() -> Config {
         text_filter_config_path: "unused-in-tests".into(),
         profile_config_path: "unused-in-tests".into(),
         social_config_path: "unused-in-tests".into(),
+        media_storage_dir: None,
         apple_client_ids: Vec::new(),
         google_client_ids: Vec::new(),
         auth_clock_skew: Duration::from_secs(60),

@@ -1,0 +1,28 @@
+[package]
+name = "media"
+version = "0.1.0"
+description = "Media pipeline: quarantine uploads, object storage port, processing and signed URLs (ADR-0005)"
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+platform.workspace = true
+
+bytes.workspace = true
+getrandom.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+sqlx.workspace = true
+thiserror.workspace = true
+time.workspace = true
+tokio = { workspace = true, features = ["fs", "io-util"] }
+tracing.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["fs", "io-util", "macros", "rt-multi-thread"] }
+
+[lints]
+workspace = true

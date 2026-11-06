@@ -11,6 +11,7 @@ default-run = "api"
 [dependencies]
 attestation.workspace = true
 identity.workspace = true
+media.workspace = true
 platform.workspace = true
 registry.workspace = true
 policy.workspace = true
@@ -18,7 +19,10 @@ social.workspace = true
 
 anyhow.workspace = true
 axum.workspace = true
+bytes.workspace = true
 http.workspace = true
+# Body length cap (middleware) and bounded upload streaming.
+http-body-util.workspace = true
 serde.workspace = true
 semver.workspace = true
 serde_json.workspace = true
@@ -39,7 +43,6 @@ uuid.workspace = true
 base64.workspace = true
 # Runtime-generated App Attest and Play Integrity test vectors.
 attestation = { workspace = true, features = ["test-support"] }
-http-body-util.workspace = true
 # Mock JWKS server, locally generated RSA keys and ID-token minting.
 identity = { workspace = true, features = ["test-support"] }
 
