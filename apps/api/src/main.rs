@@ -247,6 +247,10 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
     ));
     let board_janitor = Arc::new(boards::BoardJanitor::new(pool.clone(), Arc::clone(&clock)));
     let block_resolver = Arc::new(boards::BlockResolver::new(pool.clone(), Arc::clone(&clock)));
+    let board_changes = Arc::new(boards::ChangeNotifier::new(
+        pool.clone(),
+        Arc::clone(&clock),
+    ));
     let media = Arc::new(media::MediaService::new(
         pool.clone(),
         Arc::clone(&clock),
@@ -307,6 +311,10 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
         .handle(
             boards::RESOLVE_BLOCK_JOB,
             Arc::new(boards::ResolveBlockJob(block_resolver)),
+        )
+        .handle(
+            boards::CHANGED_JOB,
+            Arc::new(boards::BoardChangedJob(board_changes)),
         )
         .handle(
             notifications::ACTIVITY_JOB,

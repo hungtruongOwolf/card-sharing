@@ -83,6 +83,7 @@ pub(crate) async fn remove_collaborator(
         .bind(now)
         .execute(&mut *conn)
         .await?;
+    crate::changes::schedule_changed(conn, board_id, now).await?;
     Ok(true)
 }
 

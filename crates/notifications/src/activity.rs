@@ -14,7 +14,6 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::notify::recipients_of;
-use crate::push::PushKind;
 use crate::tokens::StoreError;
 
 /// Job kind that records activity items.
@@ -122,7 +121,7 @@ impl Activity {
         let mut recorded = 0;
         for recipient in recipients_of(topic, payload) {
             let kind = recipient.notification.kind();
-            if kind == PushKind::WidgetRefresh {
+            if !kind.in_activity() {
                 continue;
             }
             let Some(subject) = recipient.notification.subject() else {

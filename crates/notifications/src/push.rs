@@ -35,17 +35,28 @@ pub enum PushKind {
     CardHeld,
     /// Silent: the widget should call `GET /v1/widget` again (widget tokens only).
     WidgetRefresh,
+    /// I was invited to a board (`invitation_id`, T-109).
+    BoardInvite,
+    /// Someone accepted my board invitation (`board_id`, to the owner).
+    BoardJoined,
+    /// Silent: a board I am on changed (`board_id` + `version`); the app re-syncs it.
+    BoardUpdated,
 }
 
 impl PushKind {
-    pub const ALERTS: [Self; 6] = [
+    pub const ALERTS: [Self; 8] = [
         Self::CardNew,
         Self::CardsNewMany,
         Self::ReactionNew,
         Self::FriendRequest,
         Self::FriendAccepted,
         Self::CardHeld,
+        Self::BoardInvite,
+        Self::BoardJoined,
     ];
+
+    /// Pushes without an alert: never toggled, capped, logged or held for quiet hours.
+    pub const SILENT: [Self; 2] = [Self::WidgetRefresh, Self::BoardUpdated];
 
     /// The `t` field of every payload.
     pub fn as_str(self) -> &'static str {
@@ -57,13 +68,33 @@ impl PushKind {
             Self::FriendAccepted => "friend.accepted",
             Self::CardHeld => "card.held",
             Self::WidgetRefresh => "widget.refresh",
+            Self::BoardInvite => "board.invite",
+            Self::BoardJoined => "board.joined",
+            Self::BoardUpdated => "board.updated",
         }
+    }
+
+    pub fn is_silent(self) -> bool {
+        Self::SILENT.contains(&self)
+    }
+
+    /// Kinds that also become activity-tab items (T-88). Board kinds join the tab later.
+    pub fn in_activity(self) -> bool {
+        matches!(
+            self,
+            Self::CardNew
+                | Self::CardsNewMany
+                | Self::ReactionNew
+                | Self::FriendRequest
+                | Self::FriendAccepted
+                | Self::CardHeld
+        )
     }
 
     pub fn parse(value: &str) -> Option<Self> {
         Self::ALERTS
             .into_iter()
-            .chain([Self::WidgetRefresh])
+            .chain(Self::SILENT)
             .find(|k| k.as_str() == value)
     }
 
@@ -73,6 +104,8 @@ impl PushKind {
             Self::CardNew | Self::ReactionNew | Self::CardHeld => Some("card_id"),
             Self::FriendRequest => Some("request_id"),
             Self::FriendAccepted => Some("user_id"),
+            Self::BoardInvite => Some("invitation_id"),
+            Self::BoardJoined | Self::BoardUpdated => Some("board_id"),
             Self::CardsNewMany | Self::WidgetRefresh => None,
         }
     }
@@ -87,6 +120,9 @@ impl PushKind {
             Self::FriendAccepted => "friend_accepted",
             Self::CardHeld => "card_held",
             Self::WidgetRefresh => "widget_refresh",
+            Self::BoardInvite => "board_invite",
+            Self::BoardJoined => "board_joined",
+            Self::BoardUpdated => "board_updated",
         }
     }
 
@@ -97,12 +133,13 @@ impl PushKind {
             Self::ReactionNew => "reactions",
             Self::FriendRequest | Self::FriendAccepted => "friends",
             Self::WidgetRefresh => "widget",
+            Self::BoardInvite | Self::BoardJoined | Self::BoardUpdated => "boards",
         }
     }
 
     /// Whether the push counts toward the daily cap (AC-31.4: friend requests do not).
     pub fn counts_toward_cap(self) -> bool {
-        !matches!(self, Self::FriendRequest | Self::WidgetRefresh)
+        !self.is_silent() && self != Self::FriendRequest
     }
 }
 
@@ -112,6 +149,8 @@ pub struct Notification {
     kind: PushKind,
     subject: Option<Uuid>,
     count: Option<u32>,
+    /// `BoardUpdated` only: the board version to sync to.
+    version: Option<i64>,
 }
 
 impl Notification {
@@ -122,6 +161,17 @@ impl Notification {
             kind,
             subject: kind.subject_key().map(|_| subject),
             count: None,
+            version: None,
+        }
+    }
+
+    /// Silent: board `board` changed; the app syncs it to (at least) `version`.
+    pub fn board_updated(board: Uuid, version: i64) -> Self {
+        Self {
+            kind: PushKind::BoardUpdated,
+            subject: Some(board),
+            count: None,
+            version: Some(version),
         }
     }
 
@@ -130,6 +180,7 @@ impl Notification {
             kind: PushKind::CardsNewMany,
             subject: None,
             count: Some(count),
+            version: None,
         }
     }
 
@@ -138,6 +189,7 @@ impl Notification {
             kind: PushKind::WidgetRefresh,
             subject: None,
             count: None,
+            version: None,
         }
     }
 
@@ -147,7 +199,10 @@ impl Notification {
 
     /// Job-payload form (ids and a count only), for pushes deferred past quiet hours.
     pub fn to_json(&self) -> Value {
-        json!({ "kind": self.kind.as_str(), "subject": self.subject, "count": self.count })
+        json!({
+            "kind": self.kind.as_str(), "subject": self.subject, "count": self.count,
+            "version": self.version,
+        })
     }
 
     /// Inverse of [`Notification::to_json`]; `None` for anything malformed.
@@ -161,15 +216,21 @@ impl Notification {
             None | Some(Value::Null) => None,
             Some(v) => Some(u32::try_from(v.as_u64()?).ok()?),
         };
+        let version = match value.get("version") {
+            None | Some(Value::Null) => None,
+            Some(v) => Some(v.as_i64()?),
+        };
         let valid = match kind {
-            PushKind::CardsNewMany => subject.is_none() && count.is_some(),
-            PushKind::WidgetRefresh => subject.is_none() && count.is_none(),
-            _ => subject.is_some() && count.is_none(),
+            PushKind::CardsNewMany => subject.is_none() && count.is_some() && version.is_none(),
+            PushKind::WidgetRefresh => subject.is_none() && count.is_none() && version.is_none(),
+            PushKind::BoardUpdated => subject.is_some() && count.is_none() && version.is_some(),
+            _ => subject.is_some() && count.is_none() && version.is_none(),
         };
         valid.then_some(Self {
             kind,
             subject,
             count,
+            version,
         })
     }
 
@@ -185,6 +246,9 @@ impl Notification {
         if let (Some(key), Some(id)) = (self.kind.subject_key(), self.subject) {
             data.insert(key.to_owned(), json!(id.to_string()));
         }
+        if let Some(version) = self.version {
+            data.insert("version".to_owned(), json!(version.to_string()));
+        }
         data
     }
 
@@ -193,6 +257,12 @@ impl Notification {
         if self.kind == PushKind::WidgetRefresh {
             // WidgetKit push: no alert, no content; the widget reloads its timeline.
             return json!({ "aps": { "content-changed": true } });
+        }
+        if self.kind == PushKind::BoardUpdated {
+            // Background push: no alert; the app wakes and re-syncs the board.
+            let mut body = Value::Object(self.data());
+            body["aps"] = json!({ "content-available": 1 });
+            return body;
         }
         let stem = self.kind.loc_stem();
         let mut alert = json!({
@@ -213,7 +283,7 @@ impl Notification {
 
     /// The FCM HTTP v1 `message` (without `token`). Data values are strings, as FCM requires.
     pub fn fcm_message(&self) -> Value {
-        if self.kind == PushKind::WidgetRefresh {
+        if self.kind.is_silent() {
             return json!({
                 "data": self.data(),
                 "android": { "priority": "normal" },
@@ -380,6 +450,7 @@ mod tests {
             .collect();
         notes.push(Notification::cards_new_many(7));
         notes.push(Notification::widget_refresh());
+        notes.push(Notification::board_updated(id(), 42));
         notes
             .iter()
             .flat_map(|n| [n.apns_payload(), n.fcm_message()])
@@ -439,6 +510,11 @@ mod tests {
                         "reactions",
                         "friends",
                         "content-changed",
+                        "content-available",
+                        "invitation_id",
+                        "board_id",
+                        "version",
+                        "boards",
                     ]
                     .contains(&s.as_str());
                 assert!(allowed, "unexpected string {s:?} in {payload}");
@@ -490,6 +566,23 @@ mod tests {
             Notification::widget_refresh().fcm_message(),
             json!({ "data": { "t": "widget.refresh" }, "android": { "priority": "normal" } })
         );
+        // T-109: the silent board push carries the board id and version only.
+        assert_eq!(
+            Notification::board_updated(id(), 42).fcm_message(),
+            json!({
+                "data": { "t": "board.updated", "board_id": ID, "version": "42" },
+                "android": { "priority": "normal" }
+            })
+        );
+        assert_eq!(
+            Notification::board_updated(id(), 42).apns_payload(),
+            json!({
+                "aps": { "content-available": 1 },
+                "t": "board.updated",
+                "board_id": ID,
+                "version": "42"
+            })
+        );
     }
 
     #[test]
@@ -498,6 +591,8 @@ mod tests {
             Notification::about(PushKind::ReactionNew, id()),
             Notification::cards_new_many(4),
             Notification::widget_refresh(),
+            Notification::about(PushKind::BoardInvite, id()),
+            Notification::board_updated(id(), 7),
         ] {
             assert_eq!(Notification::from_json(&n.to_json()), Some(n));
         }
@@ -507,6 +602,8 @@ mod tests {
             json!({ "kind": "card.new", "subject": "x" }),
             json!({ "kind": "cards.new_many", "subject": ID, "count": 2 }),
             json!({ "kind": "nope", "subject": ID }),
+            json!({ "kind": "board.updated", "subject": ID }),
+            json!({ "kind": "board.invite", "subject": ID, "version": 3 }),
         ] {
             assert_eq!(Notification::from_json(&bad), None, "{bad}");
         }
@@ -514,12 +611,11 @@ mod tests {
 
     #[test]
     fn kinds_round_trip_and_cap_rules() {
-        for kind in PushKind::ALERTS
-            .into_iter()
-            .chain([PushKind::WidgetRefresh])
-        {
+        for kind in PushKind::ALERTS.into_iter().chain(PushKind::SILENT) {
             assert_eq!(PushKind::parse(kind.as_str()), Some(kind));
         }
+        assert!(!PushKind::BoardUpdated.counts_toward_cap());
+        assert!(PushKind::BoardInvite.counts_toward_cap());
         assert!(!PushKind::FriendRequest.counts_toward_cap());
         assert!(!PushKind::WidgetRefresh.counts_toward_cap());
         assert!(PushKind::CardNew.counts_toward_cap());
@@ -529,7 +625,8 @@ mod tests {
             Notification {
                 kind: PushKind::CardsNewMany,
                 subject: None,
-                count: None
+                count: None,
+                version: None
             }
         );
     }

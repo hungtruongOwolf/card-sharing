@@ -423,6 +423,16 @@ card the owner may still pin (same rule as `pin.add`) plus decorations, with fre
 `boards.board_deleted {board_id, owner_id}` is published (public links revoke on it when the sharing module lands). Cards are never
 touched; the janitor hard-deletes the board 30 days later (pins, members, op log and invitations cascade). Collaborators and
 non-members get the missing 404 on all three.
+Implemented (T-109, `crates/boards/src/changes.rs`, `crates/notifications`): a pending invitation publishes
+`boards.invitation_created {invitation_id, board_id, invitee_id}` → alert `board.invite` (`invitation_id`) to the invitee (a silent drop
+publishes nothing); an accept publishes `boards.member_joined {board_id, owner_id, member_id}` → alert `board.joined` (`board_id`) to the
+owner. Both use the `friend` toggle for now (a dedicated board toggle is a follow-up), count toward the daily cap and stay out of the
+activity tab. Every board change (applied ops, join, removal/leave, rename, delete) enqueues, in the same transaction, one
+`boards.changed` job per board and 10 s window (`DEBOUNCE_SECS`, unique key per window, runs at the window end); the job publishes
+`boards.board_updated {board_id, version, member_ids}` with the version at that moment and every member's devices get a silent push
+`board.updated` (APNs `content-available`, FCM data-only normal priority) whose data is exactly `t`, `board_id` and `version` (SR-15).
+Silent pushes skip toggles, cap, push log and quiet hours; the actor's own devices are included so their other devices sync too. The
+app re-syncs with `GET /v1/boards/{id}?since_version=` on that push and on open (AC-19.4: ≤ 10 s + relay/worker latency).
 
 ### Sharing (public links) & web
 | Method | Path | Purpose | Auth | Role | Object rule | Rate limit | Idem. | US |
@@ -725,6 +735,7 @@ dropped. It is stored through the `WidgetTokenStore` seam: today expo-secure-sto
 App Group Keychain / EncryptedSharedPreferences. Sign-out clears it with the other device copies (AC-16.2).
 
 ## Push & widget payloads (no media URLs, no captions, no names — AC-31.2)
+Board kinds (T-109): `board.invite` (`invitation_id`), `board.joined` (`board_id`), silent `board.updated` (`board_id`, `version`).
 Implemented (T-86, `crates/notifications/src/push.rs`): every payload is a type `t`, localisation keys the app resolves on the
 device and at most one opaque id (or a count). No name, caption, image, URL or other user content, ever, so every push is
 the "locked-preview-hidden" variant and a lock-screen preview leaks nothing (snapshot test asserts the allowed strings).

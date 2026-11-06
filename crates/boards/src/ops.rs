@@ -465,6 +465,7 @@ impl BoardService {
                 .bind(now)
                 .execute(&mut *tx)
                 .await?;
+            crate::changes::schedule_changed(&mut tx, board_id, now).await?;
         }
         tx.commit().await?;
         Ok(BatchResult {

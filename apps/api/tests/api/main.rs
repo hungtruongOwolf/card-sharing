@@ -18,6 +18,7 @@ mod board_invitations;
 mod board_manage;
 mod board_membership;
 mod board_minor_rule;
+mod board_notify;
 mod board_ops;
 mod board_pin_authz;
 mod board_read;

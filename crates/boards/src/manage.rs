@@ -74,6 +74,7 @@ impl BoardService {
         .bind(now)
         .execute(&mut *tx)
         .await?;
+        crate::changes::schedule_changed(&mut tx, board_id, now).await?;
         tx.commit().await?;
         self.summary(board_id, owner)
             .await?
@@ -245,6 +246,7 @@ impl BoardService {
             payload: json!({ "board_id": board_id, "owner_id": owner }),
         };
         outbox::publish(&mut *tx, &event, now).await?;
+        crate::changes::schedule_changed(&mut tx, board_id, now).await?;
         tx.commit().await?;
         Ok(true)
     }
