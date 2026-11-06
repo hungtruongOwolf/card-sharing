@@ -5,7 +5,7 @@ import {
   type InfiniteData,
 } from '@tanstack/react-query';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Image, StyleSheet, View } from 'react-native';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
 
 import { radius, space } from '@card-sharing/tokens';
 
@@ -31,8 +31,10 @@ export interface FeedScreenProps {
   reactions?: readonly string[];
   /** Offline outbox (T-78): a reaction that fails for a retryable reason is queued instead of undone. */
   queueReaction?: (cardId: string, reaction: string | null) => Promise<boolean>;
-  /** Clock seam for tests; must match the server clock that signed the URLs. */
+  /** Device clock seam for tests (signed-URL expiries are on the device clock, see `createCardsApi`). */
   now?: () => number;
+  /** Opens a card full screen (T-81). */
+  onOpen?: (cardId: string) => void;
   onCompose: () => void;
   onBack: () => void;
 }
@@ -85,7 +87,8 @@ function withReaction(data: FeedData | undefined, cardId: string, kind: string |
  * The feed (T-80, US-15): cards friends sent me, newest first, 30 per page with "Show older cards". Signed media URLs
  * are short-lived: the feed refetches just before the earliest one expires and whenever a picture fails to load (a
  * 403 after expiry), and never stores them. The newest items' metadata is kept for offline use (AC-15.1); offline,
- * those items show without pictures. Recipients react privately (US-17: only the sender sees it).
+ * those items show without pictures. Recipients react privately (US-17: only the sender sees it). Tapping a card
+ * opens it full screen (T-81).
  */
 export function FeedScreen({
   api,
@@ -93,6 +96,7 @@ export function FeedScreen({
   reactions,
   queueReaction,
   now = Date.now,
+  onOpen,
   onCompose,
   onBack,
 }: FeedScreenProps) {
@@ -240,6 +244,7 @@ export function FeedScreen({
           reactions={item.isMine ? [] : shownReactionIds}
           busy={react.isPending && react.variables?.card.id === item.id}
           onImageError={refreshUrls}
+          onOpen={onOpen ? () => onOpen(item.id) : undefined}
           onReact={(kind) =>
             react.mutate({ card: item, kind: kind === item.myReaction ? null : kind })
           }
@@ -280,6 +285,7 @@ function FeedRow({
   reactions,
   busy,
   onImageError,
+  onOpen,
   onReact,
 }: {
   item: CardItem;
@@ -287,6 +293,7 @@ function FeedRow({
   reactions: readonly string[];
   busy: boolean;
   onImageError: () => void;
+  onOpen?: () => void;
   onReact: (kind: string) => void;
 }) {
   const theme = useTheme();
@@ -296,26 +303,31 @@ function FeedRow({
   return (
     <CardFrame testID={`feed-card-${item.id}`}>
       <Text variant="label.md">{name}</Text>
-      {live ? (
-        <Image
-          testID={`feed-image-${item.id}`}
-          source={{ uri: live.renderUrl }}
-          style={styles.image}
-          resizeMode="contain"
-          accessible
-          accessibilityRole="image"
-          accessibilityLabel={label}
-          accessibilityIgnoresInvertColors
-          onError={onImageError}
-        />
-      ) : (
-        <View
-          testID={`feed-placeholder-${item.id}`}
-          style={[styles.image, { backgroundColor: theme.color.bg.paperAlt }]}
-          accessible
-          accessibilityLabel={label}
-        />
-      )}
+      <Pressable
+        testID={`feed-open-${item.id}`}
+        disabled={!onOpen}
+        onPress={onOpen}
+        accessible
+        accessibilityRole={onOpen ? 'button' : 'image'}
+        accessibilityLabel={label}
+        accessibilityHint={onOpen ? t('feed.card.openHint') : undefined}
+      >
+        {live ? (
+          <Image
+            testID={`feed-image-${item.id}`}
+            source={{ uri: live.renderUrl }}
+            style={styles.image}
+            resizeMode="contain"
+            accessibilityIgnoresInvertColors
+            onError={onImageError}
+          />
+        ) : (
+          <View
+            testID={`feed-placeholder-${item.id}`}
+            style={[styles.image, { backgroundColor: theme.color.bg.paperAlt }]}
+          />
+        )}
+      </Pressable>
       {item.caption ? <Text variant="hand.md">{item.caption}</Text> : null}
       <Text tone="muted">{sentLabel(item.sentAt, now)}</Text>
       {reactions.length > 0 ? (

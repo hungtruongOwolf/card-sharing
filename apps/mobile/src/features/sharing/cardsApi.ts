@@ -60,6 +60,13 @@ export interface CardMedia {
   readonly expiresAt: number;
 }
 
+/** The finish a card was made with (`style.finish`); `params` are untrusted until resolved against the registry. */
+export interface CardFinish {
+  readonly id: string;
+  readonly version: number;
+  readonly params: Readonly<Record<string, unknown>>;
+}
+
 /** A card as the caller may see it (validated `CardView`). */
 export interface CardItem {
   readonly id: string;
@@ -68,6 +75,8 @@ export interface CardItem {
   readonly altText: string | null;
   /** Null while the card is not delivered (my pending or held card) or when the body was malformed. */
   readonly media: CardMedia | null;
+  /** The card's finish (drawn live in the full-screen view when allowed), or null. */
+  readonly finish: CardFinish | null;
   /** Epoch milliseconds. */
   readonly sentAt: number;
   readonly isMine: boolean;
@@ -163,6 +172,13 @@ const MAX_URL_LENGTH = 4096;
 const MAX_REACTION_LENGTH = 64;
 /** Feed cursors are base64url (position + HMAC tag); bound the size so a hostile body cannot grow a request. */
 const CURSOR = /^[A-Za-z0-9_-]{1,512}$/;
+/** Registry ids (`fx.holo`): bounded so a hostile body cannot grow the UI. */
+const STYLE_ID = /^[a-z0-9][a-z0-9._-]{0,63}$/;
+/**
+ * A server `Date` header closer than this to the device clock is ignored: it has one-second precision, and the
+ * screens refetch {@link CardMedia.expiresAt} 30 s early anyway.
+ */
+const MIN_CLOCK_SKEW_MS = 2_000;
 /** Reaction ids as config/client.yaml names them (`react.heart`). */
 const REACTION = /^react\.[a-z0-9_-]{1,40}$/;
 
@@ -225,6 +241,13 @@ function mediaFrom(value: unknown): CardMedia | null {
   return { renderUrl, maskUrl: mediaUrl(v.mask_url), expiresAt };
 }
 
+function finishFrom(style: unknown): CardFinish | null {
+  const v = record(record(style)?.finish);
+  if (!v || typeof v.id !== 'string' || !STYLE_ID.test(v.id)) return null;
+  if (!Number.isSafeInteger(v.version) || (v.version as number) < 1) return null;
+  return { id: v.id, version: v.version as number, params: record(v.params) ?? {} };
+}
+
 /** Validates a `CardView`; a malformed card is dropped, never guessed. `original_url` is not kept. */
 export function parseCard(value: unknown): CardItem | null {
   const v = record(value);
@@ -243,6 +266,7 @@ export function parseCard(value: unknown): CardItem | null {
     caption: optionalText(v.caption),
     altText: optionalText(v.alt_text),
     media: mediaFrom(v.media),
+    finish: finishFrom(v.style),
     sentAt,
     isMine: v.is_mine,
     status: v.is_mine ? status(v.status) : null,
@@ -283,6 +307,23 @@ export function createCardBody(card: NewCard): Schemas['CreateCardRequest'] {
   };
 }
 
+/**
+ * Device clock minus server clock, from the response `Date` header (0 when absent, unreadable or within
+ * {@link MIN_CLOCK_SKEW_MS}). Signed-URL expiries are server times; screens compare them with the device clock.
+ */
+export function clockSkew(response: Response, deviceNow: number): number {
+  const serverNow = Date.parse(response.headers?.get('Date') ?? '');
+  if (!Number.isFinite(serverNow)) return 0;
+  const skew = deviceNow - serverNow;
+  return Math.abs(skew) < MIN_CLOCK_SKEW_MS ? 0 : skew;
+}
+
+/** The card with its signed-URL expiry moved onto the device clock (#263). */
+export function onDeviceClock(card: CardItem, skew: number): CardItem {
+  if (skew === 0 || !card.media) return card;
+  return { ...card, media: { ...card.media, expiresAt: card.media.expiresAt + skew } };
+}
+
 async function failure(response: Response): Promise<CardsError> {
   const { status: code } = response;
   switch (await problemCode(response)) {
@@ -305,16 +346,23 @@ async function failure(response: Response): Promise<CardsError> {
  * `AuthError` from the fetcher and signs the device out; everything else is a {@link CardsError}. Ids reach a URL
  * path only after validation. No `X-Attestation` header yet: the server runs attestation in `log_only` mode during
  * the beta (api-mvp "Attestation").
+ *
+ * Signed-URL expiries in returned cards are on the device clock (`now`): a phone whose clock runs far ahead of
+ * the server would otherwise treat fresh URLs as expired, and one far behind would keep dead ones (#263).
  */
-export function createCardsApi(fetcher: AuthClient['fetch']): CardsApi {
+export function createCardsApi(
+  fetcher: AuthClient['fetch'],
+  { now = Date.now }: { now?: () => number } = {},
+): CardsApi {
   const read = async <T>(
-    parse: (body: unknown) => T | null,
+    parse: (body: unknown, skew: number) => T | null,
     path: string,
     init: RequestInit,
   ): Promise<T> => {
     const response = await fetcher(path, init);
     if (!response.ok) throw await failure(response);
-    const parsed = parse(await response.json().catch(() => undefined));
+    const skew = clockSkew(response, now());
+    const parsed = parse(await response.json().catch(() => undefined), skew);
     if (parsed === null) throw new CardsError('unavailable', response.status);
     return parsed;
   };
@@ -347,7 +395,14 @@ export function createCardsApi(fetcher: AuthClient['fetch']): CardsApi {
         throw new CardsError('invalid');
       }
       const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : '';
-      return read(parseFeedPage, `/v1/feed${query}`, { method: 'GET' });
+      return read(
+        (body, skew) => {
+          const page = parseFeedPage(body);
+          return page && { ...page, items: page.items.map((card) => onDeviceClock(card, skew)) };
+        },
+        `/v1/feed${query}`,
+        { method: 'GET' },
+      );
     },
     async setReaction(cardId, kind) {
       if (!REACTION.test(kind)) throw new CardsError('invalid');
@@ -366,9 +421,14 @@ export function createCardsApi(fetcher: AuthClient['fetch']): CardsApi {
       if (!response.ok) throw await failure(response);
     },
     async getCard(id) {
-      return read((body) => parseCard(record(body)?.card), `/v1/cards/${checkedId(id)}`, {
-        method: 'GET',
-      });
+      return read(
+        (body, skew) => {
+          const card = parseCard(record(body)?.card);
+          return card && onDeviceClock(card, skew);
+        },
+        `/v1/cards/${checkedId(id)}`,
+        { method: 'GET' },
+      );
     },
   };
 }

@@ -26,6 +26,8 @@ export async function renderCards(
   screen: (apis: CardsApis) => ReactElement,
   {
     scheme = 'light',
+    reducedMotion = false,
+    deviceNow,
     prepare,
     queryClient = new QueryClient({
       // No garbage-collection timers: they would keep Jest alive for minutes after the last test.
@@ -36,6 +38,9 @@ export async function renderCards(
     }),
   }: {
     scheme?: ColorScheme;
+    reducedMotion?: boolean;
+    /** The device clock the card API puts signed-URL expiries on (default: the server clock). */
+    deviceNow?: (server: FakeCardsServer) => () => number;
     prepare?: (server: FakeCardsServer) => void;
     queryClient?: QueryClient;
   } = {},
@@ -50,7 +55,7 @@ export async function renderCards(
     now: server.now,
   });
   const apis: CardsApis = {
-    cards: createCardsApi(client.fetch),
+    cards: createCardsApi(client.fetch, { now: deviceNow?.(server) ?? server.now }),
     friends: createFriendsApi(client.fetch),
   };
   const user = userEvent.setup();
@@ -58,7 +63,7 @@ export async function renderCards(
     <QueryClientProvider client={queryClient}>
       <AuthProvider client={client}>{screen(apis)}</AuthProvider>
     </QueryClientProvider>,
-    { scheme },
+    { scheme, reducedMotion },
   );
   return { server, apis, user, client, queryClient, rendered };
 }
