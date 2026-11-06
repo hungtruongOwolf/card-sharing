@@ -26,7 +26,8 @@ use tokio::net::TcpListener;
 
 /// `api` serves HTTP; `api migrate` applies database migrations and exits (run it from the
 /// deploy pipeline before rolling out a new version); `api worker` runs the job worker
-/// (ADR-0006) until SIGTERM; `api seed` writes local demo data (development and test only).
+/// (ADR-0006) until SIGTERM; `api seed` writes local demo data (development and test only);
+/// `api replay-erasures` re-erases every erased account after a backup restore (T-152).
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let config = Config::from_env().context("invalid configuration")?;
@@ -50,9 +51,21 @@ async fn main() -> anyhow::Result<()> {
         Some("seed") => {
             return run_seed(&config, pool).await;
         }
+        Some("replay-erasures") => {
+            // Restore drill (T-152): after restoring a backup, erase every account that was erased
+            // before, so their data does not come back.
+            let state = build_state(&config, pool)?;
+            let replayed = state
+                .deletion()
+                .replay_erasures()
+                .await
+                .context("replaying erasures failed")?;
+            println!("Replayed {replayed} erasures.");
+            return Ok(());
+        }
         Some(other) => {
             anyhow::bail!(
-                "unknown command {other:?} (expected no argument, `migrate`, `worker` or `seed`)"
+                "unknown command {other:?} (expected no argument, `migrate`, `worker`, `seed` or `replay-erasures`)"
             )
         }
     }
@@ -354,17 +367,25 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
         Arc::clone(&board_service),
         Arc::clone(&media),
     ));
-    let deletion = Arc::new(privacy::DeletionService::new(
-        Arc::clone(&identity),
-        api::privacy::registry_from(
+    let deletion = Arc::new(
+        privacy::DeletionService::new(
+            Arc::clone(&identity),
+            api::privacy::registry_from(
+                Arc::clone(&identity),
+                Arc::clone(&cipher),
+                Arc::clone(&media),
+                board_service,
+            ),
+            privacy::PrivacySettings::from_path(&config.privacy_config_path)
+                .context("failed to load privacy config")?,
+        )
+        .with_sign_in(Arc::new(sign_in_service(
+            config,
             Arc::clone(&identity),
             Arc::clone(&cipher),
-            Arc::clone(&media),
-            board_service,
-        ),
-        privacy::PrivacySettings::from_path(&config.privacy_config_path)
-            .context("failed to load privacy config")?,
-    ));
+            Arc::clone(&clock),
+        )?)),
+    );
     let cdn: Arc<dyn sharing::CdnPurger> = match config.cdn_purger {
         api::config::SafetyAdapter::Fake
             if config.content_safety.env != api::config::AppEnv::Production =>
@@ -449,7 +470,10 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
             sharing::SNAPSHOT_JOB,
             Arc::new(sharing::SnapshotJob(snapshots)),
         )
-        .handle(privacy::HIDE_JOB, Arc::new(privacy::HideJob(deletion)))
+        .handle(
+            privacy::HIDE_JOB,
+            Arc::new(privacy::HideJob(Arc::clone(&deletion))),
+        )
         .handle(
             sharing::PURGE_JOB,
             Arc::new(sharing::PurgeJob(Arc::clone(&purger))),
@@ -500,6 +524,11 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
             "idempotency.purge",
             std::time::Duration::from_secs(3600),
             Arc::new(IdempotencyPurge(idempotency)),
+        )
+        .periodic(
+            "privacy.erase_due",
+            privacy::ERASE_INTERVAL,
+            Arc::new(privacy::EraseDue(deletion)),
         )
         .periodic(
             "sharing.purge_sweep",

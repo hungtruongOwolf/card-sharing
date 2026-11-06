@@ -7,6 +7,7 @@ pub mod deletion;
 pub mod settings;
 
 pub use deletion::{
-    DeletionError, DeletionRequest, DeletionService, HIDE_JOB, HideJob, RequestOutcome,
+    DeletionError, DeletionRequest, DeletionService, ERASE_INTERVAL, EraseDue, HIDE_JOB, HideJob,
+    RequestOutcome,
 };
 pub use settings::{PrivacySettings, SettingsError};

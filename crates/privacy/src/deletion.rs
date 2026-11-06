@@ -7,13 +7,20 @@
 //! period gives a session that can only see and cancel the deletion; cancelling restores the
 //! account. What `hide` did to other people's spaces (shared boards deleted, pins and memberships
 //! on other boards removed, public links revoked) stays done. After the grace period the account
-//! is erased (T-152).
+//! is erased (T-152): the periodic `privacy.erase_due` task revokes the account's Apple refresh
+//! tokens and runs every module's `erase` (rows and stored objects); the request row stays as a
+//! tombstone (`done`), and [`DeletionService::replay_erasures`] re-runs every finished erasure
+//! after a backup restore.
 
 use std::sync::Arc;
 
-use identity::IdentityService;
+use identity::{IdentityService, ProviderSignIn};
+use platform::audit::{self, Actor, AuditAction, AuditEntry};
 use platform::clock::SharedClock;
-use platform::jobs::{ClaimedJob, JobError, JobFuture, JobHandler, Lane, NewJob, enqueue};
+use platform::jobs::{
+    ClaimedJob, JobError, JobFuture, JobHandler, Lane, NewJob, PeriodicFuture, PeriodicTask,
+    enqueue,
+};
 use platform::personal_data::{PersonalDataError, PersonalDataRegistry};
 use serde_json::{Value, json};
 use sqlx::PgPool;
@@ -56,7 +63,11 @@ pub struct DeletionService {
     identity: Arc<IdentityService>,
     registry: PersonalDataRegistry,
     settings: PrivacySettings,
+    sign_in: Option<Arc<ProviderSignIn>>,
 }
+
+/// How often due erasures are looked for (well inside the 30-day limit, AC-29.1).
+pub const ERASE_INTERVAL: std::time::Duration = std::time::Duration::from_secs(600);
 
 impl DeletionService {
     pub fn new(
@@ -70,7 +81,97 @@ impl DeletionService {
             identity,
             registry,
             settings,
+            sign_in: None,
         }
+    }
+
+    /// Enables Apple refresh-token revocation at erasure.
+    #[must_use]
+    pub fn with_sign_in(mut self, sign_in: Arc<ProviderSignIn>) -> Self {
+        self.sign_in = Some(sign_in);
+        self
+    }
+
+    /// Erases every account whose grace period ended (or whose erasure was interrupted).
+    /// Returns how many were erased.
+    pub async fn erase_due(&self) -> Result<u64, DeletionError> {
+        let due: Vec<Uuid> = sqlx::query_scalar(
+            "SELECT account_id FROM privacy.deletion_requests
+             WHERE status IN ('pending', 'erasing') AND grace_until <= $1
+             ORDER BY grace_until LIMIT 50",
+        )
+        .bind(self.clock.now())
+        .fetch_all(&self.pool)
+        .await?;
+        let mut erased = 0;
+        for account in due {
+            if self.erase_account(account).await? {
+                erased += 1;
+            }
+        }
+        Ok(erased)
+    }
+
+    /// Erases one account whose grace period ended. `false` when it is not due (cancelled,
+    /// still in grace, already done). Idempotent: an interrupted erasure is simply run again.
+    pub async fn erase_account(&self, account: Uuid) -> Result<bool, DeletionError> {
+        let now = self.clock.now();
+        let claimed = sqlx::query(
+            "UPDATE privacy.deletion_requests SET status = 'erasing', updated_at = $2
+             WHERE account_id = $1 AND status IN ('pending', 'erasing') AND grace_until <= $2",
+        )
+        .bind(account)
+        .bind(now)
+        .execute(&self.pool)
+        .await?
+        .rows_affected();
+        if claimed == 0 {
+            return Ok(false);
+        }
+        if let Some(sign_in) = &self.sign_in {
+            match sign_in.revoke_apple_tokens(account).await {
+                Ok(revoked) if revoked > 0 => {
+                    tracing::info!(event = "privacy.apple_tokens_revoked", revoked);
+                }
+                Ok(_) => {}
+                Err(err) => tracing::warn!(error = %err, "Apple tokens not revoked before erasure"),
+            }
+        }
+        self.registry.erase(account).await?;
+        let mut tx = self.pool.begin().await?;
+        sqlx::query(
+            "UPDATE privacy.deletion_requests SET status = 'done', erased_at = $2, updated_at = $2
+             WHERE account_id = $1",
+        )
+        .bind(account)
+        .bind(now)
+        .execute(&mut *tx)
+        .await?;
+        let entry =
+            AuditEntry::new(Actor::System, AuditAction::AccountErased).target("account", account);
+        audit::record(&mut *tx, &entry, now)
+            .await
+            .map_err(|e| DeletionError::PersonalData(PersonalDataError::Other(e.to_string())))?;
+        tx.commit().await?;
+        tracing::info!(event = "privacy.account_erased", account_id = %account);
+        Ok(true)
+    }
+
+    /// Re-runs the erasure of every finished deletion (after restoring a backup, so data of
+    /// erased accounts does not come back). Returns how many tombstones were replayed.
+    pub async fn replay_erasures(&self) -> Result<u64, DeletionError> {
+        let done: Vec<Uuid> = sqlx::query_scalar(
+            "SELECT account_id FROM privacy.deletion_requests WHERE status = 'done'
+             ORDER BY erased_at",
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        let mut replayed = 0;
+        for account in done {
+            self.registry.erase(account).await?;
+            replayed += 1;
+        }
+        Ok(replayed)
     }
 
     pub fn settings(&self) -> &PrivacySettings {
@@ -191,6 +292,22 @@ impl JobHandler for HideJob {
                 .hide_if_pending(account)
                 .await
                 .map_err(|e| JobError::Retry(e.to_string()))
+        })
+    }
+}
+
+/// Periodic erasure of due accounts ([`ERASE_INTERVAL`]).
+pub struct EraseDue(pub Arc<DeletionService>);
+
+impl PeriodicTask for EraseDue {
+    fn run(&self) -> PeriodicFuture {
+        let service = Arc::clone(&self.0);
+        Box::pin(async move {
+            let erased = service.erase_due().await.map_err(|e| e.to_string())?;
+            if erased > 0 {
+                tracing::info!(event = "privacy.erase_due", erased);
+            }
+            Ok(())
         })
     }
 }

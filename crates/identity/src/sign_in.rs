@@ -122,6 +122,58 @@ impl ProviderSignIn {
         Ok(self.identity.find_account(&identity).await?)
     }
 
+    /// Revokes the account's stored Apple refresh tokens at Apple (App Store rule for account
+    /// deletion, T-152) and clears them. Best effort per token: a failure is logged and the token
+    /// is cleared anyway, so erasure never waits on Apple. Returns how many were revoked.
+    pub async fn revoke_apple_tokens(&self, account_id: Uuid) -> Result<usize, SignInError> {
+        let rows: Vec<(String, Vec<u8>)> = sqlx::query_as(
+            "SELECT subject, apple_refresh_token_enc FROM identity.auth_identities
+             WHERE account_id = $1 AND provider = 'apple' AND apple_refresh_token_enc IS NOT NULL",
+        )
+        .bind(account_id)
+        .fetch_all(self.identity.pool())
+        .await
+        .map_err(|e| SignInError::Store(StoreError::Database(e)))?;
+        let client_id = self
+            .verifiers
+            .get(&Provider::Apple)
+            .and_then(|v| v.client_ids().first().cloned());
+        let mut revoked = 0;
+        for (subject, encrypted) in rows {
+            let token = self
+                .cipher
+                .decrypt(&encrypted, &apple_refresh_token_aad(&subject))
+                .ok()
+                .and_then(|plain| String::from_utf8(plain).ok());
+            match (token, client_id.as_deref()) {
+                (Some(token), Some(client_id)) => {
+                    match self
+                        .apple_tokens
+                        .revoke_refresh_token(client_id, &token)
+                        .await
+                    {
+                        Ok(()) => revoked += 1,
+                        Err(err) => {
+                            tracing::warn!(error = %err, account_id = %account_id, "Apple token revocation failed")
+                        }
+                    }
+                }
+                _ => {
+                    tracing::warn!(account_id = %account_id, "Apple token not revoked (unreadable or Apple not configured)")
+                }
+            }
+            sqlx::query(
+                "UPDATE identity.auth_identities SET apple_refresh_token_enc = NULL
+                 WHERE provider = 'apple' AND subject = $1",
+            )
+            .bind(&subject)
+            .execute(self.identity.pool())
+            .await
+            .map_err(|e| SignInError::Store(StoreError::Database(e)))?;
+        }
+        Ok(revoked)
+    }
+
     pub async fn sign_in(
         &self,
         provider: Provider,

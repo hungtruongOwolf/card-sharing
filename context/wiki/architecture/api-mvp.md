@@ -552,6 +552,15 @@ grace period now issues a full session, and the policy flag `allow_deletion_pend
 route answers 401 `SESSION_REVOKED`, and refresh works for such sessions. Cancelling restores `active` (audit
 `privacy.deletion_cancelled`). Apple refresh-token revocation is done at erasure (T-152), not at the request. Tests:
 `tests/api/deletion.rs`.
+
+Erasure (T-152, #154): the worker's periodic `privacy.erase_due` (every 10 min) takes requests whose `grace_until` passed
+(`pending` or an interrupted `erasing`), marks them `erasing`, revokes the account's stored Apple refresh tokens at Apple (best
+effort, logged; the encrypted tokens are cleared either way, `ProviderSignIn::revoke_apple_tokens`, client id = the first
+configured Apple client id), runs every module's `PersonalData::erase` (reverse registration order, identity last: rows plus
+clean/quarantine objects; legal-hold evidence stays) and marks the tombstone `done` (`erased_at`, audit
+`privacy.account_erased`). Re-running is a no-op. Restore drill: `api replay-erasures` re-runs `erase` for every `done`
+tombstone after a backup restore. Erasure therefore lands within grace (7 d) + 10 min, far inside 30 days; backups age out
+on their own 30-day rotation. Tests: `tests/api/erasure.rs`.
 | POST | /v1/me/exports | Request data export (1 per 24 h) | re | user | self | 1/day u | `Idempotency-Key` | US-30 |
 | GET | /v1/me/exports/{id} | Status + signed ZIP URL (TTL 24 h) when ready | re | user | `user_id` = caller | 30/h u | yes | US-30 |
 | PUT | /v1/devices/{deviceId}/push-tokens | Upsert `{provider, kind: alert\|widget, token}` | ses | user | device owned by caller | 30/day d | yes | US-31, US-16 |
