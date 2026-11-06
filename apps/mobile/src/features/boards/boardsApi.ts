@@ -21,6 +21,8 @@ export type BoardsErrorKind =
   | 'unknown_registry_id'
   /** 409 `BOARD_LIMIT_REACHED` (AC-18.2). */
   | 'limit'
+  /** 409 `BOARD_VERSION_CONFLICT`: the board changed since `base_version` (T-112). */
+  | 'conflict'
   /** 403 (onboarding, suspension). */
   | 'not_allowed'
   | 'rate_limited'
@@ -83,6 +85,11 @@ export interface BoardsApi {
   list(): Promise<BoardMeta[]>;
   create(board: { id: string; title: string; backdrop: RegistryRef | null }): Promise<BoardMeta>;
   get(id: string, sinceVersion?: number): Promise<BoardDetail>;
+  /**
+   * `PATCH /v1/boards/{id}` (owner only, T-112): changes the backdrop (null = the default) if the board is still at
+   * `baseVersion`; the answer is the board at its new version.
+   */
+  updateBackdrop(id: string, baseVersion: number, backdrop: RegistryRef | null): Promise<BoardMeta>;
   /** 1..{@link MAX_OPS_PER_BATCH} ops with distinct op ids, applied in order. */
   ops(id: string, ops: readonly PinOp[]): Promise<OpsResponse>;
 }
@@ -254,6 +261,7 @@ export async function boardsFailure(response: Response): Promise<BoardsError> {
   const code = await problemCode(response);
   if (code === 'UNKNOWN_REGISTRY_ID') return new BoardsError('unknown_registry_id', status);
   if (code === 'BOARD_LIMIT_REACHED') return new BoardsError('limit', status);
+  if (code === 'BOARD_VERSION_CONFLICT') return new BoardsError('conflict', status);
   if (status === 404) return new BoardsError('not_found', status);
   if (status === 400) return new BoardsError('invalid', status);
   if (status === 403) return new BoardsError('not_allowed', status);
@@ -314,6 +322,16 @@ export function createBoardsApi(
           ? `?since_version=${sinceVersion}`
           : '';
       return read(parseBoardDetail, `/v1/boards/${checkedId(id)}${query}`, { method: 'GET' });
+    },
+    updateBackdrop: (id, baseVersion, backdrop) => {
+      if (!Number.isSafeInteger(baseVersion) || baseVersion < 0) {
+        return Promise.reject(new BoardsError('invalid'));
+      }
+      return read(
+        (body) => (isObject(body) ? parseBoardMeta(body.board) : null),
+        `/v1/boards/${checkedId(id)}`,
+        { ...json({ base_version: baseVersion, backdrop }), method: 'PATCH' },
+      );
     },
     ops: (id, ops) => {
       if (ops.length === 0 || ops.length > MAX_OPS_PER_BATCH) {

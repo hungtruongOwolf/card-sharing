@@ -85,7 +85,7 @@ function view(local: LocalBoard): Board {
     {
       id: local.meta.id,
       title: local.meta.title,
-      backdrop: local.meta.backdrop,
+      backdrop: local.pendingBackdrop ? local.pendingBackdrop.backdrop : local.meta.backdrop,
       role: local.meta.role,
       version: local.meta.version,
       pins: local.pins,
@@ -109,6 +109,11 @@ export function createSyncedBoardRepository({
   const listeners = new Set<(id: string) => void>();
   let loaded: Promise<void> | null = null;
 
+  /** Queued pin ops plus a queued backdrop change. */
+  const pendingOf = (id: string) => {
+    const board = boards.get(id);
+    return board ? board.pending.length + (board.pendingBackdrop ? 1 : 0) : 0;
+  };
   const notify = (id: string) => listeners.forEach((listener) => listener(id));
   const ensureLoaded = () => {
     loaded ??= (async () => {
@@ -203,6 +208,49 @@ export function createSyncedBoardRepository({
     await put({ ...current, meta: detail.board, pins });
   }
 
+  /**
+   * Sends a queued backdrop change after the pull, so `base_version` is the version just read. A conflict (the board
+   * changed meanwhile) or a refusal (unknown backdrop, no longer the owner) drops the change and keeps the server's
+   * backdrop, which the pull already brought (#298). Returns the number of conflicts (0 or 1).
+   */
+  async function pushBackdrop(id: string): Promise<number> {
+    const board = boards.get(id);
+    const change = board?.pendingBackdrop;
+    if (!board || !change) return 0;
+    const clear = async (meta = boards.get(id)?.meta) => {
+      const latest = boards.get(id);
+      if (!latest || !meta) return;
+      const { pendingBackdrop: _sent, ...rest } = latest;
+      // A newer change made while this one was in flight stays queued for the next sync.
+      const kept =
+        latest.pendingBackdrop !== change ? { pendingBackdrop: latest.pendingBackdrop } : {};
+      await put({ ...rest, ...kept, meta });
+    };
+    if (board.meta.role !== 'owner') {
+      await clear();
+      return 0;
+    }
+    try {
+      const meta = await api.updateBackdrop(id, board.meta.version, change.backdrop);
+      await clear({ ...meta, role: board.meta.role });
+      return 0;
+    } catch (error) {
+      if (error instanceof BoardsError && error.kind === 'conflict') {
+        await clear();
+        await pull(id);
+        return 1;
+      }
+      if (
+        error instanceof BoardsError &&
+        (error.kind === 'unknown_registry_id' || error.kind === 'invalid')
+      ) {
+        await clear();
+        return 0;
+      }
+      throw error;
+    }
+  }
+
   async function runSync(id: string): Promise<SyncOutcome> {
     await ensureLoaded();
     const board = boards.get(id);
@@ -219,7 +267,8 @@ export function createSyncedBoardRepository({
       }
       const { conflicts, rejected } = await push(id);
       await pull(id);
-      return { kind: 'synced', conflicts, rejected };
+      const backdropConflict = await pushBackdrop(id);
+      return { kind: 'synced', conflicts: conflicts + backdropConflict, rejected };
     } catch (error) {
       if (sessionEnded(error)) return { kind: 'signed_out' };
       if (error instanceof BoardsError && error.kind === 'not_found') {
@@ -235,7 +284,7 @@ export function createSyncedBoardRepository({
         const latest = boards.get(id);
         if (latest) await put({ ...latest, pending: [] });
       }
-      return { kind: 'offline', pending: boards.get(id)?.pending.length ?? 0 };
+      return { kind: 'offline', pending: pendingOf(id) };
     }
   }
 
@@ -277,8 +326,10 @@ export function createSyncedBoardRepository({
       await ensureLoaded();
       const board = boards.get(id);
       if (!board) return null;
-      // Sent with the board when it is created; changing it later waits for PATCH /v1/boards/{id} (T-112).
-      const next = { ...board, meta: { ...board.meta, backdrop } };
+      // A board not created yet sends its backdrop with POST /v1/boards; a created one queues a PATCH (#298).
+      const next: LocalBoard = board.created
+        ? { ...board, pendingBackdrop: { backdrop } }
+        : { ...board, meta: { ...board.meta, backdrop } };
       await put(next);
       return view(next);
     },
@@ -306,7 +357,7 @@ export function createSyncedBoardRepository({
         if (board.created && !listed.has(id)) await drop(id);
       }
     },
-    pendingCount: (id) => boards.get(id)?.pending.length ?? 0,
+    pendingCount: pendingOf,
     subscribe(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);
