@@ -5,6 +5,7 @@ pub mod attestation;
 pub mod auth;
 pub mod blocks;
 pub mod board_ops;
+pub mod board_read;
 pub mod boards;
 pub mod cards;
 pub mod devices;

@@ -5,8 +5,8 @@ use utoipa_axum::routes;
 
 use crate::access::{ApiRouter, Idempotency, RoutePolicy};
 use crate::routes::{
-    activity, age_signal, app_config, attestation, auth, blocks, board_ops, boards, cards, devices,
-    feed, friend_requests, friends, health, invites, me, media, media_files,
+    activity, age_signal, app_config, attestation, auth, blocks, board_ops, board_read, boards,
+    cards, devices, feed, friend_requests, friends, health, invites, me, media, media_files,
     notification_preferences, public_invites, sessions, user_search, widget,
 };
 use crate::state::AppState;
@@ -306,7 +306,7 @@ pub fn router() -> ApiRouter<AppState> {
         )
         .route(
             RoutePolicy::session().limited("boards.read"),
-            routes!(boards::get_board),
+            routes!(board_read::get_board),
         )
         .route(
             RoutePolicy::session().limited("boards.ops"),

@@ -163,6 +163,32 @@ impl CardService {
         row.map(|row| row.into_visible(viewer)).transpose()
     }
 
+    /// The cards among `card_ids` that `viewer` may see (the same predicate as [`Self::visible`]),
+    /// in no particular order. Unknown and invisible ids are simply absent.
+    pub async fn visible_many(
+        &self,
+        viewer: Uuid,
+        card_ids: &[Uuid],
+    ) -> Result<Vec<VisibleCard>, CardError> {
+        let rows: Vec<CardRow> = sqlx::query_as(concat!(
+            "SELECT ",
+            card_columns!(),
+            " FROM cards.cards c
+              LEFT JOIN cards.card_recipients r ON r.card_id = c.id AND r.recipient_id = $2
+              WHERE c.id = ANY($1)
+                AND ((c.owner_id = $2 AND c.status <> 'deleted') OR ",
+            recipient_visible_sql!(),
+            ")"
+        ))
+        .bind(card_ids)
+        .bind(viewer)
+        .fetch_all(&self.pool)
+        .await?;
+        rows.into_iter()
+            .map(|row| row.into_visible(viewer))
+            .collect()
+    }
+
     /// The hold on one of `owner`'s cards, if any.
     pub async fn hold_of(&self, owner: Uuid, card_id: Uuid) -> Result<Option<HoldView>, CardError> {
         let row: Option<(String, OffsetDateTime)> = sqlx::query_as(

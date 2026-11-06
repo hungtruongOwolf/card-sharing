@@ -223,38 +223,3 @@ pub async fn list_boards(
 pub(crate) fn board_id(raw: &str) -> Result<Uuid, ApiError> {
     Uuid::try_parse(raw).map_err(|_| ApiError::NotFound)
 }
-
-/// Read one board. Auth: ses. Members only.
-///
-/// Anyone who is not a member of the board, and any malformed id, gets the same 404 as a missing
-/// or deleted board.
-#[utoipa::path(
-    get,
-    path = "/v1/boards/{id}",
-    tag = TAG,
-    operation_id = "getBoard",
-    security(("bearer" = [])),
-    params(("id" = String, Path, format = "uuid", description = "The board id.")),
-    responses(
-        (status = OK, description = "The board as the caller sees it.", body = BoardEnvelope),
-        (status = UNAUTHORIZED, description = "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.", body = ProblemDetails),
-        (status = FORBIDDEN, description = "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.", body = ProblemDetails),
-        (status = NOT_FOUND, description = "NOT_FOUND: no board of which the caller is a member.", body = ProblemDetails),
-        (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED.", body = ProblemDetails),
-    )
-)]
-pub async fn get_board(
-    State(state): State<AppState>,
-    caller: Caller,
-    axum::extract::Path(id): axum::extract::Path<String>,
-) -> Result<Json<BoardEnvelope>, ApiError> {
-    let board = state
-        .boards
-        .summary(board_id(&id)?, caller.0.account_id)
-        .await
-        .map_err(board_error)?
-        .ok_or(ApiError::NotFound)?;
-    Ok(Json(BoardEnvelope {
-        board: board.into(),
-    }))
-}

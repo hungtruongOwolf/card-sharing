@@ -269,8 +269,13 @@ export interface paths {
         };
         /**
          * Read one board. Auth: ses. Members only.
-         * @description Anyone who is not a member of the board, and any malformed id, gets the same 404 as a missing
-         *     or deleted board.
+         * @description Each card pin is resolved for the caller on every read: the card (with signed media) only if
+         *     it is active and the caller is its owner or a recipient who is still a friend of its owner
+         *     with no block either way; otherwise a `private_tile` without any card data; a deleted card's
+         *     pin is `removed`. With `since_version`, only pins changed since that board version (tombstones
+         *     as `removed`) plus every live card pin come back (`full: false`); without it, or with a
+         *     version ahead of the board, a full snapshot (`full: true`). Anyone who is not a member, and
+         *     any malformed id, gets the same 404 as a missing or deleted board.
          */
         get: operations["getBoard"];
         put?: never;
@@ -1240,12 +1245,53 @@ export interface components {
             blocked_at: string;
             user: components["schemas"]["UserSummaryView"];
         };
+        BoardDetail: {
+            /** @description `board.version` is the cursor for the next `since_version`. */
+            board: components["schemas"]["BoardView"];
+            /** @description `true`: a full snapshot (replace every local pin); `false`: a delta to merge. */
+            full: boolean;
+            /** @description Ordered by `z_key` (bottom first), then id. */
+            pins: components["schemas"]["BoardPinView"][];
+        };
         BoardEnvelope: {
             board: components["schemas"]["BoardView"];
         };
         BoardList: {
             /** @description Boards the caller owns or collaborates on, most recently changed first. */
             items: components["schemas"]["BoardView"][];
+        };
+        /**
+         * @description One pin as the caller may see it, discriminated by `kind`:
+         *     - `card`: `card` holds the card (per-viewer signed media);
+         *     - `private_tile`: a card the caller may not view — no card id, owner, caption or media;
+         *     - `decoration`: `decoration` holds the registry reference;
+         *     - `removed`: the pin (or its card) is gone; drop it locally.
+         */
+        BoardPinView: {
+            card?: components["schemas"]["CardView"] | null;
+            decoration?: Record<string, never> | null;
+            /** Format: uuid */
+            id: string;
+            kind: string;
+            /** @description The caller created this pin (collaborators may move/remove only these); absent on `removed`. */
+            mine?: boolean | null;
+            /** Format: double */
+            rotation?: number | null;
+            /** Format: double */
+            scale?: number | null;
+            /**
+             * Format: int64
+             * @description The pin's version (`base_version` for the next update).
+             */
+            version: number;
+            /**
+             * Format: double
+             * @description Placement; absent on `removed`.
+             */
+            x?: number | null;
+            /** Format: double */
+            y?: number | null;
+            z_key?: string | null;
         };
         /** @description A board's metadata as the caller sees it. */
         BoardView: {
@@ -2863,7 +2909,13 @@ export interface operations {
     };
     getBoard: {
         parameters: {
-            query?: never;
+            query?: {
+                /**
+                 * @description The `board.version` of the caller's last sync: only pins changed since then (tombstones
+                 *     included) plus every live card pin are returned. Omit for a full snapshot.
+                 */
+                since_version?: number;
+            };
             header?: never;
             path: {
                 /** @description The board id. */
@@ -2879,7 +2931,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BoardEnvelope"];
+                    "application/json": components["schemas"]["BoardDetail"];
+                };
+            };
+            /** @description VALIDATION_FAILED: bad since_version. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
             /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
@@ -2909,8 +2970,17 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description RATE_LIMITED. */
+            /** @description RATE_LIMITED (requests or the signed-URL budget). */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description TEMPORARILY_UNAVAILABLE: media signing not configured. */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

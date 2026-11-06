@@ -286,7 +286,7 @@ pub async fn create_card(
 }
 
 /// The sender of a card as viewers see it.
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct CardSenderView {
     #[schema(format = "uuid")]
     pub id: String,
@@ -296,7 +296,7 @@ pub struct CardSenderView {
 }
 
 /// Signed media of a card. URLs live until `expires_at`; refetch the card after that.
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct CardMediaView {
     pub render_url: String,
     pub mask_url: Option<String>,
@@ -309,7 +309,7 @@ pub struct CardMediaView {
 }
 
 /// Classifier hold (owner only).
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct CardHoldView {
     /// `nudity_classifier`.
     pub reason: &'static str,
@@ -321,7 +321,7 @@ pub struct CardHoldView {
 }
 
 /// A card as one viewer may see it (card read, feed items).
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct CardView {
     #[schema(format = "uuid")]
     pub id: String,

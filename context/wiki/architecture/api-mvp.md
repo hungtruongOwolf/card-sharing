@@ -370,6 +370,16 @@ one query: a collaborator may pin only their own `active` cards; the owner also 
 card-read predicate (`cards::recipient_visible_sql!`: still friends, no block, card active, sender active). The pinner's own
 `held_review` card → `CARD_HELD_FOR_REVIEW`; anything else (a stranger's card, a received card after unfriend/block/delete, a
 collaborator's received card, an unknown id) → `NOT_FOUND`, the same as a missing card.
+Implemented (T-101, `crates/boards/src/resolve.rs`, `apps/api/src/routes/board_read.rs`): `GET /v1/boards/{id}?since_version=N` →
+`{board, pins, full}`. Each card pin is resolved for the caller on every read by the pure `resolve_pin` over facts from one batched query
+(card status + the card-read predicate for the viewer): `card` (the `CardView`, built through `CardService::visible_many` + `card_views`
+so media are signed per viewer and charged to `media.urls`; a card is shown only when the resolution **and** the card-read predicate
+agree, deduplicated per card), `private_tile` (layout only: no card id, owner, caption or media), `decoration`, or `removed` (deleted or
+purged card, or a tombstone). An owner's own held/pending card on a board is a `private_tile` (boards show active cards only). Pin
+items: `{id, kind, version, x, y, scale, rotation, z_key, mine, card? | decoration?}`; `removed` = `{id, kind, version}`. Without
+`since_version` (or with one ahead of the board): every live pin, `full: true`. With N: pins changed after N including tombstones
+**plus every live card pin**, `full: false` — card visibility changes without a board change (unfriend, block, delete, suspension), so
+card pins are always re-resolved. Negative or malformed `since_version`, unknown query fields → 400.
 
 ### Sharing (public links) & web
 | Method | Path | Purpose | Auth | Role | Object rule | Rate limit | Idem. | US |
