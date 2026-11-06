@@ -5,11 +5,11 @@ use utoipa_axum::routes;
 
 use crate::access::{ApiRouter, Idempotency, RoutePolicy};
 use crate::routes::{
-    activity, age_signal, app_config, attestation, auth, blocks, board_invitations, board_members,
-    board_ops, board_read, boards, cards, deletion, dev_auth, devices, exports, feed,
-    friend_requests, friends, health, invites, me, media, media_files, notification_preferences,
-    public_boards, public_invites, public_links, public_reports, reports, sessions, user_search,
-    widget,
+    activity, admin_auth, age_signal, app_config, attestation, auth, blocks, board_invitations,
+    board_members, board_ops, board_read, boards, cards, deletion, dev_auth, devices, exports,
+    feed, friend_requests, friends, health, invites, me, media, media_files,
+    notification_preferences, public_boards, public_invites, public_links, public_reports, reports,
+    sessions, user_search, widget,
 };
 use crate::state::AppState;
 use platform::problem::ProblemDetails;
@@ -18,6 +18,8 @@ use platform::problem::ProblemDetails;
 pub const BEARER: &str = "bearer";
 /// Name of the web server's credential scheme (`svc`, header `X-Service-Credential`).
 pub const SERVICE: &str = "service";
+/// Name of the staff session cookie scheme (`staff`, cookie `__Host-staff_session`, T-144).
+pub const STAFF: &str = "staff";
 
 #[derive(OpenApi)]
 #[openapi(
@@ -45,6 +47,7 @@ Every operation carries `x-policy` (auth kind, role, attestation) from its deny-
         (name = media::TAG, description = "Image uploads into quarantine and their state (ADR-0005)"),
         (name = app_config::TAG, description = "Public client configuration"),
         (name = public_invites::TAG, description = "Server-to-server routes for the web share app (svc, /v1/public/*)"),
+        (name = admin_auth::TAG, description = "Staff sign-in with MFA and staff routes (staff cookie + X-CSRF-Token, /v1/admin/*)"),
         (name = dev_auth::TAG, description = "Development-only sign-in for the seed users (#306); absent (404) unless API_DEV_SIGN_IN=true on a development or test server")
     )
 )]
@@ -58,6 +61,10 @@ impl Modify for BearerScheme {
         components.add_security_scheme(
             BEARER,
             SecurityScheme::Http(Http::new(HttpAuthScheme::Bearer)),
+        );
+        components.add_security_scheme(
+            STAFF,
+            SecurityScheme::ApiKey(ApiKey::Cookie(ApiKeyValue::new("__Host-staff_session"))),
         );
         components.add_security_scheme(
             SERVICE,
@@ -146,6 +153,26 @@ pub fn router() -> ApiRouter<AppState> {
         .route(
             RoutePolicy::public().limited("auth.dev"),
             routes!(dev_auth::dev_sign_in),
+        )
+        .route(
+            RoutePolicy::public().limited("admin.auth"),
+            routes!(admin_auth::staff_login),
+        )
+        .route(
+            RoutePolicy::public().limited("admin.auth"),
+            routes!(admin_auth::staff_mfa),
+        )
+        .route(
+            RoutePolicy::staff_moderator().limited("admin.session"),
+            routes!(admin_auth::staff_logout),
+        )
+        .route(
+            RoutePolicy::staff_moderator().limited("admin.read"),
+            routes!(admin_auth::get_staff_me),
+        )
+        .route(
+            RoutePolicy::staff_admin().limited("admin.read"),
+            routes!(admin_auth::list_staff),
         )
         .route(
             RoutePolicy::public().limited("auth.refresh"),

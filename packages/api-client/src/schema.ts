@@ -81,6 +81,97 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Step one of a staff sign-in. Auth: none. Any failure (bad proof, not staff, disabled,
+         *     inactive account) is the same 401.
+         */
+        post: operations["staffLogin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** End this staff session. Auth: staff (moderator or admin) + `X-CSRF-Token`. */
+        post: operations["staffLogout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/auth/mfa": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Step two: the TOTP code. Auth: none (the login token is the credential). Sets the staff
+         *     session cookie.
+         */
+        post: operations["staffMfa"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The signed-in staff member. Auth: staff (moderator or admin). */
+        get: operations["getStaffMe"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/staff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every staff member. Auth: staff, **admin** only. */
+        get: operations["listStaff"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/attestation/apple-keys": {
         parameters: {
             query?: never;
@@ -2756,6 +2847,62 @@ export interface components {
              */
             findable_by_handle: boolean;
         };
+        StaffLoginChallenge: {
+            /** Format: date-time */
+            expires_at: string;
+            /** @description Opaque, single use, 5 minutes: send it with the TOTP code to `/v1/admin/auth/mfa`. */
+            mfa_token: string;
+        };
+        /** @description Body of `POST /v1/admin/auth/login`: a fresh provider proof, as for re-auth. */
+        StaffLoginRequest: {
+            id_token: string;
+            nonce: string;
+            provider: components["schemas"]["ReauthProvider"];
+        };
+        StaffMeView: {
+            /** Format: date-time */
+            absolute_expires_at: string;
+            /** Format: uuid */
+            account_id: string;
+            /** Format: date-time */
+            idle_expires_at: string;
+            /** @example moderator */
+            role: string;
+        };
+        StaffMemberList: {
+            items: components["schemas"]["StaffMemberView"][];
+        };
+        StaffMemberView: {
+            /** Format: uuid */
+            account_id: string;
+            /** Format: date-time */
+            created_at: string;
+            disabled: boolean;
+            /** @example moderator */
+            role: string;
+        };
+        /** @description Body of `POST /v1/admin/auth/mfa`. */
+        StaffMfaRequest: {
+            /**
+             * @description The 6-digit code from the authenticator app.
+             * @example 123456
+             */
+            code: string;
+            mfa_token: string;
+        };
+        StaffSessionView: {
+            /** Format: date-time */
+            absolute_expires_at: string;
+            /** @description Repeat in `X-CSRF-Token` on every state-changing staff request. Keep it in memory only. */
+            csrf_token: string;
+            /** Format: date-time */
+            idle_expires_at: string;
+            /**
+             * @description `moderator` or `admin`.
+             * @example moderator
+             */
+            role: string;
+        };
         /**
          * @description The filter's settings as served to clients in `GET /v1/config` (#213): the sanitizer caps and
          *     the term lists exactly as written in `config/text_filter.yaml`. For instant hints in the app
@@ -3016,6 +3163,229 @@ export interface operations {
             };
             /** @description RATE_LIMITED. */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    staffLogin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaffLoginRequest"];
+            };
+        };
+        responses: {
+            /** @description Proof accepted: enter the TOTP code next. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffLoginChallenge"];
+                };
+            };
+            /** @description VALIDATION_FAILED. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description UNAUTHENTICATED (one answer for every refusal). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED (5 per 15 minutes per IP). */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description TEMPORARILY_UNAVAILABLE (provider not configured or unreachable). */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    staffLogout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Signed out; the cookie is cleared. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description UNAUTHENTICATED: no live staff session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description FORBIDDEN: missing or wrong X-CSRF-Token, or IP not allowed. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    staffMfa: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaffMfaRequest"];
+            };
+        };
+        responses: {
+            /** @description Signed in: `Set-Cookie: __Host-staff_session=...; HttpOnly; Secure; SameSite=Strict; Path=/`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffSessionView"];
+                };
+            };
+            /** @description VALIDATION_FAILED. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description UNAUTHENTICATED: unknown, expired or used login token, wrong or replayed code, too many attempts. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    getStaffMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The caller's staff role and session expiry. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffMeView"];
+                };
+            };
+            /** @description UNAUTHENTICATED: no live staff session (app bearer tokens never count). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description FORBIDDEN: IP not on the staff allow-list. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    listStaff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Staff members, newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffMemberList"];
+                };
+            };
+            /** @description UNAUTHENTICATED: no live staff session. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description FORBIDDEN: not an admin, or IP not allowed. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

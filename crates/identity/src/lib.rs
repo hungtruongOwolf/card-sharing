@@ -18,9 +18,11 @@ mod reauth;
 mod service;
 mod sessions;
 mod sign_in;
+pub mod staff;
 #[cfg(any(test, feature = "test-support"))]
 pub mod testing;
 mod token;
+pub mod totp;
 mod widget;
 
 pub use age_gate::{AgeGateError, AgeOutcome, AgeSubmission, age_on};
@@ -43,6 +45,10 @@ pub use service::{
 };
 pub use sessions::SessionInfo;
 pub use sign_in::{ProviderSignIn, SignInError, SignInRequest, SignedIn, apple_refresh_token_aad};
+pub use staff::{
+    LoginChallenge, STAFF_ABSOLUTE, STAFF_IDLE, StaffError, StaffMember, StaffPrincipal, StaffRole,
+    StaffService, StaffSessionIssued, csrf_matches,
+};
 pub use token::{SecretToken, TokenHash};
 pub use widget::WidgetToken;
 

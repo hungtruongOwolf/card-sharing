@@ -12,6 +12,7 @@ mod idempotency;
 mod json;
 mod policy;
 mod router;
+mod staff;
 
 pub use attest::ATTESTATION_HEADER;
 pub use caller::{
@@ -28,3 +29,4 @@ pub use policy::{
     authorize_service,
 };
 pub use router::{ApiRouter, documented_operations};
+pub use staff::{ADMIN_PREFIX, CSRF_HEADER, STAFF_COOKIE, StaffCaller};

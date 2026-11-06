@@ -30,7 +30,8 @@ pub enum AuthKind {
     /// `X-Client-IP`. Only for `/v1/public/*` routes with role guest; checked by
     /// [`authorize_service`], never by [`authorize`] (which always denies it).
     Service,
-    /// `staff`: staff cookie session with MFA. Not implemented yet: always denied.
+    /// `staff`: staff cookie session with MFA (T-144), checked by the staff layer
+    /// (`access/staff.rs`), never by [`authorize`] (which always denies it).
     Staff,
 }
 
@@ -145,6 +146,16 @@ impl RoutePolicy {
     /// `re` / user: full session plus a fresh re-auth token (`X-Reauth`).
     pub const fn reauth() -> Self {
         Self::new(AuthKind::Reauth, Role::User)
+    }
+
+    /// `staff` / moderator: staff session cookie with MFA; moderators and admins (T-144).
+    pub const fn staff_moderator() -> Self {
+        Self::new(AuthKind::Staff, Role::Moderator)
+    }
+
+    /// `staff` / admin: staff session cookie with MFA; admins only (T-144).
+    pub const fn staff_admin() -> Self {
+        Self::new(AuthKind::Staff, Role::Admin)
     }
 
     /// `svc` / guest: called by the web server on behalf of an anonymous visitor.

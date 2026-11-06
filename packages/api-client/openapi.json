@@ -264,6 +264,310 @@
         }
       }
     },
+    "/v1/admin/auth/login": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Step one of a staff sign-in. Auth: none. Any failure (bad proof, not staff, disabled,\ninactive account) is the same 401.",
+        "operationId": "staffLogin",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StaffLoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Proof accepted: enter the TOTP code next.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffLoginChallenge"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED (one answer for every refusal).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED (5 per 15 minutes per IP).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "TEMPORARILY_UNAVAILABLE (provider not configured or unreachable).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "none",
+          "rateLimit": "admin.auth",
+          "role": "guest",
+          "versionGate": true
+        }
+      }
+    },
+    "/v1/admin/auth/logout": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "End this staff session. Auth: staff (moderator or admin) + `X-CSRF-Token`.",
+        "operationId": "staffLogout",
+        "responses": {
+          "204": {
+            "description": "Signed out; the cookie is cleared."
+          },
+          "401": {
+            "description": "UNAUTHENTICATED: no live staff session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN: missing or wrong X-CSRF-Token, or IP not allowed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "staff": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "staff",
+          "rateLimit": "admin.session",
+          "role": "moderator",
+          "versionGate": true
+        }
+      }
+    },
+    "/v1/admin/auth/mfa": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Step two: the TOTP code. Auth: none (the login token is the credential). Sets the staff\nsession cookie.",
+        "operationId": "staffMfa",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StaffMfaRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Signed in: `Set-Cookie: __Host-staff_session=...; HttpOnly; Secure; SameSite=Strict; Path=/`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffSessionView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED: unknown, expired or used login token, wrong or replayed code, too many attempts.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "none",
+          "rateLimit": "admin.auth",
+          "role": "guest",
+          "versionGate": true
+        }
+      }
+    },
+    "/v1/admin/me": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "The signed-in staff member. Auth: staff (moderator or admin).",
+        "operationId": "getStaffMe",
+        "responses": {
+          "200": {
+            "description": "The caller's staff role and session expiry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffMeView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED: no live staff session (app bearer tokens never count).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN: IP not on the staff allow-list.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "staff": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "staff",
+          "rateLimit": "admin.read",
+          "role": "moderator",
+          "versionGate": true
+        }
+      }
+    },
+    "/v1/admin/staff": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Every staff member. Auth: staff, **admin** only.",
+        "operationId": "listStaff",
+        "responses": {
+          "200": {
+            "description": "Staff members, newest first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffMemberList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED: no live staff session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN: not an admin, or IP not allowed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "staff": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "staff",
+          "rateLimit": "admin.read",
+          "role": "admin",
+          "versionGate": true
+        }
+      }
+    },
     "/v1/attestation/apple-keys": {
       "post": {
         "tags": [
@@ -10449,6 +10753,166 @@
           }
         }
       },
+      "StaffLoginChallenge": {
+        "type": "object",
+        "required": [
+          "mfa_token",
+          "expires_at"
+        ],
+        "properties": {
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "mfa_token": {
+            "type": "string",
+            "description": "Opaque, single use, 5 minutes: send it with the TOTP code to `/v1/admin/auth/mfa`."
+          }
+        }
+      },
+      "StaffLoginRequest": {
+        "type": "object",
+        "description": "Body of `POST /v1/admin/auth/login`: a fresh provider proof, as for re-auth.",
+        "required": [
+          "provider",
+          "id_token",
+          "nonce"
+        ],
+        "properties": {
+          "id_token": {
+            "type": "string",
+            "maxLength": 8192,
+            "minLength": 1
+          },
+          "nonce": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 16
+          },
+          "provider": {
+            "$ref": "#/components/schemas/ReauthProvider"
+          }
+        },
+        "additionalProperties": false
+      },
+      "StaffMeView": {
+        "type": "object",
+        "required": [
+          "account_id",
+          "role",
+          "idle_expires_at",
+          "absolute_expires_at"
+        ],
+        "properties": {
+          "absolute_expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "account_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "idle_expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "role": {
+            "type": "string",
+            "example": "moderator"
+          }
+        }
+      },
+      "StaffMemberList": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StaffMemberView"
+            }
+          }
+        }
+      },
+      "StaffMemberView": {
+        "type": "object",
+        "required": [
+          "account_id",
+          "role",
+          "disabled",
+          "created_at"
+        ],
+        "properties": {
+          "account_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "disabled": {
+            "type": "boolean"
+          },
+          "role": {
+            "type": "string",
+            "example": "moderator"
+          }
+        }
+      },
+      "StaffMfaRequest": {
+        "type": "object",
+        "description": "Body of `POST /v1/admin/auth/mfa`.",
+        "required": [
+          "mfa_token",
+          "code"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "The 6-digit code from the authenticator app.",
+            "example": "123456",
+            "maxLength": 6,
+            "minLength": 6
+          },
+          "mfa_token": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      },
+      "StaffSessionView": {
+        "type": "object",
+        "required": [
+          "csrf_token",
+          "role",
+          "idle_expires_at",
+          "absolute_expires_at"
+        ],
+        "properties": {
+          "absolute_expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "csrf_token": {
+            "type": "string",
+            "description": "Repeat in `X-CSRF-Token` on every state-changing staff request. Keep it in memory only."
+          },
+          "idle_expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "role": {
+            "type": "string",
+            "description": "`moderator` or `admin`.",
+            "example": "moderator"
+          }
+        }
+      },
       "TextFilterHints": {
         "type": "object",
         "description": "The filter's settings as served to clients in `GET /v1/config` (#213): the sanitizer caps and\nthe term lists exactly as written in `config/text_filter.yaml`. For instant hints in the app\nonly; the server's own check stays authoritative. Public by design (EM decision 2026-11-05).",
@@ -10669,6 +11133,11 @@
         "type": "apiKey",
         "in": "header",
         "name": "x-service-credential"
+      },
+      "staff": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "__Host-staff_session"
       }
     }
   },
@@ -10736,6 +11205,10 @@
     {
       "name": "public",
       "description": "Server-to-server routes for the web share app (svc, /v1/public/*)"
+    },
+    {
+      "name": "admin",
+      "description": "Staff sign-in with MFA and staff routes (staff cookie + X-CSRF-Token, /v1/admin/*)"
     },
     {
       "name": "dev",

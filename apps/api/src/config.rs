@@ -128,6 +128,9 @@ pub struct Config {
     /// (`/v1/dev/*`, #306). Default `false`. Refused at startup unless `API_ENV` is `development`
     /// or `test`; disabled, the routes answer the same 404 as an unknown path.
     pub dev_sign_in: bool,
+    /// `API_STAFF_IP_ALLOWLIST` — comma-separated IP addresses allowed to call `/v1/admin/*`
+    /// (T-144). Empty (default) = any IP (the staff session and MFA still apply).
+    pub staff_ip_allowlist: Vec<std::net::IpAddr>,
 }
 
 #[derive(Debug, Clone)]
@@ -360,6 +363,22 @@ impl Config {
         let mail = mail_config(env)?;
         let service_credential = service_credential(env)?;
         let dev_sign_in = env.flag("API_DEV_SIGN_IN", false)?;
+        let staff_ip_allowlist = match env.optional("API_STAFF_IP_ALLOWLIST") {
+            None => Vec::new(),
+            Some(raw) => raw
+                .split(',')
+                .map(str::trim)
+                .filter(|ip| !ip.is_empty())
+                .map(|ip| {
+                    ip.parse().map_err(|_| {
+                        invalid(
+                            "API_STAFF_IP_ALLOWLIST",
+                            format!("{ip:?} is not an IP address"),
+                        )
+                    })
+                })
+                .collect::<Result<Vec<_>, _>>()?,
+        };
         if dev_sign_in && !content_safety.env.allows_dev_sign_in() {
             return Err(invalid(
                 "API_DEV_SIGN_IN",
@@ -410,6 +429,7 @@ impl Config {
             mail,
             service_credential,
             dev_sign_in,
+            staff_ip_allowlist,
         })
     }
 }
@@ -795,6 +815,14 @@ mod tests {
         }
         assert!(load(&[("API_ENV", "prod")]).is_err());
         assert!(load(&[("API_ENV", "development"), ("API_CSAM_MATCHER", "photodna")]).is_err());
+    }
+
+    #[test]
+    fn staff_ip_allowlist_is_parsed() {
+        assert!(load(&[]).unwrap().staff_ip_allowlist.is_empty());
+        let config = load(&[("API_STAFF_IP_ALLOWLIST", "203.0.113.7, 2001:db8::1")]).unwrap();
+        assert_eq!(config.staff_ip_allowlist.len(), 2);
+        assert!(load(&[("API_STAFF_IP_ALLOWLIST", "203.0.113.0/24")]).is_err());
     }
 
     #[test]

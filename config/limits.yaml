@@ -52,6 +52,21 @@ limits:
     requests: 20
     per_secs: 86400
     on_store_failure: open
+  admin.auth: # POST /v1/admin/auth/login, /v1/admin/auth/mfa (staff sign-in, 5 per 15 min per IP)
+    scope: ip
+    requests: 5
+    per_secs: 900
+    on_store_failure: closed
+  admin.session: # POST /v1/admin/auth/logout
+    scope: user
+    requests: 30
+    per_secs: 60
+    on_store_failure: open
+  admin.read: # staff reads (GET /v1/admin/*), 300/min per staff member
+    scope: user
+    requests: 300
+    per_secs: 60
+    on_store_failure: closed
   auth.refresh: # POST /v1/auth/refresh (30/h per device; anonymous callers fall back to IP)
     scope: device
     requests: 30

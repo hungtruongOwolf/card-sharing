@@ -112,6 +112,25 @@ routes:
       suspended: 401
       service: 404
 
+  # Staff (T-144): app sessions never open staff routes; a proof of a non-staff account and an unknown
+  # login token are the same 401. Staff sessions, roles, CSRF and the allow-list: tests/api/staff_auth.rs.
+  - route: POST /v1/admin/auth/login
+    body: { provider: apple, id_token: $APPLE_ID_TOKEN, nonce: $NONCE }
+    expect: { guest: 401, onboarding_age: 401, onboarding_profile: 401, user: 401, suspended: 401 }
+
+  - route: POST /v1/admin/auth/mfa
+    body: { mfa_token: not-a-login-token, code: '123456' }
+    expect: { guest: 401, onboarding_age: 401, onboarding_profile: 401, user: 401, suspended: 401 }
+
+  - route: POST /v1/admin/auth/logout
+    expect: { guest: 401, onboarding_age: 401, onboarding_profile: 401, user: 401, suspended: 401 }
+
+  - route: GET /v1/admin/me
+    expect: { guest: 401, onboarding_age: 401, onboarding_profile: 401, user: 401, suspended: 401 }
+
+  - route: GET /v1/admin/staff
+    expect: { guest: 401, onboarding_age: 401, onboarding_profile: 401, user: 401, suspended: 401 }
+
   - route: POST /v1/auth/refresh
     body: { refresh_token: $REFRESH_TOKEN }
     expect: { guest: 401, onboarding_age: 200, onboarding_profile: 200, user: 200, suspended: 401 }
