@@ -21,7 +21,7 @@ pub use enforce::{
     AccessState, ClientIp, ClientIpSource, SERVICE_CLIENT_IP_HEADER, SERVICE_CREDENTIAL_HEADER,
     enforce,
 };
-pub use idempotency::{IDEMPOTENCY_KEY_HEADER, IDEMPOTENT_REPLAYED_HEADER};
+pub use idempotency::{IDEMPOTENCY_KEY_HEADER, IDEMPOTENT_REPLAYED_HEADER, ReplayBody};
 pub use json::ValidJson;
 pub use policy::{
     AuthKind, Idempotency, PUBLIC_PREFIX, PolicyTable, Role, RoutePolicy, authorize,
