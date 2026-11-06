@@ -23,6 +23,7 @@ pub mod crypto;
 pub mod idempotency;
 pub mod ids;
 pub mod jobs;
+pub mod metrics;
 pub mod outbox;
 pub mod problem;
 pub mod rate_limit;

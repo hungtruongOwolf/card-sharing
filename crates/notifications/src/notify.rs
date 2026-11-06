@@ -437,6 +437,20 @@ impl Notifier {
         &self.preferences
     }
 
+    /// Alert push decisions since `since`, by outcome (T-97 push success rate).
+    pub async fn outcomes_since(
+        &self,
+        since: time::OffsetDateTime,
+    ) -> Result<Vec<(String, i64)>, StoreError> {
+        Ok(sqlx::query_as(
+            "SELECT outcome, count(*) FROM notifications.push_log
+             WHERE created_at >= $1 GROUP BY outcome ORDER BY outcome",
+        )
+        .bind(since)
+        .fetch_all(&self.pool)
+        .await?)
+    }
+
     /// Deletes push decisions older than 7 days.
     pub async fn purge_log(&self) -> Result<u64, StoreError> {
         let done = sqlx::query("DELETE FROM notifications.push_log WHERE created_at < $1")

@@ -2,7 +2,7 @@
 title: Architecture Overview (MVP)
 type: concept
 status: proposed
-updated: 2026-11-04
+updated: 2026-11-06
 sources: [raw/discussions/2026-11-04-infra-qa.md, raw/discussions/2026-11-04-prd-design-qa.md, raw/discussions/2026-11-04-idea-round-4.md, raw/discussions/2026-11-04-idea-round-6.md, raw/discussions/2026-11-04-security-qa.md]
 related: [[prd-mvp]], [[data-model]], [[api-mvp]], [[threat-model-mvp]], [[ADR-0001-tech-stack]], [[ADR-0002-cross-platform-stack]], [[ADR-0003-effects-tiers]], [[ADR-0004-auth-sessions]], [[ADR-0005-media-pipeline]], [[ADR-0006-job-queue]], [[ADR-0007-board-sync]], [[region-policy]], [[security-baseline]], [[change-management]], [[subject-cutout]]
 ---
@@ -240,6 +240,14 @@ log and REST `/ops` becomes an adapter onto the doc ([[ADR-0007-board-sync]]).
 - OpenTelemetry traces API → job → push (trace id carried in outbox/job rows). Errors to a tracker with PII scrubbing, no source maps public.
 - Metrics/SLOs: RED per route; `send_to_delivered_seconds` histogram (p50 10 s / p95 60 s); scan latency + hold count; job queue
   depth/age per lane; push success/invalid-token rates; rate-limit rejections; public-link views per token (anomaly → auto-disable).
+  Implemented (T-97, `apps/api/src/workers.rs` `SloReport`, worker task `metrics.slo_report` every 60 s): log-based metrics until
+  a metrics backend exists. Each minute over a 15 min window: `metrics.send_to_delivered_seconds` {count, p50, p95}
+  (`cards.delivered_at - sent_at`), `metrics.scan_seconds` (media `scanned_at - created_at`), `metrics.holds_open`,
+  `metrics.queue` per lane {depth, oldest_age_secs, dead}, `metrics.push` {sent, failed, no_target, capped, batched,
+  invalid_tokens}. Alerts are `ERROR` events for the log pipeline to page on: `alert.queue_age` (oldest due job > 300 s on any
+  lane) and `alert.delivery_slo` (p95 > 60 s); the thresholds are pure functions with a synthetic test. Each module computes its
+  own numbers (`CardService::delivery_latency`/`open_holds`, `MediaService::scan_latency`, `Notifier::outcomes_since`,
+  `PushTokens::invalidated_since`, `JobQueue::stats`). The staging dashboard and alert routing wait for the staging deploy.
 - Audit log (append-only) for auth events, staff actions, config changes, public link create/revoke.
 
 ## 8. Deployment & evolution

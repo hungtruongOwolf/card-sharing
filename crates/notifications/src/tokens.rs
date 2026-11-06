@@ -280,6 +280,16 @@ impl PushTokens {
         Ok(())
     }
 
+    /// Tokens a provider rejected since `since` (T-97 invalid-token rate).
+    pub async fn invalidated_since(&self, since: OffsetDateTime) -> Result<i64, StoreError> {
+        Ok(sqlx::query_scalar(
+            "SELECT count(*) FROM notifications.push_tokens WHERE invalidated_at >= $1",
+        )
+        .bind(since)
+        .fetch_one(&self.pool)
+        .await?)
+    }
+
     /// Deletes invalidated tokens and tokens whose session is no longer live (logout, expiry,
     /// suspension, deletion). Returns how many rows were deleted.
     pub async fn prune(&self) -> Result<u64, StoreError> {

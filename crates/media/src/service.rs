@@ -183,6 +183,23 @@ pub struct Uploaded {
 }
 
 impl MediaService {
+    /// Upload-to-scanned latency of media scanned since `since` (T-97).
+    pub async fn scan_latency(
+        &self,
+        since: OffsetDateTime,
+    ) -> Result<platform::metrics::LatencyStats, sqlx::Error> {
+        let row: (i64, Option<f64>, Option<f64>) = sqlx::query_as(
+            "SELECT count(*),
+                    percentile_cont(0.5) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM scanned_at - created_at)),
+                    percentile_cont(0.95) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM scanned_at - created_at))
+             FROM media.media_objects WHERE scanned_at IS NOT NULL AND scanned_at >= $1",
+        )
+        .bind(since)
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(platform::metrics::LatencyStats::from_row(row))
+    }
+
     /// `store = None` means no object storage is configured: uploads answer "unavailable".
     pub fn new(pool: PgPool, clock: SharedClock, store: Option<Arc<dyn ObjectStore>>) -> Self {
         Self { pool, clock, store }
