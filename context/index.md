@@ -53,6 +53,7 @@ Tip: open `context/` as an Obsidian vault for graph/backlinks; run `python tools
 - [[sprint-5]] — wiki/progress/sprint-5.md — Sprint 5: purges, push (fake adapter), toggles, activity, widget endpoint, SLO metrics, R2/S3 (accepted)
 - [[sprint-6]] — wiki/progress/sprint-6.md — Sprint 6: boards (pin ops, per-viewer resolution, invitations, canvas, offline sync) (accepted)
 - [[sprint-7]] — sprint 7 plan: local demo stack, public links, account deletion/export, Tier-0 effects
+- [[sprint-8]] — sprint 8 plan: dev sign-in for demos, public board page, moderation server, privacy and report UI
 - backlog.json — wiki/progress/backlog.json — 169 tickets (source for GitHub issues); regenerate with `python tools/planning/gen.py`
 
 ## Raw sources

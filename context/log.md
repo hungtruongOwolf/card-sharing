@@ -286,3 +286,6 @@ T-114, T-118..T-125, T-124, T-127 merged (#305-#323); T-134 partly (#328, #136 o
 
 ## [2026-11-06] progress | sprint 7 backend lane done
 T-3, T-129..T-131, T-133, T-150, T-26, T-151, T-152, T-154 merged (#304-#329); #135 and #28 stay open. See [[sprint-7]].
+
+## [2026-11-06] plan | sprint 8
+Three lanes: backend (dev sign-in, moderation server), mobile (dev sign-in, privacy/report UI), web (public board page). See [[sprint-8]].
