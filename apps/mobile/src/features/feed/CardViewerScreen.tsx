@@ -44,6 +44,8 @@ export interface CardViewerScreenProps {
   /** Export seams (T-127): decode the render, share the PNG. */
   loadRender?: (url: string) => Promise<SkImage | null>;
   share?: (png: Uint8Array) => Promise<boolean>;
+  /** Report a friend's card (US-26); absent hides the action. Never offered on my own cards (the server says 404). */
+  onReport?: (cardId: string) => void;
   onClose: () => void;
 }
 
@@ -127,6 +129,7 @@ export function CardViewerScreen({
   now = Date.now,
   loadRender = loadRenderFromUrl,
   share = shareImage,
+  onReport,
   onClose,
 }: CardViewerScreenProps) {
   const toast = useToast();
@@ -263,6 +266,14 @@ export function CardViewerScreen({
                   toast.show({ message: t('card.export.failed') });
                 }
               }}
+            />
+          ) : null}
+          {!card.isMine && onReport ? (
+            <Button
+              variant="ghost"
+              label={t('report.open')}
+              accessibilityLabel={t('report.open.card', { name })}
+              onPress={() => onReport(card.id)}
             />
           ) : null}
         </>

@@ -5,7 +5,7 @@
  */
 import type { SkImage } from '@shopify/react-native-skia';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { screen, userEvent, waitFor } from '@testing-library/react-native';
+import { fireEvent, screen, userEvent, waitFor } from '@testing-library/react-native';
 
 import { t } from '../../../i18n';
 import { cardItem } from '../../../test/boardFixtures';
@@ -199,6 +199,7 @@ describe('shared board screen', () => {
     boardId: string,
     cards = [cardItem({ isMine: true })],
     publicLinks?: BoardScreenProps['publicLinks'],
+    onReport?: BoardScreenProps['onReport'],
   ) {
     await ctx.repo.refreshList();
     await renderThemed(
@@ -215,6 +216,7 @@ describe('shared board screen', () => {
           ]}
           disclosure={ctx.disclosure}
           publicLinks={publicLinks}
+          onReport={onReport}
           onClose={jest.fn()}
         />
       </QueryClientProvider>,
@@ -246,6 +248,30 @@ describe('shared board screen', () => {
       await pinMine();
       await waitFor(async () => expect((await ctx.repo.get(THEIRS))!.pins).toHaveLength(2));
       expect(screen.queryByText(t('boards.disclosure.body'))).toBeNull();
+    },
+    RENDER_TIMEOUT_MS,
+  );
+
+  it(
+    'offers Report to a collaborator only, never on my own board (T-141)',
+    async () => {
+      const onReport = jest.fn();
+      const ctx = await open(THEIRS);
+      ctx.server.addBoard(THEIRS, OTHER, [ME]);
+      await render(ctx, THEIRS, undefined, undefined, onReport);
+      fireEvent.press(screen.getByRole('button', { name: t('report.open.board') }));
+      expect(onReport).toHaveBeenCalledWith(THEIRS);
+    },
+    RENDER_TIMEOUT_MS,
+  );
+
+  it(
+    'never offers Report on a board I own',
+    async () => {
+      const ctx = await open(MINE);
+      ctx.server.addBoard(MINE, ME, [ME, OTHER], 'Trip');
+      await render(ctx, MINE, undefined, undefined, jest.fn());
+      expect(screen.queryByRole('button', { name: t('report.open.board') })).toBeNull();
     },
     RENDER_TIMEOUT_MS,
   );

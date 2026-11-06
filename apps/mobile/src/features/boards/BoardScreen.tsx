@@ -81,6 +81,8 @@ export interface BoardScreenProps {
   disclosure?: PinDisclosure;
   /** Public links (T-134): owner of a server board only; absent hides the action. */
   publicLinks?: { api: PublicLinksApi; prefs: PublicLinkPrefs };
+  /** Report a shared board I am a collaborator on (US-26); absent hides the action. */
+  onReport?: (boardId: string) => void;
   onClose: () => void;
 }
 
@@ -165,6 +167,7 @@ function BoardEditor({
   friends,
   disclosure,
   publicLinks,
+  onReport,
 }: BoardEditorProps) {
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -351,6 +354,14 @@ function BoardEditor({
                 label={t('boards.members.open')}
                 variant="secondary"
                 onPress={() => setSheet('members')}
+              />
+            ) : null}
+            {board.role === 'collaborator' && onReport ? (
+              <Button
+                label={t('report.open')}
+                accessibilityLabel={t('report.open.board')}
+                variant="ghost"
+                onPress={() => onReport(board.id)}
               />
             ) : null}
           </>
