@@ -1,6 +1,7 @@
 import { Canvas, createPicture, Picture, Skia, type SkImage } from '@shopify/react-native-skia';
 import { useEffect, useMemo, useReducer, useState } from 'react';
 import { StyleSheet, Switch, useWindowDimensions, View } from 'react-native';
+import { useSharedValue } from 'react-native-reanimated';
 
 import type { Mask } from '@card-sharing/canvas-engine';
 import {
@@ -16,6 +17,7 @@ import type { TextFilterConfig } from '../../text';
 import { Button, Screen, Text, useTheme, useToast } from '../../ui';
 import type { CapturedPhoto } from '../capture';
 import { CAPTION_MAX_GRAPHEMES, CaptionSheet } from '../captions';
+import { Squish } from '../feedback';
 import { downscalePhoto, drawCard, previewSize, subjectFor } from './cardScene';
 import { EffectTile, unavailableReason } from './EffectTile';
 import {
@@ -175,6 +177,7 @@ function Editor({
   const [captionOpen, setCaptionOpen] = useState(false);
   const toast = useToast();
   const { reducedMotion } = useTheme();
+  const press = useSharedValue(0);
 
   const draft = history.present;
   const hasSubject = subject !== null && !draft.wholePhoto;
@@ -260,28 +263,31 @@ function Editor({
           onPress={() => dispatch({ type: 'redo' })}
         />
       </View>
-      <View
-        style={[styles.preview, size]}
-        accessible
-        accessibilityRole="image"
-        accessibilityLabel={previewLabel}
-        testID="editor-preview"
-      >
-        {picture && liveFinish ? (
-          <LiveFinishPreview
-            picture={picture}
-            width={size.width}
-            height={size.height}
-            intensity={Number(liveFinish.params.intensity ?? 1)}
-          />
-        ) : picture ? (
-          <Canvas style={size}>
-            <Picture picture={picture} />
-          </Canvas>
-        ) : (
-          <Text tone="muted">{t('editor.unavailable')}</Text>
-        )}
-      </View>
+      <Squish style={styles.center} press={press} gestureTestId="editor-squish">
+        <View
+          style={[styles.preview, size]}
+          accessible
+          accessibilityRole="image"
+          accessibilityLabel={previewLabel}
+          testID="editor-preview"
+        >
+          {picture && liveFinish ? (
+            <LiveFinishPreview
+              picture={picture}
+              width={size.width}
+              height={size.height}
+              intensity={Number(liveFinish.params.intensity ?? 1)}
+              press={press}
+            />
+          ) : picture ? (
+            <Canvas style={size}>
+              <Picture picture={picture} />
+            </Canvas>
+          ) : (
+            <Text tone="muted">{t('editor.unavailable')}</Text>
+          )}
+        </View>
+      </Squish>
       {draft.caption ? (
         <Text variant="hand.md" style={styles.caption} testID="editor-caption">
           {draft.caption}
@@ -373,6 +379,7 @@ function Editor({
 }
 
 const styles = StyleSheet.create({
+  center: { alignSelf: 'center' },
   preview: { alignSelf: 'center', alignItems: 'center', justifyContent: 'center' },
   row: {
     flexDirection: 'row',

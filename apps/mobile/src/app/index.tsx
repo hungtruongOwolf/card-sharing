@@ -43,6 +43,11 @@ export default function HomeScreen() {
         onPress={() => router.push('/settings/privacy')}
       />
       <Button
+        label={t('feedback.open')}
+        variant="ghost"
+        onPress={() => router.push('/settings/feedback')}
+      />
+      <Button
         label={t('sessions.open')}
         variant="ghost"
         onPress={() => router.push('/settings/sessions')}
