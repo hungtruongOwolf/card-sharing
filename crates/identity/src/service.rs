@@ -322,7 +322,12 @@ impl IdentityService {
     ) -> Result<IssuedSession, StoreError> {
         let now = self.clock.now();
         let status = self.account_status(account_id).await?;
-        let scope = if status == AccountStatus::Active {
+        // A deletion-pending account signs in to a full session, which the access layer limits to
+        // the routes that show and cancel the deletion (T-151, AC-29.2).
+        let scope = if matches!(
+            status,
+            AccountStatus::Active | AccountStatus::DeletionPending
+        ) {
             SessionScope::Full
         } else {
             SessionScope::Onboarding
@@ -478,8 +483,7 @@ impl IdentityService {
         let row = row.ok_or(RefreshError::Unknown)?;
         let blocked = matches!(
             row.status.parse::<AccountStatus>(),
-            Ok(AccountStatus::Suspended | AccountStatus::Banned | AccountStatus::DeletionPending)
-                | Err(_)
+            Ok(AccountStatus::Suspended | AccountStatus::Banned) | Err(_)
         );
         if blocked
             || row.revoked_at.is_some()

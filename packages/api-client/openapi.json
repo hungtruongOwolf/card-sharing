@@ -4326,6 +4326,7 @@
         "x-policy": {
           "attestation": false,
           "auth": "onb/ses",
+          "deletionPending": true,
           "rateLimit": "me.read",
           "role": "user",
           "versionGate": true
@@ -4571,6 +4572,218 @@
           "attestation": false,
           "auth": "ses",
           "rateLimit": "boards.invitations.mine",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
+    "/v1/me/deletion": {
+      "get": {
+        "tags": [
+          "me"
+        ],
+        "summary": "The caller's pending deletion. Auth: ses (also a deletion-pending account's session).",
+        "operationId": "getAccountDeletion",
+        "responses": {
+          "200": {
+            "description": "The pending deletion.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeletionEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: no pending deletion.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "deletionPending": true,
+          "rateLimit": "privacy.deletion.read",
+          "role": "user",
+          "versionGate": true
+        }
+      },
+      "post": {
+        "tags": [
+          "me"
+        ],
+        "summary": "Request deletion of the caller's account. Auth: re (session + fresh `X-Reauth`).",
+        "description": "Logs out every device (widget and re-auth tokens included), hides the account's content from\nfriends, boards and public links at once, deletes the shared boards it owns and removes its\npins from other boards (AC-29.1, AC-29.3; these stay done if the deletion is cancelled).\nRequesting again while pending returns the same request.",
+        "operationId": "requestAccountDeletion",
+        "parameters": [
+          {
+            "name": "X-Reauth",
+            "in": "header",
+            "description": "Re-auth token from POST /v1/auth/reauth (5 minutes).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Deletion pending; this session is logged out too.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeletionEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "REAUTH_REQUIRED (missing, wrong or older than 5 minutes), UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "re",
+          "rateLimit": "privacy.deletion.request",
+          "role": "user",
+          "versionGate": true
+        }
+      },
+      "delete": {
+        "tags": [
+          "me"
+        ],
+        "summary": "Cancel the caller's pending deletion within the grace period. Auth: ses (also a\ndeletion-pending account's session).",
+        "operationId": "cancelAccountDeletion",
+        "responses": {
+          "204": {
+            "description": "Cancelled: the account is active again."
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: no pending deletion, or the grace period is over.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "deletionPending": true,
+          "rateLimit": "privacy.deletion.cancel",
           "role": "user",
           "versionGate": true
         }
@@ -6087,6 +6300,7 @@
         "x-policy": {
           "attestation": false,
           "auth": "onb/ses",
+          "deletionPending": true,
           "rateLimit": "sessions.current.delete",
           "role": "user",
           "versionGate": true
@@ -7481,6 +7695,42 @@
           }
         ],
         "description": "A new link: the only response that carries its URL (and so the raw token)."
+      },
+      "DeletionEnvelope": {
+        "type": "object",
+        "required": [
+          "deletion"
+        ],
+        "properties": {
+          "deletion": {
+            "$ref": "#/components/schemas/DeletionView"
+          }
+        }
+      },
+      "DeletionView": {
+        "type": "object",
+        "description": "A pending deletion.",
+        "required": [
+          "status",
+          "requested_at",
+          "grace_until"
+        ],
+        "properties": {
+          "grace_until": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Until then signing in again and `DELETE /v1/me/deletion` cancel it; afterwards it is final."
+          },
+          "requested_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string",
+            "description": "Always `pending`.",
+            "example": "pending"
+          }
+        }
       },
       "DevicePlatform": {
         "type": "string",

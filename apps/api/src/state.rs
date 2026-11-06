@@ -48,6 +48,8 @@ pub struct AppState {
     pub boards: Arc<boards::BoardService>,
     /// Public board links (US-24).
     pub sharing: Arc<sharing::SharingService>,
+    /// Privacy rules (`config/privacy.yaml`): deletion grace period.
+    pub privacy: Arc<privacy::PrivacySettings>,
     /// The activity tab (T-88).
     pub activity: Arc<notifications::Activity>,
     /// Notification toggles and quiet hours (T-87).
@@ -118,6 +120,7 @@ impl AppState {
                 boards::BoardSettings::default(),
                 Arc::clone(&age),
             )),
+            privacy: Arc::new(privacy::PrivacySettings::default()),
             sharing: Arc::new(sharing::SharingService::new(
                 identity.pool().clone(),
                 identity.clock(),
@@ -257,6 +260,21 @@ impl AppState {
             Arc::clone(&self.age),
         ));
         self
+    }
+
+    /// Installs the privacy rules (`config/privacy.yaml`).
+    pub fn with_privacy_settings(mut self, settings: privacy::PrivacySettings) -> Self {
+        self.privacy = Arc::new(settings);
+        self
+    }
+
+    /// The deletion service over every module's personal data (T-151).
+    pub fn deletion(&self) -> privacy::DeletionService {
+        privacy::DeletionService::new(
+            Arc::clone(&self.identity),
+            crate::privacy::registry(self),
+            (*self.privacy).clone(),
+        )
     }
 
     /// Installs the sharing rules (`config/sharing.yaml`).

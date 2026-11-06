@@ -6,6 +6,10 @@
 
 use std::sync::Arc;
 
+use boards::BoardService;
+use identity::IdentityService;
+use media::MediaService;
+use platform::crypto::FieldCipher;
 use platform::personal_data::{PersonalDataRegistry, PlatformPersonalData};
 
 use crate::state::AppState;
@@ -19,6 +23,10 @@ pub const EXEMPT_TABLES: &[(&str, &str)] = &[
     (
         "moderation.csam_incidents",
         "legal retention of known-CSAM evidence (content-safety.md); never erased on request",
+    ),
+    (
+        "privacy.deletion_requests",
+        "deletion tombstone (account id and dates only), kept to replay erasures after a restore",
     ),
     (
         "platform.audit_events",
@@ -36,25 +44,41 @@ pub const EXEMPT_TABLES: &[(&str, &str)] = &[
 
 /// The registry for `state`'s services.
 pub fn registry(state: &AppState) -> PersonalDataRegistry {
-    let pool = state.identity.pool().clone();
+    registry_from(
+        Arc::clone(&state.identity),
+        Arc::clone(&state.field_cipher),
+        Arc::clone(&state.media),
+        Arc::clone(&state.boards),
+    )
+}
+
+/// The registry from the individual services (the worker has no `AppState`).
+pub fn registry_from(
+    identity: Arc<IdentityService>,
+    cipher: Arc<FieldCipher>,
+    media: Arc<MediaService>,
+    boards: Arc<BoardService>,
+) -> PersonalDataRegistry {
+    let pool = identity.pool().clone();
+    let clock = identity.clock();
     PersonalDataRegistry::new()
         .register(Arc::new(identity::IdentityPersonalData {
-            identity: Arc::clone(&state.identity),
-            cipher: Arc::clone(&state.field_cipher),
+            identity: Arc::clone(&identity),
+            cipher,
         }))
         .register(Arc::new(PlatformPersonalData { pool: pool.clone() }))
         .register(Arc::new(social::SocialPersonalData { pool: pool.clone() }))
         .register(Arc::new(media::MediaPersonalData {
-            media: Arc::clone(&state.media),
+            media: Arc::clone(&media),
         }))
         .register(Arc::new(cards::CardsPersonalData { pool: pool.clone() }))
-        .register(Arc::new(boards::BoardsPersonalData { pool: pool.clone() }))
+        .register(Arc::new(boards::BoardsPersonalData { boards }))
         .register(Arc::new(notifications::NotificationsPersonalData {
             pool: pool.clone(),
         }))
         .register(Arc::new(sharing::SharingPersonalData {
             pool,
-            clock: state.identity.clock(),
-            media: Arc::clone(&state.media),
+            clock,
+            media,
         }))
 }

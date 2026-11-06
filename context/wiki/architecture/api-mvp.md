@@ -536,6 +536,22 @@ Kill switches are not enforced server-side yet.
 | POST | /v1/admin/auth/login, /v1/admin/auth/mfa | Staff sign-in + MFA step | none → staff | staff | `staff_members` row, not disabled | 5/15 min ip | no | US-27 |
 | POST | /v1/me/deletion | Request deletion (logout everywhere, hide ≤ 60 s) | re | user | self | 3/day u | yes | US-29 |
 | DELETE | /v1/me/deletion | Cancel during 7-day grace | ses (deletion-pending allowed) | user | self, before `grace_until` | 10/day u | yes | US-29 AC-29.2 |
+
+Implemented (T-151, #153): `routes/deletion.rs` → `crates/privacy` (`DeletionService`). `POST /v1/me/deletion` (`re`: bearer +
+`X-Reauth`, else 401 `REAUTH_REQUIRED`; `privacy.deletion.request` 3/day) answers 202 `{deletion: {status: "pending",
+requested_at, grace_until}}`: in one transaction the account turns `deletion_pending` (audit `privacy.deletion_requested`) and
+`privacy.deletion_requests` gets the request; then every session of the account is revoked (widget and re-auth tokens
+included) and every module's `PersonalData::hide` runs inline and again as the `privacy.hide` job (critical lane). Hiding:
+read predicates already require an active owner (cards, feed, widget, friends); boards deletes the shared boards the
+account owns (`boards.board_deleted`, which also revokes their public links) and removes it with its pins from other boards;
+sharing revokes every live link (`owner_ineligible`) and schedules the purge; notifications invalidates push tokens. These
+side effects stay if the deletion is cancelled. `GET /v1/me/deletion` (200 or 404) and `DELETE /v1/me/deletion` (204; 404
+when nothing is pending or the grace period is over) also serve a deletion-pending account: Apple/Google sign-in during the
+grace period now issues a full session, and the policy flag `allow_deletion_pending` (`x-policy.deletionPending`) opens only
+`GET /v1/me` (shows `account.status = deletion_pending`), these two routes and `DELETE /v1/sessions/current`; every other
+route answers 401 `SESSION_REVOKED`, and refresh works for such sessions. Cancelling restores `active` (audit
+`privacy.deletion_cancelled`). Apple refresh-token revocation is done at erasure (T-152), not at the request. Tests:
+`tests/api/deletion.rs`.
 | POST | /v1/me/exports | Request data export (1 per 24 h) | re | user | self | 1/day u | `Idempotency-Key` | US-30 |
 | GET | /v1/me/exports/{id} | Status + signed ZIP URL (TTL 24 h) when ready | re | user | `user_id` = caller | 30/h u | yes | US-30 |
 | PUT | /v1/devices/{deviceId}/push-tokens | Upsert `{provider, kind: alert\|widget, token}` | ses | user | device owned by caller | 30/day d | yes | US-31, US-16 |

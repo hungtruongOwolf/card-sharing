@@ -18,6 +18,7 @@ notifications.workspace = true
 platform.workspace = true
 registry.workspace = true
 policy.workspace = true
+privacy.workspace = true
 sharing.workspace = true
 social.workspace = true
 

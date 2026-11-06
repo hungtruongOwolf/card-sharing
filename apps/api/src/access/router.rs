@@ -99,6 +99,11 @@ fn annotate(operation: &mut Operation, policy: &RoutePolicy) {
             serde_json::Value::from(policy.idempotency.as_str()),
         );
     }
+    if policy.deletion_pending
+        && let Some(map) = value.as_object_mut()
+    {
+        map.insert("deletionPending".to_owned(), serde_json::Value::Bool(true));
+    }
     let extensions = ExtensionsBuilder::new().add("x-policy", value).build();
     match operation.extensions.as_mut() {
         Some(existing) => existing.merge(extensions),

@@ -1,0 +1,24 @@
+[package]
+name = "privacy"
+version = "0.1.0"
+description = "Privacy: account deletion with a grace period, erasure and data export through each module's PersonalData (see context/wiki/architecture/overview.md)"
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+identity.workspace = true
+platform.workspace = true
+
+serde.workspace = true
+serde_json.workspace = true
+serde_norway.workspace = true
+sqlx.workspace = true
+thiserror.workspace = true
+time.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+
+[lints]
+workspace = true

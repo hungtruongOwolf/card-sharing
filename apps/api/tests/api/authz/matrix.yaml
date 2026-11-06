@@ -417,6 +417,19 @@ routes:
     missing_path: /v1/board-invitations/0192f0c1-7c1e-7a3b-9d2e-000000000000/decline
     expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }
 
+  # Account deletion (T-151). `re`: without X-Reauth every full session is 401 REAUTH_REQUIRED.
+  # The flow, the grace period and deletion-pending sessions are in tests/api/deletion.rs.
+  - route: POST /v1/me/deletion
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 401, suspended: 403 }
+
+  - route: GET /v1/me/deletion
+    missing_path: /v1/me/deletion
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }
+
+  - route: DELETE /v1/me/deletion
+    missing_path: /v1/me/deletion
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }
+
   # Public board links (T-129). Owner cells, collaborators, minors (POLICY_DISALLOWED) and another
   # owner's link are in tests/api/public_links.rs.
   - route: POST /v1/boards/{id}/public-links

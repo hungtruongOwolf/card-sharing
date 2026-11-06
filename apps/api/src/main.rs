@@ -114,6 +114,8 @@ fn build_state(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<AppState> 
         .context("failed to load boards config")?;
     let sharing_settings = sharing::SharingSettings::from_path(&config.sharing_config_path)
         .context("failed to load sharing config")?;
+    let privacy_settings = privacy::PrivacySettings::from_path(&config.privacy_config_path)
+        .context("failed to load privacy config")?;
     let state = AppState::new(
         policy,
         limiter,
@@ -127,6 +129,7 @@ fn build_state(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<AppState> 
     .with_social_settings(social)
     .with_board_settings(board_settings)
     .with_sharing_settings(sharing_settings)
+    .with_privacy_settings(privacy_settings)
     .with_attestation(
         attestation_service(&config.attestation)?,
         config.attestation.mode,
@@ -348,8 +351,19 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
     let snapshots = Arc::new(sharing::SnapshotBuilder::new(
         pool.clone(),
         Arc::clone(&clock),
-        board_service,
+        Arc::clone(&board_service),
         Arc::clone(&media),
+    ));
+    let deletion = Arc::new(privacy::DeletionService::new(
+        Arc::clone(&identity),
+        api::privacy::registry_from(
+            Arc::clone(&identity),
+            Arc::clone(&cipher),
+            Arc::clone(&media),
+            board_service,
+        ),
+        privacy::PrivacySettings::from_path(&config.privacy_config_path)
+            .context("failed to load privacy config")?,
     ));
     let cdn: Arc<dyn sharing::CdnPurger> = match config.cdn_purger {
         api::config::SafetyAdapter::Fake
@@ -435,6 +449,7 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
             sharing::SNAPSHOT_JOB,
             Arc::new(sharing::SnapshotJob(snapshots)),
         )
+        .handle(privacy::HIDE_JOB, Arc::new(privacy::HideJob(deletion)))
         .handle(
             sharing::PURGE_JOB,
             Arc::new(sharing::PurgeJob(Arc::clone(&purger))),

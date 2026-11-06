@@ -1,0 +1,7 @@
+# Privacy rules (US-29, US-30) — see crates/privacy/src/settings.rs and
+# context/wiki/architecture/api-mvp.md "Privacy".
+version: 1
+
+deletion:
+  # AC-29.2: a deletion can be cancelled by signing in again for this many days.
+  grace_days: 7
