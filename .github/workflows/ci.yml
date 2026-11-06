@@ -138,6 +138,26 @@ jobs:
           echo "Shard $SHARD/$SHARDS runs $(wc -l < shard-tests.txt) of $(wc -l < all-tests.txt) tests"
           test -s shard-tests.txt || exit 0
           xargs -a shard-tests.txt cargo test -p api --test api --locked -- --exact
+      # T-3: the local seed command, run through the api binary against this job's Postgres and Valkey after the
+      # production migrations, twice (it must be idempotent). One shard is enough.
+      - name: Seed the local demo data (api migrate + api seed)
+        if: matrix.shard == 0
+        env:
+          API_ENV: test
+          DATABASE_URL: postgres://cardsharing:ci-only-not-a-secret@127.0.0.1:5432/cardsharing
+          REDIS_URL: redis://127.0.0.1:6379/0
+          # CI-only value (32 zero bytes), like .env.example; never used outside this job.
+          API_DATA_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+          API_CSAM_MATCHER: fake
+          API_NUDITY_CLASSIFIER: fake
+          API_MEDIA_STORAGE_DIR: ${{ runner.temp }}/seed-media
+        run: |
+          cargo run -q -p api --locked -- migrate
+          cargo run -q -p api --locked -- seed > seed-1.txt
+          cargo run -q -p api --locked -- seed > seed-2.txt
+          grep -q '^Seeded 3 users, 3 new cards' seed-1.txt || grep -q '^Seeded 3 users, 0 new cards' seed-1.txt
+          grep -q '^Seeded 3 users, 0 new cards' seed-2.txt
+          echo "Seed ran twice: $(head -n 1 seed-2.txt)"
 
   rust:
     name: Rust (fmt, clippy, test)

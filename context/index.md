@@ -36,6 +36,7 @@ Tip: open `context/` as an Obsidian vault for graph/backlinks; run `python tools
 - [[security-baseline]] — wiki/engineering/security-baseline.md — authn/authz, OWASP, content protection rules (accepted)
 - [[change-management]] — wiki/engineering/change-management.md — extensibility + change propagation rules & tooling (accepted)
 - [[design-system]] — wiki/engineering/design-system.md — principles, tokens, motion/springs, haptics, components, canvas budgets (draft)
+- [[local-dev]] — wiki/engineering/local-dev.md — local compose stack, `pnpm dev:seed` demo data, env vars, demo steps (accepted)
 - [[testing-strategy]] — wiki/engineering/testing-strategy.md — test pyramid & tooling (draft)
 
 ## Tech stack

@@ -12,6 +12,7 @@ pub mod identity_adapter;
 pub mod middleware;
 pub mod openapi;
 pub mod routes;
+pub mod seed;
 pub mod state;
 pub mod telemetry;
 pub mod workers;

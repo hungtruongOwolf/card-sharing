@@ -27,6 +27,8 @@ bytes.workspace = true
 http.workspace = true
 # Body length cap (middleware) and bounded upload streaming.
 http-body-util.workspace = true
+# Demo images for `api seed` (src/seed.rs); real PNG/JPEG test images for the media pipeline tests.
+image.workspace = true
 serde.workspace = true
 semver.workspace = true
 serde_json.workspace = true
@@ -44,8 +46,6 @@ utoipa-axum.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]
-# Real PNG/JPEG test images for the media pipeline tests.
-image.workspace = true
 # Runtime-generated App Attest and Play Integrity test vectors.
 attestation = { workspace = true, features = ["test-support"] }
 # Mock JWKS server, locally generated RSA keys and ID-token minting.
