@@ -7,7 +7,7 @@ sources: []
 related: [[mvp-plan]], [[sprint-7]], [[status]], [[local-dev]], [[api-mvp]], [[threat-model-mvp]], [[prd-mvp]]
 ---
 # Sprint 8 — in-app demo sign-in, public page, moderation and privacy UI
-**TL;DR:** Sprint 8 opens with a development-only sign-in (#306), so the app can sign in as the seed users and the EM
+**TL;DR:** Done 2026-11-06. Sprint 8 opens with a development-only sign-in (#306), so the app can sign in as the seed users and the EM
 can see a demo once a device build exists. It then builds the public board page on the web, and the moderation and
 enforcement server (reports, staff auth, actions, bans, appeals). The app gets the deletion, export, report and appeal
 screens. Same constraints as [[sprint-7]]. There are three lanes; the web lane relies on CI for `next build`, to save
@@ -44,16 +44,18 @@ RAM. The admin console UI waits: a new workspace app needs a `pnpm install` wind
 | Mobile | #298 backdrop sync | #340 | Merged. |
 | Web | T-132 public board page (+ #238) | #334 | Merged. Nonce CSP, noindex, no-referrer, frame-ancestors none, uniform 404. |
 | Web | T-135 enlarge | #336 | Merged. Baked images, no CanvasKit. |
-| Web | T-142 guest report (web) | #339 | Draft; being switched to forward `captcha_token` to the API (single enforcement point). |
+| Web | T-142 guest report (web) | #339 | Merged. Forwards `captcha_token`; the API is the single enforcement point. |
+| Mobile | T-148 appeal UI | #359 | Merged. |
+| Mobile | #357 link replay handling | #360 | Merged. |
 | Web | #177 baked share still | — | Moved to the backend (needs the Rust media worker). |
 
-Follow-ups: #335 page cache tag, #357 app handling of link replays, #358 WebAuthn for staff, T-148 appeal UI (#150).
+Follow-ups: #335 page cache tag, #358 WebAuthn for staff, #361 flaky appeals test, #331 export email.
 Known limits: re-auth needs real Apple/Google, so seed users cannot try deletion/export end-to-end; the `warn` action is
 recorded but not yet shown to the user.
 
 ## Exit checklist
-- [ ] Every sprint-8 ticket above is merged with CI green and its issue closed, or explicitly carried over.
+- [x] Every sprint-8 ticket above is merged with CI green and its issue closed, or explicitly carried over.
 - [x] The app can sign in as `alice.demo`, `bob.demo`, `mia.demo` against a local `API_ENV=development` server, and that
   sign-in is refused in staging and production (tests).
 - [x] Public page headers verified by tests (CSP nonce, noindex, no-referrer, frame-ancestors none).
-- [ ] Wiki facts updated and the sprint progress recorded here.
+- [x] Wiki facts updated and the sprint progress recorded here.

@@ -292,3 +292,6 @@ Three lanes: backend (dev sign-in, moderation server), mobile (dev sign-in, priv
 
 ## [2026-11-06] progress | sprint 8 lanes reported
 Backend 11 PRs, mobile 6, web 2 merged; #339 (guest report web) and the appeal UI are in progress. See [[sprint-8]].
+
+## [2026-11-06] progress | sprint 8 done
+#339 guest report web, #359 appeal UI, #360 link replay handling merged. Flaky appeals test filed. See [[sprint-8]].
