@@ -5,8 +5,8 @@ use utoipa_axum::routes;
 
 use crate::access::{ApiRouter, Idempotency, RoutePolicy};
 use crate::routes::{
-    age_signal, app_config, attestation, auth, blocks, cards, friend_requests, friends, health,
-    invites, me, media, media_files, public_invites, sessions, user_search,
+    age_signal, app_config, attestation, auth, blocks, cards, feed, friend_requests, friends,
+    health, invites, me, media, media_files, public_invites, sessions, user_search,
 };
 use crate::state::AppState;
 use platform::problem::ProblemDetails;
@@ -234,6 +234,10 @@ pub fn router() -> ApiRouter<AppState> {
         .route(
             RoutePolicy::session().limited("cards.read"),
             routes!(cards::get_card),
+        )
+        .route(
+            RoutePolicy::session().limited("feed.read"),
+            routes!(feed::get_feed),
         )
         .undocumented_policy(
             &Method::GET,

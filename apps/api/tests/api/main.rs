@@ -16,6 +16,7 @@ mod blocks;
 mod cards_deliver;
 mod cards_read;
 mod cards_send;
+mod feed;
 mod findable;
 mod friend_requests;
 mod friends;

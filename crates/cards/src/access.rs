@@ -153,3 +153,37 @@ impl CardService {
         }))
     }
 }
+
+impl CardService {
+    /// The viewer's feed (US-15): cards delivered to them that they may still see (the same
+    /// predicate as a card read), newest delivery first, strictly before `before` (a
+    /// `(delivered_at, card_id)` cursor), at most `limit`.
+    pub async fn feed(
+        &self,
+        viewer: Uuid,
+        before: Option<(OffsetDateTime, Uuid)>,
+        limit: i64,
+    ) -> Result<Vec<VisibleCard>, CardError> {
+        let (before_at, before_id) = before.unzip();
+        let rows: Vec<CardRow> = sqlx::query_as(concat!(
+            "SELECT ",
+            card_columns!(),
+            " FROM cards.card_recipients r
+              JOIN cards.cards c ON c.id = r.card_id
+              WHERE r.recipient_id = $1 AND ",
+            recipient_visible_sql!(),
+            " AND ($2::timestamptz IS NULL OR (r.delivered_at, r.card_id) < ($2, $3))
+              ORDER BY r.delivered_at DESC, r.card_id DESC
+              LIMIT $4"
+        ))
+        .bind(viewer)
+        .bind(before_at)
+        .bind(before_id)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+        rows.into_iter()
+            .map(|row| row.into_visible(viewer))
+            .collect()
+    }
+}

@@ -4,6 +4,7 @@ pub mod attestation;
 pub mod auth;
 pub mod blocks;
 pub mod cards;
+pub mod feed;
 pub mod friend_requests;
 pub mod friends;
 pub mod health;

@@ -229,3 +229,8 @@ limits:
     requests: 300
     per_secs: 60
     on_store_failure: open
+  feed.read: # GET /v1/feed
+    scope: user
+    requests: 120
+    per_secs: 60
+    on_store_failure: open

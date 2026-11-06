@@ -20,6 +20,7 @@ social.workspace = true
 
 anyhow.workspace = true
 axum.workspace = true
+base64.workspace = true
 bytes.workspace = true
 http.workspace = true
 # Body length cap (middleware) and bounded upload streaming.
@@ -41,7 +42,6 @@ utoipa-axum.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]
-base64.workspace = true
 # Real PNG/JPEG test images for the media pipeline tests.
 image.workspace = true
 # Runtime-generated App Attest and Play Integrity test vectors.
