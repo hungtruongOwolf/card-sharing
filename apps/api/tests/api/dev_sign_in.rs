@@ -2,6 +2,7 @@
 //! `API_DEV_SIGN_IN` is on in a development or test profile; signs into seed personas only.
 
 use crate::common::*;
+use crate::media::without_request_id;
 use api::config::{AppEnv, Config};
 use axum::Router;
 use http::StatusCode;
@@ -17,14 +18,16 @@ fn config(env: AppEnv, dev_sign_in: bool) -> Config {
 }
 
 async fn not_found_like_unknown_path(router: &Router) {
-    let unknown = body_bytes(send(router, get_request("/v1/dev/does-not-exist", None)).await).await;
+    let unknown = without_request_id(
+        body_bytes(send(router, get_request("/v1/dev/does-not-exist", None)).await).await,
+    );
     for request in [
         get_request("/v1/dev/seed-users", None),
         post_json("/v1/dev/sign-in", None, &json!({"handle": "alice.demo"})),
     ] {
         let response = send(router, request).await;
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
-        assert_eq!(body_bytes(response).await, unknown);
+        assert_eq!(without_request_id(body_bytes(response).await), unknown);
     }
 }
 
