@@ -35,7 +35,12 @@ impl Category {
             | PushKind::BoardInvite
             | PushKind::BoardJoined => Some(Self::Friend),
             PushKind::CardHeld => Some(Self::CardReview),
-            PushKind::WidgetRefresh | PushKind::BoardUpdated => None,
+            // Silent pushes and account notices (#331) have no toggle.
+            PushKind::WidgetRefresh
+            | PushKind::BoardUpdated
+            | PushKind::ExportRequested
+            | PushKind::ExportReady
+            | PushKind::LinkDisabled => None,
         }
     }
 }
@@ -214,7 +219,12 @@ mod tests {
     #[test]
     fn every_alert_has_a_toggle_and_widgets_have_none() {
         for kind in PushKind::ALERTS {
-            assert!(Category::of(kind).is_some(), "{kind:?}");
+            // Account notices (#331) cannot be switched off.
+            assert_eq!(
+                Category::of(kind).is_some(),
+                !kind.is_account_notice(),
+                "{kind:?}"
+            );
         }
         for kind in PushKind::SILENT {
             assert_eq!(Category::of(kind), None, "{kind:?}");

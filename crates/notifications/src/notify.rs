@@ -30,6 +30,9 @@ const FRIENDSHIP_REMOVED: &str = "social.friendship_removed";
 const BOARD_INVITATION_CREATED: &str = "boards.invitation_created";
 const BOARD_MEMBER_JOINED: &str = "boards.member_joined";
 const BOARD_UPDATED: &str = "boards.board_updated";
+const EXPORT_REQUESTED: &str = "privacy.export_requested";
+const EXPORT_READY: &str = "privacy.export_ready";
+const LINK_DISABLED: &str = "sharing.link_disabled";
 
 /// One push to one account.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -82,6 +85,26 @@ pub fn recipients_of(topic: &str, payload: &Value) -> Vec<Recipient> {
         CARD_REACTED => match (id("card_id"), id("owner_id"), id("reactor_id")) {
             (Some(card), Some(owner), Some(reactor)) if owner != reactor => {
                 vec![to(owner, Notification::about(PushKind::ReactionNew, card))]
+            }
+            _ => Vec::new(),
+        },
+        EXPORT_REQUESTED => match (id("export_id"), id("account_id")) {
+            (Some(export), Some(account)) => vec![to(
+                account,
+                Notification::about(PushKind::ExportRequested, export),
+            )],
+            _ => Vec::new(),
+        },
+        EXPORT_READY => match (id("export_id"), id("account_id")) {
+            (Some(export), Some(account)) => vec![to(
+                account,
+                Notification::about(PushKind::ExportReady, export),
+            )],
+            _ => Vec::new(),
+        },
+        LINK_DISABLED => match (id("link_id"), id("owner_id")) {
+            (Some(link), Some(owner)) => {
+                vec![to(owner, Notification::about(PushKind::LinkDisabled, link))]
             }
             _ => Vec::new(),
         },
@@ -162,6 +185,9 @@ impl Subscriber for PushOnEvents {
             BOARD_INVITATION_CREATED,
             BOARD_MEMBER_JOINED,
             BOARD_UPDATED,
+            EXPORT_REQUESTED,
+            EXPORT_READY,
+            LINK_DISABLED,
         ]
     }
 
@@ -274,7 +300,10 @@ impl Notifier {
         if Category::of(kind).is_some_and(|c| !prefs.allows(c)) {
             return Ok(Outcome::Disabled);
         }
-        if let Some(until) = self.preferences.quiet_until(&prefs, now).await? {
+        // Account notices are never delayed by quiet hours (#331, SR-36).
+        if !kind.is_account_notice()
+            && let Some(until) = self.preferences.quiet_until(&prefs, now).await?
+        {
             return Ok(Outcome::Held { until });
         }
         let mut tx = self.pool.begin().await?;

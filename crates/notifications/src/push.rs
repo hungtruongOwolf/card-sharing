@@ -41,10 +41,16 @@ pub enum PushKind {
     BoardJoined,
     /// Silent: a board I am on changed (`board_id` + `version`); the app re-syncs it.
     BoardUpdated,
+    /// Account notice: a data export of my account was requested (`export_id`, SR-36).
+    ExportRequested,
+    /// Account notice: my data export can be downloaded (`export_id`).
+    ExportReady,
+    /// Account notice: one of my public links was disabled automatically (`link_id`).
+    LinkDisabled,
 }
 
 impl PushKind {
-    pub const ALERTS: [Self; 8] = [
+    pub const ALERTS: [Self; 11] = [
         Self::CardNew,
         Self::CardsNewMany,
         Self::ReactionNew,
@@ -53,7 +59,15 @@ impl PushKind {
         Self::CardHeld,
         Self::BoardInvite,
         Self::BoardJoined,
+        Self::ExportRequested,
+        Self::ExportReady,
+        Self::LinkDisabled,
     ];
+
+    /// Account notices (#331): security and account events the owner must see. No toggle turns
+    /// them off, quiet hours do not delay them and they do not count toward the daily cap.
+    pub const ACCOUNT_NOTICES: [Self; 3] =
+        [Self::ExportRequested, Self::ExportReady, Self::LinkDisabled];
 
     /// Pushes without an alert: never toggled, capped, logged or held for quiet hours.
     pub const SILENT: [Self; 2] = [Self::WidgetRefresh, Self::BoardUpdated];
@@ -71,7 +85,14 @@ impl PushKind {
             Self::BoardInvite => "board.invite",
             Self::BoardJoined => "board.joined",
             Self::BoardUpdated => "board.updated",
+            Self::ExportRequested => "export.requested",
+            Self::ExportReady => "export.ready",
+            Self::LinkDisabled => "link.disabled",
         }
+    }
+
+    pub fn is_account_notice(self) -> bool {
+        Self::ACCOUNT_NOTICES.contains(&self)
     }
 
     pub fn is_silent(self) -> bool {
@@ -88,6 +109,9 @@ impl PushKind {
                 | Self::FriendRequest
                 | Self::FriendAccepted
                 | Self::CardHeld
+                | Self::ExportRequested
+                | Self::ExportReady
+                | Self::LinkDisabled
         )
     }
 
@@ -106,6 +130,8 @@ impl PushKind {
             Self::FriendAccepted => Some("user_id"),
             Self::BoardInvite => Some("invitation_id"),
             Self::BoardJoined | Self::BoardUpdated => Some("board_id"),
+            Self::ExportRequested | Self::ExportReady => Some("export_id"),
+            Self::LinkDisabled => Some("link_id"),
             Self::CardsNewMany | Self::WidgetRefresh => None,
         }
     }
@@ -123,6 +149,9 @@ impl PushKind {
             Self::BoardInvite => "board_invite",
             Self::BoardJoined => "board_joined",
             Self::BoardUpdated => "board_updated",
+            Self::ExportRequested => "export_requested",
+            Self::ExportReady => "export_ready",
+            Self::LinkDisabled => "link_disabled",
         }
     }
 
@@ -134,12 +163,13 @@ impl PushKind {
             Self::FriendRequest | Self::FriendAccepted => "friends",
             Self::WidgetRefresh => "widget",
             Self::BoardInvite | Self::BoardJoined | Self::BoardUpdated => "boards",
+            Self::ExportRequested | Self::ExportReady | Self::LinkDisabled => "account",
         }
     }
 
     /// Whether the push counts toward the daily cap (AC-31.4: friend requests do not).
     pub fn counts_toward_cap(self) -> bool {
-        !self.is_silent() && self != Self::FriendRequest
+        !self.is_silent() && self != Self::FriendRequest && !self.is_account_notice()
     }
 }
 
@@ -515,6 +545,9 @@ mod tests {
                         "board_id",
                         "version",
                         "boards",
+                        "export_id",
+                        "link_id",
+                        "account",
                     ]
                     .contains(&s.as_str());
                 assert!(allowed, "unexpected string {s:?} in {payload}");
@@ -619,6 +652,10 @@ mod tests {
         assert!(!PushKind::FriendRequest.counts_toward_cap());
         assert!(!PushKind::WidgetRefresh.counts_toward_cap());
         assert!(PushKind::CardNew.counts_toward_cap());
+        for notice in PushKind::ACCOUNT_NOTICES {
+            assert!(!notice.counts_toward_cap(), "{notice:?}");
+            assert!(notice.in_activity(), "{notice:?}");
+        }
         // An id is dropped for kinds that carry none.
         assert_eq!(
             Notification::about(PushKind::CardsNewMany, id()),

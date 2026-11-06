@@ -62,6 +62,9 @@ impl Subscriber for ActivityOnEvents {
             "cards.reacted",
             "social.friend_request_created",
             "social.friendship_created",
+            "privacy.export_requested",
+            "privacy.export_ready",
+            "sharing.link_disabled",
         ]
     }
 
@@ -99,7 +102,8 @@ macro_rules! item_visible_sql {
             social::request_open_to_sql!("a.subject_id", "a.account_id", "$2"),
             ") OR (a.kind = 'friend.accepted' AND ",
             social::friends_unblocked_sql!("a.account_id", "a.actor_id"),
-            "))"
+            // Account notices are about the account's own export or link (#331).
+            ") OR a.kind IN ('export.requested', 'export.ready', 'link.disabled'))"
         )
     };
 }
