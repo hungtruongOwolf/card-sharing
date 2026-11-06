@@ -1,0 +1,12 @@
+# Push notification rules (US-31) — see crates/notifications/src/settings.rs and
+# context/wiki/architecture/api-mvp.md "Push & widget payloads".
+version: 1
+
+push:
+  # AC-31.4: alert pushes per account per rolling 24 hours, friend requests excluded. Beyond it the
+  # event still reaches the activity tab.
+  daily_cap: 30
+  # US-31: when more than `batch_after` new-card pushes fall inside the window, one
+  # "N new cards" push replaces the rest of that window.
+  batch_after: 3
+  batch_window_secs: 600

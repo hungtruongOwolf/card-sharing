@@ -257,8 +257,17 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
         cards: card_service,
         media: Arc::clone(&media),
     };
+    let notifier = Arc::new(notifications::Notifier::new(
+        pool.clone(),
+        Arc::clone(&clock),
+        Arc::clone(&push_tokens),
+        push_sender(config),
+        notifications::NotifySettings::from_path(&config.notifications_config_path)
+            .context("failed to load notifications config")?,
+    ));
     let relay = Arc::new(
         OutboxRelay::new(pool, clock)
+            .subscribe(Arc::new(notifications::PushOnEvents))
             .subscribe(Arc::new(api::workers::CsamSuspension))
             .subscribe(Arc::new(cards::EvaluateOnEvents))
             .subscribe(Arc::new(cards::PurgeOnDelete)),
@@ -278,6 +287,10 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
         .handle(cards::EVALUATE_JOB, Arc::new(card_jobs))
         .handle(cards::PURGE_JOB, Arc::new(purge_jobs))
         .handle(
+            notifications::NOTIFY_JOB,
+            Arc::new(notifications::NotifyJob(Arc::clone(&notifier))),
+        )
+        .handle(
             api::workers::SUSPEND_ACCOUNT_JOB,
             Arc::new(api::workers::SuspendAccountJob(Arc::clone(&identity))),
         )
@@ -295,6 +308,11 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
             "notifications.push_tokens.prune",
             std::time::Duration::from_secs(600),
             Arc::new(PushTokenPrune(push_tokens)),
+        )
+        .periodic(
+            "notifications.push_log.purge",
+            std::time::Duration::from_secs(3600),
+            Arc::new(PushLogPurge(notifier)),
         )
         .periodic(
             "idempotency.purge",
@@ -388,6 +406,37 @@ impl PeriodicTask for PushTokenPrune {
             tracing::info!(event = "notifications.push_tokens.pruned", pruned);
             Ok(())
         })
+    }
+}
+
+/// Deletes push decisions older than 7 days (they only feed the cap and batching windows).
+struct PushLogPurge(Arc<notifications::Notifier>);
+
+impl PeriodicTask for PushLogPurge {
+    fn run(&self) -> PeriodicFuture {
+        let notifier = Arc::clone(&self.0);
+        Box::pin(async move {
+            let purged = notifier.purge_log().await.map_err(|e| e.to_string())?;
+            tracing::info!(event = "notifications.push_log.purged", purged);
+            Ok(())
+        })
+    }
+}
+
+/// The push adapter from config: the fake outside production, otherwise none (T-86; real
+/// APNs/FCM adapters need credentials).
+fn push_sender(config: &Config) -> Arc<dyn notifications::PushSender> {
+    match config.push_sender {
+        api::config::SafetyAdapter::Fake
+            if config.content_safety.env != api::config::AppEnv::Production =>
+        {
+            tracing::warn!("API_PUSH_SENDER=fake: pushes are recorded, not delivered");
+            Arc::new(notifications::FakePushSender::default())
+        }
+        _ => {
+            tracing::warn!("no push adapter configured: pushes are dropped (activity tab only)");
+            Arc::new(notifications::UnconfiguredPushSender)
+        }
     }
 }
 

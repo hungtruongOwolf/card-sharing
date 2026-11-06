@@ -39,6 +39,7 @@ mod minor_hint;
 mod outbox;
 mod profile;
 mod public_invites;
+mod push_notify;
 mod push_tokens;
 mod rate_limit;
 mod registry_style;

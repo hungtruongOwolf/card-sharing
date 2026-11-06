@@ -470,7 +470,7 @@ ids it may no longer see under the card-read predicate (unfriend or block either
 sender), in request order without duplicates. Stateless by design: no purge-event table to fan out or expire, nothing missed
 after a long offline period, and an unknown id is answered exactly like a purged one (no existence oracle; a visible card is
 never listed). The app checks on start, on foreground, on every feed refresh and at least every 30 s while open, which keeps
-AC-6.1 / AC-14.1 within 60 s; widget refresh pushes on `cards.deleted` / `social.friendship_removed` come with T-86. There is
+AC-6.1 / AC-14.1 within 60 s; widget refresh pushes on `cards.deleted` / `social.friendship_removed` are sent by T-86. There is
 still no Redis friend/block cache, so nothing needs invalidating.
 
 Implemented (T-84, `crates/cards/src/reactions.rs`): `PUT /v1/cards/{id}/reaction {kind}` and `DELETE …/reaction` (limit
@@ -575,21 +575,39 @@ on `code`); `requestId` equals the `X-Request-Id` response header. Generic codes
 - **Versioning:** `/v1` additive only; breaking change → `/v2` or ADR. OpenAPI regenerated and diffed in CI.
 - **Headers:** `X-Request-Id` echoed; `X-App-Version` required from mobile (min-version gate → 426 `UPGRADE_REQUIRED`).
 
-## Push & widget payloads (no media URLs, no captions — AC-31.2)
+## Push & widget payloads (no media URLs, no captions, no names — AC-31.2)
+Implemented (T-86, `crates/notifications/src/push.rs`): every payload is a type `t`, localisation keys the app resolves on the
+device and at most one opaque id (or a count). No name, caption, image, URL or other user content, ever, so every push is
+the "locked-preview-hidden" variant and a lock-screen preview leaks nothing (snapshot test asserts the allowed strings).
+**EM decision needed:** the earlier sketch put the sender's name in the alert title (`title-loc-args: ["Mai"]`); the safest
+default ships without it. Adding names later is a payload change plus a privacy review.
 ```jsonc
-// APNs alert (mutable-content off)        // FCM data (Android)
-{ "aps": { "alert": { "title-loc-key": "push.card_new", "title-loc-args": ["Mai"] }, "thread-id": "cards", "sound": "default" },
-  "t": "card.new", "card_id": "…" }        // { "t": "card.new", "card_id": "…", "n": "Mai" }
-// batched (> 3 in 10 min): "push.cards_new_many" with count only. Other types: reaction.new {card_id}, friend.request {request_id},
-// friend.accepted {user_id}, board.invite {invitation_id} ("push.board_invite", owner name), board.joined {board_id} (to owner),
-// card.held {card_id} / card.released {card_id} (to sender, generic copy), auth.new_login {} (to other devices, no location detail).
-// Locked-preview-hidden: sender name omitted (generic loc key).
-// Silent board update: APNs content-available:1 / FCM data { "t": "board.updated", "board_id": "…", "v": 42 }
-// Widget refresh: iOS WidgetKit push (widget token kind) with empty content → extension calls GET /v1/widget; Android FCM data { "t": "widget.refresh" }
-//   sent on card delivered AND on unfriend / block / card delete to affected recipients (AC-16.4, ≤ 60 s)
+// APNs alert                                              // FCM HTTP v1 message (without token)
+{ "aps": { "alert": { "title-loc-key": "push.card_new.title",   { "data": { "t": "card.new", "card_id": "…" },
+                      "loc-key": "push.card_new.body" },          "android": { "priority": "high", "notification": {
+           "thread-id": "cards", "sound": "default" },              "title_loc_key": "push_card_new_title",
+  "t": "card.new", "card_id": "…" }                                  "body_loc_key": "push_card_new_body", "tag": "cards" } } }
+// Types: card.new {card_id}; cards.new_many (loc-args [count], no id); reaction.new {card_id}; friend.request {request_id};
+// friend.accepted {user_id}; card.held {card_id} (generic copy). Not yet: card.released (needs the moderation release
+// action), auth.new_login (needs a sign-in event), board.* (boards milestone).
+// Widget refresh (widget tokens only, silent): APNs { "aps": { "content-changed": true } } (WidgetKit push);
+//   FCM { "data": { "t": "widget.refresh" }, "android": { "priority": "normal" } }
+//   sent on cards.delivered (recipients) AND on cards.deleted (recipients) / social.friendship_removed (both sides)
+//   (AC-16.4, ≤ 60 s); unfriend and block never send an alert (AC-6.2).
 // GET /v1/widget → { "card": { "id": "…", "sender_name": "Mai", "image_url": "<signed widget_512>", "expires_at": "…", "deep_link": "app://card/…" } | null }
 // The widget renders this photo on the lock screen / StandBy too (AC-16.5, EM decision D3, accepted risk); cache in OS-protected storage, cleared on logout/delete.
 ```
+Delivery (T-86, `crates/notifications/src/notify.rs`): the `PushOnEvents` outbox subscriber turns `cards.delivered`,
+`cards.reacted`, `cards.held`, `cards.deleted`, `social.friend_request_created`, `social.friendship_created` and
+`social.friendship_removed` into one `notify.push` job (critical lane). Per recipient and alert, `notifications.push_log`
+records one decision per (event, recipient, kind) — a re-run job never pushes twice — under a per-account advisory lock:
+over `push.daily_cap` (30 per rolling 24 h, friend requests excluded, AC-31.4) → `capped`; the 4th+ `card.new` inside
+`push.batch_window_secs` (600 s, `batch_after` 3) → one `cards.new_many` push with the count, later ones in that window
+`batched` (values in `config/notifications.yaml`). The lock is released before any provider call; the alert goes to every live
+token (`PushTokens::live_targets`), a provider "invalid/unregistered" answer invalidates the token (pruned within 10 min).
+Adapter: `API_PUSH_SENDER` = `none` (default, pushes dropped; the activity tab still has the event) or `fake` (records payloads,
+refused when `API_ENV=production`, like the content-safety fakes). Real APNs (token-based .p8) and FCM HTTP v1 adapters are a
+follow-up once the Apple/Google accounts exist; their credentials go to the secret manager. Push decisions are kept 7 days.
 
 ## Open questions
 - ~~Attestation enforcement mode~~ — **decided (EM 2026-11-04): log-only in beta, hard-fail at GA** on all `att` endpoints.
