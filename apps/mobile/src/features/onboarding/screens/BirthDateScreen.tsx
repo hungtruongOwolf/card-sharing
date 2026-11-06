@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { StyleSheet, View, type TextInput } from 'react-native';
+import { StyleSheet, View, type TextInputInstance } from 'react-native';
 
 import { space } from '@card-sharing/tokens';
 
@@ -58,7 +58,7 @@ export function BirthDateScreen({ today = () => new Date(), locale }: BirthDateS
   const [value, setValue] = useState<BirthDateInput>(EMPTY_BIRTH_DATE);
   const [message, setMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const refs = useRef<Partial<Record<DatePart, TextInput | null>>>({});
+  const refs = useRef<Partial<Record<DatePart, TextInputInstance | null>>>({});
 
   function change(part: DatePart, text: string) {
     const digits = text.replace(/\D/g, '').slice(0, MAX_LENGTH[part]);

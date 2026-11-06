@@ -1,5 +1,11 @@
 import { forwardRef, useState } from 'react';
-import { StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
+import {
+  StyleSheet,
+  TextInput,
+  View,
+  type TextInputInstance,
+  type TextInputProps,
+} from 'react-native';
 
 import { MAX_FONT_SCALE, radius, space, typeStyle } from '@card-sharing/tokens';
 
@@ -18,7 +24,7 @@ export interface TextFieldProps extends Omit<TextInputProps, 'style' | 'placehol
 }
 
 /** Labelled text input with hint/error, focus ring and a platform-size touch target. */
-export const TextField = forwardRef<TextInput, TextFieldProps>(function TextField(
+export const TextField = forwardRef<TextInputInstance, TextFieldProps>(function TextField(
   { label, hint, error, onFocus, onBlur, editable = true, testID, ...rest },
   ref,
 ) {

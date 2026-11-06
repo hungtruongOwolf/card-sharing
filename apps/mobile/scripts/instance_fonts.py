@@ -1,6 +1,6 @@
 """Rebuild the static brand font faces in apps/mobile/assets/fonts from the official google/fonts files.
 
-Expo SDK 57 supports only static font files (variable fonts arrive in SDK 58), but google/fonts ships
+The app embeds static font files (Expo only gained variable fonts in SDK 58), but google/fonts ships
 Bricolage Grotesque, DM Sans and Caveat as variable fonts only. This pins the weights design-system.md
 section 3.2 uses (the same instancing Google Fonts applies when it serves static files). Anton and DM Mono are
 static upstream and are copied as-is. The SIL OFL 1.1 has no Reserved Font Name for these families, so the

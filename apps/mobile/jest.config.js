@@ -1,4 +1,4 @@
-// Component and unit tests (jest-expo, SDK 57 → Jest 29). https://docs.expo.dev/develop/unit-testing/
+// Component and unit tests (jest-expo, SDK 58 → Jest 30). https://docs.expo.dev/develop/unit-testing/
 /** @type {import('jest').Config} */
 module.exports = {
   preset: 'jest-expo',

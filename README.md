@@ -7,7 +7,7 @@ pages, and a Rust (Axum) API. Architecture decisions live in `context/wiki/archi
 ```
 apps/
   api/            Rust Axum HTTP API (binary + lib); `openapi` bin exports the contract
-  mobile/         Expo SDK 57 app (Expo Router, React Native Skia, Reanimated, Gesture Handler)
+  mobile/         Expo SDK 58 app (Expo Router, React Native Skia, Reanimated, Gesture Handler)
   web/            Next.js 16 (App Router): landing + public share previews /b/[token]
 crates/
   policy/         Region/jurisdiction policy module (PolicyService::resolve)
@@ -21,11 +21,11 @@ infra/            docker-compose for local services
 
 ## Prerequisites
 
-- Node 22.12+ and pnpm 10.29 (`corepack enable` picks the version from `package.json`)
+- Node 22.13+ and pnpm 10.29 (`corepack enable` picks the version from `package.json`)
 - Rust stable (see `rust-toolchain.toml`; rustfmt + clippy are installed automatically)
 - Docker (for local Postgres / Valkey / object storage / Mailpit)
-- For running the mobile app on a device: a development build (`npx expo run:ios|android` or EAS).
-  Expo Go cannot load the native Skia/Reanimated versions used here unless they match its bundle.
+- For running the mobile app on a device: Expo Go for SDK 58 (the native module versions match its bundle),
+  or a development build (`npx expo run:ios|android` or EAS) once a module outside Expo Go is added.
 
 > **Install layout:** the workspace uses a symlink-free layout (`nodeLinker: hoisted`,
 > `packageImportMethod: copy` in `pnpm-workspace.yaml`), so it also works on drives without symlinks/hard

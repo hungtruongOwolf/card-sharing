@@ -1,6 +1,6 @@
 import type { EffectEntry } from '../schema';
 
-/** App minimum OS: Expo SDK 57 (iOS 16.4, Android API 24). Entries only raise it when they need to. */
+/** App minimum OS: Expo SDK 58 (iOS 16.4, Android API 24). Entries only raise it when they need to. */
 export const APP_MIN_IOS = '16.4';
 export const APP_MIN_ANDROID = 24;
 
