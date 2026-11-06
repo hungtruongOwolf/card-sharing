@@ -31,6 +31,16 @@ describe('remote config', () => {
     for (const bad of [0, -1, 2.5, 1e9, '20', null]) expect(limit(bad)).toBeUndefined();
   });
 
+  it('reads the reaction set in order, without killed or malformed ids', () => {
+    expect(
+      parseRemoteConfig({
+        reactions: ['react.heart', 'react.paw', 'react.heart', 'heart', 7, 'react.fire'],
+        kill_switches: { reactions: ['react.paw'] },
+      })?.reactions,
+    ).toEqual(['react.heart', 'react.fire']);
+    expect(parseRemoteConfig({})?.reactions).toBeUndefined();
+  });
+
   it('reads the served text filter hints, all or nothing', () => {
     const textFilter = {
       version: 1,

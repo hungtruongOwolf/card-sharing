@@ -425,6 +425,16 @@ Implemented (feed, part of #82, `GET /v1/feed?cursor=&limit=`, limit `feed.read`
 card_id DESC)` on the feed index; `limit` 1..30 (default 30); response `{items: [CardView], next_cursor}`. The cursor is
 base64url of `(delivered_at µs, card_id)` plus an HMAC tag (`UrlSigner::token_tag`, purpose `feed_cursor`, domain separated
 from URL signatures); a tampered or malformed cursor is 400. Items carry per-viewer signed URLs (budgeted per page).
+Mobile client (T-80, #82, `apps/mobile/src/features/feed`): `/feed` reads `GET /v1/feed` with `useInfiniteQuery` (cursor
+from `next_cursor`, "Show older cards"; a refused cursor (400) restarts from the newest page). Signed URLs are treated as
+short-lived: the feed refetches about 30 s before the earliest `expires_at` and when a picture fails to load (a 403 after
+expiry), throttled to once a minute so a broken picture cannot loop; an already expired URL is never rendered. The newest 50
+items' metadata (id, sender name, caption, alt text, sent time, my reaction; never a URL) is saved after every load in
+SecureStore chunks (`feedCache.ts`, 7-day max age) and shown without pictures when the feed cannot load; it is replaced on
+every load (cards from ex-friends, blocked or deleted cards drop out, SR-9) and cleared on sign-out (`AuthProvider`
+`onSignedOut`). Reactions (T-84): the served `reactions` minus `kill_switches.reactions` (`parseRemoteConfig`), only ids
+the app can draw; tapping my current reaction removes it (AC-17.2), optimistic with rollback; a 404 says the card is gone
+and refreshes the feed.
 Implemented (T-82, `crates/cards/src/delete.rs`, `DELETE /v1/cards/{id}`, limit `cards.delete` 60/h): owner only (anyone
 else, a missing or an already deleted card → the same 404). One transaction sets `status = deleted`, hides every recipient row
 and publishes `cards.deleted {card_id, owner_id, recipient_ids}`; every read path filters on it, so the card is gone from card

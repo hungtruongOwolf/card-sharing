@@ -1,5 +1,12 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { createContext, useContext, useEffect, useSyncExternalStore, type ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useSyncExternalStore,
+  type ReactNode,
+} from 'react';
 
 import type { AuthClient, AuthState } from './authClient';
 
@@ -8,6 +15,8 @@ const AuthContext = createContext<AuthClient | null>(null);
 interface Props {
   client: AuthClient;
   children: ReactNode;
+  /** Also runs on every sign-out: clears device copies of server data (e.g. the offline feed). */
+  onSignedOut?: () => void;
 }
 
 /**
@@ -15,12 +24,18 @@ interface Props {
  * state (logout, revoked session, reuse detection), every cached server response is dropped so the next
  * account cannot see the previous one's data. Must sit inside `QueryClientProvider`.
  */
-export function AuthProvider({ client, children }: Props) {
+export function AuthProvider({ client, children, onSignedOut }: Props) {
   const queryClient = useQueryClient();
+  const signedOut = useRef(onSignedOut);
+  useEffect(() => {
+    signedOut.current = onSignedOut;
+  }, [onSignedOut]);
 
   useEffect(() => {
     const unsubscribe = client.subscribe((state) => {
-      if (state.status === 'signedOut') queryClient.clear();
+      if (state.status !== 'signedOut') return;
+      queryClient.clear();
+      signedOut.current?.();
     });
     void client.init();
     return unsubscribe;

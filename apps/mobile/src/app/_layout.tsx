@@ -8,6 +8,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { createQueryClient } from '../data/queryClient';
 import { AuthProvider, createAppAuthClient, useAuthClient } from '../features/auth';
 import { FeedbackProvider, securePrefsStorage } from '../features/feedback';
+import { deviceFeedCache } from '../features/feed';
 import {
   createAppOnboardingDeps,
   ErrorScreen,
@@ -29,6 +30,7 @@ const ROUTES: readonly (readonly [Exclude<OnboardingPhase, 'loading' | 'error'>,
   ['home', 'editor'],
   ['home', 'drafts'],
   ['home', 'send'],
+  ['home', 'feed'],
   ['home', 'cut-lab'],
   ['home', 'settings/sessions'],
   ['home', 'settings/privacy'],
@@ -84,6 +86,12 @@ function Onboarding() {
   );
 }
 
+/** The offline feed holds friends' names and captions: it never outlives the session (T-80). */
+const clearDeviceFeed = () =>
+  void deviceFeedCache()
+    .clear()
+    .catch(() => undefined);
+
 export default function RootLayout() {
   const [queryClient] = useState(createQueryClient);
   const [authClient] = useState(createAppAuthClient);
@@ -92,7 +100,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
-          <AuthProvider client={authClient}>
+          <AuthProvider client={authClient} onSignedOut={clearDeviceFeed}>
             <ThemeProvider>
               <FeedbackProvider storage={prefsStorage}>
                 <ToastProvider>

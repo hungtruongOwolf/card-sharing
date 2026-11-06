@@ -10,6 +10,7 @@ import {
   isRetryable,
   mediaUrl,
   parseCard,
+  parseFeedPage,
   parseSentCard,
   type NewCard,
 } from '../cardsApi';
@@ -199,5 +200,54 @@ describe('cards api: requests', () => {
     const before = server.auth.requests.length;
     await expect(api.getCard('../feed')).rejects.toMatchObject({ kind: 'not_found' });
     expect(server.auth.requests.length).toBe(before);
+  });
+});
+
+describe('cards api: feed and reactions', () => {
+  it('drops malformed feed items and cursors', () => {
+    expect(parseFeedPage({ items: [card(), { id: 'bad' }], next_cursor: 'o1t2' })).toEqual({
+      items: [parseCard(card())],
+      nextCursor: 'o1t2',
+    });
+    expect(parseFeedPage({ items: [], next_cursor: '../../x' })?.nextCursor).toBeNull();
+    expect(parseFeedPage({ items: 'nope' })).toBeNull();
+  });
+
+  it('pages with the cursor and maps a refused cursor to invalid', async () => {
+    const { server, api } = setup();
+    const mai = server.addUser('Mai');
+    server.friends.add(mai.id);
+    server.addIncomingCard(mai.id);
+    server.addIncomingCard(mai.id);
+    server.feedPageSize = 1;
+    const first = await api.feed();
+    expect(first.items).toHaveLength(1);
+    const second = await api.feed(first.nextCursor);
+    expect(second.nextCursor).toBeNull();
+    await expect(api.feed('o1t1')).rejects.toMatchObject({ kind: 'invalid' });
+    const before = server.auth.requests.length;
+    await expect(api.feed('../x')).rejects.toMatchObject({ kind: 'invalid' });
+    expect(server.auth.requests.length).toBe(before);
+  });
+
+  it('sets, replaces and clears my reaction; refuses unknown kinds before the network', async () => {
+    const { server, api } = setup();
+    const mai = server.addUser('Mai');
+    server.friends.add(mai.id);
+    const incoming = server.addIncomingCard(mai.id);
+    await api.setReaction(incoming.id, 'react.heart');
+    await api.setReaction(incoming.id, 'react.paw');
+    expect(server.reactions.get(incoming.id)).toBe('react.paw');
+    await api.clearReaction(incoming.id);
+    expect(server.reactions.has(incoming.id)).toBe(false);
+    const before = server.auth.requests.length;
+    await expect(api.setReaction(incoming.id, '<script>')).rejects.toMatchObject({
+      kind: 'invalid',
+    });
+    expect(server.auth.requests.length).toBe(before);
+    server.friends.delete(mai.id);
+    await expect(api.setReaction(incoming.id, 'react.heart')).rejects.toMatchObject({
+      kind: 'not_found',
+    });
   });
 });
