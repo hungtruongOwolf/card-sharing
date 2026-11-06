@@ -86,6 +86,7 @@ function view(local: LocalBoard): Board {
       id: local.meta.id,
       title: local.meta.title,
       backdrop: local.meta.backdrop,
+      role: local.meta.role,
       version: local.meta.version,
       pins: local.pins,
     },
@@ -190,12 +191,12 @@ export function createSyncedBoardRepository({
     if (!current) return;
     let pins: BoardPin[];
     if (detail.full) {
-      pins = detail.pins.flatMap((p) => (p.kind === 'pin' ? [p.pin] : []));
+      pins = detail.pins.flatMap((p) => (p.kind === 'pin' ? [{ ...p.pin, mine: p.mine }] : []));
     } else {
       const byId = new Map(current.pins.map((p) => [p.id, p]));
       for (const remote of detail.pins) {
         if (remote.kind === 'removed') byId.delete(remote.id);
-        else byId.set(remote.pin.id, remote.pin);
+        else byId.set(remote.pin.id, { ...remote.pin, mine: remote.mine });
       }
       pins = [...byId.values()];
     }

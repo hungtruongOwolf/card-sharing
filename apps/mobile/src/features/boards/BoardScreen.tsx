@@ -17,9 +17,19 @@ import { radius, space } from '@card-sharing/tokens';
 
 import { t, type MessageKey } from '../../i18n';
 import { Button, Screen, Sheet, Text, useTheme, useToast } from '../../ui';
+import type { Person } from '../friends/friendsApi';
 import type { CardItem } from '../sharing/cardsApi';
 import { BoardCanvas, type PinPose } from './BoardCanvas';
-import { BOARD_SIZE, clampToBoard, pinGeometry, type Board, type BoardPin } from './boardModel';
+import { BoardMembersSheet, membersQueryKey } from './BoardMembersSheet';
+import type { BoardMembersApi } from './boardMembersApi';
+import {
+  BOARD_SIZE,
+  canEditPin,
+  clampToBoard,
+  pinGeometry,
+  type Board,
+  type BoardPin,
+} from './boardModel';
 import {
   addDecorationOp,
   addPinOp,
@@ -35,6 +45,7 @@ import {
 } from './boardOps';
 import { hasBoardRenderer } from './boardDecor';
 import type { BoardRepository } from './boardRepository';
+import type { PinDisclosure } from './pinDisclosure';
 import type { TextureCache } from './textureCache';
 import { boardQueryKey, useBoardSync } from './useBoardSync';
 import { uuidv7 } from './uuidv7';
@@ -59,6 +70,12 @@ export interface BoardScreenProps {
   pinnableCards: PinnableCards;
   registry?: Registry;
   remoteConfig?: RemoteRegistryConfig;
+  /** Shared boards (T-108): members, invitations, leave. Absent on local-only boards. */
+  members?: BoardMembersApi;
+  /** My current friends, the only people I can invite. */
+  friends?: () => Promise<readonly Person[]>;
+  /** The one-time "everyone on this board can see this card" explanation (AC-19.5). */
+  disclosure?: PinDisclosure;
   onClose: () => void;
 }
 
@@ -111,6 +128,10 @@ export function BoardScreen({ repository, boardId, onClose, ...rest }: BoardScre
           board={board}
           repository={repository}
           onEdited={sync.schedule}
+          onLeft={() => {
+            void sync.sync();
+            onClose();
+          }}
           {...rest}
         />
       ) : null}
@@ -122,6 +143,8 @@ interface BoardEditorProps extends Omit<BoardScreenProps, 'boardId' | 'onClose'>
   board: Board;
   /** My edits were queued: sync soon. */
   onEdited: () => void;
+  /** I left this shared board. */
+  onLeft: () => void;
 }
 
 function BoardEditor({
@@ -132,6 +155,10 @@ function BoardEditor({
   registry,
   remoteConfig,
   onEdited,
+  onLeft,
+  members,
+  friends,
+  disclosure,
 }: BoardEditorProps) {
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -143,7 +170,17 @@ function BoardEditor({
   const [initialCamera] = useState(() => openingCamera(board, view));
   const camera = useSharedValue<Camera>(initialCamera);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [sheet, setSheet] = useState<'cards' | 'backdrop' | 'decorate' | null>(null);
+  const [sheet, setSheet] = useState<'cards' | 'backdrop' | 'decorate' | 'members' | null>(null);
+  const [disclosing, setDisclosing] = useState<CardItem | null>(null);
+  // A server board: membership comes from the server (a local board has no role and is mine alone).
+  const membersApi = board.role ? members : undefined;
+  const memberList = useQuery({
+    queryKey: membersQueryKey(board.id),
+    queryFn: () => membersApi!.members(board.id),
+    enabled: membersApi !== undefined,
+  });
+  const shared = board.role === 'collaborator' || (memberList.data?.length ?? 1) > 1;
+  const canEdit = useCallback((pin: BoardPin) => canEditPin(board, pin), [board]);
   const decor = useMemo(
     () => boardDecorChoices(registry ?? shippedRegistry, remoteConfig),
     [registry, remoteConfig],
@@ -220,6 +257,22 @@ function BoardEditor({
     apply([op]);
     if (op.type === 'pin.add') setSelectedId(op.pin.id);
   };
+  /** My own card on a shared board: explain once that every member can see it (AC-19.5). */
+  const pinCard = async (card: CardItem) => {
+    if (card.isMine && shared && disclosure && !(await disclosure.seen())) {
+      setSheet(null);
+      setDisclosing(card);
+      return;
+    }
+    place((centre) => addPinOp(board, card, centre));
+  };
+  const confirmDisclosure = () => {
+    const card = disclosing;
+    setDisclosing(null);
+    if (!card) return;
+    void disclosure?.markSeen().catch(() => undefined);
+    place((centre) => addPinOp(board, card, centre));
+  };
   const setBackdrop = (entry: EffectEntry) => {
     setSheet(null);
     const backdrop = { id: entry.id, version: entry.version, params: defaultParams(entry) };
@@ -260,11 +313,20 @@ function BoardEditor({
               variant="secondary"
               onPress={() => setSheet('decorate')}
             />
-            <Button
-              label={t('boards.backdrop.open')}
-              variant="secondary"
-              onPress={() => setSheet('backdrop')}
-            />
+            {board.role !== 'collaborator' ? (
+              <Button
+                label={t('boards.backdrop.open')}
+                variant="secondary"
+                onPress={() => setSheet('backdrop')}
+              />
+            ) : null}
+            {membersApi ? (
+              <Button
+                label={t('boards.members.open')}
+                variant="secondary"
+                onPress={() => setSheet('members')}
+              />
+            ) : null}
           </>
         )}
       </View>
@@ -283,6 +345,7 @@ function BoardEditor({
           registry={registry}
           remoteConfig={remoteConfig}
           editable
+          canEdit={canEdit}
           selectedId={selectedId}
           onSelect={setSelectedId}
           onPickUp={onPickUp}
@@ -290,10 +353,35 @@ function BoardEditor({
           onAction={onAction}
         />
       </View>
+      {membersApi && friends && board.role ? (
+        <BoardMembersSheet
+          visible={sheet === 'members'}
+          boardId={board.id}
+          role={board.role}
+          api={membersApi}
+          friends={friends}
+          onClose={() => setSheet(null)}
+          onLeft={onLeft}
+        />
+      ) : null}
+      <Sheet
+        visible={disclosing !== null}
+        onClose={() => setDisclosing(null)}
+        title={t('boards.disclosure.title')}
+        testID="pin-disclosure"
+      >
+        <Text>{t('boards.disclosure.body')}</Text>
+        <Button label={t('boards.disclosure.confirm')} onPress={confirmDisclosure} />
+        <Button
+          label={t('boards.disclosure.cancel')}
+          variant="ghost"
+          onPress={() => setDisclosing(null)}
+        />
+      </Sheet>
       <PinPicker
         visible={sheet === 'cards'}
         source={pinnableCards}
-        onPick={(card) => place((centre) => addPinOp(board, card, centre))}
+        onPick={(card) => void pinCard(card)}
         onClose={() => setSheet(null)}
       />
       <Sheet

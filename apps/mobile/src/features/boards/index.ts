@@ -2,6 +2,8 @@ export {
   appBoardRepository,
   appBoardTextures,
   clearDeviceBoards,
+  devicePinDisclosure,
+  useBoardMembersApi,
   useBoardRepository,
 } from './appBoards';
 export { BoardCanvas, type BoardCanvasProps } from './BoardCanvas';

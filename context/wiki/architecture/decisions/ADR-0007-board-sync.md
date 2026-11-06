@@ -61,6 +61,15 @@ layout, `conflict` replaces only that pin with `current`, `rejected` drops only 
 and says "You're no longer on this board". The offline copy (`boardStore.ts`, SecureStore, chunked) never holds signed URLs and
 is cleared on sign-out. Backdrop changes on an existing board stay local until `PATCH /v1/boards/{id}` exists (T-112).
 
+Shared boards in the app (T-108): pins carry `mine` from the read; `canEditPin` mirrors the server rule (a collaborator changes
+only pins they created, the owner any pin) and private tiles are never tappable and get no accessibility actions (AC-19.7). The
+Members sheet lists members (display name only when the minor rule hides more), lets the owner invite friends (with an
+`Idempotency-Key`; members plus open invitations up to 8), cancel invitations and remove collaborators (two-step), and lets a
+collaborator leave. The boards list shows received invitations with Join / Decline; nothing joins without Join (AC-19.8).
+Pinning my own card to a shared board asks once ("Everyone on this board can see this card", AC-19.5); the flag lives on the
+device and is cleared on sign-out, so another account sees it again. Collaborators do not get the Backdrop button (the backdrop
+is the owner's).
+
 ## Consequences
 - Positive: exact PRD semantics; simple SQL (`UPDATE … WHERE id=$1 AND version=$2`); offline-friendly; no data-model change for realtime.
 - Negative / trade-offs accepted: whole-pin conflicts (a move and a rotate of the same pin at the same time → one loses, client refreshes);

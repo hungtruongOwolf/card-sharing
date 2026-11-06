@@ -8,6 +8,11 @@
  * the rest of the batch still applies; a replayed `op_id` is `applied` again; collaborators change only their own
  * pins (`PIN_NOT_YOURS`); at most 100 live pins; card pins resolve per viewer through `cards` (a card I may not see
  * is a `private_tile`); `since_version` returns changed pins and tombstones plus every live card pin.
+ *
+ * Membership (T-106/T-107): only the owner invites, and only friends (`friends`), else 404; members plus open
+ * invitations stay within 8 (409 `COLLABORATOR_LIMIT_REACHED`); a member or open invitation is 409
+ * `ALREADY_INVITED`; accepting needs my pending invitation (else 404); removing a member drops their pins; the
+ * owner cannot leave (400).
  */
 import { FakeAuthServer, json, problem, type RecordedRequest } from './fakeAuthServer';
 import { ME } from './fakeSocialServer';
@@ -38,6 +43,13 @@ export interface FakeBoard {
 }
 
 /** A card the fake can resolve: the CardView body and who may see it. */
+export interface FakeInvitation {
+  id: string;
+  boardId: string;
+  invitee: string;
+  status: 'pending' | 'accepted' | 'declined' | 'cancelled';
+}
+
 export interface FakeBoardCard {
   view: Record<string, unknown>;
   visibleTo: Set<string>;
@@ -56,6 +68,11 @@ export class FakeBoardsServer {
   readonly overrides = new Map<string, Response>();
   /** When true every request fails like a dropped connection. */
   offline = false;
+  /** My friends (the people I may invite) and every known user's display name. */
+  readonly friends = new Set<string>();
+  readonly names = new Map<string, string>();
+  readonly invitations = new Map<string, FakeInvitation>();
+  private nextInvitation = 1;
 
   constructor() {
     this.auth.routes = (request) => this.route(request);
@@ -168,6 +185,8 @@ export class FakeBoardsServer {
       });
     }
     if (path === '/v1/boards' && request.method === 'POST') return this.create(request.body);
+    const membership = this.membership(request, path);
+    if (membership) return membership;
     const match = /^\/v1\/boards\/([^/]+)(\/ops)?$/.exec(path);
     if (!match) return null;
     const board = this.boards.get(match[1] ?? '');
@@ -184,6 +203,123 @@ export class FakeBoardsServer {
     }
     if (match[2] && request.method === 'POST') return this.ops(board, request.body);
     return null;
+  }
+
+  private membership(request: RecordedRequest, path: string): Response | null {
+    if (path === '/v1/me/board-invitations' && request.method === 'GET') {
+      return json({
+        items: [...this.invitations.values()]
+          .filter((i) => i.invitee === ME && i.status === 'pending')
+          .map((i) => {
+            const board = this.boards.get(i.boardId)!;
+            return {
+              id: i.id,
+              board_id: board.id,
+              board_title: board.title,
+              owner_display_name: this.names.get(board.owner) ?? null,
+              member_count: board.members.size,
+              expires_at: '2030-01-01T00:00:00Z',
+            };
+          }),
+      });
+    }
+    const action = /^\/v1\/board-invitations\/([^/]+)(?:\/(accept|decline))?$/.exec(path);
+    if (action) {
+      const invitation = this.invitations.get(action[1] ?? '');
+      const verb = action[2];
+      if (!invitation || invitation.status !== 'pending') return notFound();
+      const board = this.boards.get(invitation.boardId)!;
+      if (!verb && request.method === 'DELETE') {
+        if (board.owner !== ME) return notFound();
+        invitation.status = 'cancelled';
+        return new Response(null, { status: 204 });
+      }
+      if (invitation.invitee !== ME || request.method !== 'POST') return notFound();
+      if (verb === 'decline') {
+        invitation.status = 'declined';
+        return new Response(null, { status: 204 });
+      }
+      invitation.status = 'accepted';
+      board.members.add(ME);
+      return json({ board_id: board.id });
+    }
+    const members = /^\/v1\/boards\/([^/]+)\/(members|invitations)(?:\/([^/]+))?$/.exec(path);
+    if (!members) return null;
+    const board = this.boards.get(members[1] ?? '');
+    if (!board || !board.members.has(ME)) return notFound();
+    if (members[2] === 'members' && !members[3] && request.method === 'GET') {
+      return json({
+        items: [board.owner, ...[...board.members].filter((m) => m !== board.owner)].map((id) => ({
+          id,
+          display_name: this.names.get(id) ?? null,
+          handle: null,
+          role: id === board.owner ? 'owner' : 'collaborator',
+          is_me: id === ME,
+          joined_at: '2026-11-06T00:00:00Z',
+        })),
+      });
+    }
+    if (members[2] === 'members' && members[3] && request.method === 'DELETE') {
+      const target = members[3];
+      if (target === board.owner)
+        return target === ME ? problem(400, 'VALIDATION_FAILED') : notFound();
+      if (!board.members.has(target) || (board.owner !== ME && target !== ME)) return notFound();
+      board.members.delete(target);
+      for (const pin of board.pins.values()) {
+        if (pin.createdBy === target && !pin.removed) {
+          board.version += 1;
+          Object.assign(pin, { removed: true, version: pin.version + 1, changedAt: board.version });
+        }
+      }
+      return new Response(null, { status: 204 });
+    }
+    if (board.owner !== ME) return notFound();
+    const open = () =>
+      [...this.invitations.values()].filter(
+        (i) => i.boardId === board.id && i.status === 'pending',
+      );
+    if (members[2] === 'invitations' && request.method === 'GET') {
+      return json({
+        items: open().map((i) => ({
+          id: i.id,
+          invitee_id: i.invitee,
+          invitee_display_name: this.names.get(i.invitee) ?? null,
+          status: 'pending',
+          expires_at: '2030-01-01T00:00:00Z',
+        })),
+      });
+    }
+    if (members[2] === 'invitations' && request.method === 'POST') {
+      if (!request.idempotencyKey) return problem(400, 'VALIDATION_FAILED');
+      const target = (request.body as { user_id?: unknown } | null)?.user_id;
+      if (typeof target !== 'string' || !this.friends.has(target)) return notFound();
+      if (board.members.has(target) || open().some((i) => i.invitee === target)) {
+        return problem(409, 'ALREADY_INVITED');
+      }
+      if (board.members.size - 1 + open().length >= 8)
+        return problem(409, 'COLLABORATOR_LIMIT_REACHED');
+      const id = `0192f0ff-0000-7000-8000-${String(this.nextInvitation++).padStart(12, '0')}`;
+      this.invitations.set(id, { id, boardId: board.id, invitee: target, status: 'pending' });
+      return json(
+        {
+          invitation: {
+            id,
+            invitee_id: target,
+            status: 'pending',
+            expires_at: '2030-01-01T00:00:00Z',
+          },
+        },
+        201,
+      );
+    }
+    return null;
+  }
+
+  /** An invitation for me to another owner's board. */
+  inviteMe(boardId: string): string {
+    const id = `0192f0ff-0000-7000-8000-${String(this.nextInvitation++).padStart(12, '0')}`;
+    this.invitations.set(id, { id, boardId, invitee: ME, status: 'pending' });
+    return id;
   }
 
   private create(body: unknown): Response {

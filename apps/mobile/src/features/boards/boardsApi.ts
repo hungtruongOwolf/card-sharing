@@ -249,7 +249,7 @@ export function opBody(op: PinOp): Record<string, unknown> {
   }
 }
 
-async function failure(response: Response): Promise<BoardsError> {
+export async function boardsFailure(response: Response): Promise<BoardsError> {
   const { status } = response;
   const code = await problemCode(response);
   if (code === 'UNKNOWN_REGISTRY_ID') return new BoardsError('unknown_registry_id', status);
@@ -276,7 +276,7 @@ export function createBoardsApi(
     init: RequestInit,
   ): Promise<T> => {
     const response = await fetcher(path, init);
-    if (!response.ok) throw await failure(response);
+    if (!response.ok) throw await boardsFailure(response);
     const skew = clockSkew(response, now());
     const parsed = parse(await response.json().catch(() => undefined), skew);
     if (parsed === null) throw new BoardsError('unavailable', response.status);
