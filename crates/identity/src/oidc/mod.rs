@@ -189,6 +189,11 @@ impl IdTokenVerifier {
         self.spec.provider
     }
 
+    /// The accepted `aud` values (for Apple: the bundle id the refresh tokens were issued to).
+    pub fn client_ids(&self) -> &[String] {
+        &self.settings.client_ids
+    }
+
     /// Verifies an ID token minted for a sign-in that used `raw_nonce`.
     pub async fn verify(
         &self,

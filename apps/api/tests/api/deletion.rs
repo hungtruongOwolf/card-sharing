@@ -18,7 +18,7 @@ use serde_json::{Value, json};
 use time::Duration;
 use uuid::Uuid;
 
-async fn request_deletion(env: &TestEnv, user: &User, reauth: Option<&str>) -> Response<Body> {
+pub async fn request_deletion(env: &TestEnv, user: &User, reauth: Option<&str>) -> Response<Body> {
     let mut builder =
         Request::post("/v1/me/deletion").header("authorization", format!("Bearer {}", user.token));
     if let Some(reauth) = reauth {
