@@ -145,11 +145,13 @@ describe('CardEditorScreen', () => {
     'reopens a saved card with its choices (re-editable until sent)',
     async () => {
       const onNext = jest.fn();
+      const onDraftChange = jest.fn();
       const holo = registry.get('fx.holo')!;
       const torn = registry.get('cut.torn')!;
       await renderEditor(
         {
           onNext,
+          onDraftChange,
           initialDraft: {
             cut: {
               id: torn.id,
@@ -165,6 +167,13 @@ describe('CardEditorScreen', () => {
       );
       expect(selected('effects.cut.torn.name')).toBe(true);
       expect(screen.getByTestId('editor-caption')).toHaveTextContent('again');
+      // Auto-save hook (drafts tray, T-68) sees the shown draft.
+      expect(onDraftChange).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          caption: 'again',
+          cut: expect.objectContaining({ id: 'cut.torn' }),
+        }),
+      );
       await userEvent.setup().press(screen.getByRole('button', { name: t('editor.next') }));
       expect(onNext).toHaveBeenCalledWith(
         expect.objectContaining({

@@ -121,6 +121,11 @@ Notes:
   report/block flows, CSAM hash matching, no face-swap/undress templates.
 - **Handle search** = exact match only, identical "not found" for hidden/minor/blocked/non-existent accounts
   (no enumeration), per-user/device/IP rate limits; never returns users below `discovery.min_age` — [[prd-mvp]] US-5a.
+- **Unsent captures stay on the device** (US-9): drafts and bakes have no network path (a jest privacy guard scans
+  `features/drafts` and `features/cards` for network/upload APIs and runs a save/list/autosave cycle with `fetch` spied).
+  Draft records (photo reference + style choices, ≤ 2 KB, at most 40) live in expo-secure-store with
+  `WHEN_UNLOCKED_THIS_DEVICE_ONLY`: encrypted at rest, never in an iCloud/iTunes backup, excluded from Android Auto Backup
+  by the config plugin. Photos stay in the app cache (not backed up on either OS). Stored records are parsed as untrusted.
 - MVP threat model, abuse cases and SR-1…SR-37 live in [[threat-model-mvp]]; every feature PR checks the SRs it touches.
 - Region-specific rules (age, consent, ads) resolved server-side from config — [[region-policy]].
 - See [[genai-effects]], [[monetization]], [[subject-cutout]], [[ADR-0003-effects-tiers]].

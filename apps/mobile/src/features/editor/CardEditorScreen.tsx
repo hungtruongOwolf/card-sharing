@@ -68,6 +68,8 @@ export interface CardEditorScreenProps {
    * Choices the device or config no longer allows fall back to the defaults like any hidden selection.
    */
   initialDraft?: CardDraft;
+  /** Called with the shown draft whenever it changes (auto-save to the drafts tray, T-68). */
+  onDraftChange?: (draft: CardDraft) => void;
   /** Back to capture (also the way out of the error state). */
   onBack: () => void;
   /** Next step for the finished draft (send, a later ticket). Without it the editor has no Next button. */
@@ -153,6 +155,7 @@ function Editor({
   captionMax = CAPTION_MAX_GRAPHEMES,
   textFilter,
   initialDraft,
+  onDraftChange,
   onNext,
 }: EditorProps) {
   const { width: windowWidth } = useWindowDimensions();
@@ -188,6 +191,13 @@ function Editor({
         caption: draft.caption,
       }
     : null;
+
+  const shownJson = JSON.stringify(shown);
+  useEffect(() => {
+    if (shown) onDraftChange?.(shown);
+    // `shown` is rebuilt every render; its JSON is the stable identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shownJson]);
 
   const scene = useMemo(
     () => ({ width: size.width, height: size.height, photo: image, subject }),
