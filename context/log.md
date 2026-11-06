@@ -231,3 +231,9 @@
 - T-65 #241, T-67 #242, T-68 #245, T-66 #247 merged; #67, #69, #70, #68 closed. Follow-ups #244, #246 need one
   `pnpm install` (expo-sqlite, expo-file-system, expo-haptics, expo-audio) and licensed sounds: EM to schedule.
   T-77/T-80 wait for backend; `GET /v1/feed` assigned to the backend lane.
+
+## [2026-11-06] progress | Sprint 4 backend lane done
+- T-70 #243, T-71 #248, T-72 #249, T-73 #253/#256, T-74 #254, T-75 #255, T-76 #256, T-79 #257, feed #259, T-82 #260,
+  T-84 #261; issues #72-#78, #81, #84, #86 closed (#82 stays open for the feed UI). Follow-ups #250, #251, #252, #258.
+- Defaults pending EM: nudity hold threshold 0.5; held cards show no media URL even to the owner; provisional reaction
+  set. Deploy needs `API_ENV`, `API_MEDIA_SIGNING_KEY`, `API_MEDIA_STORAGE_DIR` (missing → 503, fail closed).
