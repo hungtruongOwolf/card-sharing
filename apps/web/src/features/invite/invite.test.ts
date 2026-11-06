@@ -2,18 +2,13 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 
-import {
-  type InviteApiConfig,
-  UNKNOWN_VISITOR_IP,
-  isInviteToken,
-  lookupInvite,
-  readInviteApiConfig,
-  visitorIp,
-} from './invite.ts';
+import type { ServiceApiConfig } from '../service-api/service-api.ts';
+
+import { isInviteToken, lookupInvite } from './invite.ts';
 
 const TOKEN = 'AbCdEfGhIjKlMnOpQrSt_-';
 const CREDENTIAL = 'c'.repeat(32);
-const CONFIG: InviteApiConfig = {
+const CONFIG: ServiceApiConfig = {
   apiUrl: new URL('http://api.internal:8080'),
   credential: CREDENTIAL,
   clientIpHeader: 'fly-client-ip',
@@ -47,48 +42,6 @@ describe('isInviteToken', () => {
     assert.equal(isInviteToken(`${TOKEN}A`), false);
     assert.equal(isInviteToken('AbCdEfGhIjKlMnOpQrSt%2'), false);
     assert.equal(isInviteToken('../../v1/me/invite/xxx'), false);
-  });
-});
-
-describe('readInviteApiConfig', () => {
-  it('needs an API URL and a long credential', () => {
-    assert.equal(readInviteApiConfig({}), null);
-    assert.equal(
-      readInviteApiConfig({ API_URL: 'http://api', API_SERVICE_CREDENTIAL: 'short' }),
-      null,
-    );
-    assert.equal(
-      readInviteApiConfig({ API_URL: 'not a url', API_SERVICE_CREDENTIAL: CREDENTIAL }),
-      null,
-    );
-    assert.equal(
-      readInviteApiConfig({ API_URL: 'file:///etc/passwd', API_SERVICE_CREDENTIAL: CREDENTIAL }),
-      null,
-    );
-    const config = readInviteApiConfig({
-      API_URL: 'https://api.example',
-      API_SERVICE_CREDENTIAL: CREDENTIAL,
-      CLIENT_IP_HEADER: 'Fly-Client-IP',
-    });
-    assert.equal(config?.apiUrl.origin, 'https://api.example');
-    assert.equal(config?.clientIpHeader, 'fly-client-ip');
-  });
-});
-
-describe('visitorIp', () => {
-  it('reads only the configured edge header', () => {
-    const headers = new Headers({ 'fly-client-ip': '198.51.100.4', 'x-forwarded-for': '1.2.3.4' });
-    assert.equal(visitorIp(headers, 'fly-client-ip'), '198.51.100.4');
-    // Without a trusted header a forged X-Forwarded-For is ignored: one shared bucket.
-    assert.equal(visitorIp(headers, null), UNKNOWN_VISITOR_IP);
-    assert.equal(
-      visitorIp(new Headers({ 'fly-client-ip': 'nope' }), 'fly-client-ip'),
-      UNKNOWN_VISITOR_IP,
-    );
-    assert.equal(
-      visitorIp(new Headers({ 'fly-client-ip': '2001:db8::1' }), 'fly-client-ip'),
-      '2001:db8::1',
-    );
   });
 });
 

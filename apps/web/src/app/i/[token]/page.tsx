@@ -1,12 +1,9 @@
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 
-import {
-  type InviteLookup,
-  lookupInvite,
-  readInviteApiConfig,
-  visitorIp,
-} from '../../../features/invite/invite';
+import { type InviteLookup, lookupInvite } from '../../../features/invite/invite';
+import { readServiceApiConfig, visitorIp } from '../../../features/service-api/service-api';
+import { storeLinks } from '../../../features/store-links/store-links';
 import { SITE_NAME } from '../../../site';
 
 type Props = { params: Promise<{ token: string }> };
@@ -23,26 +20,8 @@ export const metadata: Metadata = {
   referrer: 'no-referrer',
 };
 
-/** Server-only store links (optional env); without them "Get the app" points to the home page. */
-function storeLinks(): { label: string; href: string }[] {
-  const links = [
-    { label: 'App Store', href: process.env.APP_STORE_URL },
-    { label: 'Google Play', href: process.env.PLAY_STORE_URL },
-  ].filter((link): link is { label: string; href: string } => isHttpsUrl(link.href));
-  return links.length > 0 ? links : [{ label: 'Get the app', href: '/' }];
-}
-
-function isHttpsUrl(value: string | undefined): boolean {
-  if (!value) return false;
-  try {
-    return new URL(value).protocol === 'https:';
-  } catch {
-    return false;
-  }
-}
-
 async function lookup(token: string): Promise<InviteLookup> {
-  const config = readInviteApiConfig(process.env);
+  const config = readServiceApiConfig(process.env);
   if (config === null) {
     return { kind: 'unavailable' };
   }
@@ -58,7 +37,7 @@ async function lookup(token: string): Promise<InviteLookup> {
 export default async function InvitePage({ params }: Props) {
   const { token } = await params;
   const result = await lookup(token);
-  const stores = storeLinks();
+  const stores = storeLinks(process.env);
 
   if (result.kind === 'found') {
     return (

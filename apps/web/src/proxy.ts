@@ -1,30 +1,21 @@
 import { type NextRequest, NextResponse } from 'next/server';
 
+import { buildCsp } from './csp';
+import { mediaOrigin } from './features/public-board/public-board';
+
 /**
- * Per-request nonce-based CSP (security-baseline §5): no 'unsafe-inline' scripts.
- * Next.js reads the nonce from the request's CSP header and applies it to its own scripts,
- * which requires dynamic rendering (see src/app/layout.tsx).
- * 'wasm-unsafe-eval' lets the lazily loaded CanvasKit compile its self-hosted WASM (holo enlarge view);
- * it allows WebAssembly compilation only, not JS eval, so 'unsafe-eval' stays off in production.
+ * Per-request nonce-based CSP (src/csp.ts). Next.js reads the nonce from the request's CSP header
+ * and applies it to its own scripts, which requires dynamic rendering (see src/app/layout.tsx);
+ * pages that need their own inline `<style>` read it from `x-nonce`.
  */
 export function proxy(request: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
-  const isDev = process.env.NODE_ENV === 'development';
-  // Invite pages (/i/<token>) render text and links only: no WebAssembly, no blob/data images.
-  const isInvite = request.nextUrl.pathname.startsWith('/i/');
-  const csp = [
-    "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isInvite ? '' : " 'wasm-unsafe-eval'"}${isDev ? " 'unsafe-eval'" : ''}`,
-    `style-src 'self' 'nonce-${nonce}'`,
-    isInvite ? "img-src 'self'" : "img-src 'self' blob: data:",
-    "font-src 'self'",
-    "connect-src 'self'",
-    "object-src 'none'",
-    "base-uri 'self'",
-    "form-action 'self'",
-    "frame-ancestors 'none'",
-    ...(isDev ? [] : ['upgrade-insecure-requests']),
-  ].join('; ');
+  const csp = buildCsp({
+    nonce,
+    pathname: request.nextUrl.pathname,
+    isDev: process.env.NODE_ENV === 'development',
+    mediaOrigin: mediaOrigin(process.env),
+  });
 
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-nonce', nonce);
