@@ -670,7 +670,7 @@ lookups; any token of a suspended or banned account then answers **403 `ACCOUNT_
 once because every read predicate requires an active owner (cards, feed, widget, friends) and public links now resolve only
 for an active owner (`identity::account_active_sql!` in `SharingService::resolve_token`): the public page and OG image are the
 uniform 404. Apple/Google sign-in answers 403 `ACCOUNT_SUSPENDED`. Moderator suspensions carry `identity.accounts.suspended_until`
-(migration `20261122000001`); the worker's `identity.lift_suspensions` (every 5 min) restores `active` after it (audit
+(column from the first identity migration, index `20261122000001`); the worker's `identity.lift_suspensions` (every 5 min) restores `active` after it (audit
 `account.unsuspended`); indefinite suspensions (CSAM auto-suspend) and bans are never lifted. Tests: `tests/api/enforcement.rs`.
 
 Implemented (T-151, #153): `routes/deletion.rs` → `crates/privacy` (`DeletionService`). `POST /v1/me/deletion` (`re`: bearer +
