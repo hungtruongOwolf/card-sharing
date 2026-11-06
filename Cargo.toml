@@ -15,6 +15,7 @@ boards = { path = "crates/boards" }
 cards = { path = "crates/cards" }
 identity = { path = "crates/identity" }
 media = { path = "crates/media" }
+moderation = { path = "crates/moderation" }
 notifications = { path = "crates/notifications" }
 registry = { path = "crates/registry" }
 platform = { path = "crates/platform" }

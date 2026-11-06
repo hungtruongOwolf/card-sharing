@@ -14,6 +14,7 @@ boards.workspace = true
 cards.workspace = true
 identity.workspace = true
 media.workspace = true
+moderation.workspace = true
 notifications.workspace = true
 platform.workspace = true
 registry.workspace = true

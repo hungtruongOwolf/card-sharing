@@ -129,6 +129,9 @@ fn build_state(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<AppState> 
         .context("failed to load sharing config")?;
     let privacy_settings = privacy::PrivacySettings::from_path(&config.privacy_config_path)
         .context("failed to load privacy config")?;
+    let moderation_settings =
+        moderation::ModerationSettings::from_path(&config.moderation_config_path)
+            .context("failed to load moderation config")?;
     let state = AppState::new(
         policy,
         limiter,
@@ -143,6 +146,7 @@ fn build_state(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<AppState> 
     .with_board_settings(board_settings)
     .with_sharing_settings(sharing_settings)
     .with_privacy_settings(privacy_settings)
+    .with_moderation_settings(moderation_settings)
     .with_attestation(
         attestation_service(&config.attestation)?,
         config.attestation.mode,

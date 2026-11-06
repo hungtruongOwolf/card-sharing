@@ -81,8 +81,9 @@ pub fn registry_from(
             pool: pool.clone(),
         }))
         .register(Arc::new(sharing::SharingPersonalData {
-            pool,
+            pool: pool.clone(),
             clock,
             media,
         }))
+        .register(Arc::new(moderation::ModerationPersonalData { pool }))
 }

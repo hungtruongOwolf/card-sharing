@@ -6659,6 +6659,101 @@
         }
       }
     },
+    "/v1/reports": {
+      "post": {
+        "tags": [
+          "safety"
+        ],
+        "summary": "Report a card, board, public link or user. Auth: ses. Requires `Idempotency-Key`.",
+        "description": "The target must be one the caller can see right now (a card in their feed or their own\nboard's pins, a board they are a member of, a live public link, a friend or someone they\nblocked); anything else, including the caller's own content, is 404. Reporting the same target\nagain answers the first report.",
+        "operationId": "createReport",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Report received (or already received from this caller for this target).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED (reason, note, unknown fields) or a missing Idempotency-Key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: no target with this id that the caller can see.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED (20 per day).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "idempotency": "required",
+          "rateLimit": "reports.create",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
     "/v1/sessions": {
       "get": {
         "tags": [
@@ -9844,6 +9939,107 @@
         },
         "additionalProperties": false
       },
+      "ReportEnvelope": {
+        "type": "object",
+        "required": [
+          "report"
+        ],
+        "properties": {
+          "report": {
+            "$ref": "#/components/schemas/ReportView"
+          }
+        }
+      },
+      "ReportReason": {
+        "type": "string",
+        "description": "Report reasons (AC-26.1).",
+        "enum": [
+          "sexual",
+          "minor_safety",
+          "harassment",
+          "violence",
+          "hate",
+          "spam",
+          "other"
+        ]
+      },
+      "ReportRequest": {
+        "type": "object",
+        "description": "Body of `POST /v1/reports`.",
+        "required": [
+          "target",
+          "reason"
+        ],
+        "properties": {
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Optional context for the moderator, at most 500 characters.",
+            "maxLength": 500
+          },
+          "reason": {
+            "$ref": "#/components/schemas/ReportReason"
+          },
+          "target": {
+            "$ref": "#/components/schemas/ReportTargetRequest"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReportTargetRequest": {
+        "type": "object",
+        "required": [
+          "type",
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The card, board or user id (UUID); for a public link, the token from its URL\n(`.../b/<token>`), since link ids are never shown to anyone but the owner.",
+            "maxLength": 64,
+            "minLength": 1
+          },
+          "type": {
+            "$ref": "#/components/schemas/ReportTargetType"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReportTargetType": {
+        "type": "string",
+        "description": "What is reported.",
+        "enum": [
+          "card",
+          "board",
+          "public_link",
+          "user"
+        ]
+      },
+      "ReportView": {
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "created_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "description": "Always `received`: moderators review reports; the reporter is not told the outcome.",
+            "example": "received"
+          }
+        }
+      },
       "RequestItemView": {
         "type": "object",
         "required": [
@@ -10366,6 +10562,10 @@
     {
       "name": "sharing",
       "description": "Public board links (US-24)"
+    },
+    {
+      "name": "safety",
+      "description": "Reports of cards, boards, public links and users (US-26)"
     },
     {
       "name": "media",

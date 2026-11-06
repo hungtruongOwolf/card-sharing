@@ -48,6 +48,8 @@ pub struct AppState {
     pub boards: Arc<boards::BoardService>,
     /// Public board links (US-24).
     pub sharing: Arc<sharing::SharingService>,
+    /// Reports (T-141) and the moderation queue.
+    pub reports: Arc<moderation::ReportService>,
     /// Privacy rules (`config/privacy.yaml`): deletion grace period.
     pub privacy: Arc<privacy::PrivacySettings>,
     /// The activity tab (T-88).
@@ -124,6 +126,11 @@ impl AppState {
                 Arc::clone(&age),
             )),
             privacy: Arc::new(privacy::PrivacySettings::default()),
+            reports: Arc::new(moderation::ReportService::new(
+                identity.pool().clone(),
+                identity.clock(),
+                moderation::ModerationSettings::default(),
+            )),
             sharing: Arc::new(sharing::SharingService::new(
                 identity.pool().clone(),
                 identity.clock(),
@@ -290,6 +297,16 @@ impl AppState {
             Arc::clone(&self.media),
             (*self.privacy).clone(),
         )
+    }
+
+    /// Installs the moderation rules (`config/moderation.yaml`).
+    pub fn with_moderation_settings(mut self, settings: moderation::ModerationSettings) -> Self {
+        self.reports = Arc::new(moderation::ReportService::new(
+            self.identity.pool().clone(),
+            self.identity.clock(),
+            settings,
+        ));
+        self
     }
 
     /// Installs the sharing rules (`config/sharing.yaml`).

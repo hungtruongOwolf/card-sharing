@@ -1349,6 +1349,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Report a card, board, public link or user. Auth: ses. Requires `Idempotency-Key`.
+         * @description The target must be one the caller can see right now (a card in their feed or their own
+         *     board's pins, a board they are a member of, a live public link, a friend or someone they
+         *     blocked); anything else, including the caller's own content, is 404. Reporting the same target
+         *     again answers the first report.
+         */
+        post: operations["createReport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/sessions": {
         parameters: {
             query?: never;
@@ -2546,6 +2569,45 @@ export interface components {
             op_id: string;
             /** Format: uuid */
             pin_id: string;
+        };
+        ReportEnvelope: {
+            report: components["schemas"]["ReportView"];
+        };
+        /**
+         * @description Report reasons (AC-26.1).
+         * @enum {string}
+         */
+        ReportReason: "sexual" | "minor_safety" | "harassment" | "violence" | "hate" | "spam" | "other";
+        /** @description Body of `POST /v1/reports`. */
+        ReportRequest: {
+            /** @description Optional context for the moderator, at most 500 characters. */
+            note?: string | null;
+            reason: components["schemas"]["ReportReason"];
+            target: components["schemas"]["ReportTargetRequest"];
+        };
+        ReportTargetRequest: {
+            /**
+             * @description The card, board or user id (UUID); for a public link, the token from its URL
+             *     (`.../b/<token>`), since link ids are never shown to anyone but the owner.
+             */
+            id: string;
+            type: components["schemas"]["ReportTargetType"];
+        };
+        /**
+         * @description What is reported.
+         * @enum {string}
+         */
+        ReportTargetType: "card" | "board" | "public_link" | "user";
+        ReportView: {
+            /** Format: date-time */
+            created_at: string;
+            /** Format: uuid */
+            id: string;
+            /**
+             * @description Always `received`: moderators review reports; the reporter is not told the outcome.
+             * @example received
+             */
+            status: string;
         };
         RequestItemView: {
             /** Format: date-time */
@@ -7525,6 +7587,75 @@ export interface operations {
             };
             /** @description TEMPORARILY_UNAVAILABLE (rate limit store down; fails closed). */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    createReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportRequest"];
+            };
+        };
+        responses: {
+            /** @description Report received (or already received from this caller for this target). */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportEnvelope"];
+                };
+            };
+            /** @description VALIDATION_FAILED (reason, note, unknown fields) or a missing Idempotency-Key. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND: no target with this id that the caller can see. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED (20 per day). */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

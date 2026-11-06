@@ -42,6 +42,11 @@ limits:
     requests: 30
     per_secs: 60
     on_store_failure: closed
+  reports.create: # POST /v1/reports (20/day per user, US-26)
+    scope: user
+    requests: 20
+    per_secs: 86400
+    on_store_failure: open
   auth.refresh: # POST /v1/auth/refresh (30/h per device; anonymous callers fall back to IP)
     scope: device
     requests: 30
