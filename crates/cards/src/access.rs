@@ -28,6 +28,39 @@ macro_rules! recipient_visible_sql {
     };
 }
 
+/// SQL predicate (a string literal): card `$card` belongs to `$owner` and is not deleted. For
+/// other modules' read-time filters (the activity tab's reaction and hold items).
+#[macro_export]
+macro_rules! owner_card_sql {
+    ($card:literal, $owner:literal) => {
+        concat!(
+            "EXISTS (SELECT 1 FROM cards.cards oc WHERE oc.id = ",
+            $card,
+            " AND oc.owner_id = ",
+            $owner,
+            " AND oc.status <> 'deleted')"
+        )
+    };
+}
+
+/// SQL predicate (a string literal): card `$card` is visible to its recipient `$viewer` under the
+/// card-read predicate. For other modules' read-time filters (the activity tab's new-card items).
+#[macro_export]
+macro_rules! recipient_card_visible_sql {
+    ($card:literal, $viewer:literal) => {
+        concat!(
+            "EXISTS (SELECT 1 FROM cards.cards c JOIN cards.card_recipients r ON r.card_id = c.id",
+            " AND r.recipient_id = ",
+            $viewer,
+            " WHERE c.id = ",
+            $card,
+            " AND ",
+            $crate::recipient_visible_sql!(),
+            ")"
+        )
+    };
+}
+
 /// Columns of [`CardRow`] (aliases `c` and `r`), as a literal.
 macro_rules! card_columns {
     () => {

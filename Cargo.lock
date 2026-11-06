@@ -1398,12 +1398,14 @@ dependencies = [
 name = "notifications"
 version = "0.1.0"
 dependencies = [
+ "cards",
  "identity",
  "platform",
  "serde",
  "serde_json",
  "serde_norway",
  "sha2 0.11.1",
+ "social",
  "sqlx",
  "thiserror",
  "time",

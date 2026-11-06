@@ -38,6 +38,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My activity. Auth: ses.
+         * @description Every new card, reaction, friend request, accepted request and review hold, also when no
+         *     push was sent (AC-31.3). Items the caller may no longer see (unfriended, blocked, deleted,
+         *     answered requests) are left out.
+         */
+        get: operations["getActivity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/activity/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark my activity read up to an item. Auth: ses.
+         * @description Never moves backwards. An id that is not one of the caller's items is the same 404 as a
+         *     missing one.
+         */
+        post: operations["markActivityRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/attestation/apple-keys": {
         parameters: {
             query?: never;
@@ -915,6 +958,40 @@ export interface components {
             /** @example pending_age */
             status: string;
         };
+        ActivityItemView: {
+            /**
+             * Format: uuid
+             * @description Card sender, reactor or new friend; `null` when the event names nobody.
+             */
+            actor_id?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /**
+             * Format: uuid
+             * @description Item id; pass the newest one seen to `POST /v1/activity/read`.
+             */
+            id: string;
+            /**
+             * Format: uuid
+             * @description The card (`card.*`, `reaction.new`), friend request (`friend.request`) or user
+             *     (`friend.accepted`) the item is about.
+             */
+            subject_id: string;
+            /** @description `card.new`, `reaction.new`, `friend.request`, `friend.accepted` or `card.held`. */
+            type: string;
+            unread: boolean;
+        };
+        ActivityPage: {
+            /** @description Newest first. */
+            items: components["schemas"]["ActivityItemView"][];
+            /** @description Opaque; `null` on the last page. */
+            next_cursor?: string | null;
+            /**
+             * Format: int64
+             * @description Unread visible items, counted up to 100.
+             */
+            unread_count: number;
+        };
         AdsView: {
             personalized_requires_consent: boolean;
             rewarded: boolean;
@@ -1251,6 +1328,14 @@ export interface components {
             effects: string[];
             finishes: string[];
             reactions: string[];
+        };
+        /** @description Body of `POST /v1/activity/read`. */
+        MarkReadRequest: {
+            /**
+             * Format: uuid
+             * @description The newest item the user has seen; it and everything older become read.
+             */
+            up_to: string;
         };
         MeResponse: {
             account: components["schemas"]["AccountView"];
@@ -1635,6 +1720,143 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReadinessResponse"];
+                };
+            };
+        };
+    };
+    getActivity: {
+        parameters: {
+            query?: {
+                /** @description `next_cursor` of the previous page. */
+                cursor?: string;
+                /** @description 1..=50, default 30. */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of activity. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityPage"];
+                };
+            };
+            /** @description VALIDATION_FAILED: bad limit or cursor. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description TEMPORARILY_UNAVAILABLE: cursor signing not configured. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    markActivityRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MarkReadRequest"];
+            };
+        };
+        responses: {
+            /** @description Marked read. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description VALIDATION_FAILED. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND: not one of the caller's items. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
         };

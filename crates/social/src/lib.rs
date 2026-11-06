@@ -57,3 +57,23 @@ macro_rules! friends_unblocked_sql {
         )
     };
 }
+
+/// SQL predicate (a string literal): `$request` is a friend request to `$recipient` that the
+/// recipient still sees as open at `$now` (pending, not expired) and neither side blocks the other.
+/// For other modules' read-time filters (the activity tab).
+#[macro_export]
+macro_rules! request_open_to_sql {
+    ($request:literal, $recipient:literal, $now:literal) => {
+        concat!(
+            "EXISTS (SELECT 1 FROM social.friend_requests sfr WHERE sfr.id = ",
+            $request,
+            " AND sfr.to_user = ",
+            $recipient,
+            " AND sfr.status = 'pending' AND sfr.expires_at > ",
+            $now,
+            " AND NOT EXISTS (SELECT 1 FROM social.blocks sb2 WHERE (sb2.blocker_id = sfr.to_user",
+            " AND sb2.blocked_id = sfr.from_user) OR (sb2.blocker_id = sfr.from_user",
+            " AND sb2.blocked_id = sfr.to_user)))"
+        )
+    };
+}
