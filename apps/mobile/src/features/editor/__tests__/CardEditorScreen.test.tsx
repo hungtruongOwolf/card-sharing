@@ -1,5 +1,5 @@
 /**
- * @jest-environment @shopify/react-native-skia/jestEnv.js
+ * @jest-environment <rootDir>/jest.skia-environment.js
  */
 import { Skia } from '@shopify/react-native-skia';
 import { act, fireEvent, screen, userEvent, waitFor } from '@testing-library/react-native';
@@ -58,7 +58,7 @@ async function renderEditor(
       onBack={jest.fn()}
       {...props}
     />,
-    options,
+    { ...options, gestureRoot: true },
   );
   return screen.findByTestId('editor');
 }
@@ -530,6 +530,7 @@ describe('CardEditorScreen', () => {
         loadImage={async () => null}
         onBack={onBack}
       />,
+      { gestureRoot: true },
     );
     await userEvent
       .setup()

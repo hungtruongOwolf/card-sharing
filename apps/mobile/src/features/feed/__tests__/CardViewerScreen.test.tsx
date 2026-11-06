@@ -1,5 +1,5 @@
 /**
- * @jest-environment @shopify/react-native-skia/jestEnv.js
+ * @jest-environment <rootDir>/jest.skia-environment.js
  */
 import { Skia, type SkImage } from '@shopify/react-native-skia';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';

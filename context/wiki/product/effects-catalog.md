@@ -83,7 +83,7 @@ equivalent to mask DstIn) and `contour:stroke` (`cut.diecut`: path fill + round-
 colour, subject on top with a 0.75 px feather); T-63 adds `shape:roundedSquare`, `shape:circle`, `shape:heart`
 (`shapeCuts.ts`) and `torn:paper` (`tornCut.ts`), which need no mask. A new cut style reusing a ref is an entry file only. The subject path comes
 from T-61 contours via `subjectPath` (`Skia.Path.MakeFromSVGString`). Tests render with CanvasKit WASM in jest
-(`@shopify/react-native-skia/jestEnv.js`), probe pixels and keep 8×8 golden signatures on the light and dark canvas. A dev
+(`apps/mobile/jest.skia-environment.js`), probe pixels and keep 8×8 golden signatures on the light and dark canvas. A dev
 screen `/cut-lab` previews every cut style, its presets and slider params on a synthetic subject until segmenters exist.
 `CutScene.subject` is `null` for a whole-photo card; subject renderers (`mask:dstIn`, `contour:stroke`) refuse to draw
 without one.
@@ -297,8 +297,8 @@ Export rules:
   (`exportDraftPng`), the card viewer exports a sent card only when the server says `is_mine`, from its 1080 px render
   (`exportRenderPng`); a friend's card shows no export action, and the server only returns `original_url` to the
   owner (the app does not keep it; backend tests `cards_read.rs`, `feed.rs`). iOS shares a `data:image/png` URI through
-  React Native `Share`; Android has no image share without `expo-sharing` (not installed: no new dependencies this
-  sprint), so the action is hidden there for now (EM decision pending).
+  React Native `Share`; Android has no image share without `expo-sharing` (installed since the SDK 58 upgrade; the
+  Android share path is follow-up #326), so the action is hidden there for now.
 - **Loop clip (procedural only, not AI video):** render N frames with the `time` uniform offscreen → encode MP4/animated WebP via a native encoder module (AVAssetWriter / MediaCodec); Skia video export is beta → Phase 2. EM confirmed 2026-11-04: procedural loops are allowed (not AI video) — **Phase 2**.
 - Web share pages show the baked still (`webPreview: 'baked'`). On enlarge, the holo runs as a small WebGL2 port of the
   same shader (`packages/shaders` uniforms), not CanvasKit: the T-126 spike measured CanvasKit at 2.9 MB gz, 15-17 s cold on

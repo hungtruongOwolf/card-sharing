@@ -1,6 +1,6 @@
 /**
  * Draws board backdrops and decorations with real Skia (CanvasKit WASM) offscreen and probes pixels.
- * @jest-environment @shopify/react-native-skia/jestEnv.js
+ * @jest-environment <rootDir>/jest.skia-environment.js
  */
 import { AlphaType, ColorType, Skia, type SkCanvas } from '@shopify/react-native-skia';
 

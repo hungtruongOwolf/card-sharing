@@ -38,7 +38,11 @@ Global, English. Backend stays Rust.
   device. Until then T-53 ships the system camera and photo picker through `expo-image-picker` behind the `CaptureSource`
   interface (`apps/mobile/src/features/capture`), results in the app cache only, no EXIF read. AC-7.1 (live camera
   <= 1.5 s) and AC-7.2 (shutter <= 300 ms) are measured when the live-camera implementation replaces it.
-- **Implemented versions (skeleton, 2026-11-04):** Expo SDK 57, RN 0.86, react-native-skia 2.6.2, Reanimated 4.5, Next.js 16.4, TS 6.0.
+- **Implemented versions (upgraded 2026-11-06):** Expo SDK 58, React Native 0.88, React 19.3 (mobile and web),
+  react-native-skia 2.14, Reanimated 4.7 / Worklets 0.13, Gesture Handler 3.3 (the v2 builder API `Gesture.*` still
+  works with `GestureDetector`; migrating to the v3 hook API is optional), Jest 30 (required by jest-expo 58),
+  Next.js 16.4, TS 6.0, Node 22.13+. Skeleton started on SDK 57 / RN 0.86 (2026-11-04); moved to SDK 58 because the
+  store Expo Go only runs the latest SDK.
 
 ## Consequences
 - Positive: one canvas/shader engine everywhere; web drives virality; Rust keeps AI/media backend cheap.

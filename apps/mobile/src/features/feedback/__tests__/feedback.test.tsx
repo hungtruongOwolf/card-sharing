@@ -97,6 +97,7 @@ describe('FeedbackProvider', () => {
         </Squish>
         <FeedbackSettingsScreen />
       </FeedbackProvider>,
+      { gestureRoot: true },
     );
     const tap = () =>
       act(async () => {

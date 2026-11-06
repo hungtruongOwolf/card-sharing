@@ -1,7 +1,10 @@
-// Component and unit tests (jest-expo, SDK 57 → Jest 29). https://docs.expo.dev/develop/unit-testing/
+// Component and unit tests (jest-expo, SDK 58 → Jest 30). https://docs.expo.dev/develop/unit-testing/
 /** @type {import('jest').Config} */
 module.exports = {
   preset: 'jest-expo',
+  // Reanimated 4.7+ and Worklets load their web implementation in Jest through this resolver.
+  // https://docs.swmansion.com/react-native-reanimated/docs/guides/testing/
+  resolver: 'react-native-reanimated/jest/resolver',
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   // Internal packages resolve through tsconfig paths, not node_modules (see pnpm-workspace.yaml).
   moduleNameMapper: {

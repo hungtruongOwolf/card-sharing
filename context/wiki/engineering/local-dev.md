@@ -125,8 +125,11 @@ The API binds `127.0.0.1` by default, which a phone cannot reach. On the compute
 6. Sign in as a demo user (step 2 above). Undo `API_BIND_ADDR` when done; the dev sign-in must never run on a network
    you do not trust, since anyone who reaches the port can sign in as a seed user.
 
-Expo Go only runs the SDK it was built for; if the store version of Expo Go no longer supports SDK 57, a development
-build (`eas build --profile development`, needs the Apple Developer account) is required to run the app on the iPhone.
+Expo Go only runs the SDK it was built for (the app is on SDK 58, which the store Expo Go runs as of 2026-11-06), and
+only the native modules bundled in it: the app pins exactly the versions from `expo/bundledNativeModules.json`, so
+keep them in sync with `pnpm --filter @card-sharing/mobile deps:check`. When the store Expo Go moves to a newer SDK, or
+the app needs a native module Expo Go lacks, a development build (`eas build --profile development`, needs the Apple
+Developer account) is required to run the app on the iPhone.
 
 ## Staff (moderation) sign-in, server only (T-144)
 There is no admin console yet. To try the staff API locally: sign a seed user in (above), note its id, then

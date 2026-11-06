@@ -99,8 +99,8 @@ UI text supports Dynamic Type / font scale up to 200% (clamp display sizes at 1.
 **Bundled faces (2026-11-05, EM decision: ship with T-21).** Only the weights the type tokens use are embedded, at build
 time, by the `expo-font` config plugin (`apps/mobile/app.json`): Bricolage Grotesque SemiBold 600 / Bold 700, DM Sans
 Regular 400 / SemiBold 600, Caveat Medium 500, Anton Regular 400, DM Mono Medium 500 (~0.8 MB in total). Source: the
-official google/fonts repository (`ofl/<family>`). Expo SDK 57 supports only static font files (variable fonts arrive in
-SDK 58), so Bricolage, DM Sans and Caveat, which google/fonts ships as variable fonts only, are pinned to static instances
+official google/fonts repository (`ofl/<family>`). The app embeds static font files (Expo only gained variable fonts
+in SDK 58), so Bricolage, DM Sans and Caveat, which google/fonts ships as variable fonts only, are pinned to static instances
 with fontTools (`apps/mobile/scripts/instance_fonts.py`; optical size pinned per use: Bricolage SemiBold opsz 24, Bold
 opsz 36, DM Sans opsz 14). Anton and DM Mono are static upstream and copied unchanged.
 - **Licence:** all five are SIL Open Font License 1.1 with no Reserved Font Name, so derived instances keep their names.
@@ -187,7 +187,8 @@ Implemented (T-66, `apps/mobile/src/features/feedback`): screens emit named even
 toggle, sendSuccess, error → haptic + optional sound) through `FeedbackProvider`/`useFeedback`. A gate coalesces haptics
 (≥ 50 ms apart) and sounds (≥ 80 ms), honours the Settings → Sounds and haptics switches (both on by default, persisted in
 expo-secure-store under `cs.prefs.feedback.v1`) and stays silent while the app is not active. Haptics and sound engines are
-`HapticsPort`/`SoundPort` seams with no-op adapters until expo-haptics and expo-audio are dependencies (follow-up #246).
+`HapticsPort`/`SoundPort` seams with no-op adapters; expo-haptics and expo-audio are installed since the SDK 58 upgrade,
+the real adapters are follow-up #246.
 
 ### 3.8 Other tokens
 | Token | Values |

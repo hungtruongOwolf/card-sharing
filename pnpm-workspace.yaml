@@ -21,14 +21,3 @@ peerDependencyRules:
   allowedVersions:
     # openapi-typescript 7.x declares typescript ^5 but works with the repo's TS 6
     openapi-typescript>typescript: '6'
-
-# Reviewed advisories that `pnpm audit` (CI gate, high+) must not fail on. Each entry needs a reason and a re-check trigger.
-auditConfig:
-  ignoreGhsas:
-    # decode-uri-component <=0.5.0 (DoS on crafted percent-encoding), via expo-router > query-string@7.
-    # Only fix (0.5.1) is ESM-only and breaks query-string@7 (CJS). Input is the user's own deep link on their own device.
-    # Re-check when expo-router drops query-string@7 (next Expo SDK upgrade).
-    - GHSA-qr28-fpjm-wq7f
-    # zod <4.6.6 (memory exhaustion on oversized collections), via expo > @expo/cli (zod@3). Dev tooling only, not in the
-    # app bundle or any server. Re-check on the next Expo SDK upgrade.
-    - GHSA-mrhx-c7xc-m3w5

@@ -1,7 +1,7 @@
 /**
  * Shared boards in the app (T-108): membership calls against the fake server, the invitations inbox, the members
  * sheet, the one-time disclosure and which pins I may change.
- * @jest-environment @shopify/react-native-skia/jestEnv.js
+ * @jest-environment <rootDir>/jest.skia-environment.js
  */
 import type { SkImage } from '@shopify/react-native-skia';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -220,6 +220,7 @@ describe('shared board screen', () => {
           onClose={jest.fn()}
         />
       </QueryClientProvider>,
+      { gestureRoot: true },
     );
     await screen.findByRole('button', { name: t('boards.members.open') });
   }

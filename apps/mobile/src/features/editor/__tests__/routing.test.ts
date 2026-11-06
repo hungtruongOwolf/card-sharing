@@ -1,6 +1,6 @@
 /**
  * Picker routing reads the cut-style and finish renderers, which load Skia (CanvasKit WASM here).
- * @jest-environment @shopify/react-native-skia/jestEnv.js
+ * @jest-environment <rootDir>/jest.skia-environment.js
  */
 import { Platform } from 'react-native';
 

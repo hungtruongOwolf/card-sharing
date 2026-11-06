@@ -1,6 +1,6 @@
 /**
  * Draws whole cards (cut style + finish) with real Skia (CanvasKit WASM) offscreen and probes pixels.
- * @jest-environment @shopify/react-native-skia/jestEnv.js
+ * @jest-environment <rootDir>/jest.skia-environment.js
  */
 import { AlphaType, ColorType, Skia, type SkImage } from '@shopify/react-native-skia';
 
