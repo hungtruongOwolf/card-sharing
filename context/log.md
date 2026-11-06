@@ -222,3 +222,7 @@
   landing page; #240 (731bb35) term lists via `/v1/config`. Issues #235, #234, #50, #213 closed. Follow-up #238.
 - Open for the EM: real store links (no store accounts yet); the findable migration resets every existing profile to
   hidden (no real users yet). T-49 stays deferred.
+
+## [2026-11-05] plan | Sprint 4 started (M4 part 1)
+- [[sprint-4]]: backend T-70..T-76, T-79, T-82, T-84 with fake CSAM/nudity adapters (fail closed); mobile T-65, T-67,
+  T-68, T-66, then T-77 and T-80. Push/widgets wait for a device build; real vendors wait for the 2026-11-18 decisions.
