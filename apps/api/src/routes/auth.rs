@@ -409,3 +409,106 @@ pub async fn delete_current_session(
         .map_err(ApiError::internal)?;
     Ok(StatusCode::NO_CONTENT)
 }
+
+/// Provider of a re-auth proof.
+#[derive(Debug, Clone, Copy, Deserialize, ToSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum ReauthProvider {
+    Apple,
+    Google,
+}
+
+/// Body of `POST /v1/auth/reauth`: a fresh provider proof for the signed-in account.
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReauthRequest {
+    pub provider: ReauthProvider,
+    /// A fresh ID token from the provider's native sheet.
+    #[schema(min_length = 1, max_length = 8192)]
+    pub id_token: String,
+    /// The raw nonce of this proof (16 to 256 visible ASCII characters, single use), as for
+    /// sign-in.
+    #[schema(min_length = 16, max_length = 256)]
+    pub nonce: String,
+}
+
+/// A re-auth token: send it as `X-Reauth` (next to the normal bearer token) to `re` routes.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ReauthResponse {
+    /// Opaque, single device session, 5 minutes. Never a bearer token.
+    pub reauth_token: String,
+    #[serde(with = "time::serde::rfc3339")]
+    #[schema(value_type = String, format = DateTime)]
+    pub expires_at: OffsetDateTime,
+}
+
+/// Mint a 5-minute re-auth token from a fresh provider proof. Auth: ses.
+///
+/// The proof must belong to the caller's own account: a valid proof of another account, an
+/// unknown identity, a forged, expired or replayed token are all 401 `UNAUTHENTICATED`. The token
+/// is bound to the calling device session and replaces any earlier one of it.
+#[utoipa::path(
+    post,
+    path = "/v1/auth/reauth",
+    tag = TAG,
+    operation_id = "reauthenticate",
+    security(("bearer" = [])),
+    request_body = ReauthRequest,
+    responses(
+        (status = OK, description = "Re-auth token for this device session (5 minutes).", body = ReauthResponse),
+        (status = BAD_REQUEST, description = "VALIDATION_FAILED (fields, unknown fields).", body = ProblemDetails),
+        (status = UNAUTHORIZED, description = "UNAUTHENTICATED (bad proof, another account's proof, replayed nonce), SESSION_EXPIRED or SESSION_REVOKED.", body = ProblemDetails),
+        (status = FORBIDDEN, description = "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.", body = ProblemDetails),
+        (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED (5 per 15 minutes).", body = ProblemDetails),
+        (status = SERVICE_UNAVAILABLE, description = "TEMPORARILY_UNAVAILABLE (provider not configured or its keys unreachable).", body = ProblemDetails),
+    )
+)]
+pub async fn reauthenticate(
+    State(state): State<AppState>,
+    caller: Caller,
+    body: ValidJson<ReauthRequest>,
+) -> Result<Json<ReauthResponse>, ApiError> {
+    let body = body.0;
+    check_token_and_nonce(&body.id_token, &body.nonce)?;
+    let sign_in = state.sign_in.as_ref().ok_or(ApiError::Unavailable {
+        retry_after_secs: 30,
+    })?;
+    let provider = match body.provider {
+        ReauthProvider::Apple => Provider::Apple,
+        ReauthProvider::Google => Provider::Google,
+    };
+    let account = match sign_in
+        .verify_proof(provider, &body.id_token, &body.nonce)
+        .await
+    {
+        Ok(account) => account,
+        Err(SignInError::Unavailable(reason)) => {
+            tracing::warn!(provider = provider.as_str(), reason, "re-auth unavailable");
+            return Err(ApiError::Unavailable {
+                retry_after_secs: 30,
+            });
+        }
+        Err(SignInError::Store(err)) => return Err(ApiError::internal(err)),
+        Err(err) => {
+            tracing::info!(provider = provider.as_str(), error = %err, "re-auth proof refused");
+            return Err(ApiError::Unauthenticated);
+        }
+    };
+    if account != Some(caller.0.account_id) {
+        tracing::info!(
+            provider = provider.as_str(),
+            "re-auth proof of another identity refused"
+        );
+        return Err(ApiError::Unauthenticated);
+    }
+    let token = state
+        .identity
+        .issue_reauth_token(caller.0.account_id, caller.0.session_id)
+        .await
+        .map_err(ApiError::internal)?
+        .ok_or(ApiError::Unauthenticated)?;
+    Ok(Json(ReauthResponse {
+        reauth_token: token.token.expose().to_owned(),
+        expires_at: token.expires_at,
+    }))
+}

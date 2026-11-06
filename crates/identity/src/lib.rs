@@ -13,6 +13,7 @@ mod model;
 pub mod oidc;
 pub mod personal_data;
 mod profile;
+mod reauth;
 mod service;
 mod sessions;
 mod sign_in;
@@ -34,6 +35,7 @@ pub use profile::{
     HandleError, HandleRules, Profile, ProfileConfigError, ProfileError, ProfileRules,
     ProfileUpdate, PublicProfile, normalize_handle,
 };
+pub use reauth::{REAUTH_TTL, ReauthToken};
 pub use service::{
     AccessError, AccountSummary, DeviceInfo, IdentityService, IssuedSession, Platform, Provider,
     RefreshError, RevokeReason, SessionPolicy, SessionPrincipal, StoreError, VerifiedIdentity,

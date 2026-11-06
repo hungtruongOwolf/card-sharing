@@ -180,6 +180,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/auth/reauth": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mint a 5-minute re-auth token from a fresh provider proof. Auth: ses.
+         * @description The proof must belong to the caller's own account: a valid proof of another account, an
+         *     unknown identity, a forged, expired or replayed token are all 401 `UNAUTHENTICATED`. The token
+         *     is bound to the calling device session and replaces any earlier one of it.
+         */
+        post: operations["reauthenticate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/auth/refresh": {
         parameters: {
             query?: never;
@@ -2263,6 +2285,29 @@ export interface components {
             /** @example ready */
             status: string;
         };
+        /**
+         * @description Provider of a re-auth proof.
+         * @enum {string}
+         */
+        ReauthProvider: "apple" | "google";
+        /** @description Body of `POST /v1/auth/reauth`: a fresh provider proof for the signed-in account. */
+        ReauthRequest: {
+            /** @description A fresh ID token from the provider's native sheet. */
+            id_token: string;
+            /**
+             * @description The raw nonce of this proof (16 to 256 visible ASCII characters, single use), as for
+             *     sign-in.
+             */
+            nonce: string;
+            provider: components["schemas"]["ReauthProvider"];
+        };
+        /** @description A re-auth token: send it as `X-Reauth` (next to the normal bearer token) to `re` routes. */
+        ReauthResponse: {
+            /** Format: date-time */
+            expires_at: string;
+            /** @description Opaque, single device session, 5 minutes. Never a bearer token. */
+            reauth_token: string;
+        };
         ReceivedInvitationList: {
             /** @description Newest first. */
             items: components["schemas"]["ReceivedInvitationView"][];
@@ -2967,6 +3012,75 @@ export interface operations {
                 };
             };
             /** @description TEMPORARILY_UNAVAILABLE: provider not configured or unreachable, or a fail-closed store is down. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    reauthenticate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReauthRequest"];
+            };
+        };
+        responses: {
+            /** @description Re-auth token for this device session (5 minutes). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReauthResponse"];
+                };
+            };
+            /** @description VALIDATION_FAILED (fields, unknown fields). */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description UNAUTHENTICATED (bad proof, another account's proof, replayed nonce), SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED (5 per 15 minutes). */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description TEMPORARILY_UNAVAILABLE (provider not configured or its keys unreachable). */
             503: {
                 headers: {
                     [name: string]: unknown;

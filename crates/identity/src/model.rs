@@ -55,6 +55,9 @@ pub enum SessionScope {
     Full,
     /// Read-only widget token, a child of a full device session (T-91): `wid` routes only.
     Widget,
+    /// Re-auth token, a 5-minute child of a full device session (T-26). Never a bearer token:
+    /// it is only presented in `X-Reauth` next to its parent's access token.
+    Reauth,
 }
 
 impl SessionScope {
@@ -63,6 +66,7 @@ impl SessionScope {
             Self::Onboarding => "onboarding",
             Self::Full => "full",
             Self::Widget => "widget",
+            Self::Reauth => "reauth",
         }
     }
 }
@@ -114,6 +118,7 @@ impl FromStr for SessionScope {
             "onboarding" => Ok(Self::Onboarding),
             "full" => Ok(Self::Full),
             "widget" => Ok(Self::Widget),
+            "reauth" => Ok(Self::Reauth),
             other => Err(UnknownValue(other.to_owned())),
         }
     }
@@ -153,6 +158,7 @@ mod tests {
             SessionScope::Onboarding,
             SessionScope::Full,
             SessionScope::Widget,
+            SessionScope::Reauth,
         ] {
             assert_eq!(scope.as_str().parse::<SessionScope>(), Ok(scope));
         }

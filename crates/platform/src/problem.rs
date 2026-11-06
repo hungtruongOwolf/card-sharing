@@ -58,6 +58,9 @@ pub enum ApiError {
     /// The session was revoked (logout, refresh-token reuse, suspension): sign in again.
     #[error("session revoked")]
     SessionRevoked,
+    /// The route needs a fresh re-auth token (`X-Reauth`, minted at most 5 minutes ago).
+    #[error("re-authentication required")]
+    ReauthRequired,
     /// Authenticated, but this kind of session may not call the route.
     #[error("forbidden")]
     Forbidden,
@@ -151,9 +154,10 @@ impl ApiError {
             Self::Validation(_) => StatusCode::BAD_REQUEST,
             Self::UnsupportedMediaType => StatusCode::UNSUPPORTED_MEDIA_TYPE,
             Self::MediaTooLarge | Self::PayloadTooLarge => StatusCode::PAYLOAD_TOO_LARGE,
-            Self::Unauthenticated | Self::SessionExpired | Self::SessionRevoked => {
-                StatusCode::UNAUTHORIZED
-            }
+            Self::Unauthenticated
+            | Self::SessionExpired
+            | Self::SessionRevoked
+            | Self::ReauthRequired => StatusCode::UNAUTHORIZED,
             Self::Forbidden
             | Self::OnboardingIncomplete
             | Self::AccountSuspended
@@ -194,6 +198,7 @@ impl ApiError {
             Self::Unauthenticated => "UNAUTHENTICATED",
             Self::SessionExpired => "SESSION_EXPIRED",
             Self::SessionRevoked => "SESSION_REVOKED",
+            Self::ReauthRequired => "REAUTH_REQUIRED",
             Self::Forbidden => "FORBIDDEN",
             Self::OnboardingIncomplete => "ONBOARDING_INCOMPLETE",
             Self::AccountSuspended => "ACCOUNT_SUSPENDED",
@@ -302,6 +307,7 @@ mod tests {
             ApiError::Unauthenticated,
             ApiError::SessionExpired,
             ApiError::SessionRevoked,
+            ApiError::ReauthRequired,
             ApiError::Forbidden,
             ApiError::OnboardingIncomplete,
             ApiError::AccountSuspended,
