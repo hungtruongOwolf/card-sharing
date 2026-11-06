@@ -122,6 +122,7 @@ async fn config_is_public_cacheable_and_free_of_user_data() {
             "kill_switches",
             "limits",
             "min_app_version",
+            "reactions",
             "text_filter"
         ]
     );
