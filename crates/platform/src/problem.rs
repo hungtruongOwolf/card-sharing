@@ -112,6 +112,9 @@ pub enum ApiError {
     /// The caller already owns the maximum number of boards (AC-18.2).
     #[error("board limit reached")]
     BoardLimitReached,
+    /// The board changed since the client's `base_version`: reload and retry.
+    #[error("board version conflict")]
+    BoardVersionConflict,
     /// Collaborators plus open invitations reached the board's cap (AC-19.1).
     #[error("collaborator limit reached")]
     CollaboratorLimitReached,
@@ -164,6 +167,7 @@ impl ApiError {
             | Self::AlreadyFriends
             | Self::FriendLimitReached
             | Self::BoardLimitReached
+            | Self::BoardVersionConflict
             | Self::CollaboratorLimitReached
             | Self::AlreadyInvited => StatusCode::CONFLICT,
             Self::IdempotencyKeyReused | Self::UnknownRegistryId => {
@@ -202,6 +206,7 @@ impl ApiError {
             Self::AlreadyFriends => "ALREADY_FRIENDS",
             Self::FriendLimitReached => "FRIEND_LIMIT_REACHED",
             Self::BoardLimitReached => "BOARD_LIMIT_REACHED",
+            Self::BoardVersionConflict => "BOARD_VERSION_CONFLICT",
             Self::CollaboratorLimitReached => "COLLABORATOR_LIMIT_REACHED",
             Self::AlreadyInvited => "ALREADY_INVITED",
             Self::ReinviteCooldown { .. } => "REINVITE_COOLDOWN",
@@ -316,6 +321,7 @@ mod tests {
             ApiError::AlreadyFriends,
             ApiError::FriendLimitReached,
             ApiError::BoardLimitReached,
+            ApiError::BoardVersionConflict,
             ApiError::CollaboratorLimitReached,
             ApiError::AlreadyInvited,
             ApiError::ReinviteCooldown {

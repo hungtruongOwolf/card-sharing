@@ -413,6 +413,16 @@ version bump, so delta reads report them as `removed`; the removed member's late
 board both are members of, the blocker — or the blocked collaborator when the blocker is the owner — and cancels open invitations
 between the two. Known gap (follow-up): `POST /v1/blocks` still requires a friend/request relation, so two co-collaborators who are
 not friends cannot block each other through the API yet (blocks.rs "board co-members join this rule").
+Implemented (T-112, `crates/boards/src/manage.rs`): `PATCH /v1/boards/{id} {base_version, title?, backdrop?}` (owner, limit
+`boards.update` 60/h; `backdrop: null` resets, absent keeps; nothing to change → 400) applies only at `base_version` (else 409
+`BOARD_VERSION_CONFLICT`) and bumps the version. `POST /v1/boards/{id}/duplicate {id, title}` (owner, limit `boards.create`) copies a
+personal board (no collaborators; a shared one → 400) into a new client-id board that counts against the cap (409
+`BOARD_LIMIT_REACHED`), idempotent per copy id like a create (retry → 200, someone else's id → 404); it copies the owner's live pins whose
+card the owner may still pin (same rule as `pin.add`) plus decorations, with fresh pin ids. `DELETE /v1/boards/{id}` (owner, limit
+`boards.delete` 30/h) soft-deletes: the board is the missing 404 for every member at once, open invitations are cancelled, and
+`boards.board_deleted {board_id, owner_id}` is published (public links revoke on it when the sharing module lands). Cards are never
+touched; the janitor hard-deletes the board 30 days later (pins, members, op log and invitations cascade). Collaborators and
+non-members get the missing 404 on all three.
 
 ### Sharing (public links) & web
 | Method | Path | Purpose | Auth | Role | Object rule | Rate limit | Idem. | US |

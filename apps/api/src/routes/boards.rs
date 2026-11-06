@@ -8,7 +8,7 @@
 use axum::Json;
 use axum::extract::State;
 use axum::response::{IntoResponse, Response};
-use boards::{BoardError, BoardSummary, NewBoard};
+use boards::{BoardError, BoardPatch, BoardSummary, DuplicateOutcome, NewBoard};
 use http::StatusCode;
 use platform::problem::{ApiError, ProblemDetails};
 use platform::text::{FieldRules, TextError};
@@ -92,6 +92,7 @@ pub(crate) fn board_error(err: BoardError) -> ApiError {
     match err {
         BoardError::NotFound => ApiError::NotFound,
         BoardError::LimitReached => ApiError::BoardLimitReached,
+        BoardError::VersionConflict => ApiError::BoardVersionConflict,
         other => ApiError::internal(other),
     }
 }
@@ -222,4 +223,190 @@ pub async fn list_boards(
 /// A board id from the path: a malformed id is just another id that does not exist.
 pub(crate) fn board_id(raw: &str) -> Result<Uuid, ApiError> {
     Uuid::try_parse(raw).map_err(|_| ApiError::NotFound)
+}
+
+/// `Some(value)` whenever the field is present (also `null`), `None` when it is absent.
+fn present<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<serde_json::Value>, D::Error> {
+    serde_json::Value::deserialize(deserializer).map(Some)
+}
+
+/// Body of `PATCH /v1/boards/{id}`.
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct UpdateBoardRequest {
+    /// The `board.version` the client last saw.
+    pub base_version: i64,
+    pub title: Option<String>,
+    /// A backdrop reference, or `null` to reset to the default; omit to keep the current one.
+    #[schema(value_type = Option<Object>)]
+    #[serde(default, deserialize_with = "present")]
+    pub backdrop: Option<serde_json::Value>,
+}
+
+/// Rename a board or change its backdrop. Auth: ses. Owner only.
+///
+/// Applies only if the board is still at `base_version` (else 409 `BOARD_VERSION_CONFLICT`:
+/// reload and retry). Collaborators and non-members get the missing 404.
+#[utoipa::path(
+    patch,
+    path = "/v1/boards/{id}",
+    tag = TAG,
+    operation_id = "updateBoard",
+    security(("bearer" = [])),
+    params(("id" = String, Path, format = "uuid", description = "The board id.")),
+    request_body = UpdateBoardRequest,
+    responses(
+        (status = OK, description = "Updated.", body = BoardEnvelope),
+        (status = BAD_REQUEST, description = "VALIDATION_FAILED: bad title, nothing to change, unknown field.", body = ProblemDetails),
+        (status = UNAUTHORIZED, description = "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.", body = ProblemDetails),
+        (status = FORBIDDEN, description = "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.", body = ProblemDetails),
+        (status = NOT_FOUND, description = "NOT_FOUND: no board of the caller with this id.", body = ProblemDetails),
+        (status = CONFLICT, description = "BOARD_VERSION_CONFLICT.", body = ProblemDetails),
+        (status = UNPROCESSABLE_ENTITY, description = "UNKNOWN_REGISTRY_ID: the backdrop is not a known backdrop.", body = ProblemDetails),
+        (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED.", body = ProblemDetails),
+    )
+)]
+pub async fn update_board(
+    State(state): State<AppState>,
+    caller: Caller,
+    axum::extract::Path(id): axum::extract::Path<String>,
+    body: ValidJson<UpdateBoardRequest>,
+) -> Result<Json<BoardEnvelope>, ApiError> {
+    let board = board_id(&id)?;
+    let request = body.0;
+    if request.title.is_none() && request.backdrop.is_none() {
+        return Err(ApiError::Validation(
+            "set at least one of title and backdrop".to_owned(),
+        ));
+    }
+    let patch = BoardPatch {
+        title: request
+            .title
+            .as_deref()
+            .map(|title| board_title(&state, title))
+            .transpose()?,
+        backdrop: match &request.backdrop {
+            None => None,
+            Some(value) => Some(backdrop(&state, Some(value))?),
+        },
+    };
+    let updated = state
+        .boards
+        .update_board(board, caller.0.account_id, request.base_version, &patch)
+        .await
+        .map_err(board_error)?;
+    Ok(Json(BoardEnvelope {
+        board: updated.into(),
+    }))
+}
+
+/// Body of `POST /v1/boards/{id}/duplicate`.
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DuplicateBoardRequest {
+    /// Client-generated UUIDv7 of the copy (the idempotency key).
+    #[schema(format = "uuid")]
+    pub id: String,
+    pub title: String,
+}
+
+/// Duplicate one of my personal boards. Auth: ses. Owner only.
+///
+/// Only boards without collaborators can be duplicated. The copy counts against the 20-board cap
+/// and holds my pins whose cards I may still pin, plus decorations. Retrying with the same `id`
+/// returns the copy with 200.
+#[utoipa::path(
+    post,
+    path = "/v1/boards/{id}/duplicate",
+    tag = TAG,
+    operation_id = "duplicateBoard",
+    security(("bearer" = [])),
+    params(("id" = String, Path, format = "uuid", description = "The board to copy.")),
+    request_body = DuplicateBoardRequest,
+    responses(
+        (status = CREATED, description = "The copy.", body = BoardEnvelope),
+        (status = OK, description = "Retry: the existing copy with this id.", body = BoardEnvelope),
+        (status = BAD_REQUEST, description = "VALIDATION_FAILED: bad id or title, or the board is shared.", body = ProblemDetails),
+        (status = UNAUTHORIZED, description = "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.", body = ProblemDetails),
+        (status = FORBIDDEN, description = "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.", body = ProblemDetails),
+        (status = NOT_FOUND, description = "NOT_FOUND: no board of the caller with this id, or the copy id is taken.", body = ProblemDetails),
+        (status = CONFLICT, description = "BOARD_LIMIT_REACHED.", body = ProblemDetails),
+        (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED.", body = ProblemDetails),
+    )
+)]
+pub async fn duplicate_board(
+    State(state): State<AppState>,
+    caller: Caller,
+    axum::extract::Path(id): axum::extract::Path<String>,
+    body: ValidJson<DuplicateBoardRequest>,
+) -> Result<Response, ApiError> {
+    let source = board_id(&id)?;
+    let copy = NewBoard {
+        id: client_board_id(&body.0.id)?,
+        owner: caller.0.account_id,
+        title: board_title(&state, &body.0.title)?,
+        backdrop: None,
+    };
+    match state
+        .boards
+        .duplicate_board(source, &copy)
+        .await
+        .map_err(board_error)?
+    {
+        DuplicateOutcome::Created(created) => {
+            let status = if created.created {
+                StatusCode::CREATED
+            } else {
+                StatusCode::OK
+            };
+            Ok((
+                status,
+                Json(BoardEnvelope {
+                    board: created.board.into(),
+                }),
+            )
+                .into_response())
+        }
+        DuplicateOutcome::NotPersonal => Err(ApiError::Validation(
+            "only personal boards (without collaborators) can be duplicated".to_owned(),
+        )),
+    }
+}
+
+/// Delete one of my boards. Auth: ses. Owner only.
+///
+/// The board disappears for every member at once; open invitations are cancelled. Cards are
+/// never deleted. Collaborators and non-members get the missing 404.
+#[utoipa::path(
+    delete,
+    path = "/v1/boards/{id}",
+    tag = TAG,
+    operation_id = "deleteBoard",
+    security(("bearer" = [])),
+    params(("id" = String, Path, format = "uuid", description = "The board id.")),
+    responses(
+        (status = NO_CONTENT, description = "Deleted."),
+        (status = UNAUTHORIZED, description = "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.", body = ProblemDetails),
+        (status = FORBIDDEN, description = "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.", body = ProblemDetails),
+        (status = NOT_FOUND, description = "NOT_FOUND: no board of the caller with this id.", body = ProblemDetails),
+        (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED.", body = ProblemDetails),
+    )
+)]
+pub async fn delete_board(
+    State(state): State<AppState>,
+    caller: Caller,
+    axum::extract::Path(id): axum::extract::Path<String>,
+) -> Result<StatusCode, ApiError> {
+    let deleted = state
+        .boards
+        .delete_board(board_id(&id)?, caller.0.account_id)
+        .await
+        .map_err(board_error)?;
+    if deleted {
+        Ok(StatusCode::NO_CONTENT)
+    } else {
+        Err(ApiError::NotFound)
+    }
 }

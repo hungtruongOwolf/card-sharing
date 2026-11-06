@@ -1517,6 +1517,333 @@
           "role": "user",
           "versionGate": true
         }
+      },
+      "delete": {
+        "tags": [
+          "boards"
+        ],
+        "summary": "Delete one of my boards. Auth: ses. Owner only.",
+        "description": "The board disappears for every member at once; open invitations are cancelled. Cards are\nnever deleted. Collaborators and non-members get the missing 404.",
+        "operationId": "deleteBoard",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The board id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted."
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: no board of the caller with this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "boards.delete",
+          "role": "user",
+          "versionGate": true
+        }
+      },
+      "patch": {
+        "tags": [
+          "boards"
+        ],
+        "summary": "Rename a board or change its backdrop. Auth: ses. Owner only.",
+        "description": "Applies only if the board is still at `base_version` (else 409 `BOARD_VERSION_CONFLICT`:\nreload and retry). Collaborators and non-members get the missing 404.",
+        "operationId": "updateBoard",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The board id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBoardRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Updated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED: bad title, nothing to change, unknown field.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: no board of the caller with this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "BOARD_VERSION_CONFLICT.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "UNKNOWN_REGISTRY_ID: the backdrop is not a known backdrop.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "boards.update",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
+    "/v1/boards/{id}/duplicate": {
+      "post": {
+        "tags": [
+          "boards"
+        ],
+        "summary": "Duplicate one of my personal boards. Auth: ses. Owner only.",
+        "description": "Only boards without collaborators can be duplicated. The copy counts against the 20-board cap\nand holds my pins whose cards I may still pin, plus decorations. Retrying with the same `id`\nreturns the copy with 200.",
+        "operationId": "duplicateBoard",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The board to copy.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DuplicateBoardRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Retry: the existing copy with this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardEnvelope"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "The copy.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED: bad id or title, or the board is shared.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: no board of the caller with this id, or the copy id is taken.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "BOARD_LIMIT_REACHED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "boards.create",
+          "role": "user",
+          "versionGate": true
+        }
       }
     },
     "/v1/boards/{id}/invitations": {
@@ -6572,6 +6899,25 @@
         },
         "additionalProperties": false
       },
+      "DuplicateBoardRequest": {
+        "type": "object",
+        "description": "Body of `POST /v1/boards/{id}/duplicate`.",
+        "required": [
+          "id",
+          "title"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Client-generated UUIDv7 of the copy (the idempotency key)."
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
       "EmailStartRequest": {
         "type": "object",
         "description": "Body of `POST /v1/auth/email/start`.",
@@ -8106,6 +8452,34 @@
             "example": "Bearer"
           }
         }
+      },
+      "UpdateBoardRequest": {
+        "type": "object",
+        "description": "Body of `PATCH /v1/boards/{id}`.",
+        "required": [
+          "base_version"
+        ],
+        "properties": {
+          "backdrop": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "A backdrop reference, or `null` to reset to the default; omit to keep the current one."
+          },
+          "base_version": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The `board.version` the client last saw."
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
       },
       "UpdatePinOp": {
         "type": "object",
