@@ -661,7 +661,7 @@ recorded only (user notice: follow-up). `ban` is **admin only** (moderator → 4
 (`IdentityService::ban_account`, sessions revoked, audit `account.banned`); an older one needs **two different admins** (D6) — the
 first request answers 202 `{status: "pending_second_admin"}` and is stored in `moderation.pending_bans` for 48 h, the same admin
 again stays pending, a second admin applies it (the first admin is the actor of record, the second `second_actor_id`). A decided
-or unknown item is 404. `release_hold` / `uphold_hold` arrive with appeals (T-148), where holds enter the queue. Tests:
+or unknown item is 404. `release_hold` / `uphold_hold` (T-148) decide classifier holds: see Appeals below. Tests:
 `tests/api/moderation_actions.rs`.
 
 Enforcement (T-147, #149): a suspension or ban revokes every session (widget and re-auth tokens included) and evicts cached
@@ -672,6 +672,20 @@ for an active owner (`identity::account_active_sql!` in `SharingService::resolve
 uniform 404. Apple/Google sign-in answers 403 `ACCOUNT_SUSPENDED`. Moderator suspensions carry `identity.accounts.suspended_until`
 (column from the first identity migration, index `20261122000001`); the worker's `identity.lift_suspensions` (every 5 min) restores `active` after it (audit
 `account.unsuspended`); indefinite suspensions (CSAM auto-suspend) and bans are never lifted. Tests: `tests/api/enforcement.rs`.
+
+Appeals (T-148, #150, server part): `routes/appeals.rs`, `cards::CardService::{appeal, release_hold, uphold_hold,
+expire_holds}` (`crates/cards/src/holds.rs`), `MediaService::release_held`, `ReportService::file_appeal`. `POST
+/v1/cards/{id}/appeal` (ses, `cards.appeal` 10/day per user) `{note?: ≤ 500 chars}` → 202 `{appeal: {status: "pending",
+appealed_at}}`: the caller's own card with a live `held` hold becomes `appealed` (note stored on the hold) and a report with
+`source = appeal` (reason `sexual`, weight 1, one per hold via `reports.hold_id`, migration `20261122000002`) joins the card's
+queue item. Someone else's card, a card that is not held, an expired hold or a malformed id → the same 404; a second appeal (or
+one after a decision) → 409 `APPEAL_ALREADY_FILED`. The card's `hold.appeal` (`GET /v1/cards/{id}`) shows `pending`, then
+`released` / `upheld` / `expired`. Moderator actions on such an item (T-146 route): `release_hold` → hold `released`, card back
+to `pending_scan`, the held render's sanitized copies move quarantine → clean (`media.settled` published) and the card is
+evaluated at once, so it is **delivered**; `uphold_hold` → hold `upheld`, card `blocked`. Both answer 400 when the item's card
+has no live hold. The worker's `moderation.expire_holds` (hourly) marks holds nobody appealed within 30 days `expired` and
+deletes their card (`CardService::delete`, so recipients' purge runs); appealed holds wait for a moderator. Tests:
+`tests/api/appeals.rs`.
 
 Implemented (T-151, #153): `routes/deletion.rs` → `crates/privacy` (`DeletionService`). `POST /v1/me/deletion` (`re`: bearer +
 `X-Reauth`, else 401 `REAUTH_REQUIRED`; `privacy.deletion.request` 3/day) answers 202 `{deletion: {status: "pending",

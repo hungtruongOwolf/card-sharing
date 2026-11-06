@@ -15,16 +15,16 @@ use platform::outbox::{StoredEvent, Subscriber};
 use serde_json::json;
 use uuid::Uuid;
 
-struct Setup {
-    sender: User,
-    friend: User,
-    card: Uuid,
-    render: Uuid,
-    mask: Uuid,
+pub struct Setup {
+    pub sender: User,
+    pub friend: User,
+    pub card: Uuid,
+    pub render: Uuid,
+    pub mask: Uuid,
 }
 
 /// A card to one friend whose media are uploaded but not processed yet.
-async fn pending_card(env: &TestEnv, render_marker: Option<[u8; 4]>) -> Setup {
+pub async fn pending_card(env: &TestEnv, render_marker: Option<[u8; 4]>) -> Setup {
     let sender = adult(env).await;
     let friend = adult(env).await;
     make_friends(env, sender.id, friend.id).await;
@@ -55,7 +55,7 @@ async fn pending_card(env: &TestEnv, render_marker: Option<[u8; 4]>) -> Setup {
     }
 }
 
-async fn status(env: &TestEnv, card: Uuid) -> String {
+pub async fn status(env: &TestEnv, card: Uuid) -> String {
     sqlx::query_scalar("SELECT status FROM cards.cards WHERE id = $1")
         .bind(card)
         .fetch_one(env.identity.pool())
@@ -63,7 +63,7 @@ async fn status(env: &TestEnv, card: Uuid) -> String {
         .unwrap()
 }
 
-async fn delivered_to(env: &TestEnv, card: Uuid) -> i64 {
+pub async fn delivered_to(env: &TestEnv, card: Uuid) -> i64 {
     sqlx::query_scalar(
         "SELECT count(*) FROM cards.card_recipients WHERE card_id = $1 AND delivered_at IS NOT NULL",
     )

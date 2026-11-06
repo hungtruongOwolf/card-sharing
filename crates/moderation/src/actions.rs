@@ -29,6 +29,10 @@ pub enum ActionKind {
     Warn,
     Suspend,
     Ban,
+    /// Classifier hold released: the card is delivered (T-148).
+    ReleaseHold,
+    /// Classifier hold upheld: the card is blocked (T-148).
+    UpholdHold,
 }
 
 impl ActionKind {
@@ -40,6 +44,8 @@ impl ActionKind {
             Self::Warn => "warn",
             Self::Suspend => "suspend",
             Self::Ban => "ban",
+            Self::ReleaseHold => "release_hold",
+            Self::UpholdHold => "uphold_hold",
         }
     }
 

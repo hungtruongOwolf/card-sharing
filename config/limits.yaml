@@ -47,6 +47,11 @@ limits:
     requests: 5
     per_secs: 3600
     on_store_failure: closed
+  cards.appeal: # POST /v1/cards/{id}/appeal (T-148; one appeal per hold, 10/day per user)
+    scope: user
+    requests: 10
+    per_secs: 86400
+    on_store_failure: open
   reports.create: # POST /v1/reports (20/day per user, US-26)
     scope: user
     requests: 20

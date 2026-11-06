@@ -145,6 +145,18 @@ const INSERT_GUEST: &str = insert_report!(
     "ON CONFLICT (reporter_ip_hash, target_type, target_id) WHERE source = 'guest' DO NOTHING"
 );
 
+/// Creates the target's live queue item or adds one report to it.
+const JOIN_QUEUE: &str = "INSERT INTO moderation.queue_items
+       (id, target_type, target_id, target_owner_id, priority, weight, report_count, status,
+        first_reported_at, last_reported_at)
+     VALUES ($1, $2, $3, $4, $5, $6, 1, 'open', $7, $7)
+     ON CONFLICT (target_type, target_id) WHERE status IN ('open', 'in_review')
+     DO UPDATE SET priority = GREATEST(moderation.queue_items.priority, EXCLUDED.priority),
+                   weight = moderation.queue_items.weight + EXCLUDED.weight,
+                   report_count = moderation.queue_items.report_count + 1,
+                   last_reported_at = EXCLUDED.last_reported_at
+     RETURNING id";
+
 pub struct ReportService {
     pool: PgPool,
     clock: SharedClock,
@@ -197,27 +209,16 @@ impl ReportService {
             .fetch_optional(&mut *tx)
             .await?;
         if let Some(id) = inserted {
-            let item: Uuid = sqlx::query_scalar(
-                "INSERT INTO moderation.queue_items
-                   (id, target_type, target_id, target_owner_id, priority, weight, report_count, status,
-                    first_reported_at, last_reported_at)
-                 VALUES ($1, $2, $3, $4, $5, $6, 1, 'open', $7, $7)
-                 ON CONFLICT (target_type, target_id) WHERE status IN ('open', 'in_review')
-                 DO UPDATE SET priority = GREATEST(moderation.queue_items.priority, EXCLUDED.priority),
-                               weight = moderation.queue_items.weight + EXCLUDED.weight,
-                               report_count = moderation.queue_items.report_count + 1,
-                               last_reported_at = EXCLUDED.last_reported_at
-                 RETURNING id",
-            )
-            .bind(Uuid::now_v7())
-            .bind(report.target.kind.as_str())
-            .bind(report.target.id)
-            .bind(report.target.owner_id)
-            .bind(priority)
-            .bind(weight)
-            .bind(now)
-            .fetch_one(&mut *tx)
-            .await?;
+            let item: Uuid = sqlx::query_scalar(JOIN_QUEUE)
+                .bind(Uuid::now_v7())
+                .bind(report.target.kind.as_str())
+                .bind(report.target.id)
+                .bind(report.target.owner_id)
+                .bind(priority)
+                .bind(weight)
+                .bind(now)
+                .fetch_one(&mut *tx)
+                .await?;
             sqlx::query("UPDATE moderation.reports SET queue_item_id = $2 WHERE id = $1")
                 .bind(id)
                 .bind(item)
@@ -269,6 +270,69 @@ impl ReportService {
             duplicate: true,
             created_at: existing.1,
         })
+    }
+
+    /// Files the owner's appeal of the classifier hold `hold_id` on `card` (T-148) as a report
+    /// with `source = appeal` that joins the card's queue item (weight 1). One per hold: a repeat
+    /// returns the existing queue item.
+    pub async fn file_appeal(
+        &self,
+        hold_id: Uuid,
+        card: Uuid,
+        owner: Uuid,
+        note: Option<&str>,
+    ) -> Result<Uuid, ModerationError> {
+        let note = normalize_note(note)?;
+        let now = self.clock.now();
+        let priority = self.settings.priority(Reason::Sexual);
+        let weight: f32 = 1.0;
+        let mut tx = self.pool.begin().await?;
+        let inserted: Option<Uuid> = sqlx::query_scalar(
+            "INSERT INTO moderation.reports
+               (id, source, reporter_id, reporter_ip_hash, target_type, target_id, target_owner_id,
+                reason, note, priority, status, created_at, weight, hold_id)
+             VALUES ($1, 'appeal', NULL, NULL, 'card', $2, $3, 'sexual', $4, $5, 'open', $6, $7, $8)
+             ON CONFLICT (hold_id) WHERE source = 'appeal' DO NOTHING
+             RETURNING id",
+        )
+        .bind(Uuid::now_v7())
+        .bind(card)
+        .bind(owner)
+        .bind(note.as_deref())
+        .bind(priority)
+        .bind(now)
+        .bind(weight)
+        .bind(hold_id)
+        .fetch_optional(&mut *tx)
+        .await?;
+        let Some(report) = inserted else {
+            let item: Option<Uuid> = sqlx::query_scalar(
+                "SELECT queue_item_id FROM moderation.reports WHERE source = 'appeal' AND hold_id = $1",
+            )
+            .bind(hold_id)
+            .fetch_one(&mut *tx)
+            .await?;
+            tx.commit().await?;
+            return item.ok_or(ModerationError::Invalid("appeal without a queue item"));
+        };
+        let item: Uuid = sqlx::query_scalar(JOIN_QUEUE)
+            .bind(Uuid::now_v7())
+            .bind(TargetType::Card.as_str())
+            .bind(card)
+            .bind(owner)
+            .bind(priority)
+            .bind(weight)
+            .bind(now)
+            .fetch_one(&mut *tx)
+            .await?;
+        sqlx::query("UPDATE moderation.reports SET queue_item_id = $2 WHERE id = $1")
+            .bind(report)
+            .bind(item)
+            .execute(&mut *tx)
+            .await?;
+        tx.commit().await?;
+        tracing::info!(event = "moderation.appeal_filed", queue_item_id = %item);
+        Ok(item)
     }
 
     /// The reputation weight of a new report by `reporter` (see the module docs).

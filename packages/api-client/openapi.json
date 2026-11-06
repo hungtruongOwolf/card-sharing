@@ -3381,6 +3381,121 @@
         }
       }
     },
+    "/v1/cards/{id}/appeal": {
+      "post": {
+        "tags": [
+          "cards"
+        ],
+        "summary": "Appeal the classifier hold on one of the caller's cards. Auth: ses. Once per hold.",
+        "operationId": "appealCardHold",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The held card's id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppealRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Appeal filed; a moderator reviews it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppealEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED (note too long, unknown fields).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: not a held card of the caller (missing, someone else's, not held, or the hold expired).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "APPEAL_ALREADY_FILED: this hold was already appealed or decided.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "cards.appeal",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
     "/v1/cards/{id}/reaction": {
       "put": {
         "tags": [
@@ -7824,7 +7939,9 @@
           "revoke_link",
           "warn",
           "suspend",
-          "ban"
+          "ban",
+          "release_hold",
+          "uphold_hold"
         ]
       },
       "ActionResult": {
@@ -8106,6 +8223,50 @@
           "text_filter": {
             "$ref": "#/components/schemas/TextFilterHints",
             "description": "Sanitizer caps and term lists of the shared text filter, for instant hints while typing\n(captions, names). The server checks again on submit and its answer is final."
+          }
+        }
+      },
+      "AppealEnvelope": {
+        "type": "object",
+        "required": [
+          "appeal"
+        ],
+        "properties": {
+          "appeal": {
+            "$ref": "#/components/schemas/AppealView"
+          }
+        }
+      },
+      "AppealRequest": {
+        "type": "object",
+        "description": "Body of `POST /v1/cards/{id}/appeal`.",
+        "properties": {
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Optional context for the moderator, at most 500 characters.",
+            "maxLength": 500
+          }
+        },
+        "additionalProperties": false
+      },
+      "AppealView": {
+        "type": "object",
+        "required": [
+          "status",
+          "appealed_at"
+        ],
+        "properties": {
+          "appealed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string",
+            "description": "Always `pending` here; the card's `hold.appeal` shows the outcome later.",
+            "example": "pending"
           }
         }
       },

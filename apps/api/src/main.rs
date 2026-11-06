@@ -407,6 +407,8 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
         social.retention_days,
     ));
     let board_janitor = Arc::new(boards::BoardJanitor::new(pool.clone(), Arc::clone(&clock)));
+    // Expires unappealed classifier holds (T-148).
+    let hold_cards = Arc::new(cards::CardService::new(pool.clone(), Arc::clone(&clock)));
     let block_resolver = Arc::new(boards::BlockResolver::new(pool.clone(), Arc::clone(&clock)));
     let board_changes = Arc::new(boards::ChangeNotifier::new(
         pool.clone(),
@@ -581,6 +583,11 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
             Arc::new(api::workers::ScanBacklog(media)),
         )
         .periodic(
+            "moderation.expire_holds",
+            std::time::Duration::from_secs(3600),
+            Arc::new(ExpireHolds(hold_cards)),
+        )
+        .periodic(
             "identity.lift_suspensions",
             std::time::Duration::from_secs(300),
             Arc::new(LiftSuspensions(Arc::clone(&identity))),
@@ -670,6 +677,22 @@ fn mailer(config: &MailConfig) -> anyhow::Result<Arc<dyn Mailer>> {
 }
 
 /// Deletes magic links older than 24 hours.
+/// Expires classifier holds nobody appealed within 30 days and deletes their cards (T-148).
+struct ExpireHolds(Arc<cards::CardService>);
+
+impl PeriodicTask for ExpireHolds {
+    fn run(&self) -> PeriodicFuture {
+        let cards = Arc::clone(&self.0);
+        Box::pin(async move {
+            let expired = cards.expire_holds().await.map_err(|e| e.to_string())?;
+            if expired > 0 {
+                tracing::info!(event = "moderation.holds_expired", expired);
+            }
+            Ok(())
+        })
+    }
+}
+
 /// Ends temporary suspensions whose end passed (T-147).
 struct LiftSuspensions(Arc<IdentityService>);
 
