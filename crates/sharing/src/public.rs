@@ -134,6 +134,7 @@ impl SharingService {
             }),
         };
         outbox::publish(&mut *tx, &event, now).await?;
+        platform::jobs::enqueue(&mut *tx, &crate::purge::job_for_link(link.id), now).await?;
         tx.commit().await?;
         Ok(true)
     }

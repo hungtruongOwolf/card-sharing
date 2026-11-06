@@ -54,6 +54,7 @@ mod profile;
 mod public_boards;
 mod public_invites;
 mod public_links;
+mod public_purge;
 mod public_snapshots;
 mod push_notify;
 mod push_tokens;

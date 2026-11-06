@@ -203,6 +203,8 @@ impl SharingService {
                 .detail("board_id", board_id.to_string())
                 .detail("reason", "owner");
             audit::record(&mut *tx, &entry, now).await?;
+            // T-133: purge the CDN copies and the board's public objects.
+            platform::jobs::enqueue(&mut *tx, &crate::purge::job_for_link(link_id), now).await?;
         }
         tx.commit().await?;
         Ok(true)

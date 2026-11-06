@@ -86,6 +86,10 @@ pub struct Config {
     /// event) or `fake` (records payloads in memory; refused when `API_ENV=production`). Real
     /// APNs/FCM adapters arrive with their credentials (T-86 follow-up).
     pub push_sender: SafetyAdapter,
+    /// `API_CDN_PURGER` — `none` (default: no CDN in front of the web server, nothing to purge)
+    /// or `fake` (records purged cache tags; refused when `API_ENV=production`). The Cloudflare
+    /// adapter (purge by tag) arrives with the account (T-133).
+    pub cdn_purger: SafetyAdapter,
     /// `API_APPLE_CLIENT_IDS` — comma-separated `aud` values accepted in Apple ID tokens (the iOS
     /// bundle id; a Services ID if web sign-in is ever added). Empty (default) = Apple sign-in
     /// answers 503.
@@ -302,6 +306,7 @@ impl Config {
         let content_safety = content_safety_config(env)?;
         let media_s3 = media_s3_config(env, content_safety.env)?;
         let push_sender = safety_adapter(env, "API_PUSH_SENDER", content_safety.env)?;
+        let cdn_purger = safety_adapter(env, "API_CDN_PURGER", content_safety.env)?;
         if media_s3.is_some() && media_storage_dir.is_some() {
             return Err(invalid(
                 "API_S3_ENDPOINT",
@@ -353,6 +358,7 @@ impl Config {
             boards_config_path,
             sharing_config_path,
             push_sender,
+            cdn_purger,
             media_storage_dir,
             media_s3,
             content_safety,
@@ -733,6 +739,11 @@ mod tests {
         let config = load(&[("API_ENV", "staging"), ("API_PUSH_SENDER", "fake")]).unwrap();
         assert_eq!(config.push_sender, SafetyAdapter::Fake);
         assert!(load(&[("API_ENV", "staging"), ("API_PUSH_SENDER", "apns")]).is_err());
+        // The fake CDN purger too (T-133).
+        assert_eq!(load(&[]).unwrap().cdn_purger, SafetyAdapter::None);
+        assert!(load(&[("API_CDN_PURGER", "fake")]).is_err());
+        let config = load(&[("API_ENV", "staging"), ("API_CDN_PURGER", "fake")]).unwrap();
+        assert_eq!(config.cdn_purger, SafetyAdapter::Fake);
         let config = load(&[("API_ENV", "staging"), ("API_NUDITY_CLASSIFIER", "fake")]).unwrap();
         assert_eq!(config.content_safety.nudity_classifier, SafetyAdapter::Fake);
         assert!((config.content_safety.nudity_threshold - 0.5).abs() < f32::EPSILON);
