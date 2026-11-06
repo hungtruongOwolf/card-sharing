@@ -18,6 +18,7 @@ mod sign_in;
 #[cfg(any(test, feature = "test-support"))]
 pub mod testing;
 mod token;
+mod widget;
 
 pub use age_gate::{AgeGateError, AgeOutcome, AgeSubmission, age_on};
 pub use age_service::{AgeError, AgeService, AgeStatus, OsAgeSignal, OsAgeSource};
@@ -38,6 +39,7 @@ pub use service::{
 pub use sessions::SessionInfo;
 pub use sign_in::{ProviderSignIn, SignInError, SignInRequest, SignedIn, apple_refresh_token_aad};
 pub use token::{SecretToken, TokenHash};
+pub use widget::WidgetToken;
 
 /// SQL predicate (a string literal) for other modules' visibility queries: the account `$id` (a
 /// SQL expression given as a literal) is `active` (not suspended, banned, deleting or still

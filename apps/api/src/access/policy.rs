@@ -19,7 +19,8 @@ pub enum AuthKind {
     OnboardingOrSession,
     /// `ses`: full session of an active account.
     Session,
-    /// `wid`: widget-scoped token or full session. Not implemented yet: always denied.
+    /// `wid`: widget-scoped token or full session of an active account (T-91). A widget token
+    /// opens these routes only.
     WidgetOrSession,
     /// `re`: full session plus a fresh reauth token. Not implemented yet: always denied.
     Reauth,
@@ -130,6 +131,11 @@ impl RoutePolicy {
         Self::new(AuthKind::Session, Role::User)
     }
 
+    /// `wid` / user: widget token or full session (`GET /v1/widget`).
+    pub const fn widget_or_session() -> Self {
+        Self::new(AuthKind::WidgetOrSession, Role::User)
+    }
+
     /// `svc` / guest: called by the web server on behalf of an anonymous visitor.
     pub const fn service() -> Self {
         Self::new(AuthKind::Service, Role::Guest)
@@ -226,6 +232,10 @@ pub fn authorize(policy: &RoutePolicy, principal: Option<&Principal>) -> Result<
         return Err(ApiError::Unauthenticated);
     }
 
+    // A widget token is read-only and opens `wid` routes only (SR-14, T-91).
+    if principal.scope == SessionScope::Widget && policy.auth != AuthKind::WidgetOrSession {
+        return Err(ApiError::Forbidden);
+    }
     match policy.auth {
         AuthKind::None => Ok(()),
         AuthKind::Onboarding => {
@@ -243,9 +253,15 @@ pub fn authorize(policy: &RoutePolicy, principal: Option<&Principal>) -> Result<
                 Err(ApiError::OnboardingIncomplete)
             }
         }
-        AuthKind::WidgetOrSession | AuthKind::Reauth | AuthKind::Service | AuthKind::Staff => {
-            Err(ApiError::Unauthenticated)
+        AuthKind::WidgetOrSession => {
+            let scope_ok = matches!(principal.scope, SessionScope::Full | SessionScope::Widget);
+            if scope_ok && principal.status == AccountStatus::Active {
+                Ok(())
+            } else {
+                Err(ApiError::OnboardingIncomplete)
+            }
         }
+        AuthKind::Reauth | AuthKind::Service | AuthKind::Staff => Err(ApiError::Unauthenticated),
     }
 }
 
@@ -367,14 +383,47 @@ mod tests {
     }
 
     #[test]
+    fn widget_tokens_open_widget_routes_only() {
+        let widget = principal(SessionScope::Widget, AccountStatus::Active);
+        assert_eq!(
+            code(authorize(&RoutePolicy::widget_or_session(), Some(&widget))),
+            "OK"
+        );
+        for policy in [
+            RoutePolicy::session(),
+            RoutePolicy::onboarding(),
+            RoutePolicy::onboarding_or_session(),
+            RoutePolicy::session().with_attestation(),
+        ] {
+            assert_eq!(code(authorize(&policy, Some(&widget))), "FORBIDDEN");
+        }
+        let full = principal(SessionScope::Full, AccountStatus::Active);
+        assert_eq!(
+            code(authorize(&RoutePolicy::widget_or_session(), Some(&full))),
+            "OK"
+        );
+        let onboarding = principal(SessionScope::Onboarding, AccountStatus::PendingAge);
+        assert_eq!(
+            code(authorize(
+                &RoutePolicy::widget_or_session(),
+                Some(&onboarding)
+            )),
+            "ONBOARDING_INCOMPLETE"
+        );
+        let suspended = principal(SessionScope::Widget, AccountStatus::Suspended);
+        assert_eq!(
+            code(authorize(
+                &RoutePolicy::widget_or_session(),
+                Some(&suspended)
+            )),
+            "ACCOUNT_SUSPENDED"
+        );
+    }
+
+    #[test]
     fn unimplemented_kinds_and_staff_roles_are_denied() {
         let full = principal(SessionScope::Full, AccountStatus::Active);
-        for auth in [
-            AuthKind::WidgetOrSession,
-            AuthKind::Reauth,
-            AuthKind::Service,
-            AuthKind::Staff,
-        ] {
+        for auth in [AuthKind::Reauth, AuthKind::Service, AuthKind::Staff] {
             let policy = RoutePolicy::new(auth, Role::User);
             assert_eq!(code(authorize(&policy, Some(&full))), "UNAUTHENTICATED");
         }

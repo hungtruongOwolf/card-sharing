@@ -53,6 +53,8 @@ pub enum SessionScope {
     Onboarding,
     /// Full user session.
     Full,
+    /// Read-only widget token, a child of a full device session (T-91): `wid` routes only.
+    Widget,
 }
 
 impl SessionScope {
@@ -60,6 +62,7 @@ impl SessionScope {
         match self {
             Self::Onboarding => "onboarding",
             Self::Full => "full",
+            Self::Widget => "widget",
         }
     }
 }
@@ -110,6 +113,7 @@ impl FromStr for SessionScope {
         match value {
             "onboarding" => Ok(Self::Onboarding),
             "full" => Ok(Self::Full),
+            "widget" => Ok(Self::Widget),
             other => Err(UnknownValue(other.to_owned())),
         }
     }
@@ -145,7 +149,11 @@ mod tests {
 
     #[test]
     fn scope_round_trips() {
-        for scope in [SessionScope::Onboarding, SessionScope::Full] {
+        for scope in [
+            SessionScope::Onboarding,
+            SessionScope::Full,
+            SessionScope::Widget,
+        ] {
             assert_eq!(scope.as_str().parse::<SessionScope>(), Ok(scope));
         }
     }

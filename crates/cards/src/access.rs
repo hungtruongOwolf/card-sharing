@@ -220,6 +220,31 @@ impl CardService {
             .collect()
     }
 
+    /// The newest card the viewer may see (US-16 widget), optionally only from `sender`. The
+    /// same predicate as the feed, evaluated on every call (AC-16.4: unfriend, block and delete
+    /// empty the widget on the next refresh).
+    pub async fn latest_for_widget(
+        &self,
+        viewer: Uuid,
+        sender: Option<Uuid>,
+    ) -> Result<Option<VisibleCard>, CardError> {
+        let row: Option<CardRow> = sqlx::query_as(concat!(
+            "SELECT ",
+            card_columns!(),
+            " FROM cards.card_recipients r
+              JOIN cards.cards c ON c.id = r.card_id
+              WHERE r.recipient_id = $1 AND ($2::uuid IS NULL OR c.owner_id = $2) AND ",
+            recipient_visible_sql!(),
+            " ORDER BY r.delivered_at DESC, r.card_id DESC
+              LIMIT 1"
+        ))
+        .bind(viewer)
+        .bind(sender)
+        .fetch_optional(&self.pool)
+        .await?;
+        row.map(|row| row.into_visible(viewer)).transpose()
+    }
+
     /// Purge instructions for a client's cached cards (T-83, SR-9): the ids in `card_ids` the
     /// viewer may no longer see, in request order without duplicates. "No longer visible" is the
     /// card-read predicate, so unfriend, block, delete, suspension and account deletion are all

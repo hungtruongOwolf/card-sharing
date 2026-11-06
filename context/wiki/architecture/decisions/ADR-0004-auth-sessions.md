@@ -2,7 +2,7 @@
 title: ADR-0004 Authentication & sessions
 type: decision
 status: accepted
-updated: 2026-11-05
+updated: 2026-11-06
 sources: [raw/discussions/2026-11-04-infra-qa.md, raw/discussions/2026-11-04-security-qa.md]
 related: [[overview]], [[api-mvp]], [[data-model]], [[security-baseline]], [[prd-mvp]], [[ADR-0001-tech-stack]], [[threat-model-mvp]]
 ---
@@ -76,3 +76,7 @@ We will build **thin in-house auth** in the `identity` crate with **opaque serve
   team `.p8` key via ring) and a fake in tests. Best effort: a failed exchange does not fail sign-in; the returned ID token
   must verify and carry the same `sub` before its refresh token is stored (encrypted, AAD bound to the identity).
   Real-provider runs wait for the Apple/Google developer accounts.
+
+**Implementation note (2026-11-06, T-91):** widget tokens are `identity.sessions` rows with scope `widget` and
+`parent_session_id`, no refresh token, expiring with the parent's absolute expiry; the route gate refuses them on every
+auth kind but `wid` (see [[api-mvp]] "Cards, feed, widget, reactions").
