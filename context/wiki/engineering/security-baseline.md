@@ -88,6 +88,8 @@ Notes:
 - Output encoding; React escapes by default — ban `dangerouslySetInnerHTML` unless sanitized (DOMPurify).
 - **CSP** strict (`default-src 'self'`, nonces for scripts, no `unsafe-inline`), `frame-ancestors 'none'`,
   HSTS, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`.
+  Capability-URL pages (`/i/<token>`, `/b/<token>`) send `Referrer-Policy: no-referrer` and `X-Robots-Tag: noindex`;
+  their CSP has no WebAssembly and no blob/data images (`apps/web/src/csp.ts`, tested).
 - CSRF: SameSite cookies + CSRF token or double-submit for state-changing requests with cookies.
 - CORS: explicit allow-list; never `*` with credentials.
 - Rate limiting per IP + per user on all public endpoints; stricter on auth & expensive endpoints.

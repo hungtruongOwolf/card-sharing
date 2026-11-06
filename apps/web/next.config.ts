@@ -11,6 +11,9 @@ const securityHeaders = [
   { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
 ];
 
+/** Request headers that make Next.js answer with an RSC payload instead of HTML. */
+const RSC_REQUEST_HEADERS = ['rsc', 'next-router-prefetch', 'next-router-state-tree'] as const;
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
@@ -36,6 +39,29 @@ const nextConfig: NextConfig = {
           { key: 'Cache-Control', value: 'private, no-store' },
         ],
       },
+      // Public board links are capability URLs too (SR-17, #238): no referrer, never indexed. The OG
+      // route (/b/<token>/og) sets its own Cache-Control and Cache-Tag.
+      {
+        source: '/b/:token*',
+        headers: [
+          { key: 'Referrer-Policy', value: 'no-referrer' },
+          { key: 'X-Robots-Tag', value: 'noindex, nofollow, noarchive' },
+        ],
+      },
+      // The board HTML may sit in a shared cache for 60 s (T-132; less than the 10-minute image
+      // URLs, and AC-24.4 "404 within 60 s" holds even without a purge). Browsers always revalidate.
+      {
+        source: '/b/:token',
+        missing: RSC_REQUEST_HEADERS.map((key) => ({ type: 'header' as const, key })),
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=0, s-maxage=60' }],
+      },
+      // RSC payloads of the same URL are never cached: a CDN that ignores Vary must not serve one
+      // in place of the HTML.
+      ...RSC_REQUEST_HEADERS.map((key) => ({
+        source: '/b/:token',
+        has: [{ type: 'header' as const, key }],
+        headers: [{ key: 'Cache-Control', value: 'private, no-store' }],
+      })),
       // Self-hosted CanvasKit WASM lives under a versioned path (scripts/copy-canvaskit.mjs).
       {
         source: '/canvaskit/:version/:file*',

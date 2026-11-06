@@ -524,7 +524,29 @@ header the edge overwrites; unset = one shared bucket, a forged `X-Forwarded-For
 neutral "This invite expired" page for every 404 and malformed token, "could not open" for 429 / 5xx / not configured. Token-
 free metadata, `robots` noindex, `Referrer-Policy: no-referrer`, `X-Robots-Tag`, `Cache-Control: private, no-store` for `/i/*`
 (next.config.ts), nonce CSP without `wasm-unsafe-eval` or blob/data images on `/i/*` (proxy.ts). No logging. Tests:
-`node --test` (`invite.test.ts`).
+`node --test` (`invite.test.ts`). The `svc` call, `X-Client-IP` and the config live in `features/service-api` (shared
+with the board page).
+
+Web board page (T-132, `apps/web/src/app/b/[token]/`): server component; `features/public-board` checks the token shape
+(22 base64url characters; anything else is the 404 without an API call), calls `GET /v1/public/boards/{token}` once per
+render (shared with `generateMetadata` through React `cache`) and validates every field: names and titles are text only
+(React escapes them), layout numbers are clamped to the API's ranges, at most 100 pins, decorations are not drawn yet, and a
+card's `image_url` is kept only when its origin is the media origin (`MEDIA_ORIGIN`, else the origin of `API_URL`);
+otherwise the card renders as the same neutral "Private card" tile as `private_tile` (no ids reach the page). Pins are
+placed from a nonce'd `<style>` (fractions of the board, pin frame 240x320 on 2400x2400 like the app). States: board +
+owner name + store links; one identical `not-found.tsx` 404 for every unusable token; "could not open" for 429 / 5xx /
+not configured. Metadata: board title and "<owner> shared a board", `og:image` / `twitter:image` = `/b/<token>/og`,
+`robots` noindex. `/b/<token>/og` (route handler) calls `/og` and answers 302 to the signed URL (only from the media
+origin) with `Cache-Control: public, max-age=0, s-maxage=60` and `Cache-Tag: <cache_tag>`; 404 empty (same cache
+header); 503 `no-store` when the API cannot answer. Headers (next.config.ts): `/b/*` `Referrer-Policy: no-referrer` and
+`X-Robots-Tag: noindex, nofollow, noarchive` (plus the global HSTS, nosniff, `X-Frame-Options: DENY`); the HTML
+`/b/<token>` `Cache-Control: public, max-age=0, s-maxage=60`, RSC requests (`rsc`, `next-router-prefetch`,
+`next-router-state-tree`) `private, no-store`. CSP (proxy.ts → `csp.ts`): nonce scripts and styles, `img-src 'self'
+<media origin>`, no `wasm-unsafe-eval`, no blob/data, `frame-ancestors 'none'`. Known limits: a Next.js page cannot set
+response headers from data, so the HTML carries no `Cache-Tag` (revoke reaches cached HTML through the 60 s TTL, which
+meets AC-24.4; follow-up for a tag the proxy can compute); a cached "could not open" page can stay up to 60 s; a shared
+cache reuses one CSP nonce for up to 60 s (no injection point exists: React escaping, numbers-only stylesheet). Tests:
+`public-board.test.ts`, `csp.test.ts`, `headers.test.ts`.
 
 US-23 (export) is on-device; the server only supplies the owner's own media via `GET /v1/cards/{id}` / `/v1/me/cards`.
 US-7, US-8, US-10, US-11, US-21 are on-device by design (AC-7.5: nothing uploaded before send); their server touchpoints are the

@@ -173,3 +173,39 @@ body {
   outline: 2px solid currentColor;
   outline-offset: 3px;
 }
+
+/* Public board page (/b/<token>, T-132). Pin placement comes from a nonce'd stylesheet per page. */
+.board-page {
+  width: min(100% - 2rem, 40rem);
+  margin: 1rem auto;
+}
+
+.board-header h1 {
+  margin: 0.25rem 0 1rem;
+  font-size: 1.5rem;
+  overflow-wrap: anywhere;
+}
+
+.board-stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+}
+
+.pin {
+  position: absolute;
+  display: block;
+}
+
+.pin-card {
+  object-fit: contain;
+}
+
+.pin-private {
+  border-radius: 14px;
+  background: var(--color-background);
+  border: 1px dashed var(--color-text-secondary);
+}

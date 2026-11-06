@@ -80,7 +80,12 @@ Safety rules:
 5. As Mia (minor) the same board answers 404, exactly like a board that does not exist.
 6. Web invite page: set `API_SERVICE_CREDENTIAL` in `.env`, restart the API, run `pnpm dev:web`, take Alice's
    invite link from `GET /v1/me/invite` and open `http://localhost:3000/i/<token>`.
-7. `http://127.0.0.1:8025` shows Mailpit; `http://127.0.0.1:9001` the MinIO console when S3 is used.
+7. Web board page: with the same setup, create a link as Alice (`POST /v1/boards/<board id>/public-links` with an
+   `Idempotency-Key` header and `{"expires_in": "7d"}`), then open `http://localhost:3000/b/<token from the url>`. Images
+   come from `MEDIA_ORIGIN` (default: the origin of `API_URL`, which serves media locally).
+   Next.js reads env files from `apps/web` only, so put `API_URL`, `API_SERVICE_CREDENTIAL` (and `MEDIA_ORIGIN` if
+   needed) in `apps/web/.env.local` (gitignored) or export them before `pnpm dev:web`.
+8. `http://127.0.0.1:8025` shows Mailpit; `http://127.0.0.1:9001` the MinIO console when S3 is used.
 
 The mobile app cannot sign in as a seed user yet: sign-in is Apple/Google only and needs real accounts.
 Follow-up: a development-only sign-in, issue #306 (see [[api-mvp]] when it lands).
