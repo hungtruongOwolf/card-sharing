@@ -155,6 +155,13 @@ export const en = {
   'capture.chooseAnother': 'Choose another photo',
   'capture.startOver': 'Start over',
 
+  'feedback.open': 'Sounds and haptics',
+  'feedback.title': 'Sounds and haptics',
+  'feedback.sound': 'Card sounds',
+  'feedback.sound.hint': 'Squeaks and pops when you touch cards. Silent when your phone is muted.',
+  'feedback.haptics': 'Haptics',
+  'feedback.haptics.hint':
+    'Small vibrations when you touch cards. Also follows your phone’s setting.',
   'drafts.open.home': 'Drafts',
   'drafts.title': 'Drafts',
   'drafts.loading': 'Getting your drafts…',

@@ -183,6 +183,11 @@ Reanimated `withSpring` configs (starting values, tune in the week-1 spike; alwa
 | Destructive confirm (delete) | `notification(.warning)` | `LONG_PRESS` | crumple |
 | Toggle | `selection` | `TOGGLE_ON/OFF` (34) → `CLOCK_TICK` | — |
 Rules: ≤1 haptic per 50 ms (coalesce during drags), never on scroll, global toggle in Settings, no haptics in background.
+Implemented (T-66, `apps/mobile/src/features/feedback`): screens emit named events (`FEEDBACK_EVENTS`: squish,
+toggle, sendSuccess, error → haptic + optional sound) through `FeedbackProvider`/`useFeedback`. A gate coalesces haptics
+(≥ 50 ms apart) and sounds (≥ 80 ms), honours the Settings → Sounds and haptics switches (both on by default, persisted in
+expo-secure-store under `cs.prefs.feedback.v1`) and stays silent while the app is not active. Haptics and sound engines are
+`HapticsPort`/`SoundPort` seams with no-op adapters until expo-haptics and expo-audio are dependencies (follow-up #246).
 
 ### 3.8 Other tokens
 | Token | Values |
@@ -236,7 +241,10 @@ Multi-instance: all subjects outlined, tap to toggle (union = one sticker) per [
 ### 5.2 Card squish physics
 - Press-in: scaleX 1.04, scaleY 0.94 anchored at touch point (`duration.xs`); release: `spring.squish` back to 1 with 1–2 overshoots.
 - Velocity-aware: harder/faster taps (touch force if available, else tap rate) → bigger squish, capped at 0.88.
-- Holo cards: squish also bumps shader `tilt` uniform. Repeated squish → stickers may emit sound (Boop-style, [[competitors]]).
+- Implemented as `Squish` (T-66): a memoized Tap gesture on the JS thread drives a shared press value (view transform
+  only, no canvas repaint); tap streaks under 350 ms deepen the squash up to the 0.88 cap; release uses `spring.squish`;
+  reduced motion = opacity dip. The editor preview is wrapped in it.
+- Holo cards: squish also bumps shader `tilt` uniform. The live holo preview adds `press × SQUISH_TILT_BUMP` to the tilt. Repeated squish → stickers may emit sound (Boop-style, [[competitors]]).
 
 ### 5.3 Board manipulation (Gesture Handler simultaneous Pan + Pinch + Rotation, UI-thread shared values)
 | Gesture | Behaviour |

@@ -7,6 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { createQueryClient } from '../data/queryClient';
 import { AuthProvider, createAppAuthClient, useAuthClient } from '../features/auth';
+import { FeedbackProvider, securePrefsStorage } from '../features/feedback';
 import {
   createAppOnboardingDeps,
   ErrorScreen,
@@ -30,6 +31,7 @@ const ROUTES: readonly (readonly [Exclude<OnboardingPhase, 'loading' | 'error'>,
   ['home', 'cut-lab'],
   ['home', 'settings/sessions'],
   ['home', 'settings/privacy'],
+  ['home', 'settings/feedback'],
   ['home', 'friends/index'],
   ['home', 'friends/requests'],
   ['home', 'friends/invite'],
@@ -84,15 +86,18 @@ function Onboarding() {
 export default function RootLayout() {
   const [queryClient] = useState(createQueryClient);
   const [authClient] = useState(createAppAuthClient);
+  const [prefsStorage] = useState(securePrefsStorage);
   return (
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
           <AuthProvider client={authClient}>
             <ThemeProvider>
-              <ToastProvider>
-                <Onboarding />
-              </ToastProvider>
+              <FeedbackProvider storage={prefsStorage}>
+                <ToastProvider>
+                  <Onboarding />
+                </ToastProvider>
+              </FeedbackProvider>
             </ThemeProvider>
           </AuthProvider>
         </QueryClientProvider>

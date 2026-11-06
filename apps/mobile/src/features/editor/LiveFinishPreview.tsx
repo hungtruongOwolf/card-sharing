@@ -8,13 +8,13 @@ import {
   useClock,
   type SkPicture,
 } from '@shopify/react-native-skia';
-import { useDerivedValue, useSharedValue } from 'react-native-reanimated';
+import { useDerivedValue, useSharedValue, type SharedValue } from 'react-native-reanimated';
 
 import { HOLO_SKSL } from '@card-sharing/shaders';
 
 import { GyroTiltDriver } from '../holo-card/GyroTiltDriver';
 import type { Tilt } from '../holo-card/gyroTilt';
-import { STATIC_TILT } from '../holo-card/holoLab';
+import { SQUISH_TILT_BUMP, STATIC_TILT } from '../holo-card/holoLab';
 
 // Compiled once per process; null means the SkSL failed to compile (the preview then shows the plain card).
 const holoEffect = Skia.RuntimeEffect.Make(HOLO_SKSL);
@@ -26,6 +26,8 @@ export interface LiveFinishPreviewProps {
   height: number;
   /** The finish's `intensity` param (0..1). */
   intensity: number;
+  /** Squish press (0 = released); pushes the foil along y (design-system.md §5.2). */
+  press?: SharedValue<number>;
 }
 
 const clamp1 = (value: number) => {
@@ -38,7 +40,13 @@ const clamp1 = (value: number) => {
  * on the UI thread, the card itself is a recorded picture. Mounted only when `planFinishModes` says `live`,
  * so reduced motion never registers the sensor. The shine is SrcATop inside a layer: card pixels only.
  */
-export function LiveFinishPreview({ picture, width, height, intensity }: LiveFinishPreviewProps) {
+export function LiveFinishPreview({
+  picture,
+  width,
+  height,
+  intensity,
+  press,
+}: LiveFinishPreviewProps) {
   const tilt = useSharedValue<Tilt>({ x: 0, y: 0 });
   const clock = useClock();
   const uniforms = useDerivedValue(() => {
@@ -47,7 +55,10 @@ export function LiveFinishPreview({ picture, width, height, intensity }: LiveFin
       u_size: [width, height],
       // `.value`, not `.get()`: Skia's jest mock clock is a plain `{ value }` object.
       u_time: clock.value / 1000,
-      u_tilt: [clamp1(STATIC_TILT.x + current.x), clamp1(STATIC_TILT.y + current.y)],
+      u_tilt: [
+        clamp1(STATIC_TILT.x + current.x),
+        clamp1(STATIC_TILT.y + current.y + (press?.get() ?? 0) * SQUISH_TILT_BUMP),
+      ],
     };
   });
 
