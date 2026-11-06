@@ -411,6 +411,12 @@ hours → `held`: the push is re-queued as one deferred `notify.push` job (uniqu
 the local window ends, computed by Postgres (`AT TIME ZONE`, DST-aware), and decided then (cap and batching apply at send
 time). Quiet hours apply only once the app has sent `time_zone`; widget refreshes are silent and never held. No push type is
 treated as urgent yet (auth.new_login would be, when it exists).
+App part (T-87, `apps/mobile/src/features/notifications`): Settings → Notifications edits the four switches and quiet
+hours (30-minute steps, one adjustable control per time) as a draft saved in one `PUT` with the device zone; an empty
+window is blocked before sending. `TimeZoneSync` (mounted while signed in) reads
+`Intl.DateTimeFormat().resolvedOptions().timeZone` on launch and on every return to the foreground and writes it back
+(GET, then `PUT` with the other fields unchanged) only when the stored zone differs; failures retry on the next
+foreground, a refused zone (400) is not retried until it changes.
 
 US-28 (CSAM hashing + nudity classifier) has no scan endpoint: the `media.process` job gates delivery ([[ADR-0005-media-pipeline]]);
 the only user touchpoint is `POST /v1/cards/{id}/appeal`. Email change does not exist in MVP; when added it requires `re` (AC-1.4).
