@@ -404,6 +404,15 @@ board_title, owner_display_name, member_count, expires_at}]}` (pending, unexpire
 pending, unexpired invitation to a live board; still the owner's friend; no block with any member; the cap → 200 `{board_id}` and a
 `board_members` row (`role = collaborator`, `invitation_id`); any failure is the byte-identical 404. `POST …/decline` → 204 (silent) or
 404. Push notifications for invitations join with T-109.
+Implemented (T-107, `crates/boards/src/membership.rs`, `DELETE /v1/boards/{id}/members/{userId}`, limit `boards.members.remove`
+30/h): the owner removes a collaborator, or a collaborator leaves (`userId` = self) → 204; the owner leaving their own board → 400
+`VALIDATION_FAILED` (delete the board instead); a collaborator removing anyone else, a non-member, or an unknown user → the
+byte-identical 404. Removal deletes the membership and tombstones the member's live pins (`updated_by` = the remover) with one board
+version bump, so delta reads report them as `removed`; the removed member's later reads and ops get the missing 404. Block resolution:
+`ResolveBlocksOnEvents` turns `social.user_blocked` into the `boards.resolve_block` job; `BlockResolver::resolve` removes, on every live
+board both are members of, the blocker — or the blocked collaborator when the blocker is the owner — and cancels open invitations
+between the two. Known gap (follow-up): `POST /v1/blocks` still requires a friend/request relation, so two co-collaborators who are
+not friends cannot block each other through the API yet (blocks.rs "board co-members join this rule").
 
 ### Sharing (public links) & web
 | Method | Path | Purpose | Auth | Role | Object rule | Rate limit | Idem. | US |

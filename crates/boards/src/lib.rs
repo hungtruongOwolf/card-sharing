@@ -5,6 +5,7 @@
 pub mod invitations;
 pub mod janitor;
 pub mod members;
+pub mod membership;
 pub mod ops;
 pub mod pins;
 pub mod resolve;
@@ -14,6 +15,10 @@ pub mod settings;
 pub use invitations::{InviteOutcome, OwnerInvitation, ReceivedInvitation};
 pub use janitor::BoardJanitor;
 pub use members::Member;
+pub use membership::{
+    BlockResolver, RESOLVE_BLOCK_JOB, RemoveOutcome, ResolveBlockJob, ResolveBlocksOnEvents,
+    USER_BLOCKED,
+};
 pub use ops::{BatchResult, OpResult, Outcome, PinOp, RejectCode};
 pub use pins::{Pin, PinContent, Transform, TransformError, TransformPatch};
 pub use resolve::{BoardRead, CardFacts, Resolution, ResolvedPin, ViewerContext, resolve_pin};

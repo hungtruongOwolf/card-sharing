@@ -1805,6 +1805,105 @@
         }
       }
     },
+    "/v1/boards/{id}/members/{userId}": {
+      "delete": {
+        "tags": [
+          "boards"
+        ],
+        "summary": "Remove a collaborator (owner) or leave a board (self). Auth: ses.",
+        "description": "The member's pins are removed with them and their later writes are refused. The owner cannot\nleave their own board (delete it instead). A collaborator removing someone else, a\nnon-member, and an unknown user get the same 404 as for a missing board.",
+        "operationId": "removeBoardMember",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The board id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "description": "The member to remove (the caller's own id to leave).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removed (or left)."
+          },
+          "400": {
+            "description": "VALIDATION_FAILED: the owner cannot leave their own board.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: no such member the caller may remove.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "boards.members.remove",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
     "/v1/boards/{id}/ops": {
       "post": {
         "tags": [

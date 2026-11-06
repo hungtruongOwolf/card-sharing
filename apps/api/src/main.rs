@@ -246,6 +246,7 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
         social.retention_days,
     ));
     let board_janitor = Arc::new(boards::BoardJanitor::new(pool.clone(), Arc::clone(&clock)));
+    let block_resolver = Arc::new(boards::BlockResolver::new(pool.clone(), Arc::clone(&clock)));
     let media = Arc::new(media::MediaService::new(
         pool.clone(),
         Arc::clone(&clock),
@@ -279,7 +280,8 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
             .subscribe(Arc::new(notifications::ActivityOnEvents))
             .subscribe(Arc::new(api::workers::CsamSuspension))
             .subscribe(Arc::new(cards::EvaluateOnEvents))
-            .subscribe(Arc::new(cards::PurgeOnDelete)),
+            .subscribe(Arc::new(cards::PurgeOnDelete))
+            .subscribe(Arc::new(boards::ResolveBlocksOnEvents)),
     );
     let slo_report = api::workers::SloReport {
         cards: card_service,
@@ -302,6 +304,10 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
         )
         .handle(cards::EVALUATE_JOB, Arc::new(card_jobs))
         .handle(cards::PURGE_JOB, Arc::new(purge_jobs))
+        .handle(
+            boards::RESOLVE_BLOCK_JOB,
+            Arc::new(boards::ResolveBlockJob(block_resolver)),
+        )
         .handle(
             notifications::ACTIVITY_JOB,
             Arc::new(notifications::ActivityJob(Arc::clone(&activity))),
