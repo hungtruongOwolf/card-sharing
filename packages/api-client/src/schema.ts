@@ -762,6 +762,28 @@ export interface paths {
         patch: operations["updateSettings"];
         trace?: never;
     };
+    "/v1/me/widget-token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mint a widget token. Auth: ses.
+         * @description A read-only token for `GET /v1/widget`, child of the calling session: it is revoked with the
+         *     session (logout, log out everywhere, suspension, deletion) and replaces any earlier widget
+         *     token of this session. Any other route refuses it with 403.
+         */
+        post: operations["createWidgetToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/media": {
         parameters: {
             query?: never;
@@ -938,6 +960,28 @@ export interface paths {
          *     "try later" (429).
          */
         post: operations["searchUsers"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/widget": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The widget's card. Auth: wid.
+         * @description The newest card delivered to the caller that they may still see (the feed's predicate),
+         *     optionally from one friend. Minimal: id, sender name, a signed `widget_512` image URL and a
+         *     deep link; no caption.
+         */
+        get: operations["getWidget"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1674,6 +1718,29 @@ export interface components {
             handle?: string | null;
             /** Format: uuid */
             id: string;
+        };
+        WidgetCard: {
+            /** @description Opens the card in the app. */
+            deep_link: string;
+            /** Format: date-time */
+            expires_at: string;
+            /** Format: uuid */
+            id: string;
+            /** @description `widget_512` rendition signed for the viewer (10 min). */
+            image_url: string;
+            sender_name: string;
+        };
+        WidgetTokenView: {
+            /** Format: date-time */
+            expires_at: string;
+            /**
+             * @description *** for `GET /v1/widget` only. Store it in the widget's OS-protected storage
+             *     (iOS app-group Keychain, Android EncryptedSharedPreferences); it dies with this session.
+             */
+            token: string;
+        };
+        WidgetView: {
+            card?: components["schemas"]["WidgetCard"] | null;
         };
     };
     responses: never;
@@ -4235,6 +4302,53 @@ export interface operations {
             };
         };
     };
+    createWidgetToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Minted; shown once. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WidgetTokenView"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE, ACCOUNT_SUSPENDED or FORBIDDEN (a widget token). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     uploadMedia: {
         parameters: {
             query: {
@@ -4766,6 +4880,74 @@ export interface operations {
                 };
             };
             /** @description TEMPORARILY_UNAVAILABLE (rate limit store down; fails closed). */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    getWidget: {
+        parameters: {
+            query?: {
+                /** @description Only cards from this friend (AC-16.3). Not a current friend = no card. */
+                friend_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The card to show, or null. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WidgetView"];
+                };
+            };
+            /** @description VALIDATION_FAILED: malformed friend_id. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED (requests or the signed-URL budget). */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description TEMPORARILY_UNAVAILABLE: media signing not configured. */
             503: {
                 headers: {
                     [name: string]: unknown;

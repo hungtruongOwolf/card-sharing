@@ -3495,6 +3495,70 @@
         }
       }
     },
+    "/v1/me/widget-token": {
+      "post": {
+        "tags": [
+          "widget"
+        ],
+        "summary": "Mint a widget token. Auth: ses.",
+        "description": "A read-only token for `GET /v1/widget`, child of the calling session: it is revoked with the\nsession (logout, log out everywhere, suspension, deletion) and replaces any earlier widget\ntoken of this session. Any other route refuses it with 403.",
+        "operationId": "createWidgetToken",
+        "responses": {
+          "201": {
+            "description": "Minted; shown once.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WidgetTokenView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE, ACCOUNT_SUSPENDED or FORBIDDEN (a widget token).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "widget.token",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
     "/v1/media": {
       "post": {
         "tags": [
@@ -4249,6 +4313,101 @@
           "attestation": true,
           "auth": "ses",
           "rateLimit": "users.search",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
+    "/v1/widget": {
+      "get": {
+        "tags": [
+          "widget"
+        ],
+        "summary": "The widget's card. Auth: wid.",
+        "description": "The newest card delivered to the caller that they may still see (the feed's predicate),\noptionally from one friend. Minimal: id, sender name, a signed `widget_512` image URL and a\ndeep link; no caption.",
+        "operationId": "getWidget",
+        "parameters": [
+          {
+            "name": "friend_id",
+            "in": "query",
+            "description": "Only cards from this friend (AC-16.3). Not a current friend = no card.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The card to show, or null.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WidgetView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED: malformed friend_id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED (requests or the signed-URL budget).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "TEMPORARILY_UNAVAILABLE: media signing not configured.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "wid",
+          "rateLimit": "widget.read",
           "role": "user",
           "versionGate": true
         }
@@ -6102,6 +6261,70 @@
             "format": "uuid"
           }
         }
+      },
+      "WidgetCard": {
+        "type": "object",
+        "required": [
+          "id",
+          "sender_name",
+          "image_url",
+          "expires_at",
+          "deep_link"
+        ],
+        "properties": {
+          "deep_link": {
+            "type": "string",
+            "description": "Opens the card in the app."
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "image_url": {
+            "type": "string",
+            "description": "`widget_512` rendition signed for the viewer (10 min)."
+          },
+          "sender_name": {
+            "type": "string"
+          }
+        }
+      },
+      "WidgetTokenView": {
+        "type": "object",
+        "required": [
+          "token",
+          "expires_at"
+        ],
+        "properties": {
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "token": {
+            "type": "string",
+            "description": "*** for `GET /v1/widget` only. Store it in the widget's OS-protected storage\n(iOS app-group Keychain, Android EncryptedSharedPreferences); it dies with this session."
+          }
+        }
+      },
+      "WidgetView": {
+        "type": "object",
+        "properties": {
+          "card": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/WidgetCard",
+                "description": "`null` when there is nothing to show (no card, unfriended, blocked, deleted)."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
       }
     },
     "securitySchemes": {
@@ -6136,6 +6359,10 @@
     {
       "name": "activity",
       "description": "The caller's activity tab (US-31)"
+    },
+    {
+      "name": "widget",
+      "description": "Home-screen widget token and card (US-16)"
     },
     {
       "name": "devices",
