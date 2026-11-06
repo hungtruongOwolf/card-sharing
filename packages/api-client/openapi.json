@@ -6306,7 +6306,7 @@
           },
           "token": {
             "type": "string",
-            "description": "*** for `GET /v1/widget` only. Store it in the widget's OS-protected storage\n(iOS app-group Keychain, Android EncryptedSharedPreferences); it dies with this session."
+            "description": "Bearer token for `GET /v1/widget` only. Store it in the widget's OS-protected storage\n(iOS app-group Keychain, Android EncryptedSharedPreferences); it dies with this session."
           }
         }
       },

@@ -1734,7 +1734,7 @@ export interface components {
             /** Format: date-time */
             expires_at: string;
             /**
-             * @description *** for `GET /v1/widget` only. Store it in the widget's OS-protected storage
+             * @description Bearer token for `GET /v1/widget` only. Store it in the widget's OS-protected storage
              *     (iOS app-group Keychain, Android EncryptedSharedPreferences); it dies with this session.
              */
             token: string;
