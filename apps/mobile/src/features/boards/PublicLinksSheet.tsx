@@ -91,6 +91,27 @@ export function PublicLinksSheet({
       } else failed();
     },
   });
+  // A replayed create has no URL (#357): revoke that link and make a new one with the chosen expiry.
+  const replace = useMutation({
+    mutationFn: async (linkId: string) => {
+      await api.revoke(linkId);
+      return api.create(boardId, expiry, newIdempotencyKey());
+    },
+    onSuccess: async (link) => {
+      setCreated(link);
+      await refresh();
+    },
+    onError: async (error) => {
+      setCreated(null);
+      await refresh();
+      if (error instanceof LinksDisallowedError) {
+        await prefs.markDisallowed().catch(() => undefined);
+        toast.show({ message: t('boards.links.disallowed'), variant: 'error' });
+        onDisallowed();
+        onClose();
+      } else failed();
+    },
+  });
   const revoke = useMutation({
     mutationFn: (linkId: string) => api.revoke(linkId),
     onSuccess: async (_v, linkId) => {
@@ -141,7 +162,7 @@ export function PublicLinksSheet({
             loading={create.isPending}
             onPress={() => create.mutate(expiry)}
           />
-          {created ? (
+          {created && created.url !== null ? (
             <View style={styles.block} testID="public-links-created">
               <Text selectable>{created.url}</Text>
               <Text tone="muted">{t('boards.links.once')}</Text>
@@ -149,6 +170,17 @@ export function PublicLinksSheet({
                 label={t('boards.links.share')}
                 variant="secondary"
                 onPress={() => void share(created.url).catch(() => undefined)}
+              />
+            </View>
+          ) : null}
+          {created && created.url === null ? (
+            <View style={styles.block} testID="public-links-replayed">
+              <Text accessibilityRole="alert">{t('boards.links.alreadyShown')}</Text>
+              <Button
+                label={t('boards.links.replace')}
+                variant="secondary"
+                loading={replace.isPending}
+                onPress={() => replace.mutate(created.id)}
               />
             </View>
           ) : null}
