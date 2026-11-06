@@ -2034,7 +2034,12 @@ name = "sharing"
 version = "0.1.0"
 dependencies = [
  "base64 0.23.1",
+ "boards",
+ "bytes",
+ "cards",
  "getrandom 0.4.3",
+ "image",
+ "media",
  "platform",
  "serde",
  "serde_json",
@@ -2043,6 +2048,7 @@ dependencies = [
  "sqlx",
  "thiserror",
  "time",
+ "tokio",
  "tracing",
  "uuid",
 ]

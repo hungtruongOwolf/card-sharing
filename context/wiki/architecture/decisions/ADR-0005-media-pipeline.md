@@ -55,6 +55,8 @@ pages show resized **watermarked** derivatives only (AC-24.5); EXIF stripped; �
   AC-24.7, D4); revoke ⇒ derivatives deleted + CDN purge. OG served via a token-checked route (`s-maxage` 60 s) that 302s to a fresh
   signed URL. **Accepted risk (D4):** social crawlers / chat apps that already fetched the preview keep their own copy after revoke; the
   owner is told once in the app; minors cannot create public links (AC-24.6).
+  Implemented (T-130): derivatives are per **card** (not per link) in `sharing.public_media`, shared by every snapshot that shows
+  the card, so revoking one link of several does not remove images another live link still uses; see [[api-mvp]] "Snapshots".
 - **Provider:** behind `StorageProvider` + `UrlSigner` ports; S3-compatible storage + CDN with token auth and low/zero egress fees
   — **Cloudflare R2 + Cloudflare CDN** per [[ADR-0008-hosting]].
 

@@ -143,6 +143,13 @@ impl SharingService {
             .target("public_link", link.id)
             .detail("board_id", board_id.to_string());
         audit::record(&mut *tx, &entry, now).await?;
+        // The first snapshot of the board (T-130); later ones follow board changes.
+        let job = crate::snapshot::job_for_board(board_id).unique(format!(
+            "{}:link:{}",
+            crate::snapshot::SNAPSHOT_JOB,
+            link.id
+        ));
+        platform::jobs::enqueue(&mut *tx, &job, now).await?;
         tx.commit().await?;
         Ok(CreatedLink {
             url: format!("{}{token}", self.settings.link_url_base),
