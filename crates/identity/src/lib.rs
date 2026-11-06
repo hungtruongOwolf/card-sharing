@@ -52,3 +52,21 @@ macro_rules! account_active_sql {
         )
     };
 }
+
+/// SQL predicate (a string literal): the session `$session` is live at `$now` (not revoked, not
+/// past its idle or absolute expiry). For rows other modules bind to a session (push tokens), so
+/// logout, suspension and deletion end them without those modules reading the identity schema.
+#[macro_export]
+macro_rules! session_live_sql {
+    ($session:literal, $now:literal) => {
+        concat!(
+            "EXISTS (SELECT 1 FROM identity.sessions iss WHERE iss.id = ",
+            $session,
+            " AND iss.revoked_at IS NULL AND iss.idle_expires_at > ",
+            $now,
+            " AND iss.absolute_expires_at > ",
+            $now,
+            ")"
+        )
+    };
+}

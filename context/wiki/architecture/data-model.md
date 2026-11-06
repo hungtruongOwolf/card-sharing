@@ -2,7 +2,7 @@
 title: Data model (MVP)
 type: spec
 status: proposed
-updated: 2026-11-05
+updated: 2026-11-06
 sources: [raw/discussions/2026-11-04-infra-qa.md, raw/discussions/2026-11-04-prd-design-qa.md, raw/discussions/2026-11-04-security-qa.md]
 related: [[overview]], [[api-mvp]], [[prd-mvp]], [[glossary]], [[effects-catalog]], [[ADR-0004-auth-sessions]], [[ADR-0005-media-pipeline]], [[ADR-0006-job-queue]], [[ADR-0007-board-sync]], [[security-baseline]], [[change-management]], [[threat-model-mvp]]
 ---
@@ -224,7 +224,7 @@ invitations between them are cancelled.
 | Table (schema) | Columns | Indexes | Class | Retention |
 |---|---|---|---|---|
 | `activity_items` (feed) | `id`; `user_id FK CASCADE`; `type CHECK (card_new, card_held, card_released, reaction, friend_request, friend_accepted, board_invite, board_joined, new_login)`; `actor_id`; `subject_id`; `read_at` | `(user_id, created_at DESC)` | I | 90 d |
-| `push_tokens` (notifications) | `id`; `user_id FK CASCADE`; `device_id`; `provider CHECK (apns, fcm)`; `kind CHECK (alert, widget)`; `token_enc BYTEA`; `token_hash UNIQUE`; `invalidated_at` | `(user_id) WHERE invalidated_at IS NULL` | S | Pruned on invalid / logout |
+| `push_tokens` (notifications) | `id`; `account_id FK CASCADE`; `device_id`; `session_id` (registering session, no FK; liveness via `identity::session_live_sql!`); `provider CHECK (apns, fcm)`; `kind CHECK (alert, widget)`; `token_enc BYTEA` (FieldCipher, AD = account id); `token_hash UNIQUE` (SHA-256); `created_at`, `updated_at`; `invalidated_at`; `UNIQUE(account_id, device_id, kind)` (T-85, `migrations/20261113000001_notifications_push_tokens.sql`) | `(account_id) WHERE invalidated_at IS NULL`; `(session_id)` | S | Pruned every 10 min once invalid or the session ended |
 | `notification_prefs` (notifications) | `user_id PK FK CASCADE`; `card_new, reaction, friend, board BOOL`; `quiet_start, quiet_end TIME`; `tz TEXT` | — | I | With account |
 | `reports` (moderation) | `id`; `source CHECK (user, guest, appeal)`; `hold_id UUID NULL` (appeals); `reporter_id UUID NULL` (guest = null); `reporter_ip_hash BYTEA NULL`; `target_type CHECK (card, board, public_link, user)`; `target_id`; `target_owner_id`; `reason CHECK (sexual, minor_safety, harassment, violence, hate, spam, other)`; `note TEXT ≤ 500`; `priority SMALLINT`; `status CHECK (open, in_review, actioned, dismissed)`; `assigned_to` | `(status, priority DESC, created_at)` | P | 2 y (legal review) |
 | `content_holds` (moderation) | `id`; `card_id UUID UNIQUE`; `owner_id`; `media_id`; `classifier_model`; `score REAL`; `status CHECK (held, appealed, released, upheld, expired)`; `appeal_note TEXT NULL ≤ 500`; `appealed_at NULL`; `decided_by NULL`; `decided_at NULL`; `expires_at` (30 d without appeal ⇒ card deleted) | `(status, created_at)`; `(owner_id)` | P | 2 y (legal review) |
