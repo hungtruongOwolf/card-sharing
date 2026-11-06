@@ -11,8 +11,8 @@ import {
   useClock,
   type SkImage,
 } from '@shopify/react-native-skia';
-import { useEffect, useMemo, useReducer, useState } from 'react';
-import { PixelRatio, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
+import { PixelRatio, StyleSheet, View, type AccessibilityActionEvent } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import {
   useAnimatedReaction,
@@ -24,14 +24,22 @@ import { scheduleOnRN } from 'react-native-worklets';
 
 import {
   boardToScreen,
+  clampPinScale,
   contains,
+  fitCamera,
+  hitTest,
   intersects,
   panBy,
   pinBounds,
+  sceneBounds,
+  screenToBoard,
+  snapRotation,
   visibleRect,
   zoomAround,
   type Camera,
+  type PinGeometry,
   type Rect as BoardRect,
+  type Vec,
 } from '@card-sharing/canvas-engine';
 import {
   registry as shippedRegistry,
@@ -39,26 +47,39 @@ import {
   type RemoteRegistryConfig,
 } from '@card-sharing/effects-registry';
 import { HOLO_SKSL } from '@card-sharing/shaders';
+import { space } from '@card-sharing/tokens';
 
-import { t } from '../../i18n';
-import { useTheme } from '../../ui';
+import { t, type MessageKey } from '../../i18n';
+import { animateTo, useTheme } from '../../ui';
 import { GyroTiltDriver } from '../holo-card/GyroTiltDriver';
 import type { Tilt } from '../holo-card/gyroTilt';
 import { STATIC_TILT } from '../holo-card/holoLab';
-import { pinGeometry, type BoardPin } from './boardModel';
+import { pinGeometry, sortByZ, type BoardPin } from './boardModel';
+import { PIN_ACTIONS, type PinAction } from './boardOps';
 import { CULL_MARGIN, planBoardScene } from './boardScene';
 import {
-  applyPinTransform,
   boardPalette,
   containRect,
   drawPinContent,
   drawPins,
+  drawSelection,
   type BoardPalette,
 } from './drawBoard';
 import type { TextureCache } from './textureCache';
 
 // Compiled once per process; null means the SkSL failed to compile (live pins then show their baked image only).
 const holoEffect = Skia.RuntimeEffect.Make(HOLO_SKSL);
+
+/** Pick-up lift (design-system.md §5.3: `spring.lift` to 1.04). */
+const LIFT_SCALE = 1.04;
+
+/** A pin's transform while it is being edited. */
+export interface PinPose {
+  x: number;
+  y: number;
+  scale: number;
+  rotation: number;
+}
 
 export interface BoardCanvasProps {
   pins: readonly BoardPin[];
@@ -71,15 +92,48 @@ export interface BoardCanvasProps {
   remoteConfig?: RemoteRegistryConfig;
   /** Gets the first live-finish slot. */
   focusedId?: string | null;
-  /** Shared camera, when the parent drives it too (zoom to fit, lab knobs). */
+  /** Shared camera, when the parent drives it too. */
   camera?: SharedValue<Camera>;
+  /** Edit mode (T-104): pins can be picked up, moved, scaled, rotated and get accessibility actions. */
+  editable?: boolean;
+  selectedId?: string | null;
+  /** Tap on a pin selects it, tap on the empty board clears the selection. */
+  onSelect?: (id: string | null) => void;
+  /** A drag, pinch or rotation started on this pin (bring it to front). */
+  onPickUp?: (id: string) => void;
+  /** The gesture on a pin ended with this pose (rotation already snapped to detents). */
+  onCommit?: (id: string, pose: PinPose) => void;
+  /** A screen-reader action on a pin. */
+  onAction?: (id: string, action: PinAction) => void;
   testID?: string;
+}
+
+type Mode = 'none' | 'camera' | 'pin';
+interface HitPin extends PinGeometry {
+  id: string;
 }
 
 const clamp1 = (value: number) => {
   'worklet';
   return Math.max(-1, Math.min(1, value));
 };
+
+const ACTION_LABELS: Record<PinAction, MessageKey> = {
+  moveUp: 'boards.action.moveUp',
+  moveDown: 'boards.action.moveDown',
+  moveLeft: 'boards.action.moveLeft',
+  moveRight: 'boards.action.moveRight',
+  rotateLeft: 'boards.action.rotateLeft',
+  rotateRight: 'boards.action.rotateRight',
+  bigger: 'boards.action.bigger',
+  smaller: 'boards.action.smaller',
+  bringToFront: 'boards.action.bringToFront',
+  sendToBack: 'boards.action.sendToBack',
+  remove: 'boards.action.remove',
+};
+const A11Y_ACTIONS = PIN_ACTIONS.map((name) => ({ name, label: t(ACTION_LABELS[name]) }));
+const isPinAction = (name: string): name is PinAction =>
+  (PIN_ACTIONS as readonly string[]).includes(name);
 
 /** Re-renders when the texture cache reports a change. */
 function useTextureVersion(textures: TextureCache<SkImage>): number {
@@ -91,6 +145,7 @@ function useTextureVersion(textures: TextureCache<SkImage>): number {
 function pinLabel(pin: BoardPin): string {
   switch (pin.content.kind) {
     case 'card': {
+      if (pin.content.card.isMine) return t('boards.pin.card.mine');
       const name = pin.content.card.sender.displayName;
       return name ? t('boards.pin.card', { name }) : t('boards.pin.card.someone');
     }
@@ -101,16 +156,24 @@ function pinLabel(pin: BoardPin): string {
   }
 }
 
-interface LivePinProps {
+const imageOf = (pin: BoardPin, textures: TextureCache<SkImage>) =>
+  pin.content.kind === 'card' ? (textures.get(pin.content.card.id) ?? null) : null;
+
+interface PinBodyProps {
   pin: BoardPin;
   image: SkImage | null;
-  intensity: number;
+  /** Live finish intensity, or null to draw the baked content only. */
+  liveIntensity: number | null;
   tilt: SharedValue<Tilt>;
   palette: BoardPalette;
+  selected: boolean;
 }
 
-/** A card pin with its holo finish animated by the gyro and the ambient clock on the UI thread (T-65 shader). */
-function LivePin({ pin, image, intensity, tilt, palette }: LivePinProps) {
+/**
+ * A pin's content centred on the origin: the baked texture, with the holo shine animated by the gyro and the
+ * ambient clock on the UI thread when it holds a live slot (T-65 shader).
+ */
+function PinBody({ pin, image, liveIntensity, tilt, palette, selected }: PinBodyProps) {
   const clock = useClock();
   const dest = image ? containRect(image.width(), image.height()) : null;
   const w = dest?.width ?? 0;
@@ -124,47 +187,39 @@ function LivePin({ pin, image, intensity, tilt, palette }: LivePinProps) {
       u_tilt: [clamp1(STATIC_TILT.x + current.x), clamp1(STATIC_TILT.y + current.y)],
     };
   });
-  const ghost = useMemo(
+  const live = liveIntensity !== null && image !== null && dest !== null && holoEffect !== null;
+  const baked = useMemo(
     () =>
-      image
-        ? null
-        : createPicture((canvas) => {
-            canvas.save();
-            applyPinTransform(canvas, pin);
-            drawPinContent(canvas, { pin, image: null }, palette);
-            canvas.restore();
-          }),
-    [image, pin, palette],
+      createPicture((canvas) => {
+        if (!live) drawPinContent(canvas, { pin, image }, palette);
+        if (selected) drawSelection(canvas, palette);
+      }),
+    [live, pin, image, palette, selected],
   );
-  if (!image || !dest) return ghost ? <Picture picture={ghost} /> : null;
   return (
-    <Group
-      transform={[
-        { translateX: pin.x },
-        { translateY: pin.y },
-        { rotate: (pin.rotation * Math.PI) / 180 },
-        { scale: pin.scale },
-        { translateX: dest.x },
-        { translateY: dest.y },
-      ]}
-    >
-      <Group layer>
-        <Image image={image} x={0} y={0} width={w} height={h} fit="fill" />
-        {holoEffect ? (
-          <Rect x={0} y={0} width={w} height={h} blendMode="srcATop" opacity={intensity}>
-            <Shader source={holoEffect} uniforms={uniforms} />
-          </Rect>
-        ) : null}
-      </Group>
-    </Group>
+    <>
+      {live && dest ? (
+        <Group transform={[{ translateX: dest.x }, { translateY: dest.y }]}>
+          <Group layer>
+            <Image image={image} x={0} y={0} width={w} height={h} fit="fill" />
+            <Rect x={0} y={0} width={w} height={h} blendMode="srcATop" opacity={liveIntensity}>
+              <Shader source={holoEffect} uniforms={uniforms} />
+            </Rect>
+          </Group>
+        </Group>
+      ) : null}
+      <Picture picture={baked} />
+    </>
   );
 }
 
 /**
- * The board (T-103, design-system.md §5.3/§7): one Skia canvas, pins culled to the view plus a margin and recorded
- * as pictures of baked textures, live finishes only for the few pins the registry budget allows (none under
- * reduced motion), and a camera that pans with one finger and zooms around the pinch focal point on the UI thread.
- * The canvas is opaque to screen readers, so an invisible layer of labelled views mirrors the pins on screen.
+ * The board (T-103/T-104, design-system.md §5.3/§7): one Skia canvas, pins culled to the view plus a margin and
+ * recorded as pictures of baked textures, live finishes only for the few pins the registry budget allows (none under
+ * reduced motion). One finger pans the board and two pinch-zoom it around the focal point; in edit mode the same
+ * gestures started on a pin pick it up (lift + bring to front) and move, scale and rotate it on the UI thread, with
+ * magnetic rotation detents, and commit once on release. The canvas is opaque to screen readers, so an invisible
+ * layer of labelled views mirrors the pins on screen and carries the move/rotate/scale/layer/remove actions.
  */
 export function BoardCanvas({
   pins,
@@ -176,16 +231,25 @@ export function BoardCanvas({
   remoteConfig,
   focusedId = null,
   camera: external,
+  editable = false,
+  selectedId = null,
+  onSelect,
+  onPickUp,
+  onCommit,
+  onAction,
   testID = 'board-canvas',
 }: BoardCanvasProps) {
   const theme = useTheme();
+  const reducedMotion = theme.reducedMotion;
   const palette = useMemo(() => boardPalette(theme.color), [theme.color]);
   const own = useSharedValue<Camera>(initialCamera);
   const camera = external ?? own;
-  const [settled, setSettled] = useState<Camera>(() => camera.get());
+  // The parent's camera starts at `initialCamera` too; reading the shared value during render is not allowed.
+  const [settled, setSettled] = useState<Camera>(initialCamera);
   const textureVersion = useTextureVersion(textures);
   const tilt = useSharedValue<Tilt>({ x: 0, y: 0 });
   const view = useMemo(() => ({ width, height }), [width, height]);
+  const floatingId = editable ? selectedId : null;
 
   const plan = useMemo(
     () =>
@@ -194,12 +258,13 @@ export function BoardCanvas({
         camera: settled,
         view,
         pixelRatio: PixelRatio.get(),
-        reducedMotion: theme.reducedMotion,
+        reducedMotion,
         registry,
         remoteConfig,
         focusedId,
+        floatingId,
       }),
-    [pins, settled, view, theme.reducedMotion, registry, remoteConfig, focusedId],
+    [pins, settled, view, reducedMotion, registry, remoteConfig, focusedId, floatingId],
   );
 
   useEffect(() => {
@@ -230,13 +295,7 @@ export function BoardCanvas({
               (canvas) =>
                 drawPins(
                   canvas,
-                  layer.pins.map((pin) => ({
-                    pin,
-                    image:
-                      pin.content.kind === 'card'
-                        ? (textures.get(pin.content.card.id) ?? null)
-                        : null,
-                  })),
+                  layer.pins.map((pin) => ({ pin, image: imageOf(pin, textures) })),
                   palette,
                 ),
               Skia.XYWHRect(plan.window.x, plan.window.y, plan.window.width, plan.window.height),
@@ -248,49 +307,199 @@ export function BoardCanvas({
     [plan, palette, textures, textureVersion],
   );
 
-  // Last translation / scale seen, so pan and pinch each apply only their own delta and compose.
+  // Gesture state lives on the UI thread; JS hears about a gesture only when it starts on a pin and when it ends.
+  const hitPins = useSharedValue<HitPin[]>([]);
+  useEffect(() => {
+    hitPins.set(sortByZ(pins).map((pin) => ({ id: pin.id, ...pinGeometry(pin) })));
+  }, [pins, hitPins]);
+  const mode = useSharedValue<Mode>('none');
+  const activeGestures = useSharedValue(0);
+  const activeId = useSharedValue<string | null>(null);
+  const pose = useSharedValue<PinPose>({ x: 0, y: 0, scale: 1, rotation: 0 });
+  const lift = useSharedValue(1);
   const lastPan = useSharedValue({ x: 0, y: 0 });
   const lastScale = useSharedValue(1);
+  const lastRotation = useSharedValue(0);
+
+  const floatingPin = plan.floating?.pin ?? null;
+  useEffect(() => {
+    if (!floatingPin || mode.get() === 'pin') return;
+    activeId.set(floatingPin.id);
+    pose.set({
+      x: floatingPin.x,
+      y: floatingPin.y,
+      scale: floatingPin.scale,
+      rotation: floatingPin.rotation,
+    });
+  }, [floatingPin, activeId, mode, pose]);
+
+  const pickUp = useCallback((id: string) => onPickUp?.(id), [onPickUp]);
+  const commit = useCallback((id: string, next: PinPose) => onCommit?.(id, next), [onCommit]);
+  const select = useCallback((id: string | null) => onSelect?.(id), [onSelect]);
+  const zoomToFit = useCallback(() => {
+    const area = sceneBounds(pins.map(pinGeometry));
+    if (area) camera.set(fitCamera(area, view, space[6]));
+    setSettled(camera.get());
+  }, [pins, view, camera]);
+
   const gesture = useMemo(() => {
-    const settle = () => {
+    const pinAt = (point: Vec): HitPin | null => {
       'worklet';
+      const list = hitPins.get();
+      const index = hitTest(list, screenToBoard(camera.get(), point));
+      return index >= 0 ? list[index]! : null;
+    };
+    const begin = (point: Vec) => {
+      'worklet';
+      activeGestures.set(activeGestures.get() + 1);
+      if (mode.get() !== 'none') return;
+      const hit = editable ? pinAt(point) : null;
+      if (!hit) {
+        mode.set('camera');
+        return;
+      }
+      mode.set('pin');
+      activeId.set(hit.id);
+      pose.set({ x: hit.x, y: hit.y, scale: hit.scale, rotation: hit.rotation });
+      lift.set(animateTo(LIFT_SCALE, 'lift', reducedMotion));
+      scheduleOnRN(pickUp, hit.id);
+    };
+    const end = () => {
+      'worklet';
+      activeGestures.set(Math.max(0, activeGestures.get() - 1));
+      if (activeGestures.get() > 0) return;
+      const id = activeId.get();
+      if (mode.get() === 'pin' && id !== null) {
+        const current = pose.get();
+        const final = {
+          x: current.x,
+          y: current.y,
+          scale: clampPinScale(current.scale),
+          rotation: snapRotation(current.rotation).rotation,
+        };
+        pose.set(final);
+        lift.set(animateTo(1, 'drop', reducedMotion));
+        scheduleOnRN(commit, id, final);
+      }
+      mode.set('none');
       scheduleOnRN(setSettled, camera.get());
     };
+
     const pan = Gesture.Pan()
       .withTestId(`${testID}-pan`)
       .onStart((e) => {
         lastPan.set({ x: e.translationX, y: e.translationY });
+        begin({ x: e.x - e.translationX, y: e.y - e.translationY });
       })
       .onUpdate((e) => {
         const last = lastPan.get();
-        camera.set(panBy(camera.get(), e.translationX - last.x, e.translationY - last.y));
+        const dx = e.translationX - last.x;
+        const dy = e.translationY - last.y;
         lastPan.set({ x: e.translationX, y: e.translationY });
+        if (mode.get() === 'pin') {
+          const zoom = camera.get().zoom;
+          const p = pose.get();
+          pose.set({ ...p, x: p.x + dx / zoom, y: p.y + dy / zoom });
+        } else {
+          camera.set(panBy(camera.get(), dx, dy));
+        }
       })
-      .onEnd(settle);
+      .onEnd(end);
     const pinch = Gesture.Pinch()
       .withTestId(`${testID}-pinch`)
       .onStart((e) => {
         lastScale.set(e.scale);
+        begin({ x: e.focalX, y: e.focalY });
       })
       .onUpdate((e) => {
         const factor = lastScale.get() > 0 ? e.scale / lastScale.get() : 1;
-        camera.set(zoomAround(camera.get(), { x: e.focalX, y: e.focalY }, factor));
         lastScale.set(e.scale);
+        if (mode.get() === 'pin') {
+          const p = pose.get();
+          pose.set({ ...p, scale: clampPinScale(p.scale * factor) });
+        } else {
+          camera.set(zoomAround(camera.get(), { x: e.focalX, y: e.focalY }, factor));
+        }
       })
-      .onEnd(settle);
-    return Gesture.Simultaneous(pan, pinch);
-  }, [camera, lastPan, lastScale, testID]);
+      .onEnd(end);
+    const rotation = Gesture.Rotation()
+      .withTestId(`${testID}-rotation`)
+      .onStart((e) => {
+        lastRotation.set(e.rotation);
+        begin({ x: e.anchorX, y: e.anchorY });
+      })
+      .onUpdate((e) => {
+        const delta = ((e.rotation - lastRotation.get()) * 180) / Math.PI;
+        lastRotation.set(e.rotation);
+        if (mode.get() === 'pin') {
+          const p = pose.get();
+          pose.set({ ...p, rotation: p.rotation + delta });
+        }
+      })
+      .onEnd(end);
+    const tap = Gesture.Tap()
+      .withTestId(`${testID}-tap`)
+      .onEnd((e, success) => {
+        if (!success || !editable) return;
+        scheduleOnRN(select, pinAt({ x: e.x, y: e.y })?.id ?? null);
+      });
+    const doubleTap = Gesture.Tap()
+      .numberOfTaps(2)
+      .withTestId(`${testID}-double-tap`)
+      .onEnd((e, success) => {
+        if (success && !pinAt({ x: e.x, y: e.y })) scheduleOnRN(zoomToFit);
+      });
+    return Gesture.Race(
+      Gesture.Simultaneous(pan, pinch, rotation),
+      Gesture.Exclusive(doubleTap, tap),
+    );
+  }, [
+    activeGestures,
+    activeId,
+    camera,
+    commit,
+    editable,
+    hitPins,
+    lastPan,
+    lastRotation,
+    lastScale,
+    lift,
+    mode,
+    pickUp,
+    pose,
+    reducedMotion,
+    select,
+    testID,
+    zoomToFit,
+  ]);
 
   const transform = useDerivedValue(() => {
     const c = camera.get();
     return [{ scale: c.zoom }, { translateX: -c.x }, { translateY: -c.y }];
   });
+  const floatingTransform = useDerivedValue(() => {
+    const p = pose.get();
+    return [
+      { translateX: p.x },
+      { translateY: p.y },
+      { rotate: (snapRotation(p.rotation).rotation * Math.PI) / 180 },
+      { scale: p.scale * lift.get() },
+    ];
+  });
 
   const onScreen = visibleRect(settled, view, 0);
-  const labelled = plan.visible
+  const labelled = [
+    ...plan.visible,
+    ...(floatingPin && !plan.visible.includes(floatingPin) ? [floatingPin] : []),
+  ]
     .map((pin) => ({ pin, bounds: pinBounds(pinGeometry(pin)) }))
     .filter(({ bounds }) => intersects(bounds, onScreen));
-  const liveCount = plan.layers.filter((l) => l.kind === 'live').length;
+  const liveCount =
+    plan.layers.filter((l) => l.kind === 'live').length + (plan.floating?.finish ? 1 : 0);
+  const onA11yAction = (id: string) => (event: AccessibilityActionEvent) => {
+    const name = event.nativeEvent.actionName;
+    if (isPinAction(name)) onAction?.(id, name);
+  };
 
   return (
     <GestureDetector gesture={gesture}>
@@ -299,7 +508,7 @@ export function BoardCanvas({
         testID={testID}
         accessibilityLabel={t('boards.canvas.label', { count: plan.visible.length })}
       >
-        {liveCount > 0 && !theme.reducedMotion ? <GyroTiltDriver tilt={tilt} /> : null}
+        {liveCount > 0 && !reducedMotion ? <GyroTiltDriver tilt={tilt} /> : null}
         <Canvas style={StyleSheet.absoluteFill}>
           <Fill color={palette.desk} />
           <Group transform={transform}>
@@ -308,21 +517,40 @@ export function BoardCanvas({
                 const picture = pictures[i];
                 return picture ? <Picture key={`s${i}`} picture={picture} /> : null;
               }
-              const image =
-                layer.pin.content.kind === 'card'
-                  ? (textures.get(layer.pin.content.card.id) ?? null)
-                  : null;
+              const { pin } = layer;
               return (
-                <LivePin
-                  key={layer.pin.id}
-                  pin={layer.pin}
-                  image={image}
-                  intensity={layer.intensity}
-                  tilt={tilt}
-                  palette={palette}
-                />
+                <Group
+                  key={pin.id}
+                  transform={[
+                    { translateX: pin.x },
+                    { translateY: pin.y },
+                    { rotate: (pin.rotation * Math.PI) / 180 },
+                    { scale: pin.scale },
+                  ]}
+                >
+                  <PinBody
+                    pin={pin}
+                    image={imageOf(pin, textures)}
+                    liveIntensity={layer.intensity}
+                    tilt={tilt}
+                    palette={palette}
+                    selected={false}
+                  />
+                </Group>
               );
             })}
+            {plan.floating ? (
+              <Group transform={floatingTransform}>
+                <PinBody
+                  pin={plan.floating.pin}
+                  image={imageOf(plan.floating.pin, textures)}
+                  liveIntensity={plan.floating.finish?.intensity ?? null}
+                  tilt={tilt}
+                  palette={palette}
+                  selected
+                />
+              </Group>
+            ) : null}
           </Group>
         </Canvas>
         {/* Canvas coordinates are physical: the overlay is always left-to-right so `start` means left. */}
@@ -336,6 +564,10 @@ export function BoardCanvas({
                 accessible
                 accessibilityRole="image"
                 accessibilityLabel={pinLabel(pin)}
+                accessibilityHint={editable ? t('boards.pin.hint') : undefined}
+                accessibilityState={editable ? { selected: pin.id === selectedId } : undefined}
+                accessibilityActions={editable ? A11Y_ACTIONS : undefined}
+                onAccessibilityAction={editable ? onA11yAction(pin.id) : undefined}
                 style={{
                   position: 'absolute',
                   start: topLeft.x,

@@ -45,8 +45,18 @@ export interface Board {
 /** Unscaled frame of every pin in board units: cards are drawn "contain" inside a 3:4 frame. */
 export const PIN_FRAME = { width: 240, height: 320 } as const;
 
-/** Board area new pins land in (board units); the camera may go beyond it. */
+/**
+ * The board area in board units. Pin centres stay inside it (the server stores them as fractions of the board,
+ * 0..1, and refuses anything outside); the camera may look beyond it.
+ */
 export const BOARD_SIZE = { width: 2400, height: 2400 } as const;
+
+/** A pin centre moved back inside the board area. */
+export function clampToBoard<T extends { x: number; y: number }>(point: T): T {
+  const clamp = (v: number, max: number) =>
+    Number.isFinite(v) ? Math.min(max, Math.max(0, v)) : max / 2;
+  return { ...point, x: clamp(point.x, BOARD_SIZE.width), y: clamp(point.y, BOARD_SIZE.height) };
+}
 
 export function pinGeometry(pin: BoardPin): PinGeometry {
   return {

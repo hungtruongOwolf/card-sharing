@@ -35,3 +35,22 @@ export {
   type TextureLod,
   type Vec,
 } from './board';
+export {
+  clampPinScale,
+  hitTest,
+  normalizeRotation,
+  PIN_SCALE_LIMITS,
+  pinContains,
+  ROTATION_DETENT_DEG,
+  ROTATION_DETENTS,
+  snapRotation,
+} from './pinTransform';
+export {
+  isZKey,
+  MAX_Z_KEY_LENGTH,
+  Z_DIGITS,
+  zKeyAtBottom,
+  zKeyBetween,
+  ZKeyError,
+  zKeyOnTop,
+} from './zKey';

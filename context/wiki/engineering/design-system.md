@@ -258,6 +258,8 @@ Multi-instance: all subjects outlined, tap to toggle (union = one sticker) per [
 | Double-tap item | Edit (effect/cut style sheet); double-tap empty = zoom to fit |
 | Drag to trash zone | Trash lid opens, item shrinks + crumple, undo toast |
 
+Implemented (T-104, `apps/mobile/src/features/boards/BoardCanvas.tsx`): in edit mode a drag, pinch or twist that starts on a pin hit-tests on the UI thread (topmost rotated frame), lifts it (`spring.lift` 1.04, reduced motion = 200 ms timing), brings it to front (one `z_key` write) and moves / scales (0.3x-4x) / rotates it on the UI thread; on release the rotation snaps to the 0/±90/180° detents within ±4° and one `pin.update` op commits. Started on the empty board the same gestures pan and zoom the camera. Tap selects (dashed `color.focus.ring` outline), tap on the empty board deselects, double-tap on the empty board zooms to fit. The selected pin is drawn outside the cached pictures so dragging repaints only it. Remove is a toolbar button with an undo toast (no trash zone yet), and every pin in the accessibility layer offers move up/down/left/right, rotate left/right, bigger/smaller, bring to front, send to back and remove as actions. Not yet: haptic ticks on detents, edge auto-scroll, mid-drag commits (async boards commit on release), double-tap to edit.
+
 ### 5.4 Tape / pin placement
 - Tape tool: drag across an item edge → strip follows finger, length = drag distance, torn ends seeded per placement; on release `spring.flutter` on far end, tape haptic. Tape is a child of the item (moves with it) when it overlaps ≥30%.
 - Pin: tap to drop from above (scale 1.3→1, 200 ms, `ease.enter`) + pin haptic; pinned item pivots slightly around the pin when dragged (pendulum, `spring.flutter`).
