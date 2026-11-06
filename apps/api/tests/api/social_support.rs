@@ -23,7 +23,8 @@ pub fn fresh_handle() -> String {
     format!("u{}", &Uuid::now_v7().simple().to_string()[18..])
 }
 
-/// An active `age`-year-old (region signals: US) with a profile and a full session.
+/// An active `age`-year-old (region signals: US) with a profile and a full session. Like the age
+/// gate, "Findable by handle" starts on only at or above the US discovery age (18).
 pub async fn user_aged(env: &TestEnv, age: i32) -> User {
     let (id, _) = env.signed_in_user().await;
     let today = env.clock.now().date();
@@ -49,13 +50,15 @@ pub async fn user_aged(env: &TestEnv, age: i32) -> User {
     let name = format!("Friend {}", &handle[1..5]);
     let now = env.clock.now();
     sqlx::query(
-        "INSERT INTO identity.profiles (account_id, display_name, handle, handle_claimed_at, handle_changed_at)
-         VALUES ($1, $2, $3, $4, $4)",
+        "INSERT INTO identity.profiles
+           (account_id, display_name, handle, handle_claimed_at, handle_changed_at, findable_by_handle)
+         VALUES ($1, $2, $3, $4, $4, $5)",
     )
     .bind(id)
     .bind(&name)
     .bind(&handle)
     .bind(now)
+    .bind(age >= 18)
     .execute(env.identity.pool())
     .await
     .unwrap();

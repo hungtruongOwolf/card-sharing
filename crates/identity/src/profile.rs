@@ -334,8 +334,10 @@ impl IdentityService {
         .await?)
     }
 
-    /// The stored "Findable by handle" flag (`true` before the profile exists). Callers combine it
-    /// with the age rule: under `discovery.min_age` nobody is findable.
+    /// The stored "Findable by handle" flag (`false` when no profile row exists: hidden until
+    /// chosen). The age gate sets the starting value (on only for sign-ups at or above
+    /// `discovery.min_age`). Callers combine it with the age rule: under `discovery.min_age`
+    /// nobody is findable.
     pub async fn findable_by_handle(&self, account_id: Uuid) -> Result<bool, StoreError> {
         let flag: Option<bool> = sqlx::query_scalar(
             "SELECT findable_by_handle FROM identity.profiles WHERE account_id = $1",
@@ -343,7 +345,7 @@ impl IdentityService {
         .bind(account_id)
         .fetch_optional(&self.pool)
         .await?;
-        Ok(flag.unwrap_or(true))
+        Ok(flag.unwrap_or(false))
     }
 
     /// Stores the flag. The caller has already applied the age rule (minors cannot turn it on).
