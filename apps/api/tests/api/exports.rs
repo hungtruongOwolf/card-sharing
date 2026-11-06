@@ -88,15 +88,16 @@ async fn an_export_is_built_after_the_delay_and_downloaded_once() {
     assert!(again.headers().contains_key("retry-after"));
     assert_problem(again, StatusCode::TOO_MANY_REQUESTS, "EXPORT_COOLDOWN").await;
 
-    // Nothing is built during the 48 h delay.
+    // Nothing is built during the 48 h delay. (Tests build their own export by id: the shared
+    // database holds other tests' exports, each with its own manual clock.)
     let exports = env.state.exports();
-    exports.run_due().await.unwrap();
+    assert!(!exports.build(id).await.unwrap());
     assert_eq!(status_of(&env, &user, id).await["status"], "queued");
 
     env.clock
         .advance(Duration::hours(48) + Duration::seconds(1));
     let user = signed_in_again(&env, &user).await;
-    exports.run_due().await.unwrap();
+    assert!(exports.build(id).await.unwrap());
     let export = status_of(&env, &user, id).await;
     assert_eq!(export["status"], "ready", "{export}");
     let path = export["download_path"].as_str().unwrap().to_owned();
@@ -140,7 +141,7 @@ async fn a_new_link_replaces_the_previous_one_and_files_expire() {
         .advance(Duration::hours(48) + Duration::seconds(1));
     let user = signed_in_again(&env, &user).await;
     let exports = env.state.exports();
-    exports.run_due().await.unwrap();
+    assert!(exports.build(id).await.unwrap());
     let first = status_of(&env, &user, id).await["download_path"]
         .as_str()
         .unwrap()
@@ -161,7 +162,7 @@ async fn a_new_link_replaces_the_previous_one_and_files_expire() {
             .unwrap();
     env.clock
         .advance(Duration::hours(24) + Duration::seconds(1));
-    exports.run_due().await.unwrap();
+    assert_eq!(exports.expire_one(id).await.unwrap(), 1);
     let expired = send(&env.router, get_request(&second, None)).await;
     assert_problem(expired, StatusCode::NOT_FOUND, "NOT_FOUND").await;
     let object = env
@@ -188,7 +189,7 @@ async fn a_queued_export_can_be_cancelled_and_then_requested_again() {
     assert_ne!(next, id);
     env.clock.advance(Duration::hours(49));
     let user = signed_in_again(&env, &user).await;
-    env.state.exports().run_due().await.unwrap();
+    assert!(!env.state.exports().build(id).await.unwrap());
     assert_eq!(status_of(&env, &user, id).await["status"], "cancelled");
 }
 

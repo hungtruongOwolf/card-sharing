@@ -333,15 +333,32 @@ impl ExportService {
         Ok(true)
     }
 
-    /// Deletes the files of exports past `expires_at`.
+    /// Deletes the files of exports past `expires_at`. Returns how many files were deleted.
     pub async fn expire(&self) -> Result<u64, ExportError> {
+        let ids: Vec<Uuid> = sqlx::query_scalar(
+            "SELECT id FROM privacy.data_exports
+             WHERE status IN ('ready', 'downloaded') AND expires_at <= $1 LIMIT 100",
+        )
+        .bind(self.clock.now())
+        .fetch_all(&self.pool)
+        .await?;
+        let mut deleted = 0;
+        for id in ids {
+            deleted += self.expire_one(id).await?;
+        }
+        Ok(deleted)
+    }
+
+    /// Expires one export if it is past `expires_at` (deletes its file).
+    pub async fn expire_one(&self, id: Uuid) -> Result<u64, ExportError> {
         let now = self.clock.now();
         let expired: Vec<(Uuid, Option<String>)> = sqlx::query_as(
             "UPDATE privacy.data_exports SET status = 'expired', download_token_hash = NULL,
-               updated_at = $1
-             WHERE status IN ('ready', 'downloaded') AND expires_at <= $1
+               updated_at = $2
+             WHERE id = $1 AND status IN ('ready', 'downloaded') AND expires_at <= $2
              RETURNING id, storage_key",
         )
+        .bind(id)
         .bind(now)
         .fetch_all(&self.pool)
         .await?;
