@@ -237,3 +237,9 @@
   T-84 #261; issues #72-#78, #81, #84, #86 closed (#82 stays open for the feed UI). Follow-ups #250, #251, #252, #258.
 - Defaults pending EM: nudity hold threshold 0.5; held cards show no media URL even to the owner; provisional reaction
   set. Deploy needs `API_ENV`, `API_MEDIA_SIGNING_KEY`, `API_MEDIA_STORAGE_DIR` (missing → 503, fail closed).
+
+## [2026-11-06] progress | Sprint 4 done
+- T-77 #262 (02aefa5), T-80 #264 (748b4f1), T-78 #266 (e3f3f07); #79, #82, #80 closed. Follow-ups #263, #265. T-77
+  found and fixed a T-67/API contract gap (mask must match the render size).
+- Defaults kept: held cards say "only you can see this, no one received it" without a reason; offline feed shows text
+  only (no media or URLs persisted).

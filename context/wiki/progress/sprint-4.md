@@ -32,10 +32,12 @@ need a device build and stay out of this sprint.
 | T-54..T-58 segmenters, refine, no-upload proof | Devices |
 
 ## Exit checklist
-- [ ] Every sprint-4 ticket above is merged with CI green and its issue closed, or explicitly carried over.
+- [x] Every sprint-4 ticket above is merged with CI green and its issue closed, or explicitly carried over.
 - [x] Both gates fail closed: a vendor error or timeout never delivers a card.
 - [x] Visibility is one SQL predicate with authorization-matrix tests; signed URLs are per viewer.
-- [ ] Wiki facts updated (api-mvp, data-model, content-safety) and the sprint progress recorded here.
+- [x] Wiki facts updated (api-mvp, data-model, content-safety) and the sprint progress recorded here.
+
+Sprint 4 done in code on 2026-11-06. Production still needs the R2/S3 adapter (#251) and real scan vendors.
 
 ## Progress
 | Ticket | PR | Commit | Notes |
@@ -56,4 +58,6 @@ need a device build and stay out of this sprint.
 | T-82 delete everywhere | #260 | e0a343d | |
 | T-84 private reactions (set from config) | #261 | b333f88 | Reaction set is provisional |
 | Object storage adapter (R2/S3) | | | #251; production uploads return 503 until it lands |
-| T-77 send UI, T-80 feed UI | | | Unblocked; in progress |
+| T-77 pick an audience and send (mask resampled to render size) | #262 | 02aefa5 | Appeal button disabled until #150 |
+| T-80 feed UI with offline metadata cache, reactions | #264 | 748b4f1 | #263 full-screen view + clock skew |
+| T-78 offline outbox (same idempotency key, never silently dropped) | #266 | e3f3f07 | #265 NetInfo auto-retry needs `pnpm install` |
