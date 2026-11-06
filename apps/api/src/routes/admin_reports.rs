@@ -112,6 +112,10 @@ pub enum ActionRequestKind {
     Suspend,
     /// Admin only; a second admin confirms bans of accounts older than 30 days.
     Ban,
+    /// Classifier hold on a card: deliver it.
+    ReleaseHold,
+    /// Classifier hold on a card: block it for good.
+    UpholdHold,
 }
 
 impl From<ActionRequestKind> for ActionKind {
@@ -123,6 +127,8 @@ impl From<ActionRequestKind> for ActionKind {
             ActionRequestKind::Warn => Self::Warn,
             ActionRequestKind::Suspend => Self::Suspend,
             ActionRequestKind::Ban => Self::Ban,
+            ActionRequestKind::ReleaseHold => Self::ReleaseHold,
+            ActionRequestKind::UpholdHold => Self::UpholdHold,
         }
     }
 }
@@ -224,6 +230,9 @@ pub async fn apply_action(
             }
             revoke_link(&state, &item).await?;
         }
+        ActionKind::ReleaseHold | ActionKind::UpholdHold => {
+            decide_hold(&state, &item, staff.account_id, kind).await?;
+        }
         ActionKind::Suspend => {
             state
                 .identity
@@ -315,6 +324,51 @@ async fn record(
             },
         }),
     ))
+}
+
+/// Releases (the card is delivered once its media is clean) or upholds (the card is blocked) the
+/// live classifier hold on the item's card.
+async fn decide_hold(
+    state: &AppState,
+    item: &QueueItem,
+    staff: Uuid,
+    kind: ActionKind,
+) -> Result<(), ApiError> {
+    let no_hold = || ApiError::Validation("the item's card has no live classifier hold".to_owned());
+    if item.target_type != "card" {
+        return Err(no_hold());
+    }
+    let hold = state
+        .cards
+        .live_hold(item.target_id)
+        .await
+        .map_err(ApiError::internal)?
+        .ok_or_else(no_hold)?;
+    if kind == ActionKind::UpholdHold {
+        state
+            .cards
+            .uphold_hold(hold.card_id, staff)
+            .await
+            .map_err(ApiError::internal)?;
+        return Ok(());
+    }
+    state
+        .cards
+        .release_hold(hold.card_id, staff)
+        .await
+        .map_err(ApiError::internal)?;
+    state
+        .media
+        .release_held(hold.media_id)
+        .await
+        .map_err(ApiError::internal)?;
+    // Deliver now; the `media.settled` event would also re-evaluate it in the worker.
+    state
+        .cards
+        .evaluate(&state.media, hold.card_id)
+        .await
+        .map_err(ApiError::internal)?;
+    Ok(())
 }
 
 async fn remove_content(state: &AppState, item: &QueueItem) -> Result<(), ApiError> {

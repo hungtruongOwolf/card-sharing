@@ -5,11 +5,11 @@ use utoipa_axum::routes;
 
 use crate::access::{ApiRouter, Idempotency, RoutePolicy};
 use crate::routes::{
-    activity, admin_auth, admin_reports, age_signal, app_config, attestation, auth, blocks,
-    board_invitations, board_members, board_ops, board_read, boards, cards, deletion, dev_auth,
-    devices, exports, feed, friend_requests, friends, health, invites, me, media, media_files,
-    notification_preferences, public_boards, public_invites, public_links, public_reports, reports,
-    sessions, user_search, widget,
+    activity, admin_auth, admin_reports, age_signal, app_config, appeals, attestation, auth,
+    blocks, board_invitations, board_members, board_ops, board_read, boards, cards, deletion,
+    dev_auth, devices, exports, feed, friend_requests, friends, health, invites, me, media,
+    media_files, notification_preferences, public_boards, public_invites, public_links,
+    public_reports, reports, sessions, user_search, widget,
 };
 use crate::state::AppState;
 use platform::problem::ProblemDetails;
@@ -315,6 +315,10 @@ pub fn router() -> ApiRouter<AppState> {
                 .with_attestation()
                 .idempotency(Idempotency::Required),
             routes!(cards::create_card),
+        )
+        .route(
+            RoutePolicy::session().limited("cards.appeal"),
+            routes!(appeals::appeal_hold),
         )
         .route(
             RoutePolicy::session().limited("cards.read"),

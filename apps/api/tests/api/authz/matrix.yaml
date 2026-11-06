@@ -141,6 +141,14 @@ routes:
     body: { action: dismiss, reason: test }
     expect: { guest: 401, onboarding_age: 401, onboarding_profile: 401, user: 401, suspended: 401 }
 
+  # Appeals (T-148): a random card id is nobody's held card (the missing 404). Owner, once, expiry:
+  # tests/api/appeals.rs.
+  - route: POST /v1/cards/{id}/appeal
+    path: /v1/cards/0192f0c1-7c1e-7a3b-9d2e-000000000000/appeal
+    missing_path: /v1/cards/0192f0c1-7c1e-7a3b-9d2e-000000000001/appeal
+    body: {}
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }
+
   - route: POST /v1/auth/refresh
     body: { refresh_token: $REFRESH_TOKEN }
     expect: { guest: 401, onboarding_age: 200, onboarding_profile: 200, user: 200, suspended: 401 }

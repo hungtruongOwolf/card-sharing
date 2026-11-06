@@ -21,7 +21,7 @@ use uuid::Uuid;
 
 use crate::process::{ProcessError, Processed, decode, process};
 use crate::safety::{ContentGates, HashVerdict, MatchCategory, ScanInput};
-use crate::service::{MediaKind, MediaService, MediaState};
+use crate::service::{MediaError, MediaKind, MediaService, MediaState};
 use crate::sniff::ImageFormat;
 use crate::store::{Bucket, ObjectKey, ObjectStore};
 
@@ -165,6 +165,10 @@ struct CsamHit {
     provider: String,
     list_version: String,
     provider_ref: String,
+}
+
+fn job_error(err: JobError) -> MediaError {
+    MediaError::Corrupt(err.to_string())
 }
 
 fn retry(err: impl std::fmt::Display) -> JobError {
@@ -537,6 +541,60 @@ impl MediaService {
         }
         tracing::info!(event = "media.clean", media_id = %id, "media passed the content gates");
         Ok(())
+    }
+
+    /// A moderator released a classifier hold (T-148): the sanitized copies move from quarantine
+    /// to the clean bucket and the media becomes `clean`, exactly as if the classifier had passed
+    /// it ([`MEDIA_SETTLED`] is published). `false` when the media is not `held`.
+    pub async fn release_held(&self, id: Uuid) -> Result<bool, MediaError> {
+        let store = self.store.as_ref().ok_or(MediaError::StorageUnavailable)?;
+        let state: Option<String> =
+            sqlx::query_scalar("SELECT state FROM media.media_objects WHERE id = $1")
+                .bind(id)
+                .fetch_optional(&self.pool)
+                .await?;
+        if state.as_deref() != Some("held") {
+            return Ok(false);
+        }
+        let keys = self.object_keys(id).await.map_err(job_error)?;
+        let served: Vec<&ObjectKey> = std::iter::once(&keys.main)
+            .chain(&keys.derivatives)
+            .collect();
+        for key in &served {
+            let Some(bytes) = store.get(Bucket::Quarantine, key).await? else {
+                return Err(MediaError::Corrupt(
+                    "a held object is missing from quarantine".to_owned(),
+                ));
+            };
+            store.put(Bucket::Clean, key, bytes).await?;
+        }
+        let now = self.clock.now();
+        let mut tx = self.pool.begin().await?;
+        let updated = sqlx::query(
+            "UPDATE media.media_objects SET state = 'clean', bucket = 'clean', updated_at = $2
+             WHERE id = $1 AND state = 'held'",
+        )
+        .bind(id)
+        .bind(now)
+        .execute(&mut *tx)
+        .await?;
+        if updated.rows_affected() == 0 {
+            return Ok(false);
+        }
+        sqlx::query("UPDATE media.media_derivatives SET bucket = 'clean' WHERE media_id = $1")
+            .bind(id)
+            .execute(&mut *tx)
+            .await?;
+        settled(&mut tx, id, MediaState::Clean, now)
+            .await
+            .map_err(job_error)?;
+        tx.commit().await?;
+        for key in served {
+            self.delete_quiet(store.as_ref(), Bucket::Quarantine, key)
+                .await;
+        }
+        tracing::info!(event = "media.released", media_id = %id, "held media released by a moderator");
+        Ok(true)
     }
 
     /// Known-CSAM match: the raw upload is preserved in legal hold, every other copy is

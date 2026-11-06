@@ -18,7 +18,12 @@ use serde_json::{Value, json};
 use time::{Duration, OffsetDateTime};
 use uuid::Uuid;
 
-async fn act(env: &TestEnv, session: &StaffSession, item: Uuid, body: &Value) -> Response<Body> {
+pub async fn act(
+    env: &TestEnv,
+    session: &StaffSession,
+    item: Uuid,
+    body: &Value,
+) -> Response<Body> {
     let request = Request::post(format!("/v1/admin/reports/{item}/actions"))
         .header(header::COOKIE, &session.cookie)
         .header("x-csrf-token", &session.csrf)

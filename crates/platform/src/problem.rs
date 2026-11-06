@@ -127,6 +127,9 @@ pub enum ApiError {
     /// Re-inviting this user to this board must wait (the reason is not revealed).
     #[error("reinvite cooldown")]
     ReinviteCooldown { retry_after_secs: u64 },
+    /// The classifier hold was already appealed or decided (T-148).
+    #[error("appeal already filed")]
+    AppealAlreadyFiled,
     /// Only one personal data export per 24 hours (US-30 AC-30.2).
     #[error("export cooldown")]
     ExportCooldown { retry_after_secs: u64 },
@@ -176,7 +179,8 @@ impl ApiError {
             | Self::BoardLimitReached
             | Self::BoardVersionConflict
             | Self::CollaboratorLimitReached
-            | Self::AlreadyInvited => StatusCode::CONFLICT,
+            | Self::AlreadyInvited
+            | Self::AppealAlreadyFiled => StatusCode::CONFLICT,
             Self::IdempotencyKeyReused | Self::UnknownRegistryId => {
                 StatusCode::UNPROCESSABLE_ENTITY
             }
@@ -217,6 +221,7 @@ impl ApiError {
             Self::BoardVersionConflict => "BOARD_VERSION_CONFLICT",
             Self::CollaboratorLimitReached => "COLLABORATOR_LIMIT_REACHED",
             Self::AlreadyInvited => "ALREADY_INVITED",
+            Self::AppealAlreadyFiled => "APPEAL_ALREADY_FILED",
             Self::ReinviteCooldown { .. } => "REINVITE_COOLDOWN",
             Self::ExportCooldown { .. } => "EXPORT_COOLDOWN",
             Self::HandleTaken => "HANDLE_TAKEN",
@@ -335,6 +340,7 @@ mod tests {
             ApiError::BoardVersionConflict,
             ApiError::CollaboratorLimitReached,
             ApiError::AlreadyInvited,
+            ApiError::AppealAlreadyFiled,
             ApiError::ReinviteCooldown {
                 retry_after_secs: 1,
             },
