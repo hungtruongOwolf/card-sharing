@@ -165,6 +165,10 @@ pub enum AccessError {
     Expired,
     #[error("session revoked or ended")]
     Revoked,
+    /// The session was ended because the account is suspended or banned (T-147): the caller
+    /// answers 403 `ACCOUNT_SUSPENDED` instead of a plain "signed out".
+    #[error("account suspended or banned")]
+    Blocked,
     #[error(transparent)]
     Store(#[from] StoreError),
 }
@@ -440,6 +444,9 @@ impl IdentityService {
         .fetch_optional(&self.pool)
         .await?;
         let row = row.ok_or(AccessError::Unknown)?;
+        if matches!(row.status.as_str(), "suspended" | "banned") {
+            return Err(AccessError::Blocked);
+        }
         if row.revoked_at.is_some() || now >= row.absolute_expires_at || now >= row.idle_expires_at
         {
             return Err(AccessError::Revoked);
@@ -629,14 +636,34 @@ impl IdentityService {
         account_id: Uuid,
         reason: &'static str,
     ) -> Result<bool, StoreError> {
+        self.suspend_account_until(account_id, reason, None).await
+    }
+
+    /// Like [`Self::suspend_account`], ending at `until` (T-147; `None` = indefinite). The worker
+    /// lifts it with [`Self::lift_expired_suspensions`]. Suspending an already suspended account
+    /// replaces its end.
+    pub async fn suspend_account_until(
+        &self,
+        account_id: Uuid,
+        reason: &'static str,
+        until: Option<OffsetDateTime>,
+    ) -> Result<bool, StoreError> {
         let now = self.clock.now();
         let mut tx = self.pool.begin().await?;
+        sqlx::query(
+            "UPDATE identity.accounts SET suspended_until = $2 WHERE id = $1 AND status = 'suspended'",
+        )
+        .bind(account_id)
+        .bind(until)
+        .execute(&mut *tx)
+        .await?;
         let suspended = sqlx::query(
-            "UPDATE identity.accounts SET status = 'suspended', updated_at = $2
+            "UPDATE identity.accounts SET status = 'suspended', suspended_until = $3, updated_at = $2
              WHERE id = $1 AND status IN ('pending_age', 'pending_profile', 'active')",
         )
         .bind(account_id)
         .bind(now)
+        .bind(until)
         .execute(&mut *tx)
         .await?
         .rows_affected()
@@ -654,13 +681,35 @@ impl IdentityService {
         Ok(suspended)
     }
 
+    /// Restores `active` for suspensions whose end passed (T-147). Accounts suspended
+    /// indefinitely, banned or deleted are never touched. Returns how many were lifted.
+    pub async fn lift_expired_suspensions(&self) -> Result<u64, StoreError> {
+        let now = self.clock.now();
+        let mut tx = self.pool.begin().await?;
+        let lifted: Vec<Uuid> = sqlx::query_scalar(
+            "UPDATE identity.accounts SET status = 'active', suspended_until = NULL, updated_at = $1
+             WHERE status = 'suspended' AND suspended_until IS NOT NULL AND suspended_until <= $1
+             RETURNING id",
+        )
+        .bind(now)
+        .fetch_all(&mut *tx)
+        .await?;
+        for id in &lifted {
+            let entry = AuditEntry::new(Actor::System, AuditAction::AccountUnsuspended)
+                .target("account", *id);
+            audit::record(&mut *tx, &entry, now).await?;
+        }
+        tx.commit().await?;
+        Ok(lifted.len() as u64)
+    }
+
     /// Bans an account (from any status but deleting/deleted) and revokes every live session
     /// (T-146). Returns `false` when it was already banned. Idempotent.
     pub async fn ban_account(&self, account_id: Uuid) -> Result<bool, StoreError> {
         let now = self.clock.now();
         let mut tx = self.pool.begin().await?;
         let banned = sqlx::query(
-            "UPDATE identity.accounts SET status = 'banned', updated_at = $2
+            "UPDATE identity.accounts SET status = 'banned', suspended_until = NULL, updated_at = $2
              WHERE id = $1 AND status IN ('pending_age', 'pending_profile', 'active', 'suspended')",
         )
         .bind(account_id)

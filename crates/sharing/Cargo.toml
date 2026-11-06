@@ -11,6 +11,8 @@ license.workspace = true
 # boards (per-viewer pin resolution), cards (the deleted-card topic) and media (clean
 # derivatives, object storage) through their public APIs; their schemas stay theirs.
 boards.workspace = true
+# The owner-is-active predicate (suspended or banned owners' links stop serving, T-147).
+identity.workspace = true
 cards.workspace = true
 media.workspace = true
 platform.workspace = true

@@ -227,7 +227,7 @@ pub async fn apply_action(
         ActionKind::Suspend => {
             state
                 .identity
-                .suspend_account(item.target_owner_id, "moderation")
+                .suspend_account_until(item.target_owner_id, "moderation", body.until)
                 .await
                 .map_err(ApiError::internal)?;
         }

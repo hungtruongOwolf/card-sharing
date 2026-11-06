@@ -20,6 +20,7 @@ impl SessionResolver for IdentitySessions {
                     AccessError::Unknown => ResolveError::Unknown,
                     AccessError::Expired => ResolveError::Expired,
                     AccessError::Revoked => ResolveError::Revoked,
+                    AccessError::Blocked => ResolveError::Blocked,
                     AccessError::Store(err) => ResolveError::Unavailable(err.to_string()),
                 })?;
             Ok(Principal {
