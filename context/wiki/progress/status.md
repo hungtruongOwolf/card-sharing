@@ -7,7 +7,7 @@ related: [[roadmap]], [[ADR-0002-cross-platform-stack]], [[vision]]
 ---
 # Project Status
 
-**Phase:** 3 — Foundation; **sprints 1-5 done in code (2026-11-06, [[sprint-5]]), sprint 6 boards done (2026-11-06, [[sprint-6]]), sprint 7 started ([[sprint-7]]); device checks, native widgets and real push pending a device build** ([[sprint-1]], [[sprint-2]], [[sprint-3]])
+**Phase:** 3 — Foundation; **sprints 1-5 done in code (2026-11-06, [[sprint-5]]), sprint 6 boards done (2026-11-06, [[sprint-6]]), sprint 7 done ([[sprint-7]]); device checks, native widgets and real push pending a device build** ([[sprint-1]], [[sprint-2]], [[sprint-3]])
 
 ## Done
 - Setup: context wiki, 16 team skills, security baseline, git init (2026-11-04).
