@@ -26,6 +26,16 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       { source: '/:path*', headers: securityHeaders },
+      // Invite links are capability URLs (SR-17): no referrer, never indexed or cached. Later
+      // entries override the same keys above.
+      {
+        source: '/i/:token*',
+        headers: [
+          { key: 'Referrer-Policy', value: 'no-referrer' },
+          { key: 'X-Robots-Tag', value: 'noindex, nofollow, noarchive' },
+          { key: 'Cache-Control', value: 'private, no-store' },
+        ],
+      },
       // Self-hosted CanvasKit WASM lives under a versioned path (scripts/copy-canvaskit.mjs).
       {
         source: '/canvaskit/:version/:file*',
