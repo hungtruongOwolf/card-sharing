@@ -15,6 +15,7 @@ import { fxPaperLift } from './fx.paper-lift';
 import { fxSparkles } from './fx.sparkles';
 import { overlaySpeech } from './overlay.speech';
 import { overlayWashi } from './overlay.washi';
+import { PROPS } from './props';
 
 /**
  * Every shipped entry, in picker order. Adding an effect = one entry file + one line here + tests
@@ -36,6 +37,7 @@ export const ENTRIES: readonly EffectEntry[] = [
   overlayWashi,
   overlaySpeech,
   fxSparkles,
+  ...PROPS,
   ...BACKDROPS,
   ...DECORATIONS,
 ];

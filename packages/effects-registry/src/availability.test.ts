@@ -115,6 +115,10 @@ describe('visibleEntries', () => {
       'overlay.washi',
       'overlay.speech',
       'fx.sparkles',
+      'prop.crown',
+      'prop.party-hat',
+      'prop.sunglasses',
+      'prop.mustache',
     ]);
   });
 
@@ -133,6 +137,10 @@ describe('visibleEntries', () => {
       'overlay.washi',
       'overlay.speech',
       'fx.sparkles',
+      'prop.crown',
+      'prop.party-hat',
+      'prop.sunglasses',
+      'prop.mustache',
     ]);
   });
 });
