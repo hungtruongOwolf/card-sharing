@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import {
   appBoardTextures,
@@ -10,6 +10,7 @@ import {
   usePublicLinks,
 } from '../../features/boards';
 import { useFriendsApi } from '../../features/friends';
+import { useOnboarding } from '../../features/onboarding';
 import { useRemoteConfig } from '../../features/remote-config';
 import { useReportSheet } from '../../features/reports';
 import { useCardsApi } from '../../features/sharing';
@@ -21,7 +22,13 @@ export default function BoardRoute() {
   const cardsApi = useCardsApi();
   const repository = useBoardRepository();
   const members = useBoardMembersApi();
-  const publicLinks = usePublicLinks();
+  const links = usePublicLinks();
+  // `/v1/me` says whether this account may create links (#321): a minor never sees the action (AC-24.6).
+  const { publicLinksAllowed } = useOnboarding();
+  const publicLinks = useMemo(
+    () => ({ ...links, allowed: publicLinksAllowed ?? undefined }),
+    [links, publicLinksAllowed],
+  );
   const friendsApi = useFriendsApi();
   const friends = useCallback(() => friendsApi.listFriends(), [friendsApi]);
   const { id } = useLocalSearchParams<{ id: string }>();

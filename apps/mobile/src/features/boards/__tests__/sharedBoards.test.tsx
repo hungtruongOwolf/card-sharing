@@ -298,6 +298,12 @@ describe('shared board screen', () => {
         prefs: memoryPublicLinkPrefs({ disallowed: true }),
       });
       expect(screen.queryByRole('button', { name: t('boards.links.open') })).toBeNull();
+      screen.unmount();
+      // A minor (policy.public_links.allowed = false from /v1/me, #321) never sees it, even before a first try.
+      await render(ctx, MINE, undefined, { api, prefs: memoryPublicLinkPrefs(), allowed: false });
+      expect(await screen.findByRole('button', { name: t('boards.backdrop.open') })).toBeTruthy();
+      expect(screen.queryByRole('button', { name: t('boards.links.open') })).toBeNull();
+      expect(api.create).not.toHaveBeenCalled();
     },
     RENDER_TIMEOUT_MS,
   );

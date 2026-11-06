@@ -3,8 +3,8 @@ import { secureKeyValueStore, type KeyValueStore } from '../drafts/draftStore';
 /**
  * Device memory for public links (T-134): whether the one-time link-preview disclosure was shown (AC-24.7) and
  * whether the server refused links for this account (AC-24.6, 403 `POLICY_DISALLOWED`), so the share-link action
- * stays hidden afterwards. `/v1/me` does not expose the region rule yet, so the first refusal is how the app learns
- * it. Both are forgotten on sign-out with the other board state (shown more often, never less).
+ * stays hidden afterwards. `/v1/me` now says it up front (`policy.public_links.allowed`, #321); the remembered refusal
+ * still covers a policy that changed after `/v1/me` was read. Both are forgotten on sign-out with the other board state (shown more often, never less).
  */
 export interface PublicLinkPrefs {
   disclosureSeen(): Promise<boolean>;

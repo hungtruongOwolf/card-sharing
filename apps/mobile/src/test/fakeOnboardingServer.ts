@@ -24,6 +24,8 @@ const STEP: Record<Status, 'age' | 'profile' | 'done'> = {
 export class FakeOnboardingServer {
   readonly auth = new FakeAuthServer();
   status: Status = 'pending_age';
+  /** `policy.public_links.allowed` (#321); null leaves the field out, like an older server. */
+  publicLinksAllowed: boolean | null = true;
   /** Region threshold the fake gate applies (the client must never learn it). */
   minAge = 13;
   birthDate: string | null = null;
@@ -78,6 +80,9 @@ export class FakeOnboardingServer {
         ai_effects: { cloud_allowed: true, people_in_photo: 'any' },
         ads: { rewarded: true, personalized_requires_consent: false },
         ai_label: { visible_badge: true, c2pa: true },
+        ...(this.publicLinksAllowed === null
+          ? {}
+          : { public_links: { allowed: this.publicLinksAllowed } }),
       },
     });
 

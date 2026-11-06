@@ -79,8 +79,12 @@ export interface BoardScreenProps {
   friends?: () => Promise<readonly Person[]>;
   /** The one-time explanation that only recipients of the card see it on the board (AC-19.5 as resolved by AC-19.7). */
   disclosure?: PinDisclosure;
-  /** Public links (T-134): owner of a server board only; absent hides the action. */
-  publicLinks?: { api: PublicLinksApi; prefs: PublicLinkPrefs };
+  /**
+   * Public links (T-134): owner of a server board only; absent hides the action. `allowed` is `/v1/me`
+   * `policy.public_links.allowed` (#321): `false` (under the region's link age, AC-24.6) hides the action before any
+   * attempt; unknown (undefined) shows it and the create route stays the authority.
+   */
+  publicLinks?: { api: PublicLinksApi; prefs: PublicLinkPrefs; allowed?: boolean };
   /** Report a shared board I am a collaborator on (US-26); absent hides the action. */
   onReport?: (boardId: string) => void;
   onClose: () => void;
@@ -182,7 +186,8 @@ function BoardEditor({
   const [sheet, setSheet] = useState<
     'cards' | 'backdrop' | 'decorate' | 'members' | 'links' | null
   >(null);
-  // Share links are for the owner of a server board, unless the server already refused them here (AC-24.6).
+  // Share links are for the owner of a server board, unless `/v1/me` says no or the server already refused them here
+  // (AC-24.6).
   const [linksDisallowed, setLinksDisallowed] = useState<boolean | null>(null);
   useEffect(() => {
     let cancelled = false;
@@ -192,7 +197,10 @@ function BoardEditor({
     };
   }, [publicLinks]);
   const canShareLink =
-    board.role === 'owner' && publicLinks !== undefined && linksDisallowed === false;
+    board.role === 'owner' &&
+    publicLinks !== undefined &&
+    publicLinks.allowed !== false &&
+    linksDisallowed === false;
   const [disclosing, setDisclosing] = useState<CardItem | null>(null);
   // A server board: membership comes from the server (a local board has no role and is mine alone).
   const membersApi = board.role ? members : undefined;
