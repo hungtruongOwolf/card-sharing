@@ -1,4 +1,4 @@
-import type { Board } from './boardModel';
+import type { Board, BoardBackdrop } from './boardModel';
 import { applyOps, type PinOp } from './boardOps';
 import { uuidv7 } from './uuidv7';
 
@@ -21,6 +21,8 @@ export interface BoardRepository {
   create(title: string): Promise<Board>;
   /** Applies my edits locally (optimistic); null when the board is gone. */
   apply(id: string, ops: readonly PinOp[]): Promise<Board | null>;
+  /** Owner only on the server (`PATCH /v1/boards/{id}`); null = the default backdrop. */
+  setBackdrop(id: string, backdrop: BoardBackdrop | null): Promise<Board | null>;
 }
 
 export function createMemoryBoardRepository(seed: readonly Board[] = []): BoardRepository {
@@ -38,6 +40,13 @@ export function createMemoryBoardRepository(seed: readonly Board[] = []): BoardR
       const board = boards.get(id);
       if (!board) return null;
       const next = applyOps(board, ops);
+      boards.set(id, next);
+      return next;
+    },
+    async setBackdrop(id, backdrop) {
+      const board = boards.get(id);
+      if (!board) return null;
+      const next = { ...board, backdrop, version: board.version + 1 };
       boards.set(id, next);
       return next;
     },

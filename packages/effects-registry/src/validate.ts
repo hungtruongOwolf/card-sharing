@@ -1,5 +1,6 @@
 import {
   ANCHORS,
+  BOARD_KINDS,
   CAPABILITIES,
   EFFECT_KINDS,
   FALLBACKS,
@@ -97,7 +98,10 @@ export function validateEntry(entry: EffectEntry): string[] {
     if (!I18N_KEY_PATTERN.test(key)) errors.push(`not an i18n key: ${key}`);
   }
   if (!isOneOf(TIERS, entry.tier)) errors.push(`unknown tier ${String(entry.tier)}`);
-  if (entry.inputs.length === 0) errors.push('inputs must not be empty');
+  const boardKind = BOARD_KINDS.includes(entry.kind);
+  if (entry.inputs.length === 0 && !boardKind) errors.push('inputs must not be empty');
+  if (boardKind && entry.inputs.length > 0)
+    errors.push('board backdrops and decorations take no input');
   for (const input of entry.inputs) {
     if (!isOneOf(INPUTS, input)) errors.push(`unknown input ${input}`);
   }

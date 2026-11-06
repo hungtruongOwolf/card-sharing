@@ -6,7 +6,9 @@ import {
 } from '@card-sharing/canvas-engine';
 
 import type { CardItem } from '../sharing/cardsApi';
-import { clampToBoard, type Board, type BoardPin } from './boardModel';
+import type { EffectEntry } from '@card-sharing/effects-registry';
+
+import { clampToBoard, type Board, type BoardPin, type RegistryRef } from './boardModel';
 import { uuidv7 } from './uuidv7';
 
 /**
@@ -16,11 +18,14 @@ import { uuidv7 } from './uuidv7';
  */
 export type PinFields = Pick<BoardPin, 'x' | 'y' | 'scale' | 'rotation' | 'zKey'>;
 
+/** What a new pin shows: one of my or a received card, or a registry decoration (no user content). */
+export type NewPinContent = { readonly card: CardItem } | { readonly decoration: RegistryRef };
+
 export type PinOp =
   | {
       readonly type: 'pin.add';
       readonly opId: string;
-      readonly pin: PinFields & { readonly id: string; readonly card: CardItem };
+      readonly pin: PinFields & { readonly id: string } & NewPinContent;
     }
   | {
       readonly type: 'pin.update';
@@ -63,8 +68,12 @@ function applyOne(pins: BoardPin[], op: PinOp): BoardPin[] {
   switch (op.type) {
     case 'pin.add': {
       if (pins.some((p) => p.id === op.pin.id)) return pins;
-      const { card, ...fields } = op.pin;
-      return [...pins, { ...fields, version: 0, content: { kind: 'card', card } }];
+      const { x, y, scale, rotation, zKey, id } = op.pin;
+      const content: BoardPin['content'] =
+        'card' in op.pin
+          ? { kind: 'card', card: op.pin.card }
+          : { kind: 'decoration', decoration: op.pin.decoration };
+      return [...pins, { id, x, y, scale, rotation, zKey, version: 0, content }];
     }
     case 'pin.update':
       return pins.map((p) => (p.id === op.pinId ? { ...p, ...op.set, version: p.version + 1 } : p));
@@ -82,17 +91,18 @@ export function applyOps(board: Board, ops: readonly PinOp[]): Board {
 /** A pin of `card` at a board point, on top of every other pin, slightly tilted like a hand-placed sticker. */
 export function addPinOp(
   board: Board,
-  card: CardItem,
+  what: CardItem | NewPinContent,
   at: { x: number; y: number },
   random: () => number = Math.random,
 ): PinOp {
+  const content: NewPinContent = 'card' in what || 'decoration' in what ? what : { card: what };
   const centre = clampToBoard(at);
   return {
     type: 'pin.add',
     opId: uuidv7(),
     pin: {
       id: uuidv7(),
-      card,
+      ...content,
       x: centre.x,
       y: centre.y,
       scale: 1,
@@ -100,6 +110,24 @@ export function addPinOp(
       zKey: zKeyOnTop(board.pins.map((p) => p.zKey)),
     },
   };
+}
+
+/** A decoration pin (T-111) with the entry's default params. */
+export function addDecorationOp(
+  board: Board,
+  entry: EffectEntry,
+  at: { x: number; y: number },
+  random: () => number = Math.random,
+): PinOp {
+  const params = Object.fromEntries(
+    Object.entries(entry.params).map(([k, spec]) => [k, spec.default]),
+  );
+  return addPinOp(
+    board,
+    { decoration: { id: entry.id, version: entry.version, params } },
+    at,
+    random,
+  );
 }
 
 /** An update of one pin, or null when nothing would change. */

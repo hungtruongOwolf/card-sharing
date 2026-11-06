@@ -1,6 +1,7 @@
 import type { PinGeometry } from '@card-sharing/canvas-engine';
 
 import type { CardItem } from '../sharing/cardsApi';
+import { decorationSize } from './decorationFrames';
 
 /**
  * The board as the app draws it (T-103, ADR-0007): flat per-pin rows with a fractional-index `zKey`, resolved
@@ -9,6 +10,7 @@ import type { CardItem } from '../sharing/cardsApi';
  */
 export type PinContent =
   | { readonly kind: 'card'; readonly card: CardItem }
+  | { readonly kind: 'decoration'; readonly decoration: RegistryRef }
   | { readonly kind: 'private_tile' }
   | { readonly kind: 'removed' };
 
@@ -27,10 +29,14 @@ export interface BoardPin {
   readonly content: PinContent;
 }
 
-export interface BoardBackdrop {
+/** A registry reference as boards store it (`{id, version, params}`); params are untrusted until clamped. */
+export interface RegistryRef {
   readonly id: string;
+  readonly version: number;
   readonly params: Readonly<Record<string, unknown>>;
 }
+
+export type BoardBackdrop = RegistryRef;
 
 export interface Board {
   readonly id: string;
@@ -58,14 +64,20 @@ export function clampToBoard<T extends { x: number; y: number }>(point: T): T {
   return { ...point, x: clamp(point.x, BOARD_SIZE.width), y: clamp(point.y, BOARD_SIZE.height) };
 }
 
+/** Unscaled frame of a pin: the card frame, or the decoration's own frame. */
+export function pinFrame(pin: BoardPin): { width: number; height: number } {
+  return pin.content.kind === 'decoration' ? decorationSize(pin.content.decoration.id) : PIN_FRAME;
+}
+
 export function pinGeometry(pin: BoardPin): PinGeometry {
+  const frame = pinFrame(pin);
   return {
     x: pin.x,
     y: pin.y,
     scale: pin.scale,
     rotation: pin.rotation,
-    width: PIN_FRAME.width,
-    height: PIN_FRAME.height,
+    width: frame.width,
+    height: frame.height,
   };
 }
 

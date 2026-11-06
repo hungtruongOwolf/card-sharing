@@ -1,4 +1,5 @@
 import type { EffectEntry } from '../schema';
+import { BACKDROPS, DECORATIONS } from './board';
 import { cutDiecut } from './cut.diecut';
 import { cutNone } from './cut.none';
 import { cutRaw } from './cut.raw';
@@ -27,4 +28,6 @@ export const ENTRIES: readonly EffectEntry[] = [
   fxGlossy,
   fxHolo,
   fxPaperLift,
+  ...BACKDROPS,
+  ...DECORATIONS,
 ];

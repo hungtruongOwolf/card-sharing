@@ -1,8 +1,9 @@
 import { PaintStyle, Skia, type SkCanvas, type SkImage } from '@shopify/react-native-skia';
 
-import type { SemanticColors } from '@card-sharing/tokens';
+import type { ColorScheme, SemanticColors } from '@card-sharing/tokens';
 
-import { PIN_FRAME, type BoardPin } from './boardModel';
+import { drawDecoration, type DecorContext } from './boardDecor';
+import { PIN_FRAME, pinFrame, type BoardPin } from './boardModel';
 
 /** Colours of the board's own chrome (never of user content), from the theme. */
 export interface BoardPalette {
@@ -16,15 +17,18 @@ export interface BoardPalette {
   ink: string;
   /** Dashed outline of the selected pin (with the frame, never colour alone). */
   selection: string;
+  /** Scheme and colours for backdrops and decorations. */
+  decor: DecorContext;
 }
 
-export function boardPalette(color: SemanticColors): BoardPalette {
+export function boardPalette(color: SemanticColors, scheme: ColorScheme = 'light'): BoardPalette {
   return {
     desk: color.bg.canvas,
     ghost: color.bg.paperAlt,
     tile: color.bg.paper,
     ink: color.fg.subtle,
     selection: color.focus.ring,
+    decor: { scheme, color },
   };
 }
 
@@ -120,18 +124,22 @@ export function drawPinContent(canvas: SkCanvas, item: DrawablePin, palette: Boa
     case 'removed':
       canvas.drawRRect(frame, strokePaint(palette.ink, true));
       return;
+    case 'decoration':
+      drawDecoration(canvas, content.decoration, palette.decor);
+      return;
   }
 }
 
 const SELECTION_GAP = 10;
 
 /** Dashed outline around the pin frame marking the selected pin (design-system.md §4 Sticker "selected"). */
-export function drawSelection(canvas: SkCanvas, palette: BoardPalette): void {
+export function drawSelection(canvas: SkCanvas, palette: BoardPalette, pin: BoardPin): void {
+  const frame = pinFrame(pin);
   const rect = Skia.XYWHRect(
-    -PIN_FRAME.width / 2 - SELECTION_GAP,
-    -PIN_FRAME.height / 2 - SELECTION_GAP,
-    PIN_FRAME.width + SELECTION_GAP * 2,
-    PIN_FRAME.height + SELECTION_GAP * 2,
+    -frame.width / 2 - SELECTION_GAP,
+    -frame.height / 2 - SELECTION_GAP,
+    frame.width + SELECTION_GAP * 2,
+    frame.height + SELECTION_GAP * 2,
   );
   const paint = strokePaint(palette.selection, true);
   paint.setStrokeWidth(OUTLINE_WIDTH * 1.5);

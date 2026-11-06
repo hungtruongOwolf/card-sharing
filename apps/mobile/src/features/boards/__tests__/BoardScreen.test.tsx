@@ -97,4 +97,40 @@ describe('BoardScreen', () => {
     },
     RENDER_TIMEOUT_MS,
   );
+
+  it(
+    'sets a registry backdrop and adds a decoration pin',
+    async () => {
+      const { repository, board } = await setup();
+      const user = userEvent.setup();
+      await user.press(screen.getByRole('button', { name: t('boards.backdrop.open') }));
+      expect(
+        screen.getByRole('radio', { name: t('effects.bg.paper.a11y') }).props.accessibilityState,
+      ).toEqual(expect.objectContaining({ selected: true }));
+      await user.press(screen.getByRole('radio', { name: t('effects.bg.cork.a11y') }));
+      await waitFor(async () =>
+        expect((await repository.get(board.id))!.backdrop).toEqual({
+          id: 'bg.cork',
+          version: 1,
+          params: {},
+        }),
+      );
+
+      await user.press(screen.getByRole('button', { name: t('boards.decorate.open') }));
+      await user.press(screen.getByRole('button', { name: t('effects.deco.washi-dots.a11y') }));
+      expect(
+        await screen.findByLabelText(
+          t('boards.pin.decoration', { name: t('effects.deco.washi-dots.name') }),
+        ),
+      ).toBeTruthy();
+      await waitFor(async () => {
+        const [added] = (await repository.get(board.id))!.pins;
+        expect(added?.content).toEqual({
+          kind: 'decoration',
+          decoration: { id: 'deco.washi-dots', version: 1, params: { color: 'mustard' } },
+        });
+      });
+    },
+    RENDER_TIMEOUT_MS,
+  );
 });

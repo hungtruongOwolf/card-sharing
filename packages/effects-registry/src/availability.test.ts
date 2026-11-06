@@ -10,7 +10,10 @@ import {
 import { ENTRIES } from './entries';
 import { cutDiecut } from './entries/cut.diecut';
 import { fxHolo } from './entries/fx.holo';
-import type { EffectEntry } from './schema';
+import { BOARD_KINDS, type EffectEntry } from './schema';
+
+/** Card styles only: board backdrops and decorations (T-111) are listed by the board, not the editor. */
+const CARD_ENTRIES = ENTRIES.filter((entry) => !BOARD_KINDS.includes(entry.kind));
 
 const iphone: DeviceContext = {
   platform: 'ios',
@@ -94,7 +97,9 @@ describe('resolveAvailability', () => {
 
 describe('visibleEntries', () => {
   it('lists available entries in registry order, minus killed ones', () => {
-    const shown = visibleEntries(ENTRIES, iphone, { kill_switches: { finishes: ['fx.holo'] } });
+    const shown = visibleEntries(CARD_ENTRIES, iphone, {
+      kill_switches: { finishes: ['fx.holo'] },
+    });
     expect(shown.map(({ entry }) => entry.id)).toEqual([
       'cut.none',
       'cut.raw',
@@ -110,7 +115,7 @@ describe('visibleEntries', () => {
   });
 
   it('gives devices without on-device cutout the whole-photo styles (EM 2026-11-05)', () => {
-    expect(visibleEntries(ENTRIES, noGms).map(({ entry }) => entry.id)).toEqual([
+    expect(visibleEntries(CARD_ENTRIES, noGms).map(({ entry }) => entry.id)).toEqual([
       'cut.none',
       'cut.torn',
       'cut.shape.rounded-square',

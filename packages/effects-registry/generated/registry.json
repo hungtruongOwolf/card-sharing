@@ -2,6 +2,54 @@
   "schema_version": 1,
   "entries": [
     {
+      "id": "bg.cork",
+      "version": 1,
+      "kind": "backdrop",
+      "stackable": false,
+      "conflicts_with": [],
+      "params": {}
+    },
+    {
+      "id": "bg.dots",
+      "version": 1,
+      "kind": "backdrop",
+      "stackable": false,
+      "conflicts_with": [],
+      "params": {}
+    },
+    {
+      "id": "bg.grid",
+      "version": 1,
+      "kind": "backdrop",
+      "stackable": false,
+      "conflicts_with": [],
+      "params": {}
+    },
+    {
+      "id": "bg.kraft",
+      "version": 1,
+      "kind": "backdrop",
+      "stackable": false,
+      "conflicts_with": [],
+      "params": {}
+    },
+    {
+      "id": "bg.lined",
+      "version": 1,
+      "kind": "backdrop",
+      "stackable": false,
+      "conflicts_with": [],
+      "params": {}
+    },
+    {
+      "id": "bg.paper",
+      "version": 1,
+      "kind": "backdrop",
+      "stackable": false,
+      "conflicts_with": [],
+      "params": {}
+    },
+    {
       "id": "cut.diecut",
       "version": 1,
       "kind": "cutStyle",
@@ -140,6 +188,146 @@
           "min": 1,
           "max": 9999,
           "default": 7
+        }
+      }
+    },
+    {
+      "id": "deco.arrow",
+      "version": 1,
+      "kind": "decoration",
+      "stackable": true,
+      "conflicts_with": [],
+      "params": {}
+    },
+    {
+      "id": "deco.heart",
+      "version": 1,
+      "kind": "decoration",
+      "stackable": true,
+      "conflicts_with": [],
+      "params": {}
+    },
+    {
+      "id": "deco.pushpin",
+      "version": 1,
+      "kind": "decoration",
+      "stackable": true,
+      "conflicts_with": [],
+      "params": {
+        "color": {
+          "type": "enum",
+          "values": [
+            "mustard",
+            "sky",
+            "mint",
+            "coral",
+            "lilac"
+          ],
+          "default": "coral"
+        }
+      }
+    },
+    {
+      "id": "deco.ribbon",
+      "version": 1,
+      "kind": "decoration",
+      "stackable": true,
+      "conflicts_with": [],
+      "params": {
+        "color": {
+          "type": "enum",
+          "values": [
+            "mustard",
+            "sky",
+            "mint",
+            "coral",
+            "lilac"
+          ],
+          "default": "coral"
+        }
+      }
+    },
+    {
+      "id": "deco.squiggle",
+      "version": 1,
+      "kind": "decoration",
+      "stackable": true,
+      "conflicts_with": [],
+      "params": {}
+    },
+    {
+      "id": "deco.star",
+      "version": 1,
+      "kind": "decoration",
+      "stackable": true,
+      "conflicts_with": [],
+      "params": {}
+    },
+    {
+      "id": "deco.ticket",
+      "version": 1,
+      "kind": "decoration",
+      "stackable": true,
+      "conflicts_with": [],
+      "params": {}
+    },
+    {
+      "id": "deco.washi-dots",
+      "version": 1,
+      "kind": "decoration",
+      "stackable": true,
+      "conflicts_with": [],
+      "params": {
+        "color": {
+          "type": "enum",
+          "values": [
+            "mustard",
+            "sky",
+            "mint",
+            "coral",
+            "lilac"
+          ],
+          "default": "mustard"
+        }
+      }
+    },
+    {
+      "id": "deco.washi-grid",
+      "version": 1,
+      "kind": "decoration",
+      "stackable": true,
+      "conflicts_with": [],
+      "params": {
+        "color": {
+          "type": "enum",
+          "values": [
+            "mustard",
+            "sky",
+            "mint",
+            "coral",
+            "lilac"
+          ],
+          "default": "mint"
+        }
+      }
+    },
+    {
+      "id": "deco.washi-stripes",
+      "version": 1,
+      "kind": "decoration",
+      "stackable": true,
+      "conflicts_with": [],
+      "params": {
+        "color": {
+          "type": "enum",
+          "values": [
+            "mustard",
+            "sky",
+            "mint",
+            "coral",
+            "lilac"
+          ],
+          "default": "sky"
         }
       }
     },
