@@ -140,6 +140,7 @@ pub async fn get_feed(
 #[serde(deny_unknown_fields)]
 pub struct PurgeCheckRequest {
     /// Ids of the cards the app keeps offline (feed copy, widget, boards), 1..=100.
+    #[schema(value_type = Vec<String>)]
     pub card_ids: Vec<Uuid>,
 }
 
@@ -147,6 +148,7 @@ pub struct PurgeCheckRequest {
 pub struct PurgeInstructions {
     /// Cached cards to delete now (with any metadata or pictures kept for them). The ids are a
     /// subset of the request; a card the caller may still see is never listed.
+    #[schema(value_type = Vec<String>)]
     pub purge: Vec<Uuid>,
 }
 
