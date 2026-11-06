@@ -51,6 +51,7 @@ import { space } from '@card-sharing/tokens';
 
 import { t, type MessageKey } from '../../i18n';
 import { animateTo, useTheme } from '../../ui';
+import { drawLiftShadow, liftShadow } from '../effects';
 import { GyroTiltDriver } from '../holo-card/GyroTiltDriver';
 import type { Tilt } from '../holo-card/gyroTilt';
 import { STATIC_TILT } from '../holo-card/holoLab';
@@ -73,6 +74,8 @@ const holoEffect = Skia.RuntimeEffect.Make(HOLO_SKSL);
 
 /** Pick-up lift (design-system.md §5.3: `spring.lift` to 1.04). */
 const LIFT_SCALE = 1.04;
+/** Paper-lift height of a picked-up card (the registry maximum): its shadow deepens while held (T-118). */
+const PICKED_UP_LIFT = 3;
 
 /** A pin's transform while it is being edited. */
 export interface PinPose {
@@ -212,8 +215,23 @@ function PinBody({ pin, image, liveIntensity, tilt, palette, selected }: PinBody
       }),
     [live, pin, image, palette, selected],
   );
+  // A held card casts the deeper paper-lift shadow, drawn below everything else of the pin.
+  const shadow = useMemo(
+    () =>
+      selected && image && w > 0 && pin.content.kind === 'card'
+        ? createPicture((canvas) =>
+            drawLiftShadow(
+              canvas,
+              (layer) => drawPinContent(layer, { pin, image }, palette),
+              liftShadow(PICKED_UP_LIFT, Math.min(w, h)),
+            ),
+          )
+        : null,
+    [selected, image, w, h, pin, palette],
+  );
   return (
     <>
+      {shadow ? <Picture picture={shadow} /> : null}
       {live && dest ? (
         <Group transform={[{ translateX: dest.x }, { translateY: dest.y }]}>
           <Group layer>

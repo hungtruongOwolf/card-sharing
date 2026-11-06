@@ -47,6 +47,13 @@ export interface ContentTransform {
  */
 export interface FrameRenderer {
   window: (width: number, height: number, params: EffectParams) => Rect;
+  /** Where the card goes in the window; null or absent = centre-cropped to it (`contentTransform`). */
+  content?: (
+    width: number,
+    height: number,
+    params: EffectParams,
+    window: Rect,
+  ) => ContentTransform | null;
   back: (canvas: SkCanvas, context: EffectContext, params: EffectParams) => void;
   front?: (
     canvas: SkCanvas,
@@ -60,12 +67,6 @@ export interface EffectRenderers {
   effects: Readonly<Record<string, EffectRenderer>>;
   frames: Readonly<Record<string, FrameRenderer>>;
 }
-
-/** The shipped renderers (filled by the effect tickets T-118..T-123). */
-export const EFFECT_RENDERERS: EffectRenderers = {
-  effects: {},
-  frames: {},
-};
 
 /** Uniform centre-crop of a `width` x `height` card into `window`. */
 export function contentTransform(width: number, height: number, window: Rect): ContentTransform {

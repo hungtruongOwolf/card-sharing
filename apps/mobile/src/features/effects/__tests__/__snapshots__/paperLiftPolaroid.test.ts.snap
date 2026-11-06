@@ -1,0 +1,71 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`golden signatures on the dark canvas matches for the sticker shadow and the polaroid variants 1`] = `
+{
+  "paperLift": [
+    "1a1512ff 1a1512ff 1a1512ff 3366ccff 3366ccff 1a1512ff 1a1512ff 1a1512ff",
+    "1a1512ff 1a1512ff c6c5c5ff 3366ccff 3366ccff 181311ff 1a1512ff 1a1512ff",
+    "1a1512ff 1a1512ff e7edf9ff 3366ccff 3366ccff fcfdfeff 1a1512ff 1a1512ff",
+    "1a1512ff 1a1512ff e5ebf8ff 3366ccff 3366ccff fdfdfeff 1a1512ff 1a1512ff",
+    "1a1512ff 1a1512ff ffffffff 3366ccff 3366ccff 494644ff 1a1512ff 1a1512ff",
+    "1a1512ff 1a1512ff 1a1512ff 3366ccff 3366ccff 1a1512ff 1a1512ff 1a1512ff",
+    "1a1512ff 1a1512ff 1a1512ff 191411ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff",
+    "1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff",
+  ],
+  "polaroid": [
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff efefeeff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff efefeeff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff efefeeff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff efefeeff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff efefeeff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff efefeeff",
+    "fbfaf5ff fbfaf5ff fbfaf5ff fbfaf5ff fbfaf5ff fbfaf5ff fbfaf5ff fbfaf5ff",
+    "fbfaf5ff fbfaf5ff fbfaf5ff fbfaf5ff fbfaf5ff fbfaf5ff fbfaf5ff fbfaf5ff",
+  ],
+  "polaroidPopOut": [
+    "e7e6e1ff e7e6e1ff e7e6e1ff fdfeffff fdfdfdff e7e6e1ff e7e6e1ff f5f4efff",
+    "e7e6e1ff e7e6e1ff e7e6e1ff 3366ccff 3366ccff e7e6e1ff e7e6e1ff f5f4efff",
+    "e7e6e1ff e7e6e1ff dad9d4ff 3366ccff 3366ccff e4e3deff e7e6e1ff f5f4efff",
+    "e7e6e1ff e7e6e1ff d5d4cfff 3366ccff 3366ccff e3e2ddff e7e6e1ff f5f4efff",
+    "e7e6e1ff e7e6e1ff e4e3deff 3366ccff 3366ccff e7e6e1ff e7e6e1ff f5f4efff",
+    "e7e6e1ff e7e6e1ff e7e6e1ff 3366ccff 3366ccff e7e6e1ff e7e6e1ff f5f4efff",
+    "e7e6e1ff e7e6e1ff e7e6e1ff e7e6e1ff e7e6e1ff e7e6e1ff e7e6e1ff f5f4efff",
+    "f5f4efff f5f4efff f5f4efff f5f4efff f5f4efff f5f4efff f5f4efff f9f8f3ff",
+  ],
+}
+`;
+
+exports[`golden signatures on the light canvas matches for the sticker shadow and the polaroid variants 1`] = `
+{
+  "paperLift": [
+    "f6efe3ff f6efe3ff f6efe3ff 3366ccff 3366ccff f6efe3ff f6efe3ff f6efe3ff",
+    "f6efe3ff f6efe3ff f4f2f0ff 3366ccff 3366ccff e3ddd2ff f6efe3ff f6efe3ff",
+    "f6efe3ff f6efe3ff e7edf9ff 3366ccff 3366ccff fcfdfeff f6efe3ff f6efe3ff",
+    "f6efe3ff f6efe3ff e5ebf8ff 3366ccff 3366ccff fdfdfeff f6efe3ff f6efe3ff",
+    "f6efe3ff f6efe3ff ffffffff 3366ccff 3366ccff dcd7cfff f6efe3ff f6efe3ff",
+    "f6efe3ff f6efe3ff f5eee2ff 3366ccff 3366ccff f6efe3ff f6efe3ff f6efe3ff",
+    "f6efe3ff f6efe3ff f6efe3ff ede6dbff f1ebdfff f6efe3ff f6efe3ff f6efe3ff",
+    "f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff",
+  ],
+  "polaroid": [
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff efefeeff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff efefeeff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff efefeeff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff efefeeff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff efefeeff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff efefeeff",
+    "fbfaf5ff fbfaf5ff fbfaf5ff fbfaf5ff fbfaf5ff fbfaf5ff fbfaf5ff fbfaf5ff",
+    "fbfaf5ff fbfaf5ff fbfaf5ff fbfaf5ff fbfaf5ff fbfaf5ff fbfaf5ff fbfaf5ff",
+  ],
+  "polaroidPopOut": [
+    "e7e6e1ff e7e6e1ff e7e6e1ff fdfeffff fdfdfdff e7e6e1ff e7e6e1ff f5f4efff",
+    "e7e6e1ff e7e6e1ff e7e6e1ff 3366ccff 3366ccff e7e6e1ff e7e6e1ff f5f4efff",
+    "e7e6e1ff e7e6e1ff dad9d4ff 3366ccff 3366ccff e4e3deff e7e6e1ff f5f4efff",
+    "e7e6e1ff e7e6e1ff d5d4cfff 3366ccff 3366ccff e3e2ddff e7e6e1ff f5f4efff",
+    "e7e6e1ff e7e6e1ff e4e3deff 3366ccff 3366ccff e7e6e1ff e7e6e1ff f5f4efff",
+    "e7e6e1ff e7e6e1ff e7e6e1ff 3366ccff 3366ccff e7e6e1ff e7e6e1ff f5f4efff",
+    "e7e6e1ff e7e6e1ff e7e6e1ff e7e6e1ff e7e6e1ff e7e6e1ff e7e6e1ff f5f4efff",
+    "f5f4efff f5f4efff f5f4efff f5f4efff f5f4efff f5f4efff f5f4efff f9f8f3ff",
+  ],
+}
+`;

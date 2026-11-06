@@ -72,7 +72,7 @@ each `{id, version, params?}`; the id must exist at exactly the exported version
 `filter`, `effects` = any non-cut kind); non-stackable entries appear once, `conflicts_with` pairs are refused; params follow the same
 strict rules as `resolveParams` and missing ones are stored with their defaults. Any violation → 422 `UNKNOWN_REGISTRY_ID` with no
 detail. Shipped entries so far: `cut.none`, `cut.raw`, `cut.diecut`, `cut.torn`, `cut.shape.rounded-square`,
-`cut.shape.circle`, `cut.shape.heart`, `fx.matte`, `fx.glossy`, `fx.holo`, `fx.paper-lift`; the other MVP
+`cut.shape.circle`, `cut.shape.heart`, `fx.matte`, `fx.glossy`, `fx.holo`, `fx.paper-lift`, `frame.polaroid`; the other MVP
 entries land with their tickets.
 
 **Cut style rendering (T-62, `apps/mobile/src/features/cut-styles`):** `drawCutStyle(canvas, entry, params, scene)` draws
@@ -130,6 +130,19 @@ shape. Effect renderers are keyed by `renderer.ref` in `apps/mobile/src/features
 for under/subject/over, `.frames` for frames); filter-kind effects reuse the finish renderers. Effects the device or
 config no longer allows are dropped from the shown and sent draft. Drafts store the list (records saved before T-114
 read as no effects); `styleBlock` sends it as `style.effects` after the strict per-entry and stacking checks.
+
+**Paper lift and polaroid (T-118, `features/effects/renderers`):** `fx.paper-lift` (`shadow:paperLift`) is a built-in:
+`builtInEffects` adds it, with default params, under every *sticker* card (the cut style reads `mask`/`contour` and the
+card has a subject), unless a kill switch names it; it is never stored on the draft or sent in `style`. It is a drop
+shadow of the card picture only (black 30 %, offset `1.2 %` and blur `1 %` of the short side per unit of `height`),
+baked into the render; the curl highlight is not drawn yet. On the board a picked-up card pin casts the deeper shadow
+(`height` 3) under it while held; the lift itself already follows reduced motion. `frame.polaroid` (`frame:polaroid`,
+renderer type `vector`) paints warm white paper (`#FBFAF5`, part of the card, not the theme) with 6 % borders and a
+20 % bottom when `captionArea` is on (default), the card centre-cropped into the window over a faint shade; `popOut`
+(default off, needs a subject) fits the card to the window width standing on its bottom edge and redraws the subject
+over the top border. Frames may override the window transform (`FrameRenderer.content`). Both are static
+(`motion.reduced: static`, no live cost); light/dark golden signatures live in
+`features/effects/__tests__/paperLiftPolaroid.test.ts`.
 
 Rules: adding an effect = add entry + shader/asset + tests (golden snapshot); removing = remove entry **and** migrate stored
 references (fallback to `fx.none`) + update this page ([[change-management]]). Device-capability routing hides entries whose

@@ -18,6 +18,8 @@ export interface PrepareDeps {
   registry: Registry;
   maskSource: MaskSource;
   loadImage?: LoadImage;
+  /** Registry ids switched off remotely, so the bake matches the editor preview. */
+  killed?: ReadonlySet<string>;
 }
 
 /**
@@ -28,7 +30,7 @@ export interface PrepareDeps {
 export async function prepareForSend(
   card: LocalCard,
   keepOriginal: boolean,
-  { registry, maskSource, loadImage = loadImageFromUri }: PrepareDeps,
+  { registry, maskSource, loadImage = loadImageFromUri, killed }: PrepareDeps,
 ): Promise<PreparedCard> {
   const [photo, mask] = await Promise.all([
     loadImage(card.photo.uri),
@@ -37,6 +39,6 @@ export async function prepareForSend(
       : maskSource.maskFor(card.photo).catch(() => null),
   ]);
   if (!photo) throw new BakeError('photo unavailable');
-  const baked = bakeCard({ registry, draft: card.draft, photo, mask, purpose: 'send' });
+  const baked = bakeCard({ registry, draft: card.draft, photo, mask, purpose: 'send', killed });
   return { ...baked, original: keepOriginal ? encodeOriginal(photo) : null };
 }

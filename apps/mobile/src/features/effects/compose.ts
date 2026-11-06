@@ -1,11 +1,13 @@
 import {
   clampParams,
+  defaultParams,
   type EffectEntry,
   type ParamValue,
   type Registry,
 } from '@card-sharing/effects-registry';
 
-import { EFFECT_RENDERERS, type EffectRenderers } from './effectRenderers';
+import type { EffectRenderers } from './effectRenderers';
+import { EFFECT_RENDERERS } from './shippedRenderers';
 
 /**
  * Composition order of a card's effects (T-114, effects-catalog.md §1): cut style → filters → `under` / `subject`
@@ -49,6 +51,27 @@ export function layerEffects(registry: Registry, choices: readonly EffectChoice[
     else layers[entry.layer].push(resolved);
   }
   return layers;
+}
+
+/**
+ * Built-in effects a card gets without choosing them (tag `builtIn`, e.g. paper lift: "built into every sticker",
+ * effects-catalog.md §3.3). They are not user choices, so they are never stored on the draft (AC-21.4 is about
+ * effects the user picks): they apply to sticker cards (the cut style traces the subject and the card has one),
+ * with default params, unless switched off remotely.
+ */
+export function builtInEffects(
+  registry: Registry,
+  cut: EffectEntry,
+  hasSubject: boolean,
+  killed: ReadonlySet<string> = new Set(),
+  renderers: EffectRenderers = EFFECT_RENDERERS,
+): ResolvedEffect[] {
+  const sticker = hasSubject && (cut.inputs.includes('mask') || cut.inputs.includes('contour'));
+  if (!sticker) return [];
+  return registry
+    .byTag('builtIn')
+    .filter((entry) => !killed.has(entry.id) && hasEffectRenderer(entry, renderers))
+    .map((entry) => ({ entry, params: defaultParams(entry) }));
 }
 
 /**

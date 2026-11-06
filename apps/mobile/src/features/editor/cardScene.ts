@@ -4,7 +4,13 @@ import { maskToContours, type Mask } from '@card-sharing/canvas-engine';
 import type { Registry } from '@card-sharing/effects-registry';
 
 import { drawCutStyle, subjectPath, type CutScene, type CutSubject } from '../cut-styles';
-import { drawComposed, EFFECT_RENDERERS, layerEffects, type EffectRenderers } from '../effects';
+import {
+  builtInEffects,
+  drawComposed,
+  EFFECT_RENDERERS,
+  layerEffects,
+  type EffectRenderers,
+} from '../effects';
 import { drawFinish, hasFinishRenderer } from './drawFinish';
 import type { CardDraft } from './editorState';
 
@@ -50,7 +56,7 @@ export function downscalePhoto(photo: SkImage, maxSide: number): SkImage {
 /**
  * Draws the card a draft describes, in the catalog's composition order (T-114): the cut style, the finish and any
  * filter effects over the card's own pixels, then the `under` / `subject` / `over` effects and a frame around it
- * all. Whole-photo drafts draw without the subject even when the scene has one. Unknown ids (an entry removed from
+ * all. Sticker cards also get the built-in effects (paper lift) unless `killed` switches them off. Whole-photo drafts draw without the subject even when the scene has one. Unknown ids (an entry removed from
  * the registry) draw nothing rather than crashing the editor.
  */
 export function drawCard(
@@ -58,12 +64,16 @@ export function drawCard(
   registry: Registry,
   draft: CardDraft,
   scene: CutScene,
-  options: { renderers?: EffectRenderers; time?: number } = {},
+  options: { renderers?: EffectRenderers; time?: number; killed?: ReadonlySet<string> } = {},
 ): void {
   const cut = registry.get(draft.cut.id);
   if (!cut) return;
   const effective = draft.wholePhoto ? { ...scene, subject: null } : scene;
+  const renderers = options.renderers ?? EFFECT_RENDERERS;
   const layers = layerEffects(registry, draft.effects);
+  layers.under.unshift(
+    ...builtInEffects(registry, cut, effective.subject !== null, options.killed, renderers),
+  );
   const drawCardLayer = (layer: SkCanvas) => {
     layer.saveLayer();
     drawCutStyle(layer, cut, draft.cut.params, effective);
@@ -78,11 +88,5 @@ export function drawCard(
     }
     layer.restore();
   };
-  drawComposed(
-    canvas,
-    { ...effective, time: options.time },
-    layers,
-    drawCardLayer,
-    options.renderers ?? EFFECT_RENDERERS,
-  );
+  drawComposed(canvas, { ...effective, time: options.time }, layers, drawCardLayer, renderers);
 }
