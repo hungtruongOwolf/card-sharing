@@ -2280,6 +2280,11 @@ export interface components {
             ai_label: components["schemas"]["AiLabelView"];
             /** Format: int32 */
             min_age: number;
+            /**
+             * @description Whether the caller may create public board links (#321). Client hint only: the create
+             *     route stays the authority.
+             */
+            public_links: components["schemas"]["PublicLinksView"];
         };
         /** @description RFC 9457 problem details with two extension members: `code` and `requestId`. */
         ProblemDetails: {
@@ -2382,6 +2387,14 @@ export interface components {
             expires_at?: string | null;
             /** Format: uuid */
             id: string;
+        };
+        PublicLinksView: {
+            /**
+             * @description `false` under the region's `public_links.min_age` (default 18), resolved with the same
+             *     strictest-signal rule as `POST /v1/boards/{id}/public-links`, and for accounts that have
+             *     not passed the age gate. The app hides "Share link" when it is `false` (AC-24.6).
+             */
+            allowed: boolean;
         };
         /** @description A fresh signed URL of the watermarked OG image (the web server answers 302 to it). */
         PublicOgResponse: {

@@ -96,6 +96,17 @@ pub struct PolicyView {
     pub ai_effects: AiEffectsView,
     pub ads: AdsView,
     pub ai_label: AiLabelView,
+    /// Whether the caller may create public board links (#321). Client hint only: the create
+    /// route stays the authority.
+    pub public_links: PublicLinksView,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct PublicLinksView {
+    /// `false` under the region's `public_links.min_age` (default 18), resolved with the same
+    /// strictest-signal rule as `POST /v1/boards/{id}/public-links`, and for accounts that have
+    /// not passed the age gate. The app hides "Share link" when it is `false` (AC-24.6).
+    pub allowed: bool,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -138,6 +149,8 @@ impl From<Policy> for PolicyView {
                 visible_badge: policy.ai_label.visible_badge,
                 c2pa: policy.ai_label.c2pa,
             },
+            // Age-dependent: filled in by `get_me`; closed until then.
+            public_links: PublicLinksView { allowed: false },
         }
     }
 }
@@ -183,10 +196,17 @@ pub async fn get_me(
         ip_country: state.ip_country(&headers),
         ..PolicyContext::default()
     };
-    let settings = settings_view(&state, account.id, &current).await?;
-    let policy = state
+    let age = state
+        .age
+        .status(account.id, &current)
+        .await
+        .map_err(ApiError::internal)?;
+    let settings = settings_for(&state, account.id, &age).await?;
+    let mut policy: PolicyView = state
         .policy
-        .resolve_strictest(&[account.region_signals.context(), current]);
+        .resolve_strictest(&[account.region_signals.context(), current])
+        .into();
+    policy.public_links.allowed = age.public_links;
     Ok(Json(MeResponse {
         account: AccountView {
             id: account.id,
@@ -196,7 +216,7 @@ pub async fn get_me(
             step: onboarding_step(account.status),
         },
         profile: profile.into(),
-        policy: policy.into(),
+        policy,
         settings,
     }))
 }
@@ -206,12 +226,20 @@ async fn settings_view(
     account_id: Uuid,
     current: &PolicyContext,
 ) -> Result<SettingsView, ApiError> {
-    let can_be_findable = state
+    let age = state
         .age
         .status(account_id, current)
         .await
-        .map_err(ApiError::internal)?
-        .discoverable;
+        .map_err(ApiError::internal)?;
+    settings_for(state, account_id, &age).await
+}
+
+async fn settings_for(
+    state: &AppState,
+    account_id: Uuid,
+    age: &identity::AgeStatus,
+) -> Result<SettingsView, ApiError> {
+    let can_be_findable = age.discoverable;
     let stored = state
         .identity
         .findable_by_handle(account_id)
