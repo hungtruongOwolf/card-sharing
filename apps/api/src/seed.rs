@@ -257,8 +257,10 @@ impl CardArt {
     const WIDTH: u32 = 600;
     const HEIGHT: u32 = 800;
 
-    fn inside(x: u32, y: u32) -> bool {
-        let (cx, cy, r) = (300.0_f32, 420.0_f32, 200.0_f32);
+    /// Inside the round subject; its size follows the subject color, so every card's mask differs.
+    fn inside(self, x: u32, y: u32) -> bool {
+        let r = 150.0 + f32::from(self.subject[0] % 64);
+        let (cx, cy) = (300.0_f32, 420.0_f32);
         let (dx, dy) = (x as f32 - cx, y as f32 - cy);
         dx * dx + dy * dy <= r * r
     }
@@ -267,7 +269,7 @@ impl CardArt {
         let [r, g, b] = self.background;
         let [sr, sg, sb] = self.subject;
         let image = RgbaImage::from_fn(Self::WIDTH, Self::HEIGHT, |x, y| {
-            if Self::inside(x, y) {
+            if self.inside(x, y) {
                 return Rgba([sr, sg, sb, 255]);
             }
             // Darken towards the bottom; the top-left pixel never matches a fake-gate marker.
@@ -280,7 +282,7 @@ impl CardArt {
 
     fn mask(self) -> anyhow::Result<Vec<u8>> {
         let image = RgbaImage::from_fn(Self::WIDTH, Self::HEIGHT, |x, y| {
-            let v = if Self::inside(x, y) { 255 } else { 0 };
+            let v = if self.inside(x, y) { 255 } else { 0 };
             Rgba([v, v, v, 255])
         });
         encode(&image)
@@ -310,13 +312,17 @@ async fn send_card(
 ) -> anyhow::Result<Uuid> {
     let render = upload(router, sender, "card_render", art.render()?).await?;
     let mask = upload(router, sender, "mask", art.mask()?).await?;
-    for id in [render, mask] {
-        state
-            .media
-            .process_one(id, gates)
-            .await
-            .map_err(|e| anyhow::anyhow!("media processing failed ({e:?}); set API_CSAM_MATCHER=fake and API_NUDITY_CLASSIFIER=fake"))?;
+    for (id, clean) in [render, mask] {
+        if clean {
+            continue;
+        }
+        state.media.process_one(id, gates).await.map_err(|e| {
+            anyhow::anyhow!(
+                "media processing failed ({e:?}); set API_CSAM_MATCHER=fake and API_NUDITY_CLASSIFIER=fake"
+            )
+        })?;
     }
+    let (render, mask) = (render.0, mask.0);
     let client_card_id = Uuid::now_v7();
     let body = json!({
         "client_card_id": client_card_id,
@@ -353,19 +359,26 @@ async fn upload(
     user: &SeededUser,
     kind: &str,
     bytes: Vec<u8>,
-) -> anyhow::Result<Uuid> {
+) -> anyhow::Result<(Uuid, bool)> {
     let request = Request::post(format!("/v1/media?kind={kind}"))
         .header("authorization", bearer(user))
         .header("content-type", "image/png")
         .header("content-length", bytes.len())
         .body(Body::from(bytes))?;
     let response = send(router, request).await?;
-    id_at(
-        &response,
-        StatusCode::CREATED,
-        "/media/id",
-        "POST /v1/media",
-    )
+    // 200 = the same bytes were uploaded before (dedupe): the existing media is reused.
+    let status = if response.status == StatusCode::OK {
+        StatusCode::OK
+    } else {
+        StatusCode::CREATED
+    };
+    let id = id_at(&response, status, "/media/id", "POST /v1/media")?;
+    let clean = response
+        .body
+        .pointer("/media/state")
+        .and_then(Value::as_str)
+        == Some("clean");
+    Ok((id, clean))
 }
 
 /// Alice's board with all three cards pinned, shared with Bob (invited and accepted).
