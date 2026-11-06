@@ -1072,6 +1072,266 @@
         }
       }
     },
+    "/v1/cards/{id}/reaction": {
+      "put": {
+        "tags": [
+          "cards"
+        ],
+        "summary": "React to a card. Auth: ses.",
+        "description": "Sets or replaces my one reaction on a card delivered to me that I may still see (same rule as\nreading it). The owner cannot react to their own card. Only the owner sees reactions; other\nrecipients never do. A card I may not see is the same 404 as a missing one.",
+        "operationId": "setCardReaction",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The card id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReactionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Reaction set."
+          },
+          "400": {
+            "description": "VALIDATION_FAILED: unknown or switched-off reaction.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: no card delivered to me with this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "cards.react",
+          "role": "user",
+          "versionGate": true
+        }
+      },
+      "delete": {
+        "tags": [
+          "cards"
+        ],
+        "summary": "Remove my reaction. Auth: ses. Same visibility rule as reacting.",
+        "operationId": "deleteCardReaction",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The card id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No reaction of mine remains."
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: no card delivered to me with this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "cards.react",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
+    "/v1/cards/{id}/reactions": {
+      "get": {
+        "tags": [
+          "cards"
+        ],
+        "summary": "Reactions on my card. Auth: ses. Owner only: recipients get the same 404 as a missing card.",
+        "operationId": "listCardReactions",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The card id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reactions on my card.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReactionList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: no card of mine with this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "cards.reactions.read",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
     "/v1/config": {
       "get": {
         "tags": [
@@ -3562,6 +3822,7 @@
           "limits",
           "flags",
           "kill_switches",
+          "reactions",
           "text_filter"
         ],
         "properties": {
@@ -3584,6 +3845,13 @@
             "type": "string",
             "description": "Clients below this version must update (requests get 426 `UPGRADE_REQUIRED`).",
             "example": "0.1.0"
+          },
+          "reactions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Reaction ids a recipient may send (US-17), in display order; ids in\n`kill_switches.reactions` are refused even when listed here."
           },
           "text_filter": {
             "$ref": "#/components/schemas/TextFilterHints",
@@ -3871,6 +4139,13 @@
                 "type": "null"
               }
             ]
+          },
+          "my_reaction": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The caller's own reaction (recipients; the owner sees all reactions via\n`GET /v1/cards/{id}/reactions`)."
           },
           "sender": {
             "$ref": "#/components/schemas/CardSenderView"
@@ -4571,6 +4846,56 @@
         "properties": {
           "inviter": {
             "$ref": "#/components/schemas/InviterView"
+          }
+        }
+      },
+      "ReactionList": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReactionView"
+            },
+            "description": "Newest first; only people who are still my friends."
+          }
+        }
+      },
+      "ReactionRequest": {
+        "type": "object",
+        "description": "Body of `PUT /v1/cards/{id}/reaction`.",
+        "required": [
+          "kind"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "description": "One of `reactions` from `GET /v1/config` (e.g. `react.heart`, `react.squish`)."
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReactionView": {
+        "type": "object",
+        "description": "One reaction on my card.",
+        "required": [
+          "user",
+          "kind",
+          "updated_at"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "user": {
+            "$ref": "#/components/schemas/CardSenderView"
           }
         }
       },

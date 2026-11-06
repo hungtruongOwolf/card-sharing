@@ -247,6 +247,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cards/{id}/reaction": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * React to a card. Auth: ses.
+         * @description Sets or replaces my one reaction on a card delivered to me that I may still see (same rule as
+         *     reading it). The owner cannot react to their own card. Only the owner sees reactions; other
+         *     recipients never do. A card I may not see is the same 404 as a missing one.
+         */
+        put: operations["setCardReaction"];
+        post?: never;
+        /** Remove my reaction. Auth: ses. Same visibility rule as reacting. */
+        delete: operations["deleteCardReaction"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cards/{id}/reactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Reactions on my card. Auth: ses. Owner only: recipients get the same 404 as a missing card. */
+        get: operations["listCardReactions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/config": {
         parameters: {
             query?: never;
@@ -862,6 +902,11 @@ export interface components {
              */
             min_app_version: string;
             /**
+             * @description Reaction ids a recipient may send (US-17), in display order; ids in
+             *     `kill_switches.reactions` are refused even when listed here.
+             */
+            reactions: string[];
+            /**
              * @description Sanitizer caps and term lists of the shared text filter, for instant hints while typing
              *     (captions, names). The server checks again on submit and its answer is final.
              */
@@ -958,6 +1003,11 @@ export interface components {
             id: string;
             is_mine: boolean;
             media?: components["schemas"]["CardMediaView"] | null;
+            /**
+             * @description The caller's own reaction (recipients; the owner sees all reactions via
+             *     `GET /v1/cards/{id}/reactions`).
+             */
+            my_reaction?: string | null;
             sender: components["schemas"]["CardSenderView"];
             /** Format: date-time */
             sent_at: string;
@@ -1230,6 +1280,22 @@ export interface components {
         /** @description What the invite landing page shows. */
         PublicInviteResponse: {
             inviter: components["schemas"]["InviterView"];
+        };
+        ReactionList: {
+            /** @description Newest first; only people who are still my friends. */
+            items: components["schemas"]["ReactionView"][];
+        };
+        /** @description Body of `PUT /v1/cards/{id}/reaction`. */
+        ReactionRequest: {
+            /** @description One of `reactions` from `GET /v1/config` (e.g. `react.heart`, `react.squish`). */
+            kind: string;
+        };
+        /** @description One reaction on my card. */
+        ReactionView: {
+            kind: string;
+            /** Format: date-time */
+            updated_at: string;
+            user: components["schemas"]["CardSenderView"];
         };
         ReadinessChecks: {
             /**
@@ -2151,6 +2217,192 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND: no card of mine with this id. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    setCardReaction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The card id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReactionRequest"];
+            };
+        };
+        responses: {
+            /** @description Reaction set. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description VALIDATION_FAILED: unknown or switched-off reaction. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND: no card delivered to me with this id. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    deleteCardReaction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The card id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No reaction of mine remains. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND: no card delivered to me with this id. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    listCardReactions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The card id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reactions on my card. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReactionList"];
+                };
             };
             /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
             401: {
