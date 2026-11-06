@@ -26,7 +26,7 @@ use tokio::net::TcpListener;
 
 /// `api` serves HTTP; `api migrate` applies database migrations and exits (run it from the
 /// deploy pipeline before rolling out a new version); `api worker` runs the job worker
-/// (ADR-0006) until SIGTERM.
+/// (ADR-0006) until SIGTERM; `api seed` writes local demo data (development and test only).
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let config = Config::from_env().context("invalid configuration")?;
@@ -47,11 +47,34 @@ async fn main() -> anyhow::Result<()> {
         Some("worker") => {
             return run_worker(&config, pool).await;
         }
+        Some("seed") => {
+            return run_seed(&config, pool).await;
+        }
         Some(other) => {
-            anyhow::bail!("unknown command {other:?} (expected no argument, `migrate` or `worker`)")
+            anyhow::bail!(
+                "unknown command {other:?} (expected no argument, `migrate`, `worker` or `seed`)"
+            )
         }
     }
 
+    let state = build_state(&config, pool)?;
+    let app = api::app(state, &config).into_make_service_with_connect_info::<SocketAddr>();
+    let listener = TcpListener::bind(config.bind_addr)
+        .await
+        .with_context(|| format!("failed to bind {}", config.bind_addr))?;
+    tracing::info!(addr = %config.bind_addr, "listening");
+
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
+        .await
+        .context("server error")?;
+
+    tracing::info!("shut down cleanly");
+    Ok(())
+}
+
+/// The HTTP application state from config (shared by the server and `api seed`).
+fn build_state(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<AppState> {
     let policy = PolicyService::from_path(&config.policy_config_path)
         .context("failed to load region policy config")?;
     tracing::info!(
@@ -105,7 +128,7 @@ async fn main() -> anyhow::Result<()> {
         attestation_service(&config.attestation)?,
         config.attestation.mode,
     );
-    let state = match media_store(&config, &clock)? {
+    let state = match media_store(config, &clock)? {
         Some(store) => state.with_media_store(store),
         None => state,
     };
@@ -119,21 +142,65 @@ async fn main() -> anyhow::Result<()> {
             state
         }
     };
-    let sign_in = sign_in_service(&config, identity, Arc::clone(&state.field_cipher), clock)?;
+    let sign_in = sign_in_service(config, identity, Arc::clone(&state.field_cipher), clock)?;
     let state = state.with_sign_in(Arc::new(sign_in));
 
-    let app = api::app(state, &config).into_make_service_with_connect_info::<SocketAddr>();
-    let listener = TcpListener::bind(config.bind_addr)
-        .await
-        .with_context(|| format!("failed to bind {}", config.bind_addr))?;
-    tracing::info!(addr = %config.bind_addr, "listening");
+    Ok(state)
+}
 
-    axum::serve(listener, app)
-        .with_graceful_shutdown(shutdown_signal())
-        .await
-        .context("server error")?;
-
-    tracing::info!("shut down cleanly");
+/// `api seed`: local demo users, friendships, cards and a shared board (src/seed.rs). Refused
+/// unless `API_ENV` is development or test; creates the S3 buckets when S3 storage is configured.
+async fn run_seed(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
+    use api::config::AppEnv;
+    if !matches!(
+        config.content_safety.env,
+        AppEnv::Development | AppEnv::Test
+    ) {
+        anyhow::bail!(
+            "`api seed` only runs with API_ENV=development or test (now {})",
+            config.content_safety.env.as_str()
+        );
+    }
+    if let Some(s3) = &config.media_s3 {
+        let store = media::S3ObjectStore::new(s3.clone(), Arc::new(SystemClock))
+            .context("invalid S3 media storage settings")?;
+        for bucket in [
+            media::Bucket::Quarantine,
+            media::Bucket::Clean,
+            media::Bucket::LegalHold,
+        ] {
+            store
+                .create_bucket(bucket)
+                .await
+                .with_context(|| format!("could not create the {} bucket", bucket.as_str()))?;
+        }
+    }
+    let state = build_state(config, pool)?;
+    let router = api::app(state.clone(), config);
+    let gates = media::ProcessSettings {
+        gates: api::workers::content_gates(&config.content_safety),
+        ..media::ProcessSettings::default()
+    };
+    let report = api::seed::run(&router, &state, &gates).await?;
+    println!(
+        "Seeded {} users, {} new cards, shared board {}.",
+        report.users.len(),
+        report.cards_created,
+        report.board_id
+    );
+    println!("Local development sessions (never share these; they expire like real ones):");
+    for user in &report.users {
+        println!(
+            "  @{:<11} id={} minor={}
+    access_token={}
+    refresh_token={}",
+            user.persona.handle,
+            user.id,
+            user.persona.age < 18,
+            user.session.access_token.expose(),
+            user.session.refresh_token.expose()
+        );
+    }
     Ok(())
 }
 

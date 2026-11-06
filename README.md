@@ -40,7 +40,10 @@ infra/            docker-compose for local services
 cp .env.example .env          # local-only placeholder credentials; edit as needed
 pnpm install
 pnpm infra:up                 # Postgres 17, Valkey, S3-compatible storage, Mailpit (healthchecked)
+pnpm dev:seed                 # production migrations + demo users, friendships, cards and a shared board
 ```
+
+Full runbook with env vars and demo steps: `context/wiki/engineering/local-dev.md`.
 
 | Service        | URL / port                                        |
 | -------------- | ------------------------------------------------- |
@@ -54,14 +57,15 @@ pnpm infra:up                 # Postgres 17, Valkey, S3-compatible storage, Mail
 ## Day-to-day
 
 ```sh
-pnpm dev:api        # Rust API on http://127.0.0.1:8080 (reads env; see .env.example)
+pnpm dev:api        # Rust API on http://127.0.0.1:8080 (loads .env; see .env.example)
+pnpm dev:worker     # job worker (loads .env)
 pnpm dev:web        # Next.js on http://localhost:3000  (try /b/abcdefghijklmnop1234)
 pnpm dev:mobile     # Expo dev server
 ```
 
 The API reads its config from environment variables (`API_*`, `RUST_LOG`) and **fails fast**
-on invalid values. `cargo run` does not load `.env` by itself; export the variables or use a tool
-such as `dotenvx run -- cargo run -p api`. Defaults are safe for local use (bind 127.0.0.1, CORS closed).
+on invalid values. `cargo run` does not load `.env` by itself; the `pnpm dev:*` scripts do (Node's
+`--env-file`, `tools/dev/run.mjs`). Defaults are safe for local use (bind 127.0.0.1, CORS closed).
 
 API endpoints so far: `GET /healthz` (liveness), `GET /readyz` (readiness), `GET /openapi.json`.
 Errors are RFC 9457 `application/problem+json`; every response carries `x-request-id`.

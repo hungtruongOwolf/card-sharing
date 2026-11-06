@@ -3,7 +3,7 @@ title: Engineering Conventions
 type: guide
 status: accepted
 updated: 2026-11-05
-related: [[security-baseline]], [[testing-strategy]], [[overview]], [[change-management]]
+related: [[security-baseline]], [[testing-strategy]], [[overview]], [[change-management]], [[local-dev]]
 ---
 # Engineering Conventions
 **TL;DR:** Small PRs, clear names, tests alongside code, server-side security, everything
@@ -33,6 +33,9 @@ decided is written down.
 - API types generated from the OpenAPI contract — never hand-copied.
 - Accessibility: semantic HTML, keyboard nav, `prefers-reduced-motion` respected for all animation.
 - No secrets, no authorization decisions in the frontend (UI hiding is UX only).
+
+## Local development
+- One-command local backend and demo data: see [[local-dev]] (`pnpm infra:up`, `pnpm dev:seed`, `pnpm dev:api`).
 
 ## Git workflow
 - Trunk-based: short-lived branches `feat/…`, `fix/…`, `chore/…`, `refactor/…`.
