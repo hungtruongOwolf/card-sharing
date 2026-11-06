@@ -231,6 +231,10 @@ pub fn router() -> ApiRouter<AppState> {
                 .idempotency(Idempotency::Required),
             routes!(cards::create_card),
         )
+        .route(
+            RoutePolicy::session().limited("cards.read"),
+            routes!(cards::get_card),
+        )
         .undocumented_policy(
             &Method::GET,
             "/openapi.json",

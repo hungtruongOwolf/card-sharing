@@ -400,6 +400,16 @@ with current friends (non-friends dropped silently, never named). Card (`pending
 the `cards.submitted {card_id, owner_id}` event are written in one transaction; the same `client_card_id` later returns the
 first card (202). Response `{card: {id, status, recipient_count}}`.
 
+Implemented (T-79, `crates/cards/src/access.rs`, `GET /v1/cards/{id}`, limit `cards.read` 300/min): visibility is one SQL
+predicate: owner (any status but `deleted`) **or** (`card.status = active` ∧ viewer's `card_recipients` row delivered and not
+hidden ∧ `social::friends_unblocked_sql!(viewer, owner)` ∧ `identity::account_active_sql!(owner)`). The social and identity
+macros keep those schemas owned by their modules; `cards::recipient_visible_sql!` is the shared recipient half (feed and
+boards reuse it). Anything else, or a malformed id, is the byte-identical 404. `CardView`: `{id, sender {id, display_name,
+avatar_url: null}, caption, alt_text, style, media {render_url, mask_url, original_url (owner only), expires_at} | null,
+sent_at, is_mine, status + hold (owner only)}`. URLs are signed per viewer for delivered cards whose media are `clean`
+(`feed_1080` derivatives; the original = full re-encode) and charged to the URL budget; a pending or held card has
+`media: null` even for its owner. `my_reaction` joins with T-84.
+
 ### Board read resolution (per viewer V, AC-19.7, AC-19.9, SR-6, SR-21)
 For each card pin (card C, owner O, pinner P): return the card with signed URLs only if C is `active` **and** (V = O, or V is a
 current recipient of C ∧ friends(V, O) ∧ ¬blocked(V, O)) **and** not (V is an adult ∧ P or O is a minor member ∧ ¬friends(V, that

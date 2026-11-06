@@ -227,3 +227,11 @@ routes:
     body: { audience: { mode: all } }
     idempotency_key: true
     expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 400, suspended: 403 }
+
+  # Read a card (T-79). A card the caller may not see is the same 404 as a missing id; the owner,
+  # recipient, stranger, unfriended, blocked, suspended-sender and held/pending cells are in
+  # tests/api/cards_read.rs.
+  - route: GET /v1/cards/{id}
+    path: /v1/cards/0192f0c1-7c1e-7a3b-9d2e-123456789abc
+    missing_path: /v1/cards/0192f0c1-7c1e-7a3b-9d2e-000000000000
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }

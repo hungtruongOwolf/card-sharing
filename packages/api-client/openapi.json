@@ -899,6 +899,102 @@
         }
       }
     },
+    "/v1/cards/{id}": {
+      "get": {
+        "tags": [
+          "cards"
+        ],
+        "summary": "Read one card. Auth: ses.",
+        "description": "Visible to its owner, or to a recipient it was delivered to who is still a friend of the\nowner, with no block either way, while the card is active (one SQL predicate). Anyone else,\nand any malformed id, gets the same 404 as a missing card. Media come as per-viewer signed\nURLs (10 min); `original_url` only for the owner; the owner also sees `status` and `hold`.",
+        "operationId": "getCard",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The card id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The card as the caller may see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CardEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: no card this caller may see.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED (requests or the signed-URL budget).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "TEMPORARILY_UNAVAILABLE: media signing not configured.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "cards.read",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
     "/v1/config": {
       "get": {
         "tags": [
@@ -3449,6 +3545,167 @@
           },
           "user": {
             "$ref": "#/components/schemas/UserSummaryView"
+          }
+        }
+      },
+      "CardEnvelope": {
+        "type": "object",
+        "required": [
+          "card"
+        ],
+        "properties": {
+          "card": {
+            "$ref": "#/components/schemas/CardView"
+          }
+        }
+      },
+      "CardHoldView": {
+        "type": "object",
+        "description": "Classifier hold (owner only).",
+        "required": [
+          "reason",
+          "appeal",
+          "expires_at"
+        ],
+        "properties": {
+          "appeal": {
+            "type": "string",
+            "description": "`none`, `pending`, `released`, `upheld` or `expired`."
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reason": {
+            "type": "string",
+            "description": "`nudity_classifier`."
+          }
+        }
+      },
+      "CardMediaView": {
+        "type": "object",
+        "description": "Signed media of a card. URLs live until `expires_at`; refetch the card after that.",
+        "required": [
+          "render_url",
+          "expires_at"
+        ],
+        "properties": {
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "mask_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "original_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Owner only (AC-13.6): never present for anyone else."
+          },
+          "render_url": {
+            "type": "string"
+          }
+        }
+      },
+      "CardSenderView": {
+        "type": "object",
+        "description": "The sender of a card as viewers see it.",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "avatar_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Signed avatar URL once avatars join the media pipeline; `null` for now."
+          },
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "CardView": {
+        "type": "object",
+        "description": "A card as one viewer may see it (card read, feed items).",
+        "required": [
+          "id",
+          "sender",
+          "style",
+          "sent_at",
+          "is_mine"
+        ],
+        "properties": {
+          "alt_text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "caption": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "hold": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CardHoldView",
+                "description": "Owner only, when the classifier held the card."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "is_mine": {
+            "type": "boolean"
+          },
+          "media": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CardMediaView",
+                "description": "`null` while the card is not delivered (the owner's pending or held card)."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sender": {
+            "$ref": "#/components/schemas/CardSenderView"
+          },
+          "sent_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Owner only: `pending_scan`, `held_review`, `active`, `blocked` or `failed`."
+          },
+          "style": {
+            "type": "object"
           }
         }
       },
