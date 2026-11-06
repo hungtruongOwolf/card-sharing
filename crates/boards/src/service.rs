@@ -2,6 +2,9 @@
 //! title and the backdrop; this module scopes client-generated ids to their owner and enforces
 //! the per-owner board cap under a lock, so concurrent creates cannot exceed it.
 
+use std::sync::Arc;
+
+use identity::AgeService;
 use platform::clock::SharedClock;
 use serde_json::Value;
 use sqlx::PgPool;
@@ -127,14 +130,22 @@ pub struct BoardService {
     pub(crate) pool: PgPool,
     pub(crate) clock: SharedClock,
     pub(crate) settings: BoardSettings,
+    /// Minor status of members for the minor rule (AC-19.9).
+    pub(crate) age: Arc<AgeService>,
 }
 
 impl BoardService {
-    pub fn new(pool: PgPool, clock: SharedClock, settings: BoardSettings) -> Self {
+    pub fn new(
+        pool: PgPool,
+        clock: SharedClock,
+        settings: BoardSettings,
+        age: Arc<AgeService>,
+    ) -> Self {
         Self {
             pool,
             clock,
             settings,
+            age,
         }
     }
 

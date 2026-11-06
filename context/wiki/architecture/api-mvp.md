@@ -380,6 +380,14 @@ items: `{id, kind, version, x, y, scale, rotation, z_key, mine, card? | decorati
 `since_version` (or with one ahead of the board): every live pin, `full: true`. With N: pins changed after N including tombstones
 **plus every live card pin**, `full: false` — card visibility changes without a board change (unfriend, block, delete, suspension), so
 card pins are always re-resolved. Negative or malformed `since_version`, unknown query fields → 400.
+Implemented (T-102, `ViewerContext` in `crates/boards/src/resolve.rs`, `crates/boards/src/members.rs`,
+`apps/api/src/routes/board_members.rs`, limit `boards.members.read` 60/min, SR-21, AC-19.9): `ViewerContext::restricted(person)` = viewer
+is an adult ∧ person ≠ viewer ∧ person is a minor ∧ not friends (no block) with the viewer. A card pin is a `private_tile` when its
+creator **or** the card's owner is restricted for the viewer (stricter than "minor member": the card owner need not be a member). Minor
+status comes from `AgeService::status` (computed per day from the DOB / OS signal, thresholds from region policy), looked up only for
+people the viewer is not friends with; a failed lookup counts as a minor and an unknown viewer as an adult (fail closed).
+`GET /v1/boards/{id}/members` → `{items: [{id, role, display_name, handle?, is_me, joined_at}]}`, owner first; `handle` is omitted for a
+restricted member (no avatars exist yet; when they do they follow `handle`). Non-members → the missing 404.
 
 ### Sharing (public links) & web
 | Method | Path | Purpose | Auth | Role | Object rule | Rate limit | Idem. | US |

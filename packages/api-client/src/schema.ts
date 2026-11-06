@@ -286,6 +286,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/boards/{id}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Members of a board. Auth: ses. Members only.
+         * @description An adult caller who is not friends with a minor member sees that member's display name only
+         *     (AC-19.9). Anyone who is not a member gets the same 404 as for a missing board.
+         */
+        get: operations["listBoardMembers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/boards/{id}/ops": {
         parameters: {
             query?: never;
@@ -1259,6 +1280,25 @@ export interface components {
         BoardList: {
             /** @description Boards the caller owns or collaborates on, most recently changed first. */
             items: components["schemas"]["BoardView"][];
+        };
+        BoardMemberList: {
+            /** @description The owner first, then collaborators by join time. */
+            items: components["schemas"]["BoardMemberView"][];
+        };
+        /**
+         * @description A member as the caller may see them. An adult caller who is not friends with a minor member
+         *     gets that member's display name only (no handle).
+         */
+        BoardMemberView: {
+            display_name?: string | null;
+            handle?: string | null;
+            /** Format: uuid */
+            id: string;
+            is_me: boolean;
+            /** Format: date-time */
+            joined_at: string;
+            /** @description `owner` or `collaborator`. */
+            role: string;
         };
         /**
          * @description One pin as the caller may see it, discriminated by `kind`:
@@ -2981,6 +3021,65 @@ export interface operations {
             };
             /** @description TEMPORARILY_UNAVAILABLE: media signing not configured. */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    listBoardMembers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The board id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The board's members. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BoardMemberList"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND: no board of which the caller is a member. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

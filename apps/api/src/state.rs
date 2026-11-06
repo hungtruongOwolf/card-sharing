@@ -104,7 +104,7 @@ impl AppState {
             })),
             attestation: Arc::new(AttestationService::new(None, None)),
             attestation_mode: AttestationMode::LogOnly,
-            age,
+            age: Arc::clone(&age),
             social,
             cards: Arc::new(cards::CardService::new(
                 identity.pool().clone(),
@@ -114,6 +114,7 @@ impl AppState {
                 identity.pool().clone(),
                 identity.clock(),
                 boards::BoardSettings::default(),
+                Arc::clone(&age),
             )),
             activity: Arc::new(notifications::Activity::new(
                 identity.pool().clone(),
@@ -166,8 +167,10 @@ impl AppState {
             Arc::clone(&self.field_cipher),
             enabled,
         ));
+        let boards = self.boards.settings().clone();
         let settings = self.social.settings().clone();
         self.with_social_settings(settings)
+            .with_board_settings(boards)
     }
 
     /// Installs object storage for media (`API_MEDIA_STORAGE_DIR`; tests use memory).
@@ -244,6 +247,7 @@ impl AppState {
             self.identity.pool().clone(),
             self.identity.clock(),
             settings,
+            Arc::clone(&self.age),
         ));
         self
     }

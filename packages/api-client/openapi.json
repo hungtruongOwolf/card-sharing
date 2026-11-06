@@ -1277,6 +1277,92 @@
         }
       }
     },
+    "/v1/boards/{id}/members": {
+      "get": {
+        "tags": [
+          "boards"
+        ],
+        "summary": "Members of a board. Auth: ses. Members only.",
+        "description": "An adult caller who is not friends with a minor member sees that member's display name only\n(AC-19.9). Anyone who is not a member gets the same 404 as for a missing board.",
+        "operationId": "listBoardMembers",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The board id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The board's members.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardMemberList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: no board of which the caller is a member.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "boards.members.read",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
     "/v1/boards/{id}/ops": {
       "post": {
         "tags": [
@@ -5307,6 +5393,60 @@
               "$ref": "#/components/schemas/BoardView"
             },
             "description": "Boards the caller owns or collaborates on, most recently changed first."
+          }
+        }
+      },
+      "BoardMemberList": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BoardMemberView"
+            },
+            "description": "The owner first, then collaborators by join time."
+          }
+        }
+      },
+      "BoardMemberView": {
+        "type": "object",
+        "description": "A member as the caller may see them. An adult caller who is not friends with a minor member\ngets that member's display name only (no handle).",
+        "required": [
+          "id",
+          "role",
+          "is_me",
+          "joined_at"
+        ],
+        "properties": {
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "handle": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "is_me": {
+            "type": "boolean"
+          },
+          "joined_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "role": {
+            "type": "string",
+            "description": "`owner` or `collaborator`."
           }
         }
       },

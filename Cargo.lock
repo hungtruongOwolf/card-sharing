@@ -314,6 +314,7 @@ dependencies = [
  "cards",
  "identity",
  "platform",
+ "policy",
  "serde",
  "serde_json",
  "serde_norway",
