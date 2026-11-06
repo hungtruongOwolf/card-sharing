@@ -1,0 +1,16 @@
+# Moderation rules (US-26, US-27, SR-31) — see crates/moderation/src/settings.rs and
+# context/wiki/architecture/api-mvp.md "Safety, moderation". Report rate limits live in
+# config/limits.yaml. Reports never trigger an automatic action.
+version: 1
+
+reports:
+  # Queue priority per reason (higher is reviewed first; 0..=1000). Minor safety and sexual
+  # content come first (AC-27.3).
+  priorities:
+    minor_safety: 100
+    sexual: 90
+    violence: 60
+    hate: 50
+    harassment: 50
+    spam: 20
+    other: 10

@@ -8,7 +8,7 @@ use crate::routes::{
     activity, age_signal, app_config, attestation, auth, blocks, board_invitations, board_members,
     board_ops, board_read, boards, cards, deletion, dev_auth, devices, exports, feed,
     friend_requests, friends, health, invites, me, media, media_files, notification_preferences,
-    public_boards, public_invites, public_links, sessions, user_search, widget,
+    public_boards, public_invites, public_links, reports, sessions, user_search, widget,
 };
 use crate::state::AppState;
 use platform::problem::ProblemDetails;
@@ -40,6 +40,7 @@ Every operation carries `x-policy` (auth kind, role, attestation) from its deny-
         (name = cards::TAG, description = "Cards: send to friends, read, delete, react (US-13..US-17)"),
         (name = boards::TAG, description = "Personal and shared boards of pinned cards (US-18..US-20, ADR-0007)"),
         (name = public_links::TAG, description = "Public board links (US-24)"),
+        (name = reports::TAG, description = "Reports of cards, boards, public links and users (US-26)"),
         (name = media::TAG, description = "Image uploads into quarantine and their state (ADR-0005)"),
         (name = app_config::TAG, description = "Public client configuration"),
         (name = public_invites::TAG, description = "Server-to-server routes for the web share app (svc, /v1/public/*)"),
@@ -386,6 +387,12 @@ pub fn router() -> ApiRouter<AppState> {
         .route(
             RoutePolicy::session().limited("boards.invitations.decline"),
             routes!(board_invitations::decline_board_invitation),
+        )
+        .route(
+            RoutePolicy::session()
+                .limited("reports.create")
+                .idempotency(Idempotency::Required),
+            routes!(reports::create_report),
         )
         .route(
             RoutePolicy::reauth().limited("privacy.exports.request"),

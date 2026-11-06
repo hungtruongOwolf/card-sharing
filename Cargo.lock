@@ -76,6 +76,7 @@ dependencies = [
  "identity",
  "image",
  "media",
+ "moderation",
  "notifications",
  "platform",
  "policy",
@@ -1395,6 +1396,21 @@ dependencies = [
  "libc",
  "wasi",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "moderation"
+version = "0.1.0"
+dependencies = [
+ "platform",
+ "serde",
+ "serde_json",
+ "serde_norway",
+ "sqlx",
+ "thiserror",
+ "time",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]

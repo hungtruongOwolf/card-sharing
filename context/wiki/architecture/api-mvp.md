@@ -581,6 +581,20 @@ Kill switches are not enforced server-side yet.
 | POST | /v1/admin/reports/{id}/actions | dismiss / remove_content / revoke_link / warn / suspend / ban / release_hold / uphold_hold `{reason, until?}` (release ⇒ card delivered) | staff | moderator (ban: admin) | target of that report | 120/min staff | `Idempotency-Key` | US-27 AC-27.1, AC-28.3 |
 | POST | /v1/admin/auth/login, /v1/admin/auth/mfa | Staff sign-in + MFA step | none → staff | staff | `staff_members` row, not disabled | 5/15 min ip | no | US-27 |
 | POST | /v1/me/deletion | Request deletion (logout everywhere, hide ≤ 60 s) | re | user | self | 3/day u | yes | US-29 |
+
+Implemented (T-141, #143): `routes/reports.rs` → `crates/moderation` (`ReportService`, table `moderation.reports`).
+`POST /v1/reports` (ses, `Idempotency-Key` required, limit `reports.create` 20/day per user) `{target: {type:
+card|board|public_link|user, id}, reason: sexual|minor_safety|harassment|violence|hate|spam|other, note?: ≤ 500 chars}` → 202
+`{report: {id, status: "received", created_at}}`. The target is resolved by its owning module and must be visible to the caller
+right now: a card through `CardService::visible` (recipient or owner rules), a board the caller is a collaborator of
+(`BoardService::summary`), a live public link by the **token** from its URL (link ids are owner-only), a user who is a friend
+or whom the caller blocked. Anything else — missing, hidden, deleted, malformed ids, the caller's own card/board/link/self — is
+the same 404 `NOT_FOUND` as a missing id (authz matrix row + `tests/api/reports.rs`). One report per reporter and target
+(partial unique index): reporting again, with any reason, answers the first report and stores nothing. Priority comes from
+`config/moderation.yaml` (`reports.priorities`: minor_safety 100, sexual 90, violence 60, hate/harassment 50, spam 20, other
+10). Reports never trigger an automatic action (SR-31). Notes are trimmed, control characters refused. PersonalData: the
+reporter's export lists the reports they filed; erasure clears `reporter_id` and the note but keeps the report; reports about
+an account are kept for the moderation retention period and are not exported to the reported person.
 | DELETE | /v1/me/deletion | Cancel during 7-day grace | ses (deletion-pending allowed) | user | self, before `grace_until` | 10/day u | yes | US-29 AC-29.2 |
 
 Implemented (T-151, #153): `routes/deletion.rs` → `crates/privacy` (`DeletionService`). `POST /v1/me/deletion` (`re`: bearer +

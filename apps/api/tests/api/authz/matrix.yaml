@@ -91,6 +91,14 @@ routes:
         service: 404,
       }
 
+  # Reports (T-141): a random card id is not visible to anyone (the missing 404). Visible targets,
+  # dedupe and validation: tests/api/reports.rs.
+  - route: POST /v1/reports
+    body: { target: { type: card, id: $UUID_V7 }, reason: spam }
+    idempotency_key: true
+    missing_path: /v1/reports
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }
+
   - route: POST /v1/auth/refresh
     body: { refresh_token: $REFRESH_TOKEN }
     expect: { guest: 401, onboarding_age: 200, onboarding_profile: 200, user: 200, suspended: 401 }
