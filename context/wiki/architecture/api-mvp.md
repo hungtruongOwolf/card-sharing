@@ -489,7 +489,8 @@ App (T-134, #136): `apps/mobile/src/features/boards` — `publicLinksApi.ts` (li
 revoke; a created URL is accepted only as `https://<host>/b/<token>`), `PublicLinksSheet.tsx` ("Share link" on the board
 toolbar, owner of a server board only): a one-time link-preview disclosure (AC-24.7), expiry 24 h / 7 days / never
 (default 7 days), the URL shown once with a Share button (no clipboard module is installed; the OS share sheet offers
-copy), active links with Revoke. `publicLinkPrefs.ts` keeps "disclosure seen" and "refused" per device in SecureStore,
+copy), active links with Revoke. A replayed create (`url_already_shown: true`, no `url`, #357) says the URL was shown
+once and offers "Revoke and create a new link". `publicLinkPrefs.ts` keeps "disclosure seen" and "refused" per device in SecureStore,
 cleared on sign-out. The app reads `policy.public_links.allowed` from `/v1/me` (#136, #321): `false` hides the action
 before any attempt, so a minor never sees it (AC-24.6); a missing flag shows it, and a 403 `POLICY_DISALLOWED` still hides
 it for good on that device (covers a policy that changed after `/v1/me` was read).

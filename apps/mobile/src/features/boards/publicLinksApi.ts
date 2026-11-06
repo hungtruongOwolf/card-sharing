@@ -19,10 +19,17 @@ export interface PublicLink {
   readonly expiresAt: number | null;
 }
 
-export interface CreatedLink extends PublicLink {
-  /** `<share base>/b/<token>`: shown once. */
-  readonly url: string;
-}
+/**
+ * A created link. The first answer carries the URL (`<share base>/b/<token>`), shown once. An idempotent replay of
+ * the same create (a retry after a lost response) answers the same link without the URL and with
+ * `url_already_shown: true` (#333, #357): the raw URL is not kept for replays, so the owner revokes it and creates a
+ * new one to share again.
+ */
+export type CreatedLink = PublicLink &
+  (
+    | { readonly url: string; readonly urlAlreadyShown: false }
+    | { readonly url: null; readonly urlAlreadyShown: true }
+  );
 
 /** The owner may not create public links in their region (AC-24.6): the app hides the action from then on. */
 export class LinksDisallowedError extends Error {
@@ -55,15 +62,15 @@ export function parseLink(value: unknown): PublicLink | null {
 export function parseCreated(value: unknown): CreatedLink | null {
   const link = isObject(value) && isObject(value.link) ? value.link : null;
   const parsed = parseLink(link);
-  const url = link?.url;
-  if (
-    !parsed ||
-    typeof url !== 'string' ||
-    !/^https:\/\/[^\s/]+\/b\/[A-Za-z0-9_-]{16,}$/.test(url)
-  ) {
+  if (!parsed || !link) return null;
+  const url = link.url;
+  if (url === undefined || url === null) {
+    return link.url_already_shown === true ? { ...parsed, url: null, urlAlreadyShown: true } : null;
+  }
+  if (typeof url !== 'string' || !/^https:\/\/[^\s/]+\/b\/[A-Za-z0-9_-]{16,}$/.test(url)) {
     return null;
   }
-  return { ...parsed, url };
+  return { ...parsed, url, urlAlreadyShown: false };
 }
 
 export function createPublicLinksApi(fetcher: AuthClient['fetch']): PublicLinksApi {

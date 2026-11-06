@@ -96,6 +96,16 @@ describe('public links api (T-129 contract)', () => {
       },
     });
     expect(parseCreated(body(URL_ONCE))?.url).toBe(URL_ONCE);
+    // An idempotent replay (#357): same link, no URL, url_already_shown.
+    const replay = {
+      link: { id: LINK, board_id: BOARD, created_at: '2026-11-06T00:00:00Z', expires_at: null },
+    };
+    expect(parseCreated({ link: { ...replay.link, url_already_shown: true } })).toMatchObject({
+      id: LINK,
+      url: null,
+      urlAlreadyShown: true,
+    });
+    expect(parseCreated(replay)).toBeNull();
     for (const bad of [
       'javascript:alert(1)',
       'http://share.example/b/3q2-7wAAAAAAAAAAAAAAAA',
@@ -116,6 +126,7 @@ function fakeApi(over: Partial<PublicLinksApi> = {}) {
         createdAt: 0,
         expiresAt: Date.parse('2026-11-13T00:00:00Z'),
         url: URL_ONCE,
+        urlAlreadyShown: false as const,
       };
       links = [link];
       return link;
@@ -171,6 +182,36 @@ describe('PublicLinksSheet (T-134)', () => {
     });
     expect(api.revoke).toHaveBeenCalledWith(LINK);
     await waitFor(() => expect(screen.queryByText(URL_ONCE)).toBeNull());
+  });
+
+  it('explains a replayed create without a URL and replaces the link (#357)', async () => {
+    let calls = 0;
+    const api = fakeApi({
+      create: jest.fn(async (): Promise<CreatedLink> => {
+        calls += 1;
+        return calls === 1
+          ? { id: LINK, createdAt: 0, expiresAt: null, url: null, urlAlreadyShown: true }
+          : {
+              id: '0192f0ff-0000-7000-8000-000000000002',
+              createdAt: 0,
+              expiresAt: null,
+              url: URL_ONCE,
+              urlAlreadyShown: false,
+            };
+      }),
+    });
+    const { share } = await open(api, memoryPublicLinkPrefs({ disclosureSeen: true }));
+    const user = userEvent.setup();
+    await user.press(await screen.findByRole('button', { name: t('boards.links.create') }));
+    expect(await screen.findByText(t('boards.links.alreadyShown'))).toBeTruthy();
+    expect(screen.queryByRole('button', { name: t('boards.links.share') })).toBeNull();
+    expect(share).not.toHaveBeenCalled();
+
+    await user.press(screen.getByRole('button', { name: t('boards.links.replace') }));
+    expect(api.revoke).toHaveBeenCalledWith(LINK);
+    expect(await screen.findByText(URL_ONCE)).toBeTruthy();
+    expect(api.create).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText(t('boards.links.alreadyShown'))).toBeNull();
   });
 
   it('skips the explanation once seen', async () => {

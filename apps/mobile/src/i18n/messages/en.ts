@@ -893,6 +893,9 @@ export const en = {
   'boards.links.expiry.never': 'No expiry',
   'boards.links.create': 'Create link',
   'boards.links.once': 'Copy or share it now: for your safety the link is shown only once.',
+  'boards.links.alreadyShown':
+    'Link created; its URL was shown once. Revoke it and create a new one to share again.',
+  'boards.links.replace': 'Revoke and create a new link',
   'boards.links.share': 'Share link',
   'boards.links.live': 'Active links',
   'boards.links.none': 'No active links.',
