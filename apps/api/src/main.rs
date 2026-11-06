@@ -581,6 +581,11 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
             Arc::new(api::workers::ScanBacklog(media)),
         )
         .periodic(
+            "identity.lift_suspensions",
+            std::time::Duration::from_secs(300),
+            Arc::new(LiftSuspensions(Arc::clone(&identity))),
+        )
+        .periodic(
             "identity.magic_links.purge",
             std::time::Duration::from_secs(3600),
             Arc::new(MagicLinkPurge(identity)),
@@ -665,6 +670,25 @@ fn mailer(config: &MailConfig) -> anyhow::Result<Arc<dyn Mailer>> {
 }
 
 /// Deletes magic links older than 24 hours.
+/// Ends temporary suspensions whose end passed (T-147).
+struct LiftSuspensions(Arc<IdentityService>);
+
+impl PeriodicTask for LiftSuspensions {
+    fn run(&self) -> PeriodicFuture {
+        let identity = Arc::clone(&self.0);
+        Box::pin(async move {
+            let lifted = identity
+                .lift_expired_suspensions()
+                .await
+                .map_err(|e| e.to_string())?;
+            if lifted > 0 {
+                tracing::info!(event = "identity.suspensions_lifted", lifted);
+            }
+            Ok(())
+        })
+    }
+}
+
 struct MagicLinkPurge(Arc<IdentityService>);
 
 impl PeriodicTask for MagicLinkPurge {

@@ -44,6 +44,8 @@ pub enum AuditAction {
     StaffView,
     /// An account was banned (T-146).
     AccountBanned,
+    /// A temporary suspension ended (T-147).
+    AccountUnsuspended,
 }
 
 impl AuditAction {
@@ -64,6 +66,7 @@ impl AuditAction {
             Self::ModerationAction => "moderation.action",
             Self::StaffView => "moderation.staff_view",
             Self::AccountBanned => "account.banned",
+            Self::AccountUnsuspended => "account.unsuspended",
         }
     }
 }

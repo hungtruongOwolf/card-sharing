@@ -165,8 +165,9 @@ async fn a_match_blocks_preserves_evidence_and_suspends_the_account() {
         .await
         .unwrap();
     assert_eq!(status, "suspended");
+    // T-147: the revoked session of a suspended account answers the neutral 403.
     let after = call(&env, "GET", &format!("/v1/media/{id}"), &user, None).await;
-    assert_eq!(after.status(), StatusCode::UNAUTHORIZED);
+    assert_problem(after, StatusCode::FORBIDDEN, "ACCOUNT_SUSPENDED").await;
     // Idempotent.
     assert!(
         !env.identity

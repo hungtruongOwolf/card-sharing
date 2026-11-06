@@ -31,6 +31,7 @@ mod cards_read;
 mod cards_send;
 mod deletion;
 mod dev_sign_in;
+mod enforcement;
 mod erasure;
 mod exports;
 mod feed;

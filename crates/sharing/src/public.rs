@@ -39,11 +39,12 @@ impl SharingService {
         if !well_formed(raw_token) {
             return Ok(None);
         }
-        let row: Option<(Uuid, Uuid, Uuid)> = sqlx::query_as(
+        let row: Option<(Uuid, Uuid, Uuid)> = sqlx::query_as(concat!(
             "SELECT id, board_id, owner_id FROM sharing.public_links
-             WHERE token_hash = $1 AND revoked_at IS NULL
-               AND (expires_at IS NULL OR expires_at > $2)",
-        )
+                 WHERE token_hash = $1 AND revoked_at IS NULL
+                   AND (expires_at IS NULL OR expires_at > $2) AND ",
+            identity::account_active_sql!("owner_id")
+        ))
         .bind(token_hash(raw_token))
         .bind(self.clock.now())
         .fetch_optional(&self.pool)

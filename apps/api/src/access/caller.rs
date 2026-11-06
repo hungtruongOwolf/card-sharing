@@ -31,6 +31,9 @@ pub enum ResolveError {
     Expired,
     #[error("session revoked")]
     Revoked,
+    /// The account is suspended or banned (its sessions were ended for that reason).
+    #[error("account suspended or banned")]
+    Blocked,
     #[error("session store unavailable: {0}")]
     Unavailable(String),
 }
@@ -41,6 +44,7 @@ impl From<ResolveError> for ApiError {
             ResolveError::Unknown => Self::Unauthenticated,
             ResolveError::Expired => Self::SessionExpired,
             ResolveError::Revoked => Self::SessionRevoked,
+            ResolveError::Blocked => Self::AccountSuspended,
             ResolveError::Unavailable(reason) => {
                 tracing::error!(%reason, "session lookup failed");
                 Self::Unavailable {
