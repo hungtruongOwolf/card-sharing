@@ -308,6 +308,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/devices/{deviceId}/push-tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Register a push token for this device. Auth: ses.
+         * @description Replaces the device's token of the same kind. A token already registered elsewhere (another
+         *     account or device) moves here; the old holder stops receiving. The token only works while the
+         *     session that registered it is live (logout, suspension or deletion stop pushes).
+         */
+        put: operations["putPushToken"];
+        post?: never;
+        /**
+         * Remove this device's push tokens. Auth: onb/ses.
+         * @description Idempotent: a device without tokens also answers 204.
+         */
+        delete: operations["deletePushTokens"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/feed": {
         parameters: {
             query?: never;
@@ -1316,6 +1342,21 @@ export interface components {
              *     subset of the request; a card the caller may still see is never listed.
              */
             purge: string[];
+        };
+        /** @description Body of `PUT /v1/devices/{deviceId}/push-tokens`. */
+        PushTokenRequest: {
+            /**
+             * @description `alert` (user-visible notifications) or `widget` (silent widget refreshes).
+             * @example alert
+             */
+            kind: string;
+            /**
+             * @description `apns` (iOS) or `fcm` (Android).
+             * @example apns
+             */
+            provider: string;
+            /** @description The provider token: APNs hex device token, or FCM registration token. */
+            token: string;
         };
         ReactionList: {
             /** @description Newest first; only people who are still my friends. */
@@ -2502,6 +2543,133 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    putPushToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The calling session's device id. */
+                deviceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PushTokenRequest"];
+            };
+        };
+        responses: {
+            /** @description Registered. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description VALIDATION_FAILED: unknown provider or kind, or a malformed token. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND: not the calling session's device. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    deletePushTokens: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The calling session's device id. */
+                deviceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND: not the calling session's device. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
             };
             /** @description RATE_LIMITED. */
             429: {
