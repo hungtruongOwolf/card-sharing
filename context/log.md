@@ -243,3 +243,7 @@
   found and fixed a T-67/API contract gap (mask must match the render size).
 - Defaults kept: held cards say "only you can see this, no one received it" without a reason; offline feed shows text
   only (no media or URLs persisted).
+
+## [2026-11-06] plan | Sprint 5 started (M4 part 2, device-free)
+- [[sprint-5]]: backend #251, T-83, T-85, T-86 (fake push), T-87, T-88, T-91, T-97; mobile T-81, T-83, T-87, T-88.
+  Native widgets, widget spikes and real push wait for a device build and store accounts.

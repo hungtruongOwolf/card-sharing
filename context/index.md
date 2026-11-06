@@ -49,6 +49,7 @@ Tip: open `context/` as an Obsidian vault for graph/backlinks; run `python tools
 - [[sprint-2]] — wiki/progress/sprint-2.md — Sprint 2: idempotency/jobs/outbox/audit, sessions, age service, attestation, registry, contours, capture (accepted)
 - [[sprint-3]] — wiki/progress/sprint-3.md — Sprint 3: friends (invites, requests, caps, handle search, unfriend, block, landing page) (accepted)
 - [[sprint-4]] — wiki/progress/sprint-4.md — Sprint 4: media pipeline, CSAM/nudity gates (fake adapters), send, deliver, feed (accepted)
+- [[sprint-5]] — wiki/progress/sprint-5.md — Sprint 5: purges, push (fake adapter), toggles, activity, widget endpoint, SLO metrics, R2/S3 (accepted)
 - backlog.json — wiki/progress/backlog.json — 169 tickets (source for GitHub issues); regenerate with `python tools/planning/gen.py`
 
 ## Raw sources
