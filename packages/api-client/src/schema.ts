@@ -217,6 +217,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cards/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read one card. Auth: ses.
+         * @description Visible to its owner, or to a recipient it was delivered to who is still a friend of the
+         *     owner, with no block either way, while the card is active (one SQL predicate). Anyone else,
+         *     and any malformed id, gets the same 404 as a missing card. Media come as per-viewer signed
+         *     URLs (10 min); `original_url` only for the owner; the owner also sees `status` and `hold`.
+         */
+        get: operations["getCard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/config": {
         parameters: {
             query?: never;
@@ -867,6 +890,51 @@ export interface components {
             /** Format: date-time */
             blocked_at: string;
             user: components["schemas"]["UserSummaryView"];
+        };
+        CardEnvelope: {
+            card: components["schemas"]["CardView"];
+        };
+        /** @description Classifier hold (owner only). */
+        CardHoldView: {
+            /** @description `none`, `pending`, `released`, `upheld` or `expired`. */
+            appeal: string;
+            /** Format: date-time */
+            expires_at: string;
+            /** @description `nudity_classifier`. */
+            reason: string;
+        };
+        /** @description Signed media of a card. URLs live until `expires_at`; refetch the card after that. */
+        CardMediaView: {
+            /** Format: date-time */
+            expires_at: string;
+            mask_url?: string | null;
+            /** @description Owner only (AC-13.6): never present for anyone else. */
+            original_url?: string | null;
+            render_url: string;
+        };
+        /** @description The sender of a card as viewers see it. */
+        CardSenderView: {
+            /** @description Signed avatar URL once avatars join the media pipeline; `null` for now. */
+            avatar_url?: string | null;
+            display_name?: string | null;
+            /** Format: uuid */
+            id: string;
+        };
+        /** @description A card as one viewer may see it (card read, feed items). */
+        CardView: {
+            alt_text?: string | null;
+            caption?: string | null;
+            hold?: components["schemas"]["CardHoldView"] | null;
+            /** Format: uuid */
+            id: string;
+            is_mine: boolean;
+            media?: components["schemas"]["CardMediaView"] | null;
+            sender: components["schemas"]["CardSenderView"];
+            /** Format: date-time */
+            sent_at: string;
+            /** @description Owner only: `pending_scan`, `held_review`, `active`, `blocked` or `failed`. */
+            status?: string | null;
+            style: Record<string, never>;
         };
         /**
          * @description A single-use challenge, valid 5 minutes, for one key attestation or one `X-Attestation`
@@ -1954,6 +2022,74 @@ export interface operations {
             };
             /** @description RATE_LIMITED (100 sends per day). */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    getCard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The card id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The card as the caller may see it. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardEnvelope"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND: no card this caller may see. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED (requests or the signed-URL budget). */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description TEMPORARILY_UNAVAILABLE: media signing not configured. */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
