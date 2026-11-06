@@ -95,7 +95,7 @@ impl AppState {
             )),
             identity,
             limiter: Arc::new(limiter),
-            client: Arc::new(client),
+            client: Arc::new(client.with_text_filter(profile.text_filter.client_hints().clone())),
             field_cipher,
             profile: Arc::new(profile),
             ip_country_header: None,

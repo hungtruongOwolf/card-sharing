@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import { t } from '../../i18n';
+import type { TextFilterConfig } from '../../text';
 import { Button, Sheet, TextField } from '../../ui';
 import { captionInputCap, checkCaption } from './captionRules';
 
@@ -9,6 +10,8 @@ export interface CaptionSheetProps {
   /** The saved caption (already sanitized). */
   caption: string;
   max: number;
+  /** Served term lists (`/v1/config` `text_filter`); undefined while loading or offline. */
+  textFilter?: TextFilterConfig;
   onSave: (caption: string) => void;
   onClose: () => void;
 }
@@ -17,7 +20,14 @@ export interface CaptionSheetProps {
  * Caption editor sheet (T-69): grapheme counter, the shared filter's hint, Save disabled while the caption
  * breaks a rule. Saves the sanitized text (bidi controls and invisible characters stripped before send).
  */
-export function CaptionSheet({ visible, caption, max, onSave, onClose }: CaptionSheetProps) {
+export function CaptionSheet({
+  visible,
+  caption,
+  max,
+  textFilter,
+  onSave,
+  onClose,
+}: CaptionSheetProps) {
   const [draft, setDraft] = useState(caption);
   // Each opening starts from the saved caption (state adjusted during render, not in an effect).
   const [wasVisible, setWasVisible] = useState(visible);
@@ -26,7 +36,7 @@ export function CaptionSheet({ visible, caption, max, onSave, onClose }: Caption
     if (visible) setDraft(caption);
   }
 
-  const check = checkCaption(draft, max);
+  const check = checkCaption(draft, max, textFilter);
   const error =
     check.issue === 'tooLong'
       ? t('caption.tooLong', { over: check.length - max })

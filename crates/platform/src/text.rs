@@ -22,10 +22,11 @@
 use std::collections::{BTreeMap, HashSet};
 use std::path::Path;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use unicode_normalization::UnicodeNormalization;
 use unicode_normalization::char::{canonical_combining_class, is_combining_mark};
 use unicode_segmentation::UnicodeSegmentation;
+use utoipa::ToSchema;
 
 const SUPPORTED_VERSION: u32 = 1;
 const ZWJ: char = '\u{200D}';
@@ -57,12 +58,12 @@ struct RawConfig {
     version: u32,
     max_marks_per_grapheme: usize,
     max_chars_per_grapheme: usize,
-    lists: BTreeMap<String, RawList>,
+    lists: BTreeMap<String, HintList>,
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize, Serialize, ToSchema, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
-struct RawList {
+pub struct HintList {
     /// Blocked when the folded text has a whole word equal to the term.
     #[serde(default)]
     words: Vec<String>,
@@ -70,6 +71,20 @@ struct RawList {
     /// single letters such as `f.u.c.k`). Use for terms that rarely occur inside innocent words.
     #[serde(default)]
     contains: Vec<String>,
+}
+
+/// The filter's settings as served to clients in `GET /v1/config` (#213): the sanitizer caps and
+/// the term lists exactly as written in `config/text_filter.yaml`. For instant hints in the app
+/// only; the server's own check stays authoritative. Public by design (EM decision 2026-11-05).
+#[derive(Debug, Clone, Default, Serialize, ToSchema, PartialEq, Eq)]
+pub struct TextFilterHints {
+    pub version: u32,
+    /// Combining marks kept per grapheme cluster (viramas exempt).
+    pub max_marks_per_grapheme: usize,
+    /// Grapheme clusters with more code points than this are dropped.
+    pub max_chars_per_grapheme: usize,
+    /// List name -> terms.
+    pub lists: BTreeMap<String, HintList>,
 }
 
 /// Length rule of one field, in grapheme clusters of the sanitized text.
@@ -104,6 +119,7 @@ pub struct TextFilter {
     max_marks_per_grapheme: usize,
     max_chars_per_grapheme: usize,
     lists: Vec<TermList>,
+    hints: TextFilterHints,
 }
 
 impl TextFilter {
@@ -117,6 +133,12 @@ impl TextFilter {
                 "max_chars_per_grapheme must be at least 1".to_owned(),
             ));
         }
+        let hints = TextFilterHints {
+            version: raw.version,
+            max_marks_per_grapheme: raw.max_marks_per_grapheme,
+            max_chars_per_grapheme: raw.max_chars_per_grapheme,
+            lists: raw.lists.clone(),
+        };
         let mut lists = Vec::with_capacity(raw.lists.len());
         for (name, list) in raw.lists {
             let fold_term = |term: &String| {
@@ -143,6 +165,7 @@ impl TextFilter {
             max_marks_per_grapheme: raw.max_marks_per_grapheme,
             max_chars_per_grapheme: raw.max_chars_per_grapheme,
             lists,
+            hints,
         })
     }
 
@@ -152,6 +175,11 @@ impl TextFilter {
             source,
         })?;
         Self::from_yaml_str(&yaml)
+    }
+
+    /// The client hint copy of this filter, served by `GET /v1/config`.
+    pub fn client_hints(&self) -> &TextFilterHints {
+        &self.hints
     }
 
     /// Sanitizes, then applies the length rule and the term lists. Returns the sanitized text,
@@ -474,6 +502,19 @@ lists:
         min_graphemes: 2,
         max_graphemes: 30,
     };
+
+    #[test]
+    fn client_hints_are_the_terms_as_written() {
+        let hints = filter().client_hints().clone();
+        assert_eq!(hints.version, 1);
+        assert_eq!(hints.max_marks_per_grapheme, 2);
+        assert_eq!(hints.max_chars_per_grapheme, 12);
+        assert_eq!(hints.lists.len(), 2);
+        let profanity = &hints.lists["profanity"];
+        assert_eq!(profanity.words, ["darn", "heck"]);
+        assert_eq!(profanity.contains, ["frack"]);
+        assert!(hints.lists["sexual"].words.is_empty());
+    }
 
     #[test]
     fn nfc_normalizes_decomposed_accents() {

@@ -81,7 +81,7 @@ sign-up opt in with their tickets.
 | PUT | /v1/me/handle | Claim/change handle (30-day cooldown, reservation) | onb/ses | user | self | 10/h u | yes | US-3 AC-3.3 |
 | PATCH | /v1/me/settings | `findable_by_handle` (adults only) | ses | user | self; policy `discovery.min_age` | 20/h u | yes | US-5a |
 | POST | /v1/me/widget-token | Mint widget-scoped read-only token for this device (child of the device session) | ses | user | self device | 10/day d | no | US-16 AC-16.5 |
-| GET | /v1/config | Limits, feature flags, registry kill switches (cut styles, finishes, effects, reactions) | none/ses | — | public, no user data | CDN cached | yes | US-10, US-11, US-21 |
+| GET | /v1/config | Limits, feature flags, registry kill switches (cut styles, finishes, effects, reactions), text filter hints | none/ses | — | public, no user data | CDN cached | yes | US-10, US-11, US-21 |
 | POST | /v1/devices | Register device (client UUID, platform, app version) | onb/ses | user | own device ids | 10/day u | yes | US-31 |
 
 Implemented so far: `POST /v1/auth/refresh` `{refresh_token}` → `{token_type: "Bearer", access_token, access_expires_at, refresh_token}`
@@ -131,8 +131,12 @@ app gives Google `hex SHA-256(nonce)` as the sign-in nonce). `iss` = `https://ac
 
 `GET /v1/me` → `{account: {id, status}, onboarding: {step: age|profile|done}, policy: {min_age, ai_effects, ads, ai_label}}`
 (policy = strictest of the signals stored at sign-up and the current IP country) plus `profile: {display_name, handle}` (null
-until set). `GET /v1/config` → `{min_app_version, limits, flags, kill_switches}` from `config/client.yaml`, `Cache-Control: public,
-max-age=300`, byte-identical for every caller. Min-version gate: `X-App-Version` (semver) below `min_app_version` → 426
+until set). `GET /v1/config` → `{min_app_version, limits, flags, kill_switches, text_filter}` from `config/client.yaml`,
+`Cache-Control: public, max-age=300` and a strong `ETag` (a matching `If-None-Match` → 304, no body), byte-identical for every
+caller. `text_filter` (#213, EM decision 2026-11-05: term lists are served, not bundled in the app) =
+`{version, max_marks_per_grapheme, max_chars_per_grapheme, lists: {<name>: {words, contains}}}`, exactly the loaded
+`config/text_filter.yaml` (`TextFilter::client_hints`), so the lists are public over HTTP (accepted by the EM). Client hints only:
+the T-30 server filter stays authoritative. Min-version gate: `X-App-Version` (semver) below `min_app_version` → 426
 `UPGRADE_REQUIRED`; malformed → 400; absent → allowed (web, tools). Exempt: `/v1/config`, probes, `/openapi.json`
 (`x-policy.versionGate: false`). IP country comes only from the header named by `API_IP_COUNTRY_HEADER` (trusted edge).
 

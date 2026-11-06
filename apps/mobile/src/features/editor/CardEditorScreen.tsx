@@ -12,6 +12,7 @@ import {
 import { space } from '@card-sharing/tokens';
 
 import { t, type MessageKey } from '../../i18n';
+import type { TextFilterConfig } from '../../text';
 import { Button, Screen, Text, useToast } from '../../ui';
 import type { CapturedPhoto } from '../capture';
 import { CAPTION_MAX_GRAPHEMES, CaptionSheet } from '../captions';
@@ -56,6 +57,8 @@ export interface CardEditorScreenProps {
   remoteConfig?: RemoteRegistryConfig;
   /** Caption length limit in graphemes (`/v1/config` `limits.caption_max_chars`); defaults to 80. */
   captionMax?: number;
+  /** Served text filter hints (`/v1/config` `text_filter`); without them captions get length checks only. */
+  textFilter?: TextFilterConfig;
   loadImage?: LoadImage;
   registry?: Registry;
   /** Back to capture (also the way out of the error state). */
@@ -141,6 +144,7 @@ function Editor({
   remoteConfig,
   registry = shippedRegistry,
   captionMax = CAPTION_MAX_GRAPHEMES,
+  textFilter,
   onNext,
 }: EditorProps) {
   const { width: windowWidth } = useWindowDimensions();
@@ -260,6 +264,7 @@ function Editor({
         visible={captionOpen}
         caption={draft.caption}
         max={captionMax}
+        textFilter={textFilter}
         onSave={(text) => dispatch({ type: 'setCaption', text })}
         onClose={() => setCaptionOpen(false)}
       />
