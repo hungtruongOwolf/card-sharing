@@ -142,12 +142,17 @@ pub enum SafetyAdapter {
     Fake,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ContentSafetyConfig {
     /// `API_ENV` â€” `development`, `test`, `staging` or `production` (default).
     pub env: AppEnv,
     /// `API_CSAM_MATCHER` â€” `none` (default) or `fake` (not in production).
     pub csam_matcher: SafetyAdapter,
+    /// `API_NUDITY_CLASSIFIER` â€” `none` (default) or `fake` (not in production).
+    pub nudity_classifier: SafetyAdapter,
+    /// `API_NUDITY_THRESHOLD` (`moderation.nudity_threshold`) â€” a score at or above it holds the
+    /// card for review. Default 0.5 until the EM picks one from the evaluation set.
+    pub nudity_threshold: f32,
 }
 
 /// `att` add-on enforcement (EM 2026-11-04: log-only in beta, hard-fail at GA).
@@ -424,9 +429,21 @@ fn content_safety_config<F: Fn(&str) -> Option<String>>(
         }
     };
     let csam_matcher = safety_adapter(env, "API_CSAM_MATCHER", app_env)?;
+    let nudity_classifier = safety_adapter(env, "API_NUDITY_CLASSIFIER", app_env)?;
+    let nudity_threshold = match env.optional("API_NUDITY_THRESHOLD") {
+        None => media::DEFAULT_NUDITY_THRESHOLD,
+        Some(raw) => raw
+            .trim()
+            .parse::<f32>()
+            .ok()
+            .filter(|t| t.is_finite() && *t > 0.0 && *t <= 1.0)
+            .ok_or_else(|| invalid("API_NUDITY_THRESHOLD", "must be a number in (0, 1]"))?,
+    };
     Ok(ContentSafetyConfig {
         env: app_env,
         csam_matcher,
+        nudity_classifier,
+        nudity_threshold,
     })
 }
 
@@ -569,6 +586,13 @@ mod tests {
         for env in ["development", "test", "staging"] {
             let config = load(&[("API_ENV", env), ("API_CSAM_MATCHER", "fake")]).unwrap();
             assert_eq!(config.content_safety.csam_matcher, SafetyAdapter::Fake);
+        }
+        assert!(load(&[("API_NUDITY_CLASSIFIER", "fake")]).is_err());
+        let config = load(&[("API_ENV", "staging"), ("API_NUDITY_CLASSIFIER", "fake")]).unwrap();
+        assert_eq!(config.content_safety.nudity_classifier, SafetyAdapter::Fake);
+        assert!((config.content_safety.nudity_threshold - 0.5).abs() < f32::EPSILON);
+        for bad in ["0", "1.5", "NaN", "-1", "high"] {
+            assert!(load(&[("API_NUDITY_THRESHOLD", bad)]).is_err(), "{bad}");
         }
         assert!(load(&[("API_ENV", "prod")]).is_err());
         assert!(load(&[("API_ENV", "development"), ("API_CSAM_MATCHER", "photodna")]).is_err());

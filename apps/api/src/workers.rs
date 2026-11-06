@@ -5,7 +5,10 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use identity::IdentityService;
-use media::{ContentGates, FakeHashMatcher, MediaService, UnconfiguredHashMatcher};
+use media::{
+    ContentGates, FakeClassifier, FakeHashMatcher, MediaService, UnconfiguredClassifier,
+    UnconfiguredHashMatcher,
+};
 use platform::jobs::{
     ClaimedJob, JobError, JobFuture, JobHandler, Lane, NewJob, PeriodicFuture, PeriodicTask,
 };
@@ -40,6 +43,22 @@ pub fn content_gates(config: &ContentSafetyConfig) -> ContentGates {
             gates.matcher = Arc::new(UnconfiguredHashMatcher);
         }
     }
+    match config.nudity_classifier {
+        SafetyAdapter::Fake if config.env != crate::config::AppEnv::Production => {
+            tracing::warn!(
+                env = config.env.as_str(),
+                "API_NUDITY_CLASSIFIER=fake: nudity classification is simulated (not for real users)"
+            );
+            gates.classifier = Arc::new(FakeClassifier);
+        }
+        SafetyAdapter::Fake | SafetyAdapter::None => {
+            tracing::warn!(
+                "no nudity classifier configured: card renders and avatars wait (nothing is delivered)"
+            );
+            gates.classifier = Arc::new(UnconfiguredClassifier);
+        }
+    }
+    gates.nudity_threshold = config.nudity_threshold;
     gates
 }
 

@@ -25,6 +25,7 @@ mod magic_link;
 mod me;
 mod media;
 mod media_gate;
+mod media_hold;
 mod media_process;
 mod minor_hint;
 mod outbox;

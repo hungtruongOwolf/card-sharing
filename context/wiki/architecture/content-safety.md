@@ -66,6 +66,13 @@ as in [[ADR-0005-media-pipeline]]. The EM decides by **2026-11-18**. Every vendo
   - Build our own labelled set: no CSAM ever and no images of minors; adult positives only from a commercially licensed source with recorded consent; negatives from Open Images plus team photos, re-rendered as cards.
   - Test thresholds 0.50, 0.70 and 0.85, plus the threshold that reaches 95% recall.
   - Proposed pass bar: recall ≥ 0.95 and false positives ≤ 0.5% on everyday cards.
+- **Implemented (T-73, fake adapter):** `ContentClassifier` port in `crates/media/src/safety.rs`; runs in `media.process`
+  after the hash gate, on card renders and avatars only (masks and originals are not classified). Verdict `{score, model}`;
+  errors, timeouts and scores outside `[0, 1]` or NaN are unavailable (retry, media stays `scanning`). `score >=
+  API_NUDITY_THRESHOLD` (default **0.5**, EM decision 4 pending) marks the media `held`: it stays in quarantine and is never
+  signed (the owner sees only the hold, not a URL to the held image). `classifier_score` and `classifier_model` are stored on
+  every classified media. Adapters `none` (default) and `fake` (yellow top-left pixel = 0.99, blue = outage), the fake refused
+  when `API_ENV=production`. The card side (`held_review`, `content_holds`, `card.held`, appeal) lands with the card tickets.
 - **Latency:** on-device latency needs an iOS dev build (deferred, see [[sprint-1]]). Server CPU latency is not measured yet.
 
 ## Open decisions (EM)

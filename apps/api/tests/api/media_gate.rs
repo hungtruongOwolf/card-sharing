@@ -14,8 +14,8 @@ use http::StatusCode;
 use image::Rgba;
 use media::safety::{BoxFuture, FAKE_MATCH_MARKER};
 use media::{
-    Bucket, ContentGates, FakeHashMatcher, HashMatcher, HashVerdict, ProcessSettings, ScanInput,
-    Unavailable,
+    Bucket, ContentGates, FakeClassifier, FakeHashMatcher, HashMatcher, HashVerdict,
+    ProcessSettings, ScanInput, Unavailable,
 };
 use platform::clock::Clock;
 use platform::jobs::JobError;
@@ -27,6 +27,7 @@ pub fn gates(matcher: Arc<dyn HashMatcher>) -> ProcessSettings {
         decode_timeout: Duration::from_secs(20),
         gates: ContentGates {
             matcher,
+            classifier: Arc::new(FakeClassifier),
             ..ContentGates::unconfigured()
         },
     }
