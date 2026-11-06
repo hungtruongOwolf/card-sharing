@@ -15,7 +15,7 @@ import {
   type NewCard,
 } from '../cardsApi';
 
-function setup() {
+function setup(deviceNow?: (server: FakeCardsServer) => () => number) {
   const server = new FakeCardsServer();
   const store = memoryStore(sessionFromTokenPair(server.auth.issue()));
   const client = createAuthClient({
@@ -24,7 +24,7 @@ function setup() {
     fetch: server.fetch,
     now: server.now,
   });
-  return { server, api: createCardsApi(client.fetch) };
+  return { server, api: createCardsApi(client.fetch, { now: deviceNow?.(server) ?? server.now }) };
 }
 
 const KEY = '11111111-1111-4111-8111-111111111111';
@@ -74,6 +74,7 @@ describe('cards api: parsing', () => {
         maskUrl: null,
         expiresAt: Date.parse('2026-11-05T10:10:00Z'),
       },
+      finish: null,
       sentAt: Date.parse('2026-11-05T10:00:00Z'),
       isMine: false,
       status: null,
@@ -89,6 +90,26 @@ describe('cards api: parsing', () => {
     expect(parseCard(card({ status: 'active' }))?.status).toBeNull();
     expect(parseCard(card({ is_mine: true, status: 'held_review' }))?.status).toBe('held_review');
     expect(parseCard(card({ is_mine: true, status: 'weird' }))?.status).toBeNull();
+  });
+
+  it('keeps a well-formed finish and drops a malformed one', () => {
+    const finish = { id: 'fx.holo', version: 1, params: { intensity: 0.4 } };
+    expect(parseCard(card({ style: { cut: {}, finish } }))?.finish).toEqual(finish);
+    expect(parseCard(card({ style: { finish: { id: 'fx.holo', version: 2 } } }))?.finish).toEqual({
+      id: 'fx.holo',
+      version: 2,
+      params: {},
+    });
+    for (const bad of [
+      { id: '../x', version: 1 },
+      { id: 'fx.holo', version: 0 },
+      { id: 'fx.holo', version: '1' },
+      { id: 'x'.repeat(65), version: 1 },
+      'fx.holo',
+    ]) {
+      expect(parseCard(card({ style: { finish: bad } }))?.finish).toBeNull();
+    }
+    expect(parseCard(card({ style: null }))?.finish).toBeNull();
   });
 
   it('accepts only http(s) media URLs', () => {
@@ -200,6 +221,44 @@ describe('cards api: requests', () => {
     const before = server.auth.requests.length;
     await expect(api.getCard('../feed')).rejects.toMatchObject({ kind: 'not_found' });
     expect(server.auth.requests.length).toBe(before);
+  });
+});
+
+describe('cards api: device clock (#263)', () => {
+  const HOUR = 3_600_000;
+
+  it.each([
+    ['ahead', HOUR],
+    ['behind', -HOUR],
+  ])(
+    'moves signed-URL expiries onto a device clock that runs %s of the server',
+    async (_, skew) => {
+      const { server, api } = setup((s) => () => s.now() + skew);
+      const mai = server.addUser('Mai');
+      server.friends.add(mai.id);
+      const sent = server.addIncomingCard(mai.id);
+      const expected = server.now() + server.mediaTtlMs + skew;
+      expect((await api.getCard(sent.id)).media?.expiresAt).toBe(expected);
+      expect((await api.feed()).items[0]?.media?.expiresAt).toBe(expected);
+    },
+  );
+
+  it('ignores sub-second differences and a missing Date header', async () => {
+    const { server, api } = setup((s) => () => s.now() + 900);
+    const mai = server.addUser('Mai');
+    server.friends.add(mai.id);
+    const sent = server.addIncomingCard(mai.id);
+    const serverExpiry = server.now() + server.mediaTtlMs;
+    expect((await api.getCard(sent.id)).media?.expiresAt).toBe(serverExpiry);
+
+    const { server: noDate, api: noDateApi } = setup((s) => () => s.now() + HOUR);
+    noDate.dateHeader = false;
+    const ben = noDate.addUser('Ben');
+    noDate.friends.add(ben.id);
+    const other = noDate.addIncomingCard(ben.id);
+    expect((await noDateApi.getCard(other.id)).media?.expiresAt).toBe(
+      noDate.now() + noDate.mediaTtlMs,
+    );
   });
 });
 

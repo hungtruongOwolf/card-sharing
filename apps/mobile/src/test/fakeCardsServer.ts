@@ -115,6 +115,8 @@ export class FakeCardsServer extends FakeSocialServer {
   feedPageSize = 30;
   /** Lifetime of signed URLs in card views. */
   mediaTtlMs = 10 * 60_000;
+  /** Answers carry a `Date` header from the server clock, as a real server's do. */
+  dateHeader = true;
 
   private cardCounter = 0;
   private readonly cardReplays = new Map<string, { body: string; response: Response }>();
@@ -164,6 +166,7 @@ export class FakeCardsServer extends FakeSocialServer {
     }
     const response = this.handle(request, method, path, query);
     if (this.loseResponse.delete(key)) return problem(503, 'TEMPORARILY_UNAVAILABLE');
+    if (this.dateHeader) response.headers.set('Date', new Date(this.now()).toUTCString());
     return response;
   }
 

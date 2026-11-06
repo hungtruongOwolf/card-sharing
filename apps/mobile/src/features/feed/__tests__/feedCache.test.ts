@@ -19,6 +19,7 @@ const item = (n: number, caption: string | null = `card ${n}`): CardItem => ({
     maskUrl: null,
     expiresAt: NOW + 600_000,
   },
+  finish: null,
   sentAt: NOW - n * 60_000,
   isMine: false,
   status: null,

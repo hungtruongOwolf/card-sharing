@@ -1,11 +1,13 @@
 import {
   Canvas,
   Group,
+  Image,
   Picture,
   Rect,
   Shader,
   Skia,
   useClock,
+  type SkImage,
   type SkPicture,
 } from '@shopify/react-native-skia';
 import { useDerivedValue, useSharedValue, type SharedValue } from 'react-native-reanimated';
@@ -20,14 +22,18 @@ import { SQUISH_TILT_BUMP, STATIC_TILT } from '../holo-card/holoLab';
 const holoEffect = Skia.RuntimeEffect.Make(HOLO_SKSL);
 
 export interface LiveFinishPreviewProps {
-  /** The card drawn without its finish. */
-  picture: SkPicture;
+  /**
+   * The card under the shine: a recorded picture without its finish (editor), or a received card's baked
+   * render (full-screen view, T-81), fitted inside the canvas.
+   */
+  card: { picture: SkPicture } | { image: SkImage };
   width: number;
   height: number;
   /** The finish's `intensity` param (0..1). */
   intensity: number;
   /** Squish press (0 = released); pushes the foil along y (design-system.md §5.2). */
   press?: SharedValue<number>;
+  testID?: string;
 }
 
 const clamp1 = (value: number) => {
@@ -41,11 +47,12 @@ const clamp1 = (value: number) => {
  * so reduced motion never registers the sensor. The shine is SrcATop inside a layer: card pixels only.
  */
 export function LiveFinishPreview({
-  picture,
+  card,
   width,
   height,
   intensity,
   press,
+  testID = 'editor-live-finish',
 }: LiveFinishPreviewProps) {
   const tilt = useSharedValue<Tilt>({ x: 0, y: 0 });
   const clock = useClock();
@@ -65,9 +72,13 @@ export function LiveFinishPreview({
   return (
     <>
       <GyroTiltDriver tilt={tilt} />
-      <Canvas style={{ width, height }} testID="editor-live-finish">
+      <Canvas style={{ width, height }} testID={testID}>
         <Group layer>
-          <Picture picture={picture} />
+          {'picture' in card ? (
+            <Picture picture={card.picture} />
+          ) : (
+            <Image image={card.image} x={0} y={0} width={width} height={height} fit="contain" />
+          )}
           {holoEffect ? (
             <Rect x={0} y={0} width={width} height={height} blendMode="srcATop" opacity={intensity}>
               <Shader source={holoEffect} uniforms={uniforms} />

@@ -25,11 +25,16 @@ async function setup({
   scheme = 'light' as const,
   cache = createFeedCache(memoryKeyValueStore()),
   queueReaction,
+  onOpen,
+  skewMs = 0,
   extra,
 }: {
   scheme?: 'light' | 'dark';
   cache?: FeedCache;
   queueReaction?: (cardId: string, kind: string | null) => Promise<boolean>;
+  onOpen?: (cardId: string) => void;
+  /** How far the device clock runs ahead of the server's. */
+  skewMs?: number;
   extra?: (server: FakeCardsServer, people: ReturnType<typeof seed>) => void;
 } = {}) {
   let people!: ReturnType<typeof seed>;
@@ -42,13 +47,15 @@ async function setup({
         cache={cache}
         reactions={REACTIONS}
         queueReaction={queueReaction}
-        now={() => clock()}
+        now={() => clock() + skewMs}
+        onOpen={onOpen}
         onCompose={onCompose}
         onBack={() => undefined}
       />
     ),
     {
       scheme,
+      deviceNow: (server) => () => server.now() + skewMs,
       prepare: (server) => {
         clock = server.now;
         people = seed(server);
@@ -189,6 +196,7 @@ describe('FeedScreen', () => {
           caption: 'saved zoomies',
           altText: null,
           media: null,
+          finish: null,
           sentAt: card.sentAt,
           isMine: false,
           status: null,
@@ -232,5 +240,21 @@ describe('FeedScreen', () => {
     expect(queueReaction).toHaveBeenCalledWith(newest.id, 'react.heart');
     expect(heart().props.accessibilityState).toMatchObject({ selected: true });
     expect(server.reactions.has(newest.id)).toBe(false);
+  });
+
+  it('opens a card full screen from its picture', async () => {
+    const onOpen = jest.fn();
+    const { user, newest } = await setup({ onOpen });
+    const open = await screen.findByTestId(`feed-open-${newest.id}`);
+    expect(open.props.accessibilityRole).toBe('button');
+    expect(open.props.accessibilityLabel).toBe(t('feed.card.a11y', { name: 'Mai' }));
+    await user.press(open);
+    expect(onOpen).toHaveBeenCalledWith(newest.id);
+  });
+
+  it('shows pictures on a device whose clock runs an hour ahead of the server (#263)', async () => {
+    const { newest } = await setup({ skewMs: 3_600_000 });
+    expect(await screen.findByTestId(`feed-image-${newest.id}`)).toBeTruthy();
+    expect(screen.queryByTestId(`feed-placeholder-${newest.id}`)).toBeNull();
   });
 });

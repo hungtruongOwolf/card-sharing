@@ -435,6 +435,15 @@ every load (cards from ex-friends, blocked or deleted cards drop out, SR-9) and 
 `onSignedOut`). Reactions (T-84): the served `reactions` minus `kill_switches.reactions` (`parseRemoteConfig`), only ids
 the app can draw; tapping my current reaction removes it (AC-17.2), optimistic with rollback; a 404 says the card is gone
 and refreshes the feed.
+Device clock (#263): `createCardsApi` moves every `media.expires_at` onto the device clock using the response `Date`
+header (skew under 2 s ignored; no header = no correction), so a phone clock far ahead no longer shows placeholders and
+one far behind never keeps a dead URL. Full-screen card (T-81, #83, `CardViewerScreen`, route `/card/[id]`): tapping a
+feed picture opens it; `GET /v1/cards/{id}` gives fresh URLs (the feed's copy shows meanwhile) and is re-read every
+60 s while open, so a card deleted, unfriended or blocked while on screen (404) shows "This card was removed" and closes
+(prd-mvp edge case). The shown URL is kept until 30 s before it expires (re-reads sign new URLs and would re-download
+the picture) and never rendered past `expires_at`. The finish comes from `style.finish`: drawn live over the render
+when the registry allows it (`planFinishModes`, holo `maxLive`, not killed, reduced motion off), else the baked static
+render; the card is wrapped in `Squish` and labelled with its alt text ("Card from <name>").
 Implemented (T-82, `crates/cards/src/delete.rs`, `DELETE /v1/cards/{id}`, limit `cards.delete` 60/h): owner only (anyone
 else, a missing or an already deleted card → the same 404). One transaction sets `status = deleted`, hides every recipient row
 and publishes `cards.deleted {card_id, owner_id, recipient_ids}`; every read path filters on it, so the card is gone from card

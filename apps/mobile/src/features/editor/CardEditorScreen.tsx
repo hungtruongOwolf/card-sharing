@@ -273,7 +273,7 @@ function Editor({
         >
           {picture && liveFinish ? (
             <LiveFinishPreview
-              picture={picture}
+              card={{ picture }}
               width={size.width}
               height={size.height}
               intensity={Number(liveFinish.params.intensity ?? 1)}
