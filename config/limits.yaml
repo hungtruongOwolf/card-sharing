@@ -219,3 +219,8 @@ limits:
     requests: 1200
     per_secs: 60
     on_store_failure: open
+  cards.create: # POST /v1/cards (AC-13.5: 100 sends per user per day)
+    scope: user
+    requests: 100
+    per_secs: 86400
+    on_store_failure: open

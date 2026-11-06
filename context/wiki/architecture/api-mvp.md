@@ -390,6 +390,16 @@ Kill switches are not enforced server-side yet.
 US-28 (CSAM hashing + nudity classifier) has no scan endpoint: the `media.process` job gates delivery ([[ADR-0005-media-pipeline]]);
 the only user touchpoint is `POST /v1/cards/{id}/appeal`. Email change does not exist in MVP; when added it requires `re` (AC-1.4).
 
+Implemented (T-75, `crates/cards` + `apps/api/src/routes/cards.rs`): `POST /v1/cards` (ses + att log-only, limit
+`cards.create` 100/day per user, `Idempotency-Key` required and equal to `client_card_id`, else 400). Render, mask and original
+must be the caller's media of exactly that kind and not `blocked`/`failed`/`deleted`, else the same 404 as a missing id; a mask
+must have the render's exact size (400). `style` â†’ registry (422 `UNKNOWN_REGISTRY_ID`); `caption` â‰¤ `limits.caption_max_chars`
+(config/client.yaml, 80) and `alt_text` â‰¤ 200 graphemes through the text filter (empty after sanitizing = none). `audience`:
+`{mode: all}` = every current friend, `{mode: subset, recipient_ids}` = 1..`limits.card_recipients_max` unique ids intersected
+with current friends (non-friends dropped silently, never named). Card (`pending_scan`), recipients (`delivered_at` NULL) and
+the `cards.submitted {card_id, owner_id}` event are written in one transaction; the same `client_card_id` later returns the
+first card (202). Response `{card: {id, status, recipient_count}}`.
+
 ### Board read resolution (per viewer V, AC-19.7, AC-19.9, SR-6, SR-21)
 For each card pin (card C, owner O, pinner P): return the card with signed URLs only if C is `active` **and** (V = O, or V is a
 current recipient of C ∧ friends(V, O) ∧ ¬blocked(V, O)) **and** not (V is an adult ∧ P or O is a minor member ∧ ¬friends(V, that

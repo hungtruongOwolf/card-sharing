@@ -784,6 +784,121 @@
         }
       }
     },
+    "/v1/cards": {
+      "post": {
+        "tags": [
+          "cards"
+        ],
+        "summary": "Create and send a card. Auth: ses + att. `Idempotency-Key` = `client_card_id`.",
+        "description": "Answers 202 with status `pending_scan`: the card reaches its recipients only after the\nknown-CSAM hash gate and the nudity classifier pass (it may end `held_review`). Recipients are\nthe caller's current friends (all, or the requested subset); others are dropped silently and\nnever named. Replaying the same key or `client_card_id` returns the original 202.",
+        "operationId": "createCard",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCardRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted; waiting for the content gates.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SentCardEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED (unknown fields such as owner_id or status, caption, audience, mask size).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE, ACCOUNT_SUSPENDED or ATTESTATION_FAILED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: a media id that is not the caller's (or not of that kind).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "IDEMPOTENCY_IN_PROGRESS.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "UNKNOWN_REGISTRY_ID or IDEMPOTENCY_KEY_REUSED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED (100 sends per day).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": true,
+          "auth": "ses",
+          "idempotency": "required",
+          "rateLimit": "cards.create",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
     "/v1/config": {
       "get": {
         "tags": [
@@ -3271,6 +3386,27 @@
         },
         "additionalProperties": false
       },
+      "AudienceRequest": {
+        "type": "object",
+        "description": "Who receives the card.",
+        "required": [
+          "mode"
+        ],
+        "properties": {
+          "mode": {
+            "type": "string",
+            "description": "`all` (every current friend, the default in the app) or `subset`."
+          },
+          "recipient_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "For `subset`: friend ids (at most the recipient cap, unique). Ids that are not current\nfriends are dropped silently."
+          }
+        },
+        "additionalProperties": false
+      },
       "BlockList": {
         "type": "object",
         "required": [
@@ -3375,6 +3511,62 @@
             "type": "integer",
             "format": "int32",
             "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreateCardRequest": {
+        "type": "object",
+        "description": "Body of `POST /v1/cards`.",
+        "required": [
+          "client_card_id",
+          "render_media_id",
+          "style",
+          "audience"
+        ],
+        "properties": {
+          "alt_text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "audience": {
+            "$ref": "#/components/schemas/AudienceRequest"
+          },
+          "caption": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "client_card_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Client-generated id; must equal the `Idempotency-Key` header (offline outbox retries)."
+          },
+          "mask_media_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "original_media_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Only with \"keep original\" (owner-only, AC-13.6)."
+          },
+          "render_media_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "style": {
+            "type": "object",
+            "description": "`{cut, finish, effects[]}` registry references (validated, unknown ids -> 422)."
           }
         },
         "additionalProperties": false
@@ -4073,6 +4265,40 @@
           }
         }
       },
+      "SentCardEnvelope": {
+        "type": "object",
+        "required": [
+          "card"
+        ],
+        "properties": {
+          "card": {
+            "$ref": "#/components/schemas/SentCardView"
+          }
+        }
+      },
+      "SentCardView": {
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "recipient_count"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "recipient_count": {
+            "type": "integer",
+            "format": "int64",
+            "description": "How many current friends will receive it (who was dropped is never revealed)."
+          },
+          "status": {
+            "type": "string",
+            "description": "`pending_scan` until both content gates pass."
+          }
+        }
+      },
       "SentRequestView": {
         "type": "object",
         "description": "A request as its sender sees it: pending until accepted or expired.",
@@ -4312,6 +4538,10 @@
     {
       "name": "social",
       "description": "Invites, friend requests, friends, blocks and handle search (US-4, US-5, US-5a, US-6, US-26)"
+    },
+    {
+      "name": "cards",
+      "description": "Cards: send to friends, read, delete, react (US-13..US-17)"
     },
     {
       "name": "media",

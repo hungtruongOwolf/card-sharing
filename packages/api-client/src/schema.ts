@@ -194,6 +194,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create and send a card. Auth: ses + att. `Idempotency-Key` = `client_card_id`.
+         * @description Answers 202 with status `pending_scan`: the card reaches its recipients only after the
+         *     known-CSAM hash gate and the nudity classifier pass (it may end `held_review`). Recipients are
+         *     the caller's current friends (all, or the requested subset); others are dropped silently and
+         *     never named. Replaying the same key or `client_card_id` returns the original 202.
+         */
+        post: operations["createCard"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/config": {
         parameters: {
             query?: never;
@@ -821,6 +844,16 @@ export interface components {
              */
             nonce: string;
         };
+        /** @description Who receives the card. */
+        AudienceRequest: {
+            /** @description `all` (every current friend, the default in the app) or `subset`. */
+            mode: string;
+            /**
+             * @description For `subset`: friend ids (at most the recipient cap, unique). Ids that are not current
+             *     friends are dropped silently.
+             */
+            recipient_ids?: string[];
+        };
         BlockList: {
             /** @description Most recent first. */
             items: components["schemas"]["BlockedView"][];
@@ -859,6 +892,28 @@ export interface components {
             friends_max: number;
             /** Format: int32 */
             pins_per_board_max: number;
+        };
+        /** @description Body of `POST /v1/cards`. */
+        CreateCardRequest: {
+            alt_text?: string | null;
+            audience: components["schemas"]["AudienceRequest"];
+            caption?: string | null;
+            /**
+             * Format: uuid
+             * @description Client-generated id; must equal the `Idempotency-Key` header (offline outbox retries).
+             */
+            client_card_id: string;
+            /** Format: uuid */
+            mask_media_id?: string | null;
+            /**
+             * Format: uuid
+             * @description Only with "keep original" (owner-only, AC-13.6).
+             */
+            original_media_id?: string | null;
+            /** Format: uuid */
+            render_media_id: string;
+            /** @description `{cut, finish, effects[]}` registry references (validated, unknown ids -> 422). */
+            style: Record<string, never>;
         };
         /** @description Body of `POST /v1/friend-requests`: exactly one of `invite_token` and `search_ref`. */
         CreateFriendRequest: {
@@ -1134,6 +1189,20 @@ export interface components {
              *     for the account that searched.
              */
             ref: string;
+        };
+        SentCardEnvelope: {
+            card: components["schemas"]["SentCardView"];
+        };
+        SentCardView: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * Format: int64
+             * @description How many current friends will receive it (who was dropped is never revealed).
+             */
+            recipient_count: number;
+            /** @description `pending_scan` until both content gates pass. */
+            status: string;
         };
         /** @description A request as its sender sees it: pending until accepted or expired. */
         SentRequestView: {
@@ -1797,6 +1866,93 @@ export interface operations {
                 };
             };
             /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    createCard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCardRequest"];
+            };
+        };
+        responses: {
+            /** @description Accepted; waiting for the content gates. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SentCardEnvelope"];
+                };
+            };
+            /** @description VALIDATION_FAILED (unknown fields such as owner_id or status, caption, audience, mask size). */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE, ACCOUNT_SUSPENDED or ATTESTATION_FAILED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND: a media id that is not the caller's (or not of that kind). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description IDEMPOTENCY_IN_PROGRESS. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description UNKNOWN_REGISTRY_ID or IDEMPOTENCY_KEY_REUSED. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED (100 sends per day). */
             429: {
                 headers: {
                     [name: string]: unknown;
