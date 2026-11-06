@@ -12,6 +12,7 @@ pub mod boards;
 pub mod cards;
 pub mod deletion;
 pub mod devices;
+pub mod exports;
 pub mod feed;
 pub mod friend_requests;
 pub mod friends;

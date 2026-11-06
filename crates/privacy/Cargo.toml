@@ -9,14 +9,20 @@ license.workspace = true
 
 [dependencies]
 identity.workspace = true
+# Object storage and clean media for export archives.
+media.workspace = true
 platform.workspace = true
 
+bytes.workspace = true
+crc32fast.workspace = true
+image.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 serde_norway.workspace = true
 sqlx.workspace = true
 thiserror.workspace = true
 time.workspace = true
+tokio.workspace = true
 tracing.workspace = true
 uuid.workspace = true
 

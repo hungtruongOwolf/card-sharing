@@ -367,24 +367,29 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
         Arc::clone(&board_service),
         Arc::clone(&media),
     ));
+    let privacy_settings = privacy::PrivacySettings::from_path(&config.privacy_config_path)
+        .context("failed to load privacy config")?;
+    let registry = api::privacy::registry_from(
+        Arc::clone(&identity),
+        Arc::clone(&cipher),
+        Arc::clone(&media),
+        board_service,
+    );
+    let exports = Arc::new(privacy::ExportService::new(
+        pool.clone(),
+        Arc::clone(&clock),
+        registry.clone(),
+        Arc::clone(&media),
+        privacy_settings.clone(),
+    ));
     let deletion = Arc::new(
-        privacy::DeletionService::new(
-            Arc::clone(&identity),
-            api::privacy::registry_from(
+        privacy::DeletionService::new(Arc::clone(&identity), registry, privacy_settings)
+            .with_sign_in(Arc::new(sign_in_service(
+                config,
                 Arc::clone(&identity),
                 Arc::clone(&cipher),
-                Arc::clone(&media),
-                board_service,
-            ),
-            privacy::PrivacySettings::from_path(&config.privacy_config_path)
-                .context("failed to load privacy config")?,
-        )
-        .with_sign_in(Arc::new(sign_in_service(
-            config,
-            Arc::clone(&identity),
-            Arc::clone(&cipher),
-            Arc::clone(&clock),
-        )?)),
+                Arc::clone(&clock),
+            )?)),
     );
     let cdn: Arc<dyn sharing::CdnPurger> = match config.cdn_purger {
         api::config::SafetyAdapter::Fake
@@ -524,6 +529,11 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
             "idempotency.purge",
             std::time::Duration::from_secs(3600),
             Arc::new(IdempotencyPurge(idempotency)),
+        )
+        .periodic(
+            "privacy.export_due",
+            privacy::EXPORT_INTERVAL,
+            Arc::new(privacy::ExportDue(exports)),
         )
         .periodic(
             "privacy.erase_due",

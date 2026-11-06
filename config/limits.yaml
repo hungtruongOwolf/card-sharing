@@ -299,6 +299,26 @@ limits:
     requests: 30
     per_secs: 3600
     on_store_failure: open
+  privacy.exports.request: # POST /v1/me/exports (re; the 1-per-24 h product rule is EXPORT_COOLDOWN in the service)
+    scope: user
+    requests: 5
+    per_secs: 86400
+    on_store_failure: closed
+  privacy.exports.read: # GET /v1/me/exports/{id} (re; 30 per hour)
+    scope: user
+    requests: 30
+    per_secs: 3600
+    on_store_failure: open
+  privacy.exports.cancel: # DELETE /v1/me/exports/{id}
+    scope: user
+    requests: 30
+    per_secs: 3600
+    on_store_failure: open
+  privacy.exports.download: # GET /v1/exports/{id}/download (no auth: single-use token; per client IP)
+    scope: ip
+    requests: 20
+    per_secs: 3600
+    on_store_failure: closed
   privacy.deletion.request: # POST /v1/me/deletion (re; 3 per day)
     scope: user
     requests: 3

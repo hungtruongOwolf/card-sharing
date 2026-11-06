@@ -67,6 +67,10 @@ pub fn registry_from(
             cipher,
         }))
         .register(Arc::new(PlatformPersonalData { pool: pool.clone() }))
+        .register(Arc::new(privacy::PrivacyPersonalData {
+            pool: pool.clone(),
+            media: Arc::clone(&media),
+        }))
         .register(Arc::new(social::SocialPersonalData { pool: pool.clone() }))
         .register(Arc::new(media::MediaPersonalData {
             media: Arc::clone(&media),
