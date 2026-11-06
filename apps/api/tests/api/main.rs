@@ -57,6 +57,7 @@ mod moderation_actions;
 mod notification_preferences;
 mod outbox;
 mod personal_data;
+mod privacy_notify;
 mod profile;
 mod public_boards;
 mod public_invites;

@@ -981,6 +981,12 @@ App Group Keychain / EncryptedSharedPreferences. Sign-out clears it with the oth
 
 ## Push & widget payloads (no media URLs, no captions, no names — AC-31.2)
 Board kinds (T-109): `board.invite` (`invitation_id`), `board.joined` (`board_id`), silent `board.updated` (`board_id`, `version`).
+Account notices (#331): `export.requested` (`export_id`, from `privacy.export_requested`; SR-36: every device of the account is told
+so a stolen session cannot export silently), `export.ready` (`export_id`, from `privacy.export_ready`) and `link.disabled`
+(`link_id`, from `sharing.link_disabled`, the traffic-anomaly auto-disable), to the owner. They are alerts with thread `account`,
+have **no preference toggle**, are **not delayed by quiet hours** and **do not count toward the daily cap**; each also becomes an
+activity item (kinds added to `notifications.activity_items`, migration `20261123000001`; read-time rule: the account's own
+item). Ids only. The email copy of the export notice (SR-36) is a follow-up: accounts have no verified email on file yet.
 Implemented (T-86, `crates/notifications/src/push.rs`): every payload is a type `t`, localisation keys the app resolves on the
 device and at most one opaque id (or a count). No name, caption, image, URL or other user content, ever, so every push is
 the "locked-preview-hidden" variant and a lock-screen preview leaks nothing (snapshot test asserts the allowed strings).

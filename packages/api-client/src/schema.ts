@@ -1695,11 +1695,15 @@ export interface components {
             id: string;
             /**
              * Format: uuid
-             * @description The card (`card.*`, `reaction.new`), friend request (`friend.request`) or user
-             *     (`friend.accepted`) the item is about.
+             * @description The card (`card.*`, `reaction.new`), friend request (`friend.request`), user
+             *     (`friend.accepted`), data export (`export.*`) or public link (`link.disabled`) the item is
+             *     about.
              */
             subject_id: string;
-            /** @description `card.new`, `reaction.new`, `friend.request`, `friend.accepted` or `card.held`. */
+            /**
+             * @description `card.new`, `reaction.new`, `friend.request`, `friend.accepted`, `card.held`, or an account
+             *     notice: `export.requested`, `export.ready`, `link.disabled` (#331).
+             */
             type: string;
             unread: boolean;
         };

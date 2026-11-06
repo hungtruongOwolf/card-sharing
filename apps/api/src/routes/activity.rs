@@ -39,11 +39,13 @@ pub struct ActivityItemView {
     /// Item id; pass the newest one seen to `POST /v1/activity/read`.
     #[schema(value_type = String, format = "uuid")]
     pub id: Uuid,
-    /// `card.new`, `reaction.new`, `friend.request`, `friend.accepted` or `card.held`.
+    /// `card.new`, `reaction.new`, `friend.request`, `friend.accepted`, `card.held`, or an account
+    /// notice: `export.requested`, `export.ready`, `link.disabled` (#331).
     #[serde(rename = "type")]
     pub kind: String,
-    /// The card (`card.*`, `reaction.new`), friend request (`friend.request`) or user
-    /// (`friend.accepted`) the item is about.
+    /// The card (`card.*`, `reaction.new`), friend request (`friend.request`), user
+    /// (`friend.accepted`), data export (`export.*`) or public link (`link.disabled`) the item is
+    /// about.
     #[schema(value_type = String, format = "uuid")]
     pub subject_id: Uuid,
     /// Card sender, reactor or new friend; `null` when the event names nobody.
