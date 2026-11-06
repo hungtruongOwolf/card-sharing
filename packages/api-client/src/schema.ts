@@ -469,6 +469,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/boards/{id}/public-links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Live public links of a board. Auth: ses. Owner only. Never returns tokens or URLs. */
+        get: operations["listPublicLinks"];
+        put?: never;
+        /**
+         * Create a public link to a board. Auth: ses. Owner only, and only at or above the region's
+         *     `public_links.min_age` (default 18). Requires `Idempotency-Key`.
+         * @description The response carries the link URL with its 128-bit token once; only a hash is stored, so the
+         *     URL cannot be fetched again (a lost URL means: revoke and create a new link).
+         */
+        post: operations["createPublicLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cards": {
         parameters: {
             query?: never;
@@ -1100,6 +1123,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/public-links/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke a public link. Auth: ses. The link's owner only. Revoking an already revoked or
+         *     expired link of the caller is a success too.
+         */
+        delete: operations["revokePublicLink"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/public/invites/{token}": {
         parameters: {
             query?: never;
@@ -1632,6 +1675,25 @@ export interface components {
         CreateFriendRequestResponse: {
             request: components["schemas"]["SentRequestView"];
         };
+        /** @description Body of `POST /v1/boards/{id}/public-links`. */
+        CreatePublicLinkRequest: {
+            /**
+             * @description `24h`, `7d` or `never`.
+             * @example 7d
+             */
+            expires_in: string;
+        };
+        CreatedPublicLinkEnvelope: {
+            link: components["schemas"]["CreatedPublicLinkView"];
+        };
+        /** @description A new link: the only response that carries its URL (and so the raw token). */
+        CreatedPublicLinkView: components["schemas"]["PublicLinkView"] & {
+            /**
+             * @description `<share base>/b/<token>`: shown once, never retrievable again.
+             * @example https://share.example/b/3q2-7wAAAAAAAAAAAAAAAA
+             */
+            url: string;
+        };
         /** @enum {string} */
         DevicePlatform: "ios" | "android";
         /** @description The device a session is issued to. `id` is a UUID the app generates once per install. */
@@ -2017,6 +2079,24 @@ export interface components {
         /** @description What the invite landing page shows. */
         PublicInviteResponse: {
             inviter: components["schemas"]["InviterView"];
+        };
+        PublicLinkList: {
+            /** @description Live links (not revoked, not expired), newest first. */
+            items: components["schemas"]["PublicLinkView"][];
+        };
+        /** @description A public link as its owner sees it in lists (no token). */
+        PublicLinkView: {
+            /** Format: uuid */
+            board_id: string;
+            /** Format: date-time */
+            created_at: string;
+            /**
+             * Format: date-time
+             * @description `null` = never expires.
+             */
+            expires_at?: string | null;
+            /** Format: uuid */
+            id: string;
         };
         /** @description Body of `POST /v1/feed/purges`. */
         PurgeCheckRequest: {
@@ -3998,6 +4078,137 @@ export interface operations {
             };
             /** @description UNKNOWN_REGISTRY_ID: a decoration is not a known decoration. */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    listPublicLinks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The board id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Live links, newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicLinkList"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND: no board of the caller with this id (collaborators included). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    createPublicLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The board id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePublicLinkRequest"];
+            };
+        };
+        responses: {
+            /** @description Created; `link.url` is shown only now. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedPublicLinkEnvelope"];
+                };
+            };
+            /** @description VALIDATION_FAILED (expires_in), or a missing Idempotency-Key. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description POLICY_DISALLOWED (owner under public_links.min_age), ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND: no board of the caller with this id (collaborators included). */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6149,6 +6360,63 @@ export interface operations {
                 };
             };
             /** @description NOT_FOUND: no upload of mine with this id. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    revokePublicLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The link id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Revoked (or already gone). */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND: no link of the caller with this id. */
             404: {
                 headers: {
                     [name: string]: unknown;

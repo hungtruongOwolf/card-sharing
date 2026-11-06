@@ -83,7 +83,7 @@ Safety rules:
 7. `http://127.0.0.1:8025` shows Mailpit; `http://127.0.0.1:9001` the MinIO console when S3 is used.
 
 The mobile app cannot sign in as a seed user yet: sign-in is Apple/Google only and needs real accounts.
-Follow-up: a development-only sign-in (see [[api-mvp]] when it lands).
+Follow-up: a development-only sign-in, issue #306 (see [[api-mvp]] when it lands).
 
 ## Reset
 `docker compose --env-file .env -f infra/docker-compose.yml down -v` wipes all volumes; then start again from

@@ -18,6 +18,7 @@ notifications.workspace = true
 platform.workspace = true
 registry.workspace = true
 policy.workspace = true
+sharing.workspace = true
 social.workspace = true
 
 anyhow.workspace = true
@@ -46,6 +47,8 @@ utoipa-axum.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]
+# Token hashes in the public link tests.
+sha2.workspace = true
 # Runtime-generated App Attest and Play Integrity test vectors.
 attestation = { workspace = true, features = ["test-support"] }
 # Mock JWKS server, locally generated RSA keys and ID-token minting.

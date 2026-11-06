@@ -30,6 +30,8 @@ pub struct Policy {
     pub discovery: DiscoveryPolicy,
     #[serde(default)]
     pub invites: InvitePolicy,
+    #[serde(default)]
+    pub public_links: PublicLinksPolicy,
     pub ai_effects: AiEffectsPolicy,
     pub ads: AdsPolicy,
     pub ai_label: AiLabelPolicy,
@@ -65,6 +67,19 @@ impl Default for InvitePolicy {
             minor_ttl_days: 7,
             minor_max_uses: 5,
         }
+    }
+}
+
+/// Public board links (US-24 AC-24.6): owners younger than `min_age` cannot create them.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PublicLinksPolicy {
+    pub min_age: u8,
+}
+
+impl Default for PublicLinksPolicy {
+    fn default() -> Self {
+        Self { min_age: 18 }
     }
 }
 
@@ -182,6 +197,9 @@ fn strictest(a: Policy, b: Policy) -> Policy {
         invites: InvitePolicy {
             minor_ttl_days: a.invites.minor_ttl_days.min(b.invites.minor_ttl_days),
             minor_max_uses: a.invites.minor_max_uses.min(b.invites.minor_max_uses),
+        },
+        public_links: PublicLinksPolicy {
+            min_age: a.public_links.min_age.max(b.public_links.min_age),
         },
         ai_effects: AiEffectsPolicy {
             cloud_allowed: a.ai_effects.cloud_allowed && b.ai_effects.cloud_allowed,

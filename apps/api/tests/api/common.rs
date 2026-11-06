@@ -55,6 +55,7 @@ pub fn test_config() -> Config {
         social_config_path: "unused-in-tests".into(),
         notifications_config_path: "unused-in-tests".into(),
         boards_config_path: "unused-in-tests".into(),
+        sharing_config_path: "unused-in-tests".into(),
         push_sender: api::config::SafetyAdapter::Fake,
         media_storage_dir: None,
         media_s3: None,

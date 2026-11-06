@@ -229,7 +229,7 @@ invitations between them are cancelled.
 ### `sharing` (owner: sharing)
 | Table | Columns | Indexes | Class | Retention |
 |---|---|---|---|---|
-| `public_links` | `id`; `board_id UUID`; `owner_id FK CASCADE`; `token_hash BYTEA UNIQUE`; `expires_at NULL`; `revoked_at NULL`; `revoked_reason CHECK (owner, moderator, anomaly, board_deleted, owner_ineligible)`; `view_count BIGINT` | `(board_id) WHERE revoked_at IS NULL` | S (token hash), U (content) | 90 d after revoke |
+| `public_links` | `id`; `board_id UUID` (no FK: boards are soft-deleted; links are revoked with reason `board_deleted`); `owner_id FK CASCADE`; `token_hash BYTEA UNIQUE` (SHA-256, 32 bytes); `created_at`; `expires_at NULL` (= never); `revoked_at NULL`; `revoked_reason CHECK (owner, moderator, anomaly, board_deleted, owner_ineligible)` (set together with `revoked_at`); `view_count BIGINT` (T-129, `migrations/20261118000001_sharing_public_links.sql`) | `(board_id) WHERE revoked_at IS NULL`; `(owner_id)`; `(revoked_at) WHERE revoked_at IS NOT NULL` | S (token hash), U (content) | 90 d after revoke |
 | `public_snapshots` | `link_id PK` (same-schema FK CASCADE); `board_version BIGINT`; `snapshot JSONB` (owner pins + private tiles, no friend data); `og_media_id` (watermarked board snapshot, AC-24.7); `built_at` | — | U | With link |
 
 ### `feed`, `notifications`, `moderation`, `privacy`, `platform`

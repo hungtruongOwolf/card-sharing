@@ -28,6 +28,10 @@ pub enum AuditAction {
     HandleChanged,
     /// An account was suspended (e.g. automatically after a known-CSAM match).
     AccountSuspended,
+    /// A board owner created a public link (US-24).
+    PublicLinkCreated,
+    /// A public link was revoked (owner, moderator, anomaly, board deleted, owner ineligible).
+    PublicLinkRevoked,
 }
 
 impl AuditAction {
@@ -40,6 +44,8 @@ impl AuditAction {
             Self::AgeRefused => "auth.age_refused",
             Self::HandleChanged => "profile.handle_changed",
             Self::AccountSuspended => "account.suspended",
+            Self::PublicLinkCreated => "sharing.link_created",
+            Self::PublicLinkRevoked => "sharing.link_revoked",
         }
     }
 }

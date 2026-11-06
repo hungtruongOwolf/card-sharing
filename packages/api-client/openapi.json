@@ -2347,6 +2347,196 @@
         }
       }
     },
+    "/v1/boards/{id}/public-links": {
+      "get": {
+        "tags": [
+          "sharing"
+        ],
+        "summary": "Live public links of a board. Auth: ses. Owner only. Never returns tokens or URLs.",
+        "operationId": "listPublicLinks",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The board id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Live links, newest first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicLinkList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: no board of the caller with this id (collaborators included).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "sharing.links.read",
+          "role": "user",
+          "versionGate": true
+        }
+      },
+      "post": {
+        "tags": [
+          "sharing"
+        ],
+        "summary": "Create a public link to a board. Auth: ses. Owner only, and only at or above the region's\n`public_links.min_age` (default 18). Requires `Idempotency-Key`.",
+        "description": "The response carries the link URL with its 128-bit token once; only a hash is stored, so the\nURL cannot be fetched again (a lost URL means: revoke and create a new link).",
+        "operationId": "createPublicLink",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The board id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePublicLinkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created; `link.url` is shown only now.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedPublicLinkEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED (expires_in), or a missing Idempotency-Key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "POLICY_DISALLOWED (owner under public_links.min_age), ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: no board of the caller with this id (collaborators included).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "idempotency": "required",
+          "rateLimit": "sharing.links.create",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
     "/v1/cards": {
       "post": {
         "tags": [
@@ -5322,6 +5512,84 @@
         }
       }
     },
+    "/v1/public-links/{id}": {
+      "delete": {
+        "tags": [
+          "sharing"
+        ],
+        "summary": "Revoke a public link. Auth: ses. The link's owner only. Revoking an already revoked or\nexpired link of the caller is a success too.",
+        "operationId": "revokePublicLink",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The link id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Revoked (or already gone)."
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: no link of the caller with this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "sharing.links.revoke",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
     "/v1/public/invites/{token}": {
       "get": {
         "tags": [
@@ -6867,6 +7135,53 @@
           }
         }
       },
+      "CreatePublicLinkRequest": {
+        "type": "object",
+        "description": "Body of `POST /v1/boards/{id}/public-links`.",
+        "required": [
+          "expires_in"
+        ],
+        "properties": {
+          "expires_in": {
+            "type": "string",
+            "description": "`24h`, `7d` or `never`.",
+            "example": "7d"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreatedPublicLinkEnvelope": {
+        "type": "object",
+        "required": [
+          "link"
+        ],
+        "properties": {
+          "link": {
+            "$ref": "#/components/schemas/CreatedPublicLinkView"
+          }
+        }
+      },
+      "CreatedPublicLinkView": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/PublicLinkView"
+          },
+          {
+            "type": "object",
+            "required": [
+              "url"
+            ],
+            "properties": {
+              "url": {
+                "type": "string",
+                "description": "`<share base>/b/<token>`: shown once, never retrievable again.",
+                "example": "https://share.example/b/3q2-7wAAAAAAAAAAAAAAAA"
+              }
+            }
+          }
+        ],
+        "description": "A new link: the only response that carries its URL (and so the raw token)."
+      },
       "DevicePlatform": {
         "type": "string",
         "enum": [
@@ -7882,6 +8197,52 @@
           }
         }
       },
+      "PublicLinkList": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicLinkView"
+            },
+            "description": "Live links (not revoked, not expired), newest first."
+          }
+        }
+      },
+      "PublicLinkView": {
+        "type": "object",
+        "description": "A public link as its owner sees it in lists (no token).",
+        "required": [
+          "id",
+          "board_id",
+          "created_at"
+        ],
+        "properties": {
+          "board_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "`null` = never expires."
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
       "PurgeCheckRequest": {
         "type": "object",
         "description": "Body of `POST /v1/feed/purges`.",
@@ -8655,6 +9016,10 @@
     {
       "name": "boards",
       "description": "Personal and shared boards of pinned cards (US-18..US-20, ADR-0007)"
+    },
+    {
+      "name": "sharing",
+      "description": "Public board links (US-24)"
     },
     {
       "name": "media",

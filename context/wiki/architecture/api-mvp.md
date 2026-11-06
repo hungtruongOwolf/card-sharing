@@ -444,6 +444,21 @@ app re-syncs with `GET /v1/boards/{id}?since_version=` on that push and on open 
 | GET | /v1/public/boards/{token}/og | Fresh signed URL for the OG image = watermarked snapshot of the owner's cards (friends' pins as private tiles); Next.js 302s, `Cache-Control: s-maxage=60`; purged on revoke, but crawler copies may persist (accepted risk D4) | svc | guest | same | same | yes | US-24 AC-24.2/24.7 |
 | GET | /v1/public/invites/{token} | Invite landing data `{inviter: {display_name}}` (avatar later; name only if the inviter is under 18) | svc | guest | valid token (not reset, expired or used up; inviter active); every bad token → one identical 404 `NOT_FOUND` | 30/min per client IP (`public.invites.read`, fails closed) | yes | US-4 AC-4.2/4.4 |
 
+Implemented (T-129, #131): `routes/public_links.rs` → `crates/sharing` (`SharingService`, schema `sharing`). Create needs
+`Idempotency-Key` and `{expires_in: "24h"|"7d"|"never"}` (anything else 400); answers 201 `{link: {id, board_id, created_at,
+expires_at|null, url}}` where `url` = `config/sharing.yaml` `links.url_base` + a 22-character base64url token (16 random bytes).
+Only the token's SHA-256 is stored, so the URL is never shown again (lost URL = revoke and create). List answers `{items:
+[{id, board_id, created_at, expires_at}]}`, live links only (not revoked, not expired), newest first, never a token or URL.
+A board the caller does not own (collaborators and strangers included), a deleted board and another owner's link id are the
+same 404 `NOT_FOUND` as a missing id; the body is validated before the ownership check. The owner's age is checked after
+ownership: below the region's `public_links.min_age` (default 18) the answer is 403 `POLICY_DISALLOWED` (AC-24.6). Revoking
+an already revoked or expired own link is 204 again (no second audit entry). Create and revoke write audit events
+`sharing.link_created` / `sharing.link_revoked` (target `public_link:<id>`, detail `board_id`, `reason`). Rate limits:
+`sharing.links.create` 20/day, `sharing.links.read` 60/min, `sharing.links.revoke` 60/h per user. Known trade-off: an
+idempotent replay of the create (24 h window) is served from the idempotency store, so the create response (with the URL) sits
+in `platform.idempotency_keys` for up to 24 h. `/v1/me` does not say whether the caller may create links; the app shows
+the action and handles 403. Tests: `tests/api/public_links.rs`.
+
 Implemented (#234): `routes/public_invites.rs` → `SocialService::public_invite_preview` (the same resolution as the in-app
 preview, with "expired" folded into `NOT_FOUND`: unknown, malformed, reset, expired, used up, inviter suspended / banned /
 deletion pending / deleted all answer identical bytes). No avatar, handle or id. The token is never logged (spans record the

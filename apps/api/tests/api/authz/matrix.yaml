@@ -387,6 +387,25 @@ routes:
     missing_path: /v1/board-invitations/0192f0c1-7c1e-7a3b-9d2e-000000000000/decline
     expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }
 
+  # Public board links (T-129). Owner cells, collaborators, minors (POLICY_DISALLOWED) and another
+  # owner's link are in tests/api/public_links.rs.
+  - route: POST /v1/boards/{id}/public-links
+    path: /v1/boards/0192f0c1-7c1e-7a3b-9d2e-123456789abc/public-links
+    missing_path: /v1/boards/0192f0c1-7c1e-7a3b-9d2e-000000000000/public-links
+    body: { expires_in: 7d }
+    idempotency_key: true
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }
+
+  - route: GET /v1/boards/{id}/public-links
+    path: /v1/boards/0192f0c1-7c1e-7a3b-9d2e-123456789abc/public-links
+    missing_path: /v1/boards/0192f0c1-7c1e-7a3b-9d2e-000000000000/public-links
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }
+
+  - route: DELETE /v1/public-links/{id}
+    path: /v1/public-links/0192f0c1-7c1e-7a3b-9d2e-123456789abc
+    missing_path: /v1/public-links/0192f0c1-7c1e-7a3b-9d2e-000000000000
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }
+
   # Remove a collaborator or leave (T-107). Owner/self/other-collaborator cells and block
   # resolution are in tests/api/board_membership.rs.
   - route: DELETE /v1/boards/{id}/members/{userId}

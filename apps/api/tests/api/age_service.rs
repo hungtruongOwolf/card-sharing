@@ -64,7 +64,8 @@ async fn turning_18_makes_an_adult_the_next_day_without_any_change() {
         before,
         AgeStatus {
             is_minor: true,
-            discoverable: false
+            discoverable: false,
+            public_links: false
         }
     );
     // Cached for today: still a minor a few hours later.
@@ -84,7 +85,8 @@ async fn turning_18_makes_an_adult_the_next_day_without_any_change() {
         after,
         AgeStatus {
             is_minor: false,
-            discoverable: true
+            discoverable: true,
+            public_links: true
         }
     );
 }
@@ -154,7 +156,8 @@ async fn a_later_request_from_a_laxer_region_does_not_lower_discovery_min_age() 
         from_us,
         AgeStatus {
             is_minor: true,
-            discoverable: false
+            discoverable: false,
+            public_links: false
         },
         "stored KR signals still apply"
     );

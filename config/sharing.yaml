@@ -1,0 +1,9 @@
+# Sharing rules (US-24) — see crates/sharing/src/settings.rs and context/wiki/architecture/api-mvp.md
+# "Sharing". Who may create public links (owner age) is region policy (config/policy/regions.yaml
+# `public_links`), not here.
+version: 1
+
+links:
+  # Public board links are `<url_base><token>`. Local web by default; deployments point it at the
+  # share domain (the web page /b/<token>).
+  url_base: 'http://localhost:3000/b/'
