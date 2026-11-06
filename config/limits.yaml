@@ -37,6 +37,11 @@ limits:
     requests: 5
     per_secs: 900
     on_store_failure: closed
+  auth.dev: # GET /v1/dev/seed-users, POST /v1/dev/sign-in (development and test servers only, #306)
+    scope: ip
+    requests: 30
+    per_secs: 60
+    on_store_failure: closed
   auth.refresh: # POST /v1/auth/refresh (30/h per device; anonymous callers fall back to IP)
     scope: device
     requests: 30

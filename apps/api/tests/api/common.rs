@@ -86,6 +86,7 @@ pub fn test_config() -> Config {
         },
         os_age_signals_enabled: true,
         service_credential: Some(Secret::new(TEST_SERVICE_CREDENTIAL)),
+        dev_sign_in: false,
     }
 }
 

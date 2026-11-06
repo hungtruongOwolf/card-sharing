@@ -123,6 +123,15 @@ store down → 503. `authorization_code` is exchanged with Apple (client secret 
 refresh token stored encrypted in `auth_identities.apple_refresh_token_enc`; best effort (sign-in does not fail if Apple's
 token endpoint does), skipped until the team key is configured.
 
+**Development-only sign-in (#306, SR-38).** `GET /v1/dev/seed-users` → `{users: [{handle, display_name, minor}]}` (the seed
+personas present in the database; empty before `pnpm dev:seed`) and `POST /v1/dev/sign-in` `{handle, device?}` → the same token
+pair as provider sign-in (a normal session: TTLs, refresh, revocation, audit `auth.sign_in` with `provider: dev`). Auth none,
+limit `auth.dev` (30/min per IP, fails closed). Served only when `API_DEV_SIGN_IN=true`, which config refuses unless `API_ENV`
+is `development` or `test`; otherwise both paths answer the same 404 as an unknown path (authz matrix rows). The handle is
+matched against the fixed personas in `apps/api/src/seed.rs` and resolved through their `seed.<key>` subject, so a real account
+is never reachable whatever its handle; a non-seed handle or an unseeded database → 404, suspended/banned seed account → 403
+`ACCOUNT_SUSPENDED`, unknown fields → 400. Documented in OpenAPI (tag `dev`) so the TS client has the types.
+
 `POST /v1/auth/email/start` (T-22, none, limits `auth.email.start` 5/15 min per IP + `auth.email.start.email` 5/15 min per
 hashed email, both fail closed) `{email, code_challenge, code_challenge_method?: "S256"}` → **202, empty body** for every
 well-formed request; malformed email/challenge or extra fields → 400 `VALIDATION_FAILED`; over a limit → 429 `RATE_LIMITED` (same
