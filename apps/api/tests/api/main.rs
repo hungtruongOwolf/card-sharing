@@ -13,6 +13,7 @@ mod attestation;
 mod audit;
 mod authz_matrix;
 mod blocks;
+mod cards_delete;
 mod cards_deliver;
 mod cards_read;
 mod cards_send;

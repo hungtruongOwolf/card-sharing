@@ -234,3 +234,8 @@ limits:
     requests: 120
     per_secs: 60
     on_store_failure: open
+  cards.delete: # DELETE /v1/cards/{id}
+    scope: user
+    requests: 60
+    per_secs: 3600
+    on_store_failure: open

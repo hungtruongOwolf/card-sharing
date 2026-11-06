@@ -236,6 +236,10 @@ pub fn router() -> ApiRouter<AppState> {
             routes!(cards::get_card),
         )
         .route(
+            RoutePolicy::session().limited("cards.delete"),
+            routes!(cards::delete_card),
+        )
+        .route(
             RoutePolicy::session().limited("feed.read"),
             routes!(feed::get_feed),
         )
