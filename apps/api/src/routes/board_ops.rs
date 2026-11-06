@@ -244,7 +244,9 @@ fn domain_op(state: &AppState, op: PinOpRequest) -> Result<PinOp, ApiError> {
 /// Apply a batch of pin ops. Auth: ses. Members only.
 ///
 /// `pin.add` places a card or decoration (at most 100 live pins per board); for a card, the
-/// caller must be able to pin it now (own active card). `pin.update` / `pin.remove` carry the pin
+/// caller must be able to view it now: a collaborator pins only their own active cards, the owner
+/// also cards they received and can still see (still friends, no block, card active). Anything
+/// else is `NOT_FOUND`; the caller's own held card is `CARD_HELD_FOR_REVIEW`. `pin.update` / `pin.remove` carry the pin
 /// `base_version`: a mismatch is `conflict` with the current pin. Collaborators move and remove
 /// only pins they created (`PIN_NOT_YOURS`); the owner may change any pin. A replayed `op_id`
 /// (or a retried `pin.add` of the caller's own pin) is `applied` again without changing anything.
