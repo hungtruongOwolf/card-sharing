@@ -73,7 +73,7 @@ each `{id, version, params?}`; the id must exist at exactly the exported version
 strict rules as `resolveParams` and missing ones are stored with their defaults. Any violation → 422 `UNKNOWN_REGISTRY_ID` with no
 detail. Shipped entries so far: `cut.none`, `cut.raw`, `cut.diecut`, `cut.torn`, `cut.shape.rounded-square`,
 `cut.shape.circle`, `cut.shape.heart`, `fx.matte`, `fx.glossy`, `fx.holo`, `fx.paper-lift`, `frame.polaroid`,
-`overlay.washi`, `overlay.speech`; the other MVP
+`overlay.washi`, `overlay.speech`, `fx.sparkles`; the other MVP
 entries land with their tickets.
 
 **Cut style rendering (T-62, `apps/mobile/src/features/cut-styles`):** `drawCutStyle(canvas, entry, params, scene)` draws
@@ -164,6 +164,15 @@ way to the anchor) or meme (white Anton capitals, dark outline); `size` 0.6–1.
 draw with Anton bundled as a Metro asset and decoded by Skia (`effectFonts.ts`, `loadEffectFonts`), because Skia cannot
 read the expo-font embedded faces on Android; the editor and the send bake wait for it, and text draws nothing while
 it is missing. Width comes from glyph advances (`measureText` is not on every Skia backend).
+
+**Sparkles (T-120, `renderers/sparkles.ts`):** `fx.sparkles` (kind `overlay`, `particles:sparkles`, layer `over`,
+not stackable): `amount` 10–300 particles (hard cap `MAX_SPARKLES` = 300) spawned evenly along the subject outline
+with a seeded jitter and pushed outwards up to 6 % of the short side (`SkPath.contains` picks the outward normal); a
+whole-photo card spawns them along a frame 6 % inside the card edge. Presets via `shape`: stars (four-point, warm
+white), hearts (pink, upright within ±20°), confetti (tape-like palette). `size` 0.5–2 scales the 2.2 % base size.
+Each particle has a twinkle phase; `time` drives a seamless 2 s loop (`export.loop`), but the editor, bakes and reduced
+motion draw time 0, and `cost.liveAllowed` is false: no per-frame cost until a device measurement shows the live
+twinkle holds 30 fps on a low-end phone (the still is the low-end / reduced-motion variant).
 
 Rules: adding an effect = add entry + shader/asset + tests (golden snapshot); removing = remove entry **and** migrate stored
 references (fallback to `fx.none`) + update this page ([[change-management]]). Device-capability routing hides entries whose

@@ -393,6 +393,9 @@ export const en = {
   'effects.overlay.speech.name': 'Speech bubble',
   'effects.overlay.speech.description': 'A comic speech bubble or a meme caption.',
   'effects.overlay.speech.a11y': 'with a speech bubble',
+  'effects.fx.sparkles.name': 'Sparkles',
+  'effects.fx.sparkles.description': 'Stars, hearts or confetti around the subject.',
+  'effects.fx.sparkles.a11y': 'with sparkles',
   // Param labels (`effects.param.<name>`, enum values `effects.param.<name>.<value>`), shared across entries.
   'effects.param.cornerRadiusPct': 'Corner roundness',
   'effects.param.borderWidthPct': 'Border width',
@@ -412,6 +415,10 @@ export const en = {
   'effects.param.shape': 'Style',
   'effects.param.shape.bubble': 'Bubble',
   'effects.param.shape.meme': 'Meme caption',
+  'effects.param.shape.stars': 'Stars',
+  'effects.param.shape.hearts': 'Hearts',
+  'effects.param.shape.confetti': 'Confetti',
+  'effects.param.amount': 'Amount',
   // Curated captions (`overlay.speech`): shown in the picker and drawn on the card, so keep them short and kind.
   'effects.param.caption': 'Caption',
   'effects.param.caption.hello': 'Hello!',
