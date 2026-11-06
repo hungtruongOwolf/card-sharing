@@ -12,8 +12,9 @@
 #   onboarding_profile  onboarding session, account pending_profile (age gate passed)
 #   user                full session, account active
 #   suspended           session of a suspended account
-#   service             the web server: X-Service-Credential (valid) + X-Client-IP, no bearer token. Only
-#                       svc routes (/v1/public/*) accept it; every other route answers 403.
+#   service             the web server: valid X-Service-Credential + X-Client-IP, no bearer token.
+#                       Optional cell: when a row omits it, the harness expects 403 (deny by default;
+#                       only svc routes under /v1/public/ accept the credential).
 #
 # Placeholders in `body`: "$REFRESH_TOKEN" = the role's own refresh token (guest: a random one),
 # "$ADULT_DOB" = a date of birth 30 years ago, "$NONCE" = a fresh raw nonce, "$APPLE_ID_TOKEN" = an
@@ -29,169 +30,175 @@ version: 1
 
 routes:
   - route: GET /healthz
-    expect: { guest: 200, onboarding_age: 200, onboarding_profile: 200, user: 200, suspended: 200, service: 403 }
+    expect: { guest: 200, onboarding_age: 200, onboarding_profile: 200, user: 200, suspended: 200 }
 
   - route: GET /readyz
-    expect: { guest: 200, onboarding_age: 200, onboarding_profile: 200, user: 200, suspended: 200, service: 403 }
+    expect: { guest: 200, onboarding_age: 200, onboarding_profile: 200, user: 200, suspended: 200 }
 
   - route: GET /openapi.json
-    expect: { guest: 200, onboarding_age: 200, onboarding_profile: 200, user: 200, suspended: 200, service: 403 }
+    expect: { guest: 200, onboarding_age: 200, onboarding_profile: 200, user: 200, suspended: 200 }
 
   - route: GET /v1/config
-    expect: { guest: 200, onboarding_age: 200, onboarding_profile: 200, user: 200, suspended: 200, service: 403 }
+    expect: { guest: 200, onboarding_age: 200, onboarding_profile: 200, user: 200, suspended: 200 }
 
   # Sign-in ignores any bearer token: every caller gets a session for the identity in the ID token.
   # Invalid tokens (401), replay, rate limit and unknown fields are covered in tests/api/sign_in.rs and
   # tests/api/sign_in_google.rs.
   - route: POST /v1/auth/apple
     body: { id_token: $APPLE_ID_TOKEN, nonce: $NONCE }
-    expect: { guest: 200, onboarding_age: 200, onboarding_profile: 200, user: 200, suspended: 200, service: 403 }
+    expect: { guest: 200, onboarding_age: 200, onboarding_profile: 200, user: 200, suspended: 200 }
 
   - route: POST /v1/auth/google
     body: { id_token: $GOOGLE_ID_TOKEN, nonce: $NONCE }
-    expect: { guest: 200, onboarding_age: 200, onboarding_profile: 200, user: 200, suspended: 200, service: 403 }
+    expect: { guest: 200, onboarding_age: 200, onboarding_profile: 200, user: 200, suspended: 200 }
 
   # Magic links (T-22): always 202, no account information. Limits and delivery: tests/api/magic_link.rs.
   - route: POST /v1/auth/email/start
     body: { email: $EMAIL, code_challenge: $CODE_CHALLENGE }
-    expect: { guest: 202, onboarding_age: 202, onboarding_profile: 202, user: 202, suspended: 202, service: 403 }
+    expect: { guest: 202, onboarding_age: 202, onboarding_profile: 202, user: 202, suspended: 202 }
 
   - route: POST /v1/auth/refresh
     body: { refresh_token: $REFRESH_TOKEN }
-    expect: { guest: 401, onboarding_age: 200, onboarding_profile: 200, user: 200, suspended: 401, service: 403 }
+    expect: { guest: 401, onboarding_age: 200, onboarding_profile: 200, user: 200, suspended: 401 }
 
   - route: DELETE /v1/sessions/current
-    expect: { guest: 401, onboarding_age: 204, onboarding_profile: 204, user: 204, suspended: 403, service: 403 }
+    expect: { guest: 401, onboarding_age: 204, onboarding_profile: 204, user: 204, suspended: 403 }
 
   # Session management (T-24). Other accounts' session ids -> 404 (tests/api/session_management.rs).
   - route: GET /v1/sessions
-    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 200, suspended: 403, service: 403 }
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 200, suspended: 403 }
 
   - route: DELETE /v1/sessions/{id}
     path: /v1/sessions/$SESSION_ID
-    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 204, suspended: 403, service: 403 }
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 204, suspended: 403 }
 
   - route: POST /v1/sessions/revoke-all
-    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 204, suspended: 403, service: 403 }
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 204, suspended: 403 }
 
   # Attestation (T-35). Challenge single use, binding and verdicts: tests/api/attestation.rs. A bogus key
   # registration answers 204 in log-only mode (the test env's mode).
   - route: POST /v1/attestation/challenge
-    expect: { guest: 401, onboarding_age: 200, onboarding_profile: 200, user: 200, suspended: 403, service: 403 }
+    expect: { guest: 401, onboarding_age: 200, onboarding_profile: 200, user: 200, suspended: 403 }
 
   - route: POST /v1/attestation/apple-keys
     body: { key_id: $NONCE, attestation: AAAA, challenge: $NONCE }
-    expect: { guest: 401, onboarding_age: 204, onboarding_profile: 204, user: 204, suspended: 403, service: 403 }
+    expect: { guest: 401, onboarding_age: 204, onboarding_profile: 204, user: 204, suspended: 403 }
 
   - route: GET /v1/me
-    expect: { guest: 401, onboarding_age: 200, onboarding_profile: 200, user: 200, suspended: 403, service: 403 }
+    expect: { guest: 401, onboarding_age: 200, onboarding_profile: 200, user: 200, suspended: 403 }
 
   - route: POST /v1/me/age
     body: { birth_date: $ADULT_DOB }
-    expect: { guest: 401, onboarding_age: 200, onboarding_profile: 403, user: 403, suspended: 403, service: 403 }
+    expect: { guest: 401, onboarding_age: 200, onboarding_profile: 403, user: 403, suspended: 403 }
 
   # OS age signal (T-29): enabled in the test env; the disabled flag (404) is in tests/api/age_service.rs.
   - route: POST /v1/me/age-signal
     body: { source: apple_declared_age_range, signal: minor }
-    expect: { guest: 401, onboarding_age: 204, onboarding_profile: 204, user: 204, suspended: 403, service: 403 }
+    expect: { guest: 401, onboarding_age: 204, onboarding_profile: 204, user: 204, suspended: 403 }
 
   # Profile writes need the age gate passed (pending_age -> 403 ONBOARDING_INCOMPLETE). No account id is
   # accepted; the other-user and validation cases are in tests/api/profile.rs.
   - route: PUT /v1/me/profile
     body: { display_name: Matrix Cat }
-    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 200, user: 200, suspended: 403, service: 403 }
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 200, user: 200, suspended: 403 }
 
   # Handles: same gate as the profile. Taken/reserved/cooldown/race cases are in tests/api/handle.rs.
   - route: POST /v1/me/handle/check
     body: { handle: $HANDLE }
-    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 200, user: 200, suspended: 403, service: 403 }
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 200, user: 200, suspended: 403 }
 
   - route: PUT /v1/me/handle
     body: { handle: $HANDLE }
-    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 200, user: 200, suspended: 403, service: 403 }
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 200, user: 200, suspended: 403 }
 
   # Invites (T-37). Only the caller's own invite exists on these routes (no id); another user's link
   # and reset isolation are in tests/api/invites.rs.
   - route: GET /v1/me/invite
-    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 200, suspended: 403, service: 403 }
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 200, suspended: 403 }
 
   - route: POST /v1/me/invite/reset
-    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 200, suspended: 403, service: 403 }
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 200, suspended: 403 }
 
   # Friend requests (T-39). An unknown token is the same 404 for every caller; expired, self, blocked
   # (silent 201), caps and attestation are in tests/api/friend_requests.rs.
   - route: GET /v1/invites/{token}
     path: /v1/invites/AAAAAAAAAAAAAAAAAAAAAA
     missing_path: /v1/invites/BBBBBBBBBBBBBBBBBBBBBB
-    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403, service: 403 }
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }
 
   # #234: svc only (the web landing page). Bad tokens of every kind: tests/api/public_invites.rs.
   - route: GET /v1/public/invites/{token}
     path: /v1/public/invites/AAAAAAAAAAAAAAAAAAAAAA
     missing_path: /v1/public/invites/BBBBBBBBBBBBBBBBBBBBBB
-    expect: { guest: 401, onboarding_age: 401, onboarding_profile: 401, user: 401, suspended: 401, service: 404 }
+    expect:
+      guest: 401
+      onboarding_age: 401
+      onboarding_profile: 401
+      user: 401
+      suspended: 401
+      service: 404
 
   - route: POST /v1/friend-requests
     body: { invite_token: AAAAAAAAAAAAAAAAAAAAAA }
     missing_path: /v1/friend-requests
     idempotency_key: true
-    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403, service: 403 }
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }
 
   # Answering requests (T-40): a request id that is not the caller's is the same 404 as a missing one
   # (tests/api/request_answers.rs covers cross-user accept / decline / cancel).
   - route: GET /v1/friend-requests
     path: /v1/friend-requests?direction=incoming
-    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 200, suspended: 403, service: 403 }
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 200, suspended: 403 }
 
   - route: POST /v1/friend-requests/{id}/accept
     path: /v1/friend-requests/0192f0c1-7c1e-7a3b-9d2e-123456789abc/accept
     missing_path: /v1/friend-requests/0192f0c1-7c1e-7a3b-9d2e-000000000000/accept
-    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403, service: 403 }
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }
 
   - route: POST /v1/friend-requests/{id}/decline
     path: /v1/friend-requests/0192f0c1-7c1e-7a3b-9d2e-123456789abc/decline
     missing_path: /v1/friend-requests/0192f0c1-7c1e-7a3b-9d2e-000000000000/decline
-    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403, service: 403 }
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }
 
   - route: DELETE /v1/friend-requests/{id}
     path: /v1/friend-requests/0192f0c1-7c1e-7a3b-9d2e-123456789abc
     missing_path: /v1/friend-requests/0192f0c1-7c1e-7a3b-9d2e-000000000000
-    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403, service: 403 }
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }
 
   # Handle search (T-43). Every outcome is a 200; hidden accounts, refs and timing are in
   # tests/api/user_search.rs.
   - route: POST /v1/users/search
     body: { handle: $HANDLE }
-    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 200, suspended: 403, service: 403 }
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 200, suspended: 403 }
 
   # Privacy settings (T-45). The matrix user has no DOB (treated as under the discovery age), so turning
   # findability off is the allowed cell; adults turning it on and minors refused are in
   # tests/api/findable.rs.
   - route: PATCH /v1/me/settings
     body: { findable_by_handle: false }
-    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 200, suspended: 403, service: 403 }
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 200, suspended: 403 }
 
   # Friends (T-46). A user id that is not the caller's friend is the same 404 as a missing one
   # (tests/api/friends.rs covers third-party edges).
   - route: GET /v1/friends
-    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 200, suspended: 403, service: 403 }
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 200, suspended: 403 }
 
   - route: DELETE /v1/friends/{userId}
     path: /v1/friends/0192f0c1-7c1e-7a3b-9d2e-123456789abc
     missing_path: /v1/friends/0192f0c1-7c1e-7a3b-9d2e-000000000000
-    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403, service: 403 }
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }
 
   # Blocks (T-47). An unrelated or missing account is the same 404 (no existence oracle); relation
   # rules and silence are in tests/api/blocks.rs.
   - route: POST /v1/blocks
     body: { user_id: 0192f0c1-7c1e-7a3b-9d2e-123456789abc }
     missing_path: /v1/blocks
-    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403, service: 403 }
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }
 
   - route: GET /v1/blocks
-    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 200, suspended: 403, service: 403 }
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 200, suspended: 403 }
 
   - route: DELETE /v1/blocks/{userId}
     path: /v1/blocks/0192f0c1-7c1e-7a3b-9d2e-123456789abc
     missing_path: /v1/blocks/0192f0c1-7c1e-7a3b-9d2e-000000000000
-    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403, service: 403 }
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }

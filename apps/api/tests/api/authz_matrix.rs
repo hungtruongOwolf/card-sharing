@@ -51,14 +51,22 @@ enum Role {
     Service,
 }
 
-const ALL_ROLES: [Role; 6] = [
+/// Roles every row must list. `service` is optional: see [`cells`].
+const ALL_ROLES: [Role; 5] = [
     Role::Guest,
     Role::OnboardingAge,
     Role::OnboardingProfile,
     Role::User,
     Role::Suspended,
-    Role::Service,
 ];
+
+/// The cells of a row. A row without a `service` cell expects 403 for it: the web server's
+/// credential is refused everywhere except on `svc` routes (deny by default).
+fn cells(row: &Row) -> BTreeMap<Role, u16> {
+    let mut cells = row.expect.clone();
+    cells.entry(Role::Service).or_insert(403);
+    cells
+}
 
 struct Fixture {
     access_token: Option<String>,
@@ -107,7 +115,7 @@ fn matrix_covers_every_registered_route() {
                 row.route
             );
         }
-        let denies_with_404 = row.expect.values().any(|status| *status == 404);
+        let denies_with_404 = cells(&row).values().any(|status| *status == 404);
         assert!(
             !denies_with_404 || row.missing_path.is_some(),
             "{} expects 404 but has no missing_path to compare against",
@@ -249,7 +257,7 @@ async fn every_matrix_cell_holds_against_the_real_api() {
     let mut failures = Vec::new();
     for row in matrix().routes {
         let (method, template) = split_route(&row.route);
-        for (role, expected) in &row.expect {
+        for (role, expected) in &cells(&row) {
             let fixture = fixture(&env, *role).await;
             let path = row
                 .path
