@@ -390,13 +390,13 @@ returned. Visibility is one batched query per read (`CardAccess::visible_to` + f
 // POST /v1/cards  (Idempotency-Key: <client_card_id>)  — never accepts owner_id/status/sender
 { "client_card_id": "0192…", "render_media_id": "…", "mask_media_id": "…", "original_media_id": null,
   "style": { "cut": {"id":"cut.diecut","version":1,"params":{"borderWidthPct":3}},
-             "finish": {"id":"finish.holo","version":1}, "effects": [{"id":"fx.laser-eyes","version":1,"params":{}}] },
+             "finish": {"id":"fx.holo","version":1}, "effects": [{"id":"fx.laser-eyes","version":1,"params":{}}] },
   "caption": "zoomies", "alt_text": null, "audience": { "mode": "subset", "recipient_ids": ["…"] } }
 // 202 → { "card": { "id": "…", "status": "pending_scan", "recipient_count": 5 } }   // who was dropped is never revealed
 // owner view of a held card: { "id": "…", "status": "held_review", "hold": { "reason": "nudity_classifier", "appeal": "none|pending|released|upheld", "expires_at": "…" } }
 // CardView (GET /v1/cards/{id}, feed items, widget)
 { "id": "…", "sender": {"id":"…","display_name":"Mai","avatar_url":"<signed>"}, "caption": "zoomies", "alt_text": "Card from Mai",
-  "style": {"finish":{"id":"finish.holo","version":1}}, "media": {"render_url":"<signed>","mask_url":"<signed>","expires_at":"…"},
+  "style": {"finish":{"id":"fx.holo","version":1}}, "media": {"render_url":"<signed>","mask_url":"<signed>","expires_at":"…"},
   "sent_at": "…", "my_reaction": "react.squish", "is_mine": false }   // "original_url" present only when is_mine (AC-13.6)
 // GET /v1/boards/{id} pin items: {"id":"…","kind":"card","card":{CardView}} | {"id":"…","kind":"private_tile","x":…} | {"id":"…","kind":"removed"}
 // POST /v1/boards/{id}/invitations {"user_id":"…"} → 201 { "invitation": {"id":"…","status":"pending","expires_at":"…"} }   // also for silent drops

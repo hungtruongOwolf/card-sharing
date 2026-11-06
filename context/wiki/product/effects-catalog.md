@@ -174,6 +174,15 @@ pose model downloaded on first use (Phase 2, [[ADR-0003-effects-tiers]]). Props 
 
 Export rules:
 - **Still:** render the composed card offscreen (`makeImageSnapshot`) at export resolution (long side 2048, 1080 for share), PNG with alpha for stickers, JPEG for photos; holo frozen at a flattering tilt.
+  Implemented (T-67, `apps/mobile/src/features/cards/bake.ts`): `bakeCard` draws `drawCard` on a CPU raster surface
+  (byte-stable: the same draft bakes to the same PNG bytes, unlike a GPU surface across devices) at long side 1080
+  (`send`) or 2048 (`export`) from the full-resolution photo. Every card is a PNG with alpha (even `cut.none` has
+  rounded corners, so no JPEG path yet). The 8-bit mask is encoded as a grayscale PNG at its own resolution, and only
+  when the cut style reads it (`mask`/`contour` input, not a whole-photo card), so unused masks never leave the device.
+  Bakes stay in memory; only the send flow (T-77) uploads them. The local card model (`localCard.ts`: client id reused
+  as `client_card_id`, photo reference, `{id, version, params}` per slot, timestamps) keeps the card re-editable until
+  sent (AC-21.5; the editor takes an `initialDraft`), and `styleBlock` builds the `POST /v1/cards` `style` block with
+  the strict check (exact version, slot kind, `resolveParams`).
 - **Loop clip (procedural only, not AI video):** render N frames with the `time` uniform offscreen → encode MP4/animated WebP via a native encoder module (AVAssetWriter / MediaCodec); Skia video export is beta → Phase 2. EM confirmed 2026-11-04: procedural loops are allowed (not AI video) — **Phase 2**.
 - Web share pages show the baked still (`webPreview: 'baked'`). On enlarge, the holo runs as a small WebGL2 port of the
   same shader (`packages/shaders` uniforms), not CanvasKit: the T-126 spike measured CanvasKit at 2.9 MB gz, 15-17 s cold on

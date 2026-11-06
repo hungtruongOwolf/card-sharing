@@ -63,6 +63,11 @@ export interface CardEditorScreenProps {
   textFilter?: TextFilterConfig;
   loadImage?: LoadImage;
   registry?: Registry;
+  /**
+   * Re-edit a saved card (drafts tray): the editor starts from these choices instead of the default sticker.
+   * Choices the device or config no longer allows fall back to the defaults like any hidden selection.
+   */
+  initialDraft?: CardDraft;
   /** Back to capture (also the way out of the error state). */
   onBack: () => void;
   /** Next step for the finished draft (send, a later ticket). Without it the editor has no Next button. */
@@ -147,6 +152,7 @@ function Editor({
   registry = shippedRegistry,
   captionMax = CAPTION_MAX_GRAPHEMES,
   textFilter,
+  initialDraft,
   onNext,
 }: EditorProps) {
   const { width: windowWidth } = useWindowDimensions();
@@ -157,6 +163,7 @@ function Editor({
   );
   const subject = useMemo(() => (mask ? subjectFor(mask, size.width) : null), [mask, size.width]);
   const [history, dispatch] = useReducer(editorReducer, undefined, () => {
+    if (initialDraft) return { past: [], present: initialDraft, future: [], gestureBase: null };
     const tabs = pickerTabs(registry, deviceContext(appVersion, subject !== null), remoteConfig);
     const cut = defaultCut(tabs[0]?.entries ?? [], subject !== null);
     return initialHistory(cut ?? registry.byKind('cutStyle')[0]!);
