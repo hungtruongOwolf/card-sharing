@@ -152,6 +152,11 @@ limits:
     on_store_failure: closed
     also:
       - { requests: 30, per_secs: 86400 }
+  devices.push_tokens: # PUT and DELETE /v1/devices/{deviceId}/push-tokens (T-85)
+    scope: device
+    requests: 30
+    per_secs: 86400
+    on_store_failure: open
   users.search.device: # same route, per device (checked in the handler)
     scope: device
     requests: 30

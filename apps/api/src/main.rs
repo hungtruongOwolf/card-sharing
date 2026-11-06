@@ -216,6 +216,11 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
         Arc::clone(&clock),
         SessionPolicy::default(),
     ));
+    let push_tokens = Arc::new(notifications::PushTokens::new(
+        pool.clone(),
+        Arc::clone(&clock),
+        Arc::clone(&cipher),
+    ));
     let magic_links = MagicLinkJob {
         identity: Arc::clone(&identity),
         cipher,
@@ -285,6 +290,11 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
             "identity.magic_links.purge",
             std::time::Duration::from_secs(3600),
             Arc::new(MagicLinkPurge(identity)),
+        )
+        .periodic(
+            "notifications.push_tokens.prune",
+            std::time::Duration::from_secs(600),
+            Arc::new(PushTokenPrune(push_tokens)),
         )
         .periodic(
             "idempotency.purge",
@@ -361,6 +371,21 @@ impl PeriodicTask for SocialHousekeeping {
                 purged_requests = report.purged_requests,
                 purged_invites = report.purged_invites
             );
+            Ok(())
+        })
+    }
+}
+
+/// Deletes push tokens that were invalidated by a provider or whose session ended (logout,
+/// expiry, suspension, deletion). Senders already skip them; this keeps the table minimal.
+struct PushTokenPrune(Arc<notifications::PushTokens>);
+
+impl PeriodicTask for PushTokenPrune {
+    fn run(&self) -> PeriodicFuture {
+        let tokens = Arc::clone(&self.0);
+        Box::pin(async move {
+            let pruned = tokens.prune().await.map_err(|e| e.to_string())?;
+            tracing::info!(event = "notifications.push_tokens.pruned", pruned);
             Ok(())
         })
     }

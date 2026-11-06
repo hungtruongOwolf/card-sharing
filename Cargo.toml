@@ -14,6 +14,7 @@ attestation = { path = "crates/attestation" }
 cards = { path = "crates/cards" }
 identity = { path = "crates/identity" }
 media = { path = "crates/media" }
+notifications = { path = "crates/notifications" }
 registry = { path = "crates/registry" }
 platform = { path = "crates/platform" }
 policy = { path = "crates/policy" }

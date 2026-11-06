@@ -13,6 +13,7 @@ attestation.workspace = true
 cards.workspace = true
 identity.workspace = true
 media.workspace = true
+notifications.workspace = true
 platform.workspace = true
 registry.workspace = true
 policy.workspace = true
