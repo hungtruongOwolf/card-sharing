@@ -9,6 +9,7 @@ import { createQueryClient } from '../data/queryClient';
 import { AuthProvider, createAppAuthClient, useAuthClient } from '../features/auth';
 import { FeedbackProvider, securePrefsStorage } from '../features/feedback';
 import { deviceFeedCache, PurgeSync } from '../features/feed';
+import { TimeZoneSync, useNotificationsApi } from '../features/notifications';
 import { createAppOutbox, deviceOutboxStore, OutboxProvider } from '../features/outbox';
 import {
   createAppOnboardingDeps,
@@ -39,6 +40,7 @@ const ROUTES: readonly (readonly [Exclude<OnboardingPhase, 'loading' | 'error'>,
   ['home', 'settings/sessions'],
   ['home', 'settings/privacy'],
   ['home', 'settings/feedback'],
+  ['home', 'settings/notifications'],
   ['home', 'friends/index'],
   ['home', 'friends/requests'],
   ['home', 'friends/invite'],
@@ -64,6 +66,12 @@ function CardPurges() {
   return <PurgeSync api={api} cache={deviceFeedCache()} />;
 }
 
+/** Sends the device time zone so quiet hours apply locally (T-87), only while signed in. */
+function DeviceTimeZone() {
+  const api = useNotificationsApi();
+  return <TimeZoneSync api={api} />;
+}
+
 function PhaseStack() {
   const theme = useTheme();
   const { phase } = useOnboarding();
@@ -71,7 +79,12 @@ function PhaseStack() {
   if (phase === 'error') return <ErrorScreen />;
   return (
     <>
-      {phase === 'home' ? <CardPurges /> : null}
+      {phase === 'home' ? (
+        <>
+          <CardPurges />
+          <DeviceTimeZone />
+        </>
+      ) : null}
       <Stack
         screenOptions={{
           headerShown: false,
