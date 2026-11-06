@@ -94,6 +94,10 @@ pub struct Config {
     /// or `fake` (records purged cache tags; refused when `API_ENV=production`). The Cloudflare
     /// adapter (purge by tag) arrives with the account (T-133).
     pub cdn_purger: SafetyAdapter,
+    /// `API_CAPTCHA_VERIFIER` — `none` (default: guest reports answer 503) or `fake` (accepts
+    /// `fake-captcha-pass`; refused when `API_ENV=production`). The real provider is an EM
+    /// decision (T-142).
+    pub captcha_verifier: SafetyAdapter,
     /// `API_APPLE_CLIENT_IDS` — comma-separated `aud` values accepted in Apple ID tokens (the iOS
     /// bundle id; a Services ID if web sign-in is ever added). Empty (default) = Apple sign-in
     /// answers 503.
@@ -326,6 +330,7 @@ impl Config {
         let media_s3 = media_s3_config(env, content_safety.env)?;
         let push_sender = safety_adapter(env, "API_PUSH_SENDER", content_safety.env)?;
         let cdn_purger = safety_adapter(env, "API_CDN_PURGER", content_safety.env)?;
+        let captcha_verifier = safety_adapter(env, "API_CAPTCHA_VERIFIER", content_safety.env)?;
         if media_s3.is_some() && media_storage_dir.is_some() {
             return Err(invalid(
                 "API_S3_ENDPOINT",
@@ -390,6 +395,7 @@ impl Config {
             moderation_config_path,
             push_sender,
             cdn_purger,
+            captcha_verifier,
             media_storage_dir,
             media_s3,
             content_safety,
@@ -771,6 +777,11 @@ mod tests {
         let config = load(&[("API_ENV", "staging"), ("API_PUSH_SENDER", "fake")]).unwrap();
         assert_eq!(config.push_sender, SafetyAdapter::Fake);
         assert!(load(&[("API_ENV", "staging"), ("API_PUSH_SENDER", "apns")]).is_err());
+        // The fake captcha verifier too (T-142).
+        assert_eq!(load(&[]).unwrap().captcha_verifier, SafetyAdapter::None);
+        assert!(load(&[("API_CAPTCHA_VERIFIER", "fake")]).is_err());
+        let config = load(&[("API_ENV", "development"), ("API_CAPTCHA_VERIFIER", "fake")]).unwrap();
+        assert_eq!(config.captcha_verifier, SafetyAdapter::Fake);
         // The fake CDN purger too (T-133).
         assert_eq!(load(&[]).unwrap().cdn_purger, SafetyAdapter::None);
         assert!(load(&[("API_CDN_PURGER", "fake")]).is_err());

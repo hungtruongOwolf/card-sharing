@@ -6659,6 +6659,99 @@
         }
       }
     },
+    "/v1/public/reports": {
+      "post": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Report a public link as a guest. Auth: svc (web server, with `X-Client-IP`).",
+        "operationId": "createPublicReport",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicReportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Report received (or already received from this visitor IP for this link).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicReportAccepted"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED: missing or failed captcha, reason, note, unknown fields, or a missing X-Client-IP.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED: missing or wrong service credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: the same answer for every unusable token (malformed, unknown, revoked, expired).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED: more than 5 reports per hour from this visitor IP.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "TEMPORARILY_UNAVAILABLE: captcha provider not configured or unreachable, or the rate-limit store is down.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "service": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "svc",
+          "rateLimit": "public.reports.create",
+          "role": "guest",
+          "versionGate": true
+        }
+      }
+    },
     "/v1/reports": {
       "post": {
         "tags": [
@@ -9647,6 +9740,54 @@
             "type": "string"
           }
         }
+      },
+      "PublicReportAccepted": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Always `received`.",
+            "example": "received"
+          }
+        }
+      },
+      "PublicReportRequest": {
+        "type": "object",
+        "description": "Body of `POST /v1/public/reports`.",
+        "required": [
+          "token",
+          "reason",
+          "captcha_token"
+        ],
+        "properties": {
+          "captcha_token": {
+            "type": "string",
+            "description": "The captcha widget token from the visitor's browser, verified by the API.",
+            "maxLength": 4096,
+            "minLength": 1
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Optional context, at most 500 characters.",
+            "maxLength": 500
+          },
+          "reason": {
+            "$ref": "#/components/schemas/ReportReason"
+          },
+          "token": {
+            "type": "string",
+            "description": "The public link token from the page URL (`/b/<token>`).",
+            "maxLength": 64,
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
       },
       "PurgeCheckRequest": {
         "type": "object",

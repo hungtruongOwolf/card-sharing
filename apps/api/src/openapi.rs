@@ -8,7 +8,8 @@ use crate::routes::{
     activity, age_signal, app_config, attestation, auth, blocks, board_invitations, board_members,
     board_ops, board_read, boards, cards, deletion, dev_auth, devices, exports, feed,
     friend_requests, friends, health, invites, me, media, media_files, notification_preferences,
-    public_boards, public_invites, public_links, reports, sessions, user_search, widget,
+    public_boards, public_invites, public_links, public_reports, reports, sessions, user_search,
+    widget,
 };
 use crate::state::AppState;
 use platform::problem::ProblemDetails;
@@ -387,6 +388,10 @@ pub fn router() -> ApiRouter<AppState> {
         .route(
             RoutePolicy::session().limited("boards.invitations.decline"),
             routes!(board_invitations::decline_board_invitation),
+        )
+        .route(
+            RoutePolicy::service().limited("public.reports.create"),
+            routes!(public_reports::create_public_report),
         )
         .route(
             RoutePolicy::session()

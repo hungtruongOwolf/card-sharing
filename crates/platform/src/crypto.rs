@@ -37,6 +37,8 @@ pub enum CryptoError {
 pub struct FieldCipher {
     key_id: u8,
     cipher: XChaCha20Poly1305,
+    /// HMAC key for [`FieldCipher::keyed_digest`], derived from the data key (never the key itself).
+    digest_key: [u8; 32],
 }
 
 impl fmt::Debug for FieldCipher {
@@ -58,7 +60,24 @@ impl FieldCipher {
         }
         let cipher =
             XChaCha20Poly1305::new_from_slice(&key).map_err(|_| CryptoError::InvalidKey)?;
-        Ok(Self { key_id, cipher })
+        let mut digest_key = [0u8; 32];
+        digest_key.copy_from_slice(&hmac_sha256(&key, b"card-sharing keyed digest v1"));
+        Ok(Self {
+            key_id,
+            cipher,
+            digest_key,
+        })
+    }
+
+    /// HMAC-SHA256 of `data` under a key derived from the data key, separated by `label`: a stable
+    /// pseudonym for values that must be matched but never stored (e.g. a guest's IP). Without the
+    /// data key the input cannot be recovered by trying all IPs.
+    pub fn keyed_digest(&self, label: &str, data: &[u8]) -> [u8; 32] {
+        let mut message = Vec::with_capacity(label.len() + 1 + data.len());
+        message.extend_from_slice(label.as_bytes());
+        message.push(0);
+        message.extend_from_slice(data);
+        hmac_sha256(&self.digest_key, &message)
     }
 
     pub fn encrypt(
@@ -105,6 +124,24 @@ impl FieldCipher {
     }
 }
 
+/// HMAC-SHA256 (RFC 2104) with a key of at most one block (64 bytes).
+fn hmac_sha256(key: &[u8], message: &[u8]) -> [u8; 32] {
+    const BLOCK: usize = 64;
+    let mut padded = [0u8; BLOCK];
+    if key.len() > BLOCK {
+        padded[..32].copy_from_slice(&Sha256::digest(key));
+    } else {
+        padded[..key.len()].copy_from_slice(key);
+    }
+    let mut inner = Sha256::new();
+    inner.update(padded.map(|b| b ^ 0x36));
+    inner.update(message);
+    let mut outer = Sha256::new();
+    outer.update(padded.map(|b| b ^ 0x5c));
+    outer.update(inner.finalize());
+    outer.finalize().into()
+}
+
 /// SHA-256 digest of a shared secret (e.g. the web server's service credential), compared in
 /// constant time. Hashing first gives both sides the same length, so neither the length nor
 /// the position of the first differing byte leaks through timing.
@@ -137,6 +174,29 @@ impl SecretDigest {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn hmac_matches_rfc_4231_case_2() {
+        let mac = hmac_sha256(b"Jefe", b"what do ya want for nothing?");
+        let hex: String = mac.iter().map(|b| format!("{b:02x}")).collect();
+        assert_eq!(
+            hex,
+            "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843"
+        );
+    }
+
+    #[test]
+    fn keyed_digests_depend_on_key_label_and_data() {
+        let a =
+            FieldCipher::from_base64(1, "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=").unwrap();
+        let b =
+            FieldCipher::from_base64(1, "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=").unwrap();
+        let ip = b"203.0.113.7";
+        assert_eq!(a.keyed_digest("x", ip), a.keyed_digest("x", ip));
+        assert_ne!(a.keyed_digest("x", ip), b.keyed_digest("x", ip));
+        assert_ne!(a.keyed_digest("x", ip), a.keyed_digest("y", ip));
+        assert_ne!(a.keyed_digest("x", ip), a.keyed_digest("x", b"203.0.113.8"));
+    }
 
     // Test-only key (32 zero bytes); real keys come from the secret manager.
     const KEY: &str = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";

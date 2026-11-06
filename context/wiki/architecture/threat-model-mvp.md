@@ -180,7 +180,7 @@ L = likelihood (H/M/L, given free tools). I = impact (Crit/H/M/L). SR = requirem
 | SR-28 | Strict validation of pin transforms, captions (NFC, bidi strip, combining-mark cap), display names, registry ids, JSON size | AC-12, AC-3.2, AC-18 |
 | SR-29 | Supply chain: expo-updates code signing, MFA on EAS/App Store/Play/GitHub, protected branches, `cargo deny`/`cargo audit`/`pnpm audit`, lockfiles, SBOM | NEW (release) |
 | SR-30 | Secrets (URL-signing, JWT, APNs, FCM, hash vendor) in the secret manager, rotated, never in the app bundle or `EXPO_PUBLIC_*` | CLAUDE.md rule 3 |
-| SR-31 | Reports: dedupe, no automatic action except CSAM hash hits, captcha + rate limit for guests, reporter reputation | AC-26.1–26.3 |
+| SR-31 | Reports: dedupe, no automatic action except CSAM hash hits, captcha + rate limit for guests, reporter reputation. Guest captchas are verified by the API (port; fake adapter refused in production), guest IPs stored only as a keyed hash (T-142) | AC-26.1–26.3 |
 | SR-32 | Moderation console on a separate origin; SSO + MFA + IP allow-list; reported-only access; blurred by default; least-privilege roles; 2-person rule for bans of accounts over 30 days old (D6) | AC-27.1/27.2 |
 | SR-33 | Append-only, off-box audit log: auth events, moderator views and actions, admin config changes, break-glass production access | AC-27.1, baseline §2 |
 | SR-34 | (Phase 2, design now) server-only entitlement and credit ledger; signed webhooks/SSV; nonce + txn idempotency; no entitlement field in client DTOs | baseline §7, [[monetization]] |

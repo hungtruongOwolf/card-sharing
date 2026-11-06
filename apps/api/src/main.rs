@@ -147,6 +147,7 @@ fn build_state(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<AppState> 
     .with_sharing_settings(sharing_settings)
     .with_privacy_settings(privacy_settings)
     .with_moderation_settings(moderation_settings)
+    .with_captcha(captcha_verifier(config))
     .with_attestation(
         attestation_service(&config.attestation)?,
         config.attestation.mode,
@@ -169,6 +170,21 @@ fn build_state(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<AppState> 
     let state = state.with_sign_in(Arc::new(sign_in));
 
     Ok(state)
+}
+
+/// The captcha adapter for guest reports (T-142); the fake one never starts in production (config
+/// refuses it).
+fn captcha_verifier(config: &Config) -> Arc<dyn moderation::CaptchaVerifier> {
+    match config.captcha_verifier {
+        api::config::SafetyAdapter::Fake => {
+            tracing::warn!("API_CAPTCHA_VERIFIER=fake: guest report captchas are not checked");
+            Arc::new(moderation::FakeCaptcha)
+        }
+        api::config::SafetyAdapter::None => {
+            tracing::warn!("no captcha provider: POST /v1/public/reports answers 503");
+            Arc::new(moderation::NoCaptcha)
+        }
+    }
 }
 
 /// `api seed`: local demo users, friendships, cards and a shared board (src/seed.rs). Refused
