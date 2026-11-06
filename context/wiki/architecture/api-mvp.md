@@ -483,6 +483,18 @@ closed) and `public.boards.token` 600/min per link; going over the per-link limi
 (audit actor `system`) and publishes `sharing.link_disabled {link_id, board_id, owner_id}` (owner notification: follow-up).
 The page route counts `view_count`. Tests: `tests/api/public_boards.rs`.
 
+Purge (T-133, #135): `sharing::Purger`, job `sharing.purge`. A link that ends is purged: owner revoke and anomaly
+disable enqueue `{link_id}` in the same transaction; `boards.board_deleted` enqueues `{board_id}` (revokes every live link
+with reason `board_deleted`, audit actor `system`, then purges each); expiry has no event, so the periodic
+`sharing.purge_sweep` (every 20 s) enqueues every ended link with `purged_at IS NULL` (also a retry net). Purging a link
+purges its CDN cache tag `pl-<link id, simple>` (the public responses carry it as `cache_tag`; the web server must send it as
+`Cache-Tag` on the page and OG responses), and when the board has no other live link deletes the snapshot row, the OG image
+and every public card image no remaining snapshot of the owner shows; then sets `purged_at`. A CDN failure leaves the link
+unpurged and the job retries. The CDN sits behind the `CdnPurger` port: `API_CDN_PURGER=none` (default, no CDN in front) or
+`fake` (records tags; refused when `API_ENV=production`); the Cloudflare purge-by-tag adapter waits for the account, so the
+"404 within 60 s from the CDN" check on staging (AC-24.4) is still open. The API itself answers 404 at once. Tests:
+`tests/api/public_purge.rs`.
+
 Implemented (#234): `routes/public_invites.rs` → `SocialService::public_invite_preview` (the same resolution as the in-app
 preview, with "expired" folded into `NOT_FOUND`: unknown, malformed, reset, expired, used up, inviter suspended / banned /
 deletion pending / deleted all answer identical bytes). No avatar, handle or id. The token is never logged (spans record the

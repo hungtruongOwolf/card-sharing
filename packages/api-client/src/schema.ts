@@ -2113,6 +2113,12 @@ export interface components {
         PublicBoardResponse: {
             board: components["schemas"]["PublicBoardView"];
             /**
+             * @description CDN cache tag the web server must put on the page and OG responses (`Cache-Tag`), so a
+             *     revoked or expired link is purged by tag (T-133).
+             * @example pl-0192f0c17c1e7a3b9d2e123456789abc
+             */
+            cache_tag: string;
+            /**
              * Format: int32
              * @description Seconds the web server may cache this page (purged on revoke, T-133).
              */
@@ -2153,6 +2159,8 @@ export interface components {
         };
         /** @description A fresh signed URL of the watermarked OG image (the web server answers 302 to it). */
         PublicOgResponse: {
+            /** @description Same as [`PublicBoardResponse::cache_tag`]. */
+            cache_tag: string;
             /** Format: int32 */
             cache_ttl_s: number;
             /** Format: date-time */

@@ -351,6 +351,24 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
         board_service,
         Arc::clone(&media),
     ));
+    let cdn: Arc<dyn sharing::CdnPurger> = match config.cdn_purger {
+        api::config::SafetyAdapter::Fake
+            if config.content_safety.env != api::config::AppEnv::Production =>
+        {
+            tracing::warn!("API_CDN_PURGER=fake: CDN purges are recorded, not sent");
+            Arc::new(sharing::FakeCdnPurger::default())
+        }
+        _ => {
+            tracing::warn!("no CDN purger configured: revoked links are not purged from a CDN");
+            Arc::new(sharing::NoCdn)
+        }
+    };
+    let purger = Arc::new(sharing::Purger::new(
+        pool.clone(),
+        Arc::clone(&clock),
+        Arc::clone(&media),
+        cdn,
+    ));
     // Subscribers register here as modules start publishing events.
     let card_service = Arc::new(cards::CardService::new(pool.clone(), Arc::clone(&clock)));
     let card_jobs = cards::EvaluateJob {
@@ -381,7 +399,8 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
             .subscribe(Arc::new(cards::EvaluateOnEvents))
             .subscribe(Arc::new(cards::PurgeOnDelete))
             .subscribe(Arc::new(boards::ResolveBlocksOnEvents))
-            .subscribe(Arc::new(sharing::SnapshotOnEvents)),
+            .subscribe(Arc::new(sharing::SnapshotOnEvents))
+            .subscribe(Arc::new(sharing::PurgeOnBoardDeleted)),
     );
     let slo_report = api::workers::SloReport {
         cards: card_service,
@@ -415,6 +434,10 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
         .handle(
             sharing::SNAPSHOT_JOB,
             Arc::new(sharing::SnapshotJob(snapshots)),
+        )
+        .handle(
+            sharing::PURGE_JOB,
+            Arc::new(sharing::PurgeJob(Arc::clone(&purger))),
         )
         .handle(
             notifications::ACTIVITY_JOB,
@@ -462,6 +485,11 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
             "idempotency.purge",
             std::time::Duration::from_secs(3600),
             Arc::new(IdempotencyPurge(idempotency)),
+        )
+        .periodic(
+            "sharing.purge_sweep",
+            sharing::SWEEP_INTERVAL,
+            Arc::new(sharing::PurgeSweep(purger)),
         )
         .periodic(
             "boards.expire_invitations",

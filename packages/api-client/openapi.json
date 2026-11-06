@@ -8397,11 +8397,17 @@
           "board",
           "pins",
           "noindex",
-          "cache_ttl_s"
+          "cache_ttl_s",
+          "cache_tag"
         ],
         "properties": {
           "board": {
             "$ref": "#/components/schemas/PublicBoardView"
+          },
+          "cache_tag": {
+            "type": "string",
+            "description": "CDN cache tag the web server must put on the page and OG responses (`Cache-Tag`), so a\nrevoked or expired link is purged by tag (T-133).",
+            "example": "pl-0192f0c17c1e7a3b9d2e123456789abc"
           },
           "cache_ttl_s": {
             "type": "integer",
@@ -8511,9 +8517,14 @@
         "required": [
           "url",
           "expires_at",
-          "cache_ttl_s"
+          "cache_ttl_s",
+          "cache_tag"
         ],
         "properties": {
+          "cache_tag": {
+            "type": "string",
+            "description": "Same as [`PublicBoardResponse::cache_tag`]."
+          },
           "cache_ttl_s": {
             "type": "integer",
             "format": "int32",

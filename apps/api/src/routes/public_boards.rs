@@ -85,6 +85,10 @@ pub struct PublicBoardResponse {
     pub noindex: bool,
     /// Seconds the web server may cache this page (purged on revoke, T-133).
     pub cache_ttl_s: u32,
+    /// CDN cache tag the web server must put on the page and OG responses (`Cache-Tag`), so a
+    /// revoked or expired link is purged by tag (T-133).
+    #[schema(example = "pl-0192f0c17c1e7a3b9d2e123456789abc")]
+    pub cache_tag: String,
 }
 
 /// A fresh signed URL of the watermarked OG image (the web server answers 302 to it).
@@ -95,6 +99,8 @@ pub struct PublicOgResponse {
     #[schema(value_type = String, format = DateTime)]
     pub expires_at: OffsetDateTime,
     pub cache_ttl_s: u32,
+    /// Same as [`PublicBoardResponse::cache_tag`].
+    pub cache_tag: String,
 }
 
 /// Resolves `token` to its live link and snapshot, or the uniform 404.
@@ -294,6 +300,7 @@ pub async fn get_public_board(
         pins: views,
         noindex: true,
         cache_ttl_s: CACHE_TTL_SECS,
+        cache_tag: sharing::cache_tag(link.id),
     }))
 }
 
@@ -328,5 +335,6 @@ pub async fn get_public_board_og(
         url: signed.url,
         expires_at: signed.expires_at,
         cache_ttl_s: CACHE_TTL_SECS,
+        cache_tag: sharing::cache_tag(link.id),
     }))
 }
