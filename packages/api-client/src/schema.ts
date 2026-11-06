@@ -201,7 +201,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Limits, feature flags and registry kill switches. Auth: none. */
+        /**
+         * Limits, feature flags, registry kill switches and the text filter's client hints. Auth: none.
+         * @description Cacheable: `Cache-Control: public, max-age=…` plus a strong `ETag`; a matching
+         *     `If-None-Match` answers 304 with no body.
+         */
         get: operations["getConfig"];
         put?: never;
         post?: never;
@@ -719,6 +723,11 @@ export interface components {
              * @example 0.1.0
              */
             min_app_version: string;
+            /**
+             * @description Sanitizer caps and term lists of the shared text filter, for instant hints while typing
+             *     (captions, names). The server checks again on submit and its answer is final.
+             */
+            text_filter: components["schemas"]["TextFilterHints"];
         };
         /** @description Body of `POST /v1/attestation/apple-keys`. */
         AppleKeyRequest: {
@@ -852,6 +861,15 @@ export interface components {
         HealthResponse: {
             /** @example ok */
             status: string;
+        };
+        HintList: {
+            /**
+             * @description Blocked when the term appears anywhere inside a folded word (or a spelled-out run of
+             *     single letters such as `f.u.c.k`). Use for terms that rarely occur inside innocent words.
+             */
+            contains?: string[];
+            /** @description Blocked when the folded text has a whole word equal to the term. */
+            words?: string[];
         };
         InvitePreviewResponse: {
             inviter: components["schemas"]["InviterView"];
@@ -1072,6 +1090,23 @@ export interface components {
              *     age (the toggle cannot be turned on then).
              */
             findable_by_handle: boolean;
+        };
+        /**
+         * @description The filter's settings as served to clients in `GET /v1/config` (#213): the sanitizer caps and
+         *     the term lists exactly as written in `config/text_filter.yaml`. For instant hints in the app
+         *     only; the server's own check stays authoritative. Public by design (EM decision 2026-11-05).
+         */
+        TextFilterHints: {
+            /** @description List name -> terms. */
+            lists: {
+                [key: string]: components["schemas"]["HintList"];
+            };
+            /** @description Grapheme clusters with more code points than this are dropped. */
+            max_chars_per_grapheme: number;
+            /** @description Combining marks kept per grapheme cluster (viramas exempt). */
+            max_marks_per_grapheme: number;
+            /** Format: int32 */
+            version: number;
         };
         /** @description A new access + refresh token pair. Store both in the device's secure storage only. */
         TokenPair: {
@@ -1700,6 +1735,13 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["AppConfigResponse"];
                 };
+            };
+            /** @description The `If-None-Match` tag is current; no body. */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description RATE_LIMITED. */
             429: {

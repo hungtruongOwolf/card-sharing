@@ -789,7 +789,8 @@
         "tags": [
           "config"
         ],
-        "summary": "Limits, feature flags and registry kill switches. Auth: none.",
+        "summary": "Limits, feature flags, registry kill switches and the text filter's client hints. Auth: none.",
+        "description": "Cacheable: `Cache-Control: public, max-age=…` plus a strong `ETag`; a matching\n`If-None-Match` answers 304 with no body.",
         "operationId": "getConfig",
         "responses": {
           "200": {
@@ -801,6 +802,9 @@
                 }
               }
             }
+          },
+          "304": {
+            "description": "The `If-None-Match` tag is current; no body."
           },
           "429": {
             "description": "RATE_LIMITED.",
@@ -2836,7 +2840,8 @@
           "min_app_version",
           "limits",
           "flags",
-          "kill_switches"
+          "kill_switches",
+          "text_filter"
         ],
         "properties": {
           "flags": {
@@ -2858,6 +2863,10 @@
             "type": "string",
             "description": "Clients below this version must update (requests get 426 `UPGRADE_REQUIRED`).",
             "example": "0.1.0"
+          },
+          "text_filter": {
+            "$ref": "#/components/schemas/TextFilterHints",
+            "description": "Sanitizer caps and term lists of the shared text filter, for instant hints while typing\n(captions, names). The server checks again on submit and its answer is final."
           }
         }
       },
@@ -3224,6 +3233,26 @@
             "example": "ok"
           }
         }
+      },
+      "HintList": {
+        "type": "object",
+        "properties": {
+          "contains": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Blocked when the term appears anywhere inside a folded word (or a spelled-out run of\nsingle letters such as `f.u.c.k`). Use for terms that rarely occur inside innocent words."
+          },
+          "words": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Blocked when the folded text has a whole word equal to the term."
+          }
+        },
+        "additionalProperties": false
       },
       "InvitePreviewResponse": {
         "type": "object",
@@ -3762,6 +3791,43 @@
           "findable_by_handle": {
             "type": "boolean",
             "description": "Whether others can find me by exact handle. Always `false` under the region's discovery\nage (the toggle cannot be turned on then)."
+          }
+        }
+      },
+      "TextFilterHints": {
+        "type": "object",
+        "description": "The filter's settings as served to clients in `GET /v1/config` (#213): the sanitizer caps and\nthe term lists exactly as written in `config/text_filter.yaml`. For instant hints in the app\nonly; the server's own check stays authoritative. Public by design (EM decision 2026-11-05).",
+        "required": [
+          "version",
+          "max_marks_per_grapheme",
+          "max_chars_per_grapheme",
+          "lists"
+        ],
+        "properties": {
+          "lists": {
+            "type": "object",
+            "description": "List name -> terms.",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/HintList"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "max_chars_per_grapheme": {
+            "type": "integer",
+            "description": "Grapheme clusters with more code points than this are dropped.",
+            "minimum": 0
+          },
+          "max_marks_per_grapheme": {
+            "type": "integer",
+            "description": "Combining marks kept per grapheme cluster (viramas exempt).",
+            "minimum": 0
+          },
+          "version": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
           }
         }
       },
