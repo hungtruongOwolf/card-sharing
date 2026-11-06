@@ -692,6 +692,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cards/{id}/appeal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Appeal the classifier hold on one of the caller's cards. Auth: ses. Once per hold. */
+        post: operations["appealCardHold"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cards/{id}/reaction": {
         parameters: {
             query?: never;
@@ -1669,7 +1686,7 @@ export interface components {
             until?: string | null;
         };
         /** @enum {string} */
-        ActionRequestKind: "dismiss" | "remove_content" | "revoke_link" | "warn" | "suspend" | "ban";
+        ActionRequestKind: "dismiss" | "remove_content" | "revoke_link" | "warn" | "suspend" | "ban" | "release_hold" | "uphold_hold";
         ActionResult: {
             action: string;
             /**
@@ -1797,6 +1814,23 @@ export interface components {
              *     (captions, names). The server checks again on submit and its answer is final.
              */
             text_filter: components["schemas"]["TextFilterHints"];
+        };
+        AppealEnvelope: {
+            appeal: components["schemas"]["AppealView"];
+        };
+        /** @description Body of `POST /v1/cards/{id}/appeal`. */
+        AppealRequest: {
+            /** @description Optional context for the moderator, at most 500 characters. */
+            note?: string | null;
+        };
+        AppealView: {
+            /** Format: date-time */
+            appealed_at: string;
+            /**
+             * @description Always `pending` here; the card's `hold.appeal` shows the outcome later.
+             * @example pending
+             */
+            status: string;
         };
         /** @description Body of `POST /v1/attestation/apple-keys`. */
         AppleKeyRequest: {
@@ -5515,6 +5549,87 @@ export interface operations {
             };
             /** @description NOT_FOUND: no card of mine with this id. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    appealCardHold: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The held card's id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppealRequest"];
+            };
+        };
+        responses: {
+            /** @description Appeal filed; a moderator reviews it. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppealEnvelope"];
+                };
+            };
+            /** @description VALIDATION_FAILED (note too long, unknown fields). */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND: not a held card of the caller (missing, someone else's, not held, or the hold expired). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description APPEAL_ALREADY_FILED: this hold was already appealed or decided. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
