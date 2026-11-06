@@ -128,16 +128,13 @@ jobs:
         with:
           shared-key: rust-test
       - run: cargo test -p api --test api --locked --no-run
-      # Each test is assigned by its top-level module (the part before the first `::`), so every test runs in
-      # exactly one shard and new modules are picked up without editing this file.
-      - name: Run this shard's modules
+      # Tests are dealt round-robin from the sorted list, so every test runs in exactly one shard, slow modules
+      # are spread across shards, and new tests need no CI edit.
+      - name: Run this shard's tests
         run: |
           cargo test -p api --test api --locked -q -- --list --format terse | sed -n 's/: test$//p' > all-tests.txt
           test -s all-tests.txt || { echo "::error::no api integration tests listed"; exit 1; }
-          awk -F'::' -v shard="$SHARD" -v shards="$SHARDS" '
-            !($1 in idx) { idx[$1] = n++ }
-            idx[$1] % shards == shard { print }
-          ' all-tests.txt > shard-tests.txt
+          awk -v shard="$SHARD" -v shards="$SHARDS" '(NR - 1) % shards == shard' all-tests.txt > shard-tests.txt
           echo "Shard $SHARD/$SHARDS runs $(wc -l < shard-tests.txt) of $(wc -l < all-tests.txt) tests"
           test -s shard-tests.txt || exit 0
           xargs -a shard-tests.txt cargo test -p api --test api --locked -- --exact
