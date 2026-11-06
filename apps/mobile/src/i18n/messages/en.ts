@@ -82,6 +82,17 @@ export const en = {
   'onboarding.signIn.google': 'Continue with Google',
   'onboarding.signIn.unavailable': 'This sign-in option isn’t available yet.',
   'onboarding.signIn.failed': 'We couldn’t sign you in. Please try again.',
+  'devSignIn.title': 'Development only',
+  'devSignIn.body': 'Sign in as a demo user of your local server. Release builds don’t have this.',
+  'devSignIn.open': 'Sign in as demo user',
+  'devSignIn.user': '{name} (@{handle})',
+  'devSignIn.userMinor': '{name} (@{handle}), under 18',
+  'devSignIn.empty': 'No demo users yet. Run pnpm dev:seed on your computer.',
+  'devSignIn.disabled':
+    'This server has no demo sign-in. Start it with API_ENV=development and API_DEV_SIGN_IN=true.',
+  'devSignIn.unreachable':
+    'Can’t reach the server. Check EXPO_PUBLIC_API_URL and that the API is running.',
+  'devSignIn.failed': 'That didn’t work. Please try again.',
 
   'onboarding.birthDate.title': 'When’s your birthday?',
   'onboarding.birthDate.body':

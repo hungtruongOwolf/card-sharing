@@ -10,6 +10,7 @@ import {
   type OnboardingStep,
 } from './onboardingApi';
 import { resolvePhase, type OnboardingPhase } from './phase';
+import type { DevSignIn } from './devSignIn';
 import type { SignInProvider } from './signInProviders';
 
 export const ME_QUERY_KEY = ['me'] as const;
@@ -17,6 +18,8 @@ export const ME_QUERY_KEY = ['me'] as const;
 export interface OnboardingContextValue {
   readonly phase: OnboardingPhase;
   readonly signInProviders: readonly SignInProvider[];
+  /** Development builds only (#306): sign in as a seed user of a local server; null otherwise. */
+  readonly devSignIn: DevSignIn | null;
   readonly camera: CameraPermissions;
   /** Re-reads `/v1/me` after a failure. */
   retry(): void;
@@ -40,6 +43,7 @@ const OnboardingContext = createContext<OnboardingContextValue | null>(null);
 interface Props {
   api: OnboardingApi;
   signInProviders: readonly SignInProvider[];
+  devSignIn?: DevSignIn | null;
   camera: CameraPermissions;
   children: ReactNode;
 }
@@ -49,7 +53,13 @@ interface Props {
  * the server does not model: the refusal screen after the account is gone, the name → handle order inside
  * the single `profile` step, and the camera explainer. Must sit inside `AuthProvider`.
  */
-export function OnboardingProvider({ api, signInProviders, camera, children }: Props) {
+export function OnboardingProvider({
+  api,
+  signInProviders,
+  devSignIn = null,
+  camera,
+  children,
+}: Props) {
   const auth = useAuthState();
   const authClient = useAuthClient();
   const queryClient = useQueryClient();
@@ -94,6 +104,7 @@ export function OnboardingProvider({ api, signInProviders, camera, children }: P
     return {
       phase,
       signInProviders,
+      devSignIn,
       camera,
       retry: () => void refetch(),
       refreshAccount: refetchMe,
@@ -132,7 +143,7 @@ export function OnboardingProvider({ api, signInProviders, camera, children }: P
         setCameraHandled(false);
       },
     };
-  }, [phase, signInProviders, camera, refetch, api, authClient, queryClient]);
+  }, [phase, signInProviders, devSignIn, camera, refetch, api, authClient, queryClient]);
 
   return <OnboardingContext.Provider value={value}>{children}</OnboardingContext.Provider>;
 }

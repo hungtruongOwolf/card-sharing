@@ -75,6 +75,11 @@ export class FakeAuthServer {
    * return null to fall through to the built-in routes.
    */
   routes: ((request: RecordedRequest) => Response | null) | null = null;
+  /**
+   * Seed handles the development sign-in accepts (#306, apps/api/src/routes/dev_auth.rs); null = the server has no
+   * development sign-in, so `/v1/dev/*` answers 404 like staging and production.
+   */
+  devSeedHandles: Set<string> | null = null;
 
   private families: Family[] = [];
   private counter = 0;
@@ -172,6 +177,27 @@ export class FakeAuthServer {
         return problem(401, 'UNAUTHENTICATED');
       }
       return json(this.issue());
+    }
+
+    if (path.startsWith('/v1/dev/')) {
+      if (!this.devSeedHandles) return problem(404, 'NOT_FOUND');
+      if (method === 'GET' && path === '/v1/dev/seed-users') {
+        return json({
+          users: [...this.devSeedHandles].map((handle) => ({
+            handle,
+            display_name: `${handle.split('.')[0]} (demo)`,
+            minor: handle === 'mia.demo',
+          })),
+        });
+      }
+      if (method === 'POST' && path === '/v1/dev/sign-in') {
+        const handle = (body as { handle?: unknown } | undefined)?.handle;
+        if (typeof handle !== 'string' || !this.devSeedHandles.has(handle)) {
+          return problem(404, 'NOT_FOUND');
+        }
+        return json(this.issue());
+      }
+      return problem(404, 'NOT_FOUND');
     }
 
     const resolved = this.resolve(headers.get('Authorization'));

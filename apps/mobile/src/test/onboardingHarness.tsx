@@ -18,6 +18,7 @@ import { HandleScreen } from '../features/onboarding/screens/HandleScreen';
 import { RefusedScreen } from '../features/onboarding/screens/RefusedScreen';
 import { SignInScreen } from '../features/onboarding/screens/SignInScreen';
 import { ErrorScreen, LoadingScreen } from '../features/onboarding/screens/StatusScreens';
+import type { DevSignIn } from '../features/onboarding/devSignIn';
 import type { IdTokenCredential, SignInProvider } from '../features/onboarding/signInProviders';
 import { DeletionPendingScreen } from '../features/privacy/DeletionPendingScreen';
 import { createPrivacyApi } from '../features/privacy/privacyApi';
@@ -123,10 +124,17 @@ interface Options {
   signedIn?: boolean;
   camera?: FakeCamera;
   providers?: readonly SignInProvider[];
+  /** Builds the development sign-in over the harness's auth client (#306). */
+  devSignIn?: ((authClient: AuthClient) => DevSignIn) | null;
 }
 
 export async function renderOnboarding(server: FakeOnboardingServer, options: Options = {}) {
-  const { signedIn = false, camera = fakeCamera(), providers = [fakeProvider('apple')] } = options;
+  const {
+    signedIn = false,
+    camera = fakeCamera(),
+    providers = [fakeProvider('apple')],
+    devSignIn = null,
+  } = options;
   const store = memoryStore(signedIn ? sessionFromTokenPair(server.auth.issue()) : null);
   const authClient: AuthClient = createAuthClient({
     baseUrl: () => server.baseUrl,
@@ -144,6 +152,7 @@ export async function renderOnboarding(server: FakeOnboardingServer, options: Op
         <OnboardingProvider
           api={createOnboardingApi(authClient.fetch)}
           signInProviders={providers}
+          devSignIn={devSignIn ? devSignIn(authClient) : null}
           camera={camera}
         >
           <PhaseSwitch />

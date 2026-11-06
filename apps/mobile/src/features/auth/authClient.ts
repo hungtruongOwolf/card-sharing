@@ -5,6 +5,7 @@ import { sessionFromTokenPair, type Session } from './session';
 import type { TokenStore } from './tokenStore';
 
 type RefreshRequest = components['schemas']['RefreshRequest'];
+type DevSignInRequest = components['schemas']['DevSignInRequest'];
 
 /**
  * Mobile auth client (T-21, ADR-0004). Owns the device session and attaches it to API calls.
@@ -98,6 +99,12 @@ export interface AuthClient {
     nonce: string,
     options?: SignInOptions,
   ): Promise<void>;
+  /**
+   * Development builds only (#306): signs in as a seed user (`POST /v1/dev/sign-in`) against a local server started
+   * with `API_DEV_SIGN_IN=true`. Every other server answers 404 (`rejected`). The session is stored like a provider
+   * sign-in. Callers must gate on `__DEV__`; the server is the real gate.
+   */
+  signInAsSeedUser(handle: string): Promise<void>;
   /** Logs out: revokes the session on the server (best effort) and always clears the device. */
   signOut(): Promise<void>;
   /**
@@ -313,13 +320,23 @@ export function createAuthClient(options: AuthClientOptions): AuthClient {
     nonce: string,
     signInOptions: SignInOptions = {},
   ): Promise<void> {
-    await init();
     const body: IdTokenSignInRequest = { id_token: idToken, nonce };
     if (signInOptions.authorizationCode) body.authorization_code = signInOptions.authorizationCode;
+    await signInVia(`/v1/auth/${provider}`, body);
+  }
+
+  async function signInAsSeedUser(handle: string): Promise<void> {
+    const body: DevSignInRequest = { handle };
+    await signInVia('/v1/dev/sign-in', body);
+  }
+
+  /** Posts a sign-in body and adopts the token pair it answers. */
+  async function signInVia(path: string, body: unknown): Promise<void> {
+    await init();
     const startedEpoch = epoch;
     let response: Response;
     try {
-      response = await postJson(`/v1/auth/${provider}`, body);
+      response = await postJson(path, body);
     } catch {
       throw new AuthError('unavailable');
     }
@@ -373,6 +390,7 @@ export function createAuthClient(options: AuthClientOptions): AuthClient {
     fetch: (path, request) => authorizedFetch(path, request),
     fetchWithProof: (path, request) => authorizedFetch(path, request, true),
     signInWithIdToken,
+    signInAsSeedUser,
     signOut,
     signOutEverywhere,
   };
