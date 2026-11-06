@@ -654,6 +654,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/exports/{id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download a ready export once. Auth: none (the single-use token is the capability).
+         * @description The token works once and only until the export expires (24 h after it was ready); a used,
+         *     replaced, expired or wrong token, and an unknown id, are the same 404.
+         */
+        get: operations["downloadDataExport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/feed": {
         parameters: {
             query?: never;
@@ -938,6 +959,46 @@ export interface paths {
          *     deletion-pending account's session).
          */
         delete: operations["cancelAccountDeletion"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/exports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request a personal data export. Auth: re (session + fresh `X-Reauth`). One per 24 hours.
+         * @description The ZIP is built 48 hours later (every device is told; `DELETE` cancels until then): one JSON
+         *     file per module (account, profile, friends by name, cards, reactions, boards, ...) plus the
+         *     account's images as PNG.
+         */
+        post: operations["requestDataExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/exports/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** An export's status; when ready, a fresh single-use download path. Auth: re. */
+        get: operations["getDataExport"];
+        put?: never;
+        post?: never;
+        /** Cancel an export that is still waiting for its delay. Auth: ses. */
+        delete: operations["cancelDataExport"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1826,6 +1887,34 @@ export interface components {
             code_challenge_method?: string | null;
             /** @example cat@example.com */
             email: string;
+        };
+        ExportEnvelope: {
+            export: components["schemas"]["ExportView"];
+        };
+        /** @description An export as its owner sees it. */
+        ExportView: {
+            /**
+             * Format: date-time
+             * @description Not built before this (48 h after the request); cancellable until then.
+             */
+            available_at: string;
+            /**
+             * @description `ready` only: a single-use path (append to the API base URL) to download the ZIP. Every
+             *     read issues a new one and invalidates the previous one.
+             */
+            download_path?: string | null;
+            /** Format: date-time */
+            expires_at?: string | null;
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            requested_at: string;
+            /**
+             * @description `queued` (waiting for `available_at`), `building`, `ready`, `downloaded`, `expired`,
+             *     `cancelled` or `failed`.
+             * @example queued
+             */
+            status: string;
         };
         FeedPage: {
             items: components["schemas"]["CardView"][];
@@ -5044,6 +5133,50 @@ export interface operations {
             };
         };
     };
+    downloadDataExport: {
+        parameters: {
+            query?: {
+                /** @description The single-use token from `download_path`. */
+                token?: string;
+            };
+            header?: never;
+            path: {
+                /** @description The export id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The ZIP. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": number[];
+                };
+            };
+            /** @description NOT_FOUND for every unusable link. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED (per client IP). */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     getFeed: {
         parameters: {
             query?: {
@@ -6036,6 +6169,175 @@ export interface operations {
                 };
             };
             /** @description NOT_FOUND: no pending deletion, or the grace period is over. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    requestDataExport: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Re-auth token from POST /v1/auth/reauth (5 minutes). */
+                "X-Reauth": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportEnvelope"];
+                };
+            };
+            /** @description REAUTH_REQUIRED, UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description EXPORT_COOLDOWN (one export per 24 h, with Retry-After) or RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    getDataExport: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Re-auth token from POST /v1/auth/reauth (5 minutes). */
+                "X-Reauth": string;
+            };
+            path: {
+                /** @description The export id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The export. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportEnvelope"];
+                };
+            };
+            /** @description REAUTH_REQUIRED, UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND: no export of the caller with this id. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    cancelDataExport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The export id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cancelled. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND: no queued export of the caller with this id. */
             404: {
                 headers: {
                     [name: string]: unknown;

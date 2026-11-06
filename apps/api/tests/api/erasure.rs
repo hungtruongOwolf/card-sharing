@@ -81,7 +81,8 @@ async fn accounts_are_erased_only_after_the_grace_period_and_idempotently() {
     );
 
     env.clock.advance(Duration::days(7) + Duration::seconds(1));
-    assert!(service.erase_due().await.unwrap() >= 1);
+    // By id: `erase_due` would also take other tests' accounts (shared database, own clocks).
+    assert!(service.erase_account(d.user.id).await.unwrap());
     assert_eq!(tombstone(&env, d.user.id).await, "done");
     for sql in [
         "SELECT count(*) FROM identity.accounts WHERE id = $1",

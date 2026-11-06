@@ -4,10 +4,16 @@
 //! `PersonalData` implementation (`platform::personal_data`).
 
 pub mod deletion;
+pub mod export;
 pub mod settings;
+pub mod zip;
 
 pub use deletion::{
     DeletionError, DeletionRequest, DeletionService, ERASE_INTERVAL, EraseDue, HIDE_JOB, HideJob,
     RequestOutcome,
+};
+pub use export::{
+    DataExport, EXPORT_INTERVAL, EXPORT_READY, EXPORT_REQUESTED, ExportDue, ExportError,
+    ExportRequest, ExportService, PrivacyPersonalData,
 };
 pub use settings::{PrivacySettings, SettingsError};

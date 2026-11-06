@@ -277,6 +277,17 @@ impl AppState {
         )
     }
 
+    /// The personal data export service (T-154).
+    pub fn exports(&self) -> privacy::ExportService {
+        privacy::ExportService::new(
+            self.identity.pool().clone(),
+            self.identity.clock(),
+            crate::privacy::registry(self),
+            Arc::clone(&self.media),
+            (*self.privacy).clone(),
+        )
+    }
+
     /// Installs the sharing rules (`config/sharing.yaml`).
     pub fn with_sharing_settings(mut self, settings: sharing::SharingSettings) -> Self {
         self.sharing = Arc::new(sharing::SharingService::new(

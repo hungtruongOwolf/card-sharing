@@ -417,6 +417,27 @@ routes:
     missing_path: /v1/board-invitations/0192f0c1-7c1e-7a3b-9d2e-000000000000/decline
     expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }
 
+  # Data export (T-154). `re` routes without X-Reauth are 401 REAUTH_REQUIRED for every full
+  # session; the flow, cooldown, single-use download and another user's export are in
+  # tests/api/exports.rs.
+  - route: POST /v1/me/exports
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 401, suspended: 403 }
+
+  - route: GET /v1/me/exports/{id}
+    path: /v1/me/exports/0192f0c1-7c1e-7a3b-9d2e-123456789abc
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 401, suspended: 403 }
+
+  - route: DELETE /v1/me/exports/{id}
+    path: /v1/me/exports/0192f0c1-7c1e-7a3b-9d2e-123456789abc
+    missing_path: /v1/me/exports/0192f0c1-7c1e-7a3b-9d2e-000000000000
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }
+
+  # No auth: the single-use token is the capability; a bad token is 404 for everyone.
+  - route: GET /v1/exports/{id}/download
+    path: /v1/exports/0192f0c1-7c1e-7a3b-9d2e-123456789abc/download?token=nope
+    missing_path: /v1/exports/0192f0c1-7c1e-7a3b-9d2e-000000000000/download?token=nope
+    expect: { guest: 404, onboarding_age: 404, onboarding_profile: 404, user: 404, suspended: 404 }
+
   # Account deletion (T-151). `re`: without X-Reauth every full session is 401 REAUTH_REQUIRED.
   # The flow, the grace period and deletion-pending sessions are in tests/api/deletion.rs.
   - route: POST /v1/me/deletion

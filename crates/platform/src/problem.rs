@@ -127,6 +127,9 @@ pub enum ApiError {
     /// Re-inviting this user to this board must wait (the reason is not revealed).
     #[error("reinvite cooldown")]
     ReinviteCooldown { retry_after_secs: u64 },
+    /// Only one personal data export per 24 hours (US-30 AC-30.2).
+    #[error("export cooldown")]
+    ExportCooldown { retry_after_secs: u64 },
     #[error("method not allowed")]
     MethodNotAllowed,
     #[error("request timed out")]
@@ -177,9 +180,9 @@ impl ApiError {
             Self::IdempotencyKeyReused | Self::UnknownRegistryId => {
                 StatusCode::UNPROCESSABLE_ENTITY
             }
-            Self::HandleChangeCooldown { .. } | Self::ReinviteCooldown { .. } => {
-                StatusCode::TOO_MANY_REQUESTS
-            }
+            Self::HandleChangeCooldown { .. }
+            | Self::ReinviteCooldown { .. }
+            | Self::ExportCooldown { .. } => StatusCode::TOO_MANY_REQUESTS,
             Self::MethodNotAllowed => StatusCode::METHOD_NOT_ALLOWED,
             Self::RequestTimeout => StatusCode::REQUEST_TIMEOUT,
             Self::UpgradeRequired => StatusCode::UPGRADE_REQUIRED,
@@ -215,6 +218,7 @@ impl ApiError {
             Self::CollaboratorLimitReached => "COLLABORATOR_LIMIT_REACHED",
             Self::AlreadyInvited => "ALREADY_INVITED",
             Self::ReinviteCooldown { .. } => "REINVITE_COOLDOWN",
+            Self::ExportCooldown { .. } => "EXPORT_COOLDOWN",
             Self::HandleTaken => "HANDLE_TAKEN",
             Self::IdempotencyKeyReused => "IDEMPOTENCY_KEY_REUSED",
             Self::UnknownRegistryId => "UNKNOWN_REGISTRY_ID",
@@ -234,7 +238,8 @@ impl ApiError {
             Self::RateLimited { retry_after_secs }
             | Self::Unavailable { retry_after_secs }
             | Self::HandleChangeCooldown { retry_after_secs }
-            | Self::ReinviteCooldown { retry_after_secs } => Some(*retry_after_secs),
+            | Self::ReinviteCooldown { retry_after_secs }
+            | Self::ExportCooldown { retry_after_secs } => Some(*retry_after_secs),
             _ => None,
         }
     }
@@ -331,6 +336,9 @@ mod tests {
             ApiError::CollaboratorLimitReached,
             ApiError::AlreadyInvited,
             ApiError::ReinviteCooldown {
+                retry_after_secs: 1,
+            },
+            ApiError::ExportCooldown {
                 retry_after_secs: 1,
             },
             ApiError::IdempotencyKeyReused,

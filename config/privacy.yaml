@@ -5,3 +5,11 @@ version: 1
 deletion:
   # AC-29.2: a deletion can be cancelled by signing in again for this many days.
   grace_days: 7
+
+export:
+  # AC-30.2: one export request per this many hours.
+  cooldown_hours: 24
+  # SR-36: an export is built only after this delay (all devices are told; it can be cancelled).
+  delay_hours: 48
+  # AC-30.1: a ready export can be downloaded (once) for this many hours.
+  download_hours: 24

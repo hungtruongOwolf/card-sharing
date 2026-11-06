@@ -6,8 +6,8 @@ use utoipa_axum::routes;
 use crate::access::{ApiRouter, Idempotency, RoutePolicy};
 use crate::routes::{
     activity, age_signal, app_config, attestation, auth, blocks, board_invitations, board_members,
-    board_ops, board_read, boards, cards, deletion, devices, feed, friend_requests, friends,
-    health, invites, me, media, media_files, notification_preferences, public_boards,
+    board_ops, board_read, boards, cards, deletion, devices, exports, feed, friend_requests,
+    friends, health, invites, me, media, media_files, notification_preferences, public_boards,
     public_invites, public_links, sessions, user_search, widget,
 };
 use crate::state::AppState;
@@ -377,6 +377,22 @@ pub fn router() -> ApiRouter<AppState> {
         .route(
             RoutePolicy::session().limited("boards.invitations.decline"),
             routes!(board_invitations::decline_board_invitation),
+        )
+        .route(
+            RoutePolicy::reauth().limited("privacy.exports.request"),
+            routes!(exports::request_export),
+        )
+        .route(
+            RoutePolicy::reauth().limited("privacy.exports.read"),
+            routes!(exports::get_export),
+        )
+        .route(
+            RoutePolicy::session().limited("privacy.exports.cancel"),
+            routes!(exports::cancel_export),
+        )
+        .route(
+            RoutePolicy::public().limited("privacy.exports.download"),
+            routes!(exports::download_export),
         )
         .route(
             RoutePolicy::reauth().limited("privacy.deletion.request"),

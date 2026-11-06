@@ -571,6 +571,23 @@ tombstone after a backup restore. Erasure therefore lands within grace (7 d) + 1
 on their own 30-day rotation. Tests: `tests/api/erasure.rs`.
 | POST | /v1/me/exports | Request data export (1 per 24 h) | re | user | self | 1/day u | `Idempotency-Key` | US-30 |
 | GET | /v1/me/exports/{id} | Status + signed ZIP URL (TTL 24 h) when ready | re | user | `user_id` = caller | 30/h u | yes | US-30 |
+
+Implemented (T-154, #156): `routes/exports.rs` → `privacy::ExportService` (`privacy.data_exports`). `POST /v1/me/exports` (`re`)
+answers 202 `{export: {id, status: "queued", requested_at, available_at, expires_at: null}}`; a second request within
+`config/privacy.yaml` `export.cooldown_hours` (24; cancelled ones do not count) is 429 `EXPORT_COOLDOWN` with `Retry-After`.
+The request publishes `privacy.export_requested {export_id, account_id}` (push/email to every device: notifications
+follow-up). `DELETE /v1/me/exports/{id}` (ses) cancels while `queued`. The worker's `privacy.export_due` (every 5 min) builds
+exports whose `available_at` (+48 h, `export.delay_hours`) passed: a stored (uncompressed) ZIP written by
+`crates/privacy/src/zip.rs` (CRC-32 via `crc32fast`, UTF-8 names, no ZIP64) with one pretty JSON file per module from the
+PersonalData registry (`identity.json`, `social.json` with friends by name, `cards.json` with reactions, `boards.json`, ...)
+and the account's clean images re-encoded as PNG under `media/<kind>/<id>.png`; stored in the clean bucket, `ready` for
+`export.download_hours` (24), then `privacy.export_ready`. Board PNG renders are not in the ZIP yet (follow-up).
+`GET /v1/me/exports/{id}` (`re`) returns the export and, when `ready`, a fresh single-use `download_path`
+(`/v1/exports/{id}/download?token=...`; a new read replaces the previous token; only its hash is stored). The download route
+(auth none, `privacy.exports.download` 20/h per IP) serves `application/zip` once; a used, replaced, expired or wrong token
+and an unknown id are the same 404. Expired files are deleted by the same task. Another account's export id is the same 404
+as a missing one. The privacy module's own PersonalData impl exports export metadata and erases the files and rows. Tests:
+`tests/api/exports.rs`.
 | PUT | /v1/devices/{deviceId}/push-tokens | Upsert `{provider, kind: alert\|widget, token}` | ses | user | device owned by caller | 30/day d | yes | US-31, US-16 |
 | DELETE | /v1/devices/{deviceId}/push-tokens | Remove device tokens | onb/ses | user | own device | 30/day d | yes | US-16 AC-16.2 |
 | GET / PUT | /v1/me/notification-preferences | Toggles per type + quiet hours + tz | ses | user | self | 30/h u | yes | US-31 AC-31.1 |

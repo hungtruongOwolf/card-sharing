@@ -3400,6 +3400,81 @@
         }
       }
     },
+    "/v1/exports/{id}/download": {
+      "get": {
+        "tags": [
+          "me"
+        ],
+        "summary": "Download a ready export once. Auth: none (the single-use token is the capability).",
+        "description": "The token works once and only until the export expires (24 h after it was ready); a used,\nreplaced, expired or wrong token, and an unknown id, are the same 404.",
+        "operationId": "downloadDataExport",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The export id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "description": "The single-use token from `download_path`.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The ZIP.",
+            "content": {
+              "application/zip": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "format": "int32",
+                    "minimum": 0
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND for every unusable link.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED (per client IP).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "x-policy": {
+          "attestation": false,
+          "auth": "none",
+          "rateLimit": "privacy.exports.download",
+          "role": "guest",
+          "versionGate": true
+        }
+      }
+    },
     "/v1/feed": {
       "get": {
         "tags": [
@@ -4784,6 +4859,251 @@
           "auth": "ses",
           "deletionPending": true,
           "rateLimit": "privacy.deletion.cancel",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
+    "/v1/me/exports": {
+      "post": {
+        "tags": [
+          "me"
+        ],
+        "summary": "Request a personal data export. Auth: re (session + fresh `X-Reauth`). One per 24 hours.",
+        "description": "The ZIP is built 48 hours later (every device is told; `DELETE` cancels until then): one JSON\nfile per module (account, profile, friends by name, cards, reactions, boards, ...) plus the\naccount's images as PNG.",
+        "operationId": "requestDataExport",
+        "parameters": [
+          {
+            "name": "X-Reauth",
+            "in": "header",
+            "description": "Re-auth token from POST /v1/auth/reauth (5 minutes).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Queued.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "REAUTH_REQUIRED, UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "EXPORT_COOLDOWN (one export per 24 h, with Retry-After) or RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "re",
+          "rateLimit": "privacy.exports.request",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
+    "/v1/me/exports/{id}": {
+      "get": {
+        "tags": [
+          "me"
+        ],
+        "summary": "An export's status; when ready, a fresh single-use download path. Auth: re.",
+        "operationId": "getDataExport",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The export id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Reauth",
+            "in": "header",
+            "description": "Re-auth token from POST /v1/auth/reauth (5 minutes).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The export.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "REAUTH_REQUIRED, UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: no export of the caller with this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "re",
+          "rateLimit": "privacy.exports.read",
+          "role": "user",
+          "versionGate": true
+        }
+      },
+      "delete": {
+        "tags": [
+          "me"
+        ],
+        "summary": "Cancel an export that is still waiting for its delay. Auth: ses.",
+        "operationId": "cancelDataExport",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The export id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Cancelled."
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: no queued export of the caller with this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "privacy.exports.cancel",
           "role": "user",
           "versionGate": true
         }
@@ -7812,6 +8132,61 @@
           }
         },
         "additionalProperties": false
+      },
+      "ExportEnvelope": {
+        "type": "object",
+        "required": [
+          "export"
+        ],
+        "properties": {
+          "export": {
+            "$ref": "#/components/schemas/ExportView"
+          }
+        }
+      },
+      "ExportView": {
+        "type": "object",
+        "description": "An export as its owner sees it.",
+        "required": [
+          "id",
+          "status",
+          "requested_at",
+          "available_at"
+        ],
+        "properties": {
+          "available_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Not built before this (48 h after the request); cancellable until then."
+          },
+          "download_path": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`ready` only: a single-use path (append to the API base URL) to download the ZIP. Every\nread issues a new one and invalidates the previous one."
+          },
+          "expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "requested_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string",
+            "description": "`queued` (waiting for `available_at`), `building`, `ready`, `downloaded`, `expired`,\n`cancelled` or `failed`.",
+            "example": "queued"
+          }
+        }
       },
       "FeedPage": {
         "type": "object",

@@ -25,6 +25,12 @@ pub enum SettingsError {
 pub struct PrivacySettings {
     /// How long a requested deletion can be cancelled (AC-29.2).
     pub deletion_grace: time::Duration,
+    /// One export request per this window (AC-30.2).
+    pub export_cooldown: time::Duration,
+    /// Delay before an export is built (SR-36).
+    pub export_delay: time::Duration,
+    /// How long a ready export can be downloaded (AC-30.1).
+    pub export_download: time::Duration,
 }
 
 impl Default for PrivacySettings {
@@ -32,6 +38,9 @@ impl Default for PrivacySettings {
     fn default() -> Self {
         Self {
             deletion_grace: time::Duration::days(7),
+            export_cooldown: time::Duration::hours(24),
+            export_delay: time::Duration::hours(48),
+            export_download: time::Duration::hours(24),
         }
     }
 }
@@ -41,6 +50,15 @@ impl Default for PrivacySettings {
 struct RawConfig {
     version: u32,
     deletion: RawDeletion,
+    export: RawExport,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawExport {
+    cooldown_hours: i64,
+    delay_hours: i64,
+    download_hours: i64,
 }
 
 #[derive(Deserialize)]
@@ -61,8 +79,25 @@ impl PrivacySettings {
                     .to_owned(),
             ));
         }
+        let hours = |value: i64, name: &str| {
+            if (0..=24 * 7).contains(&value) {
+                Ok(time::Duration::hours(value))
+            } else {
+                Err(SettingsError::Invalid(format!(
+                    "export.{name} must be 0..=168"
+                )))
+            }
+        };
+        if raw.export.download_hours < 1 {
+            return Err(SettingsError::Invalid(
+                "export.download_hours must be at least 1".to_owned(),
+            ));
+        }
         Ok(Self {
             deletion_grace: time::Duration::days(raw.deletion.grace_days),
+            export_cooldown: hours(raw.export.cooldown_hours, "cooldown_hours")?,
+            export_delay: hours(raw.export.delay_hours, "delay_hours")?,
+            export_download: hours(raw.export.download_hours, "download_hours")?,
         })
     }
 
@@ -92,7 +127,9 @@ mod tests {
     #[test]
     fn grace_must_leave_room_for_erasure() {
         for days in [0, 31, -1] {
-            let yaml = format!("version: 1\ndeletion:\n  grace_days: {days}\n");
+            let yaml = format!(
+                "version: 1\ndeletion:\n  grace_days: {days}\nexport:\n  cooldown_hours: 24\n  delay_hours: 48\n  download_hours: 24\n"
+            );
             assert!(PrivacySettings::from_yaml_str(&yaml).is_err(), "{days}");
         }
     }
