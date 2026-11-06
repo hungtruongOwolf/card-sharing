@@ -72,6 +72,198 @@
         }
       }
     },
+    "/v1/activity": {
+      "get": {
+        "tags": [
+          "activity"
+        ],
+        "summary": "My activity. Auth: ses.",
+        "description": "Every new card, reaction, friend request, accepted request and review hold, also when no\npush was sent (AC-31.3). Items the caller may no longer see (unfriended, blocked, deleted,\nanswered requests) are left out.",
+        "operationId": "getActivity",
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "`next_cursor` of the previous page.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "1..=50, default 30.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of activity.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivityPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED: bad limit or cursor.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "TEMPORARILY_UNAVAILABLE: cursor signing not configured.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "activity.read",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
+    "/v1/activity/read": {
+      "post": {
+        "tags": [
+          "activity"
+        ],
+        "summary": "Mark my activity read up to an item. Auth: ses.",
+        "description": "Never moves backwards. An id that is not one of the caller's items is the same 404 as a\nmissing one.",
+        "operationId": "markActivityRead",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarkReadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Marked read."
+          },
+          "400": {
+            "description": "VALIDATION_FAILED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: not one of the caller's items.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "activity.mark_read",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
     "/v1/attestation/apple-keys": {
       "post": {
         "tags": [
@@ -4094,6 +4286,75 @@
           }
         }
       },
+      "ActivityItemView": {
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "subject_id",
+          "created_at",
+          "unread"
+        ],
+        "properties": {
+          "actor_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Card sender, reactor or new friend; `null` when the event names nobody."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Item id; pass the newest one seen to `POST /v1/activity/read`."
+          },
+          "subject_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The card (`card.*`, `reaction.new`), friend request (`friend.request`) or user\n(`friend.accepted`) the item is about."
+          },
+          "type": {
+            "type": "string",
+            "description": "`card.new`, `reaction.new`, `friend.request`, `friend.accepted` or `card.held`."
+          },
+          "unread": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ActivityPage": {
+        "type": "object",
+        "required": [
+          "items",
+          "unread_count"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ActivityItemView"
+            },
+            "description": "Newest first."
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Opaque; `null` on the last page."
+          },
+          "unread_count": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Unread visible items, counted up to 100."
+          }
+        }
+      },
       "AdsView": {
         "type": "object",
         "required": [
@@ -5008,6 +5269,21 @@
         },
         "additionalProperties": false
       },
+      "MarkReadRequest": {
+        "type": "object",
+        "description": "Body of `POST /v1/activity/read`.",
+        "required": [
+          "up_to"
+        ],
+        "properties": {
+          "up_to": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The newest item the user has seen; it and everything older become read."
+          }
+        },
+        "additionalProperties": false
+      },
       "MeResponse": {
         "type": "object",
         "required": [
@@ -5856,6 +6132,10 @@
     {
       "name": "sessions",
       "description": "The caller's device sessions (AC-1.4)"
+    },
+    {
+      "name": "activity",
+      "description": "The caller's activity tab (US-31)"
     },
     {
       "name": "devices",
