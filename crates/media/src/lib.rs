@@ -5,6 +5,7 @@
 
 pub mod pipeline;
 pub mod process;
+pub mod purge;
 pub mod safety;
 pub mod service;
 pub mod signer;

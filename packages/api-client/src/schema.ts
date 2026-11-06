@@ -234,7 +234,14 @@ export interface paths {
         get: operations["getCard"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete a card I sent. Auth: ses. Owner only.
+         * @description Hidden everywhere at once (feeds, widget, card reads answer 404 from the next request); the
+         *     media objects are purged right after (unless another of my live cards uses them), so even
+         *     outstanding signed URLs stop resolving. Anyone but the owner, a missing card and an already
+         *     deleted card get the same 404.
+         */
+        delete: operations["deleteCard"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2117,6 +2124,63 @@ export interface operations {
             };
             /** @description TEMPORARILY_UNAVAILABLE: media signing not configured. */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    deleteCard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The card id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND: no card of mine with this id. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

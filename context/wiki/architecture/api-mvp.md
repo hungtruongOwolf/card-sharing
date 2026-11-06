@@ -415,6 +415,13 @@ Implemented (feed, part of #82, `GET /v1/feed?cursor=&limit=`, limit `feed.read`
 card_id DESC)` on the feed index; `limit` 1..30 (default 30); response `{items: [CardView], next_cursor}`. The cursor is
 base64url of `(delivered_at µs, card_id)` plus an HMAC tag (`UrlSigner::token_tag`, purpose `feed_cursor`, domain separated
 from URL signatures); a tampered or malformed cursor is 400. Items carry per-viewer signed URLs (budgeted per page).
+Implemented (T-82, `crates/cards/src/delete.rs`, `DELETE /v1/cards/{id}`, limit `cards.delete` 60/h): owner only (anyone
+else, a missing or an already deleted card → the same 404). One transaction sets `status = deleted`, hides every recipient row
+and publishes `cards.deleted {card_id, owner_id, recipient_ids}`; every read path filters on it, so the card is gone from card
+reads and the feed on the next request (widget and boards inherit the same predicate). The `cards.purge_media` job then
+purges each media object no other live card uses (objects removed from `clean` and `quarantine`, row `deleted`; blocked media
+keep their legal-hold evidence), so outstanding signed URLs stop resolving as soon as the purge runs (well within the TTL).
+Widget refresh pushes and board placeholders subscribe to `cards.deleted` with their tickets.
 
 ### Board read resolution (per viewer V, AC-19.7, AC-19.9, SR-6, SR-21)
 For each card pin (card C, owner O, pinner P): return the card with signed URLs only if C is `active` **and** (V = O, or V is a

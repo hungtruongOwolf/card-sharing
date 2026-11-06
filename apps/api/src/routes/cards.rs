@@ -498,3 +498,42 @@ pub async fn get_card(
     let card = views.pop().ok_or(ApiError::NotFound)?;
     Ok(Json(CardEnvelope { card }))
 }
+
+/// Delete a card I sent. Auth: ses. Owner only.
+///
+/// Hidden everywhere at once (feeds, widget, card reads answer 404 from the next request); the
+/// media objects are purged right after (unless another of my live cards uses them), so even
+/// outstanding signed URLs stop resolving. Anyone but the owner, a missing card and an already
+/// deleted card get the same 404.
+#[utoipa::path(
+    delete,
+    path = "/v1/cards/{id}",
+    tag = TAG,
+    operation_id = "deleteCard",
+    security(("bearer" = [])),
+    params(("id" = String, Path, format = "uuid", description = "The card id.")),
+    responses(
+        (status = NO_CONTENT, description = "Deleted."),
+        (status = UNAUTHORIZED, description = "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.", body = ProblemDetails),
+        (status = FORBIDDEN, description = "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.", body = ProblemDetails),
+        (status = NOT_FOUND, description = "NOT_FOUND: no card of mine with this id.", body = ProblemDetails),
+        (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED.", body = ProblemDetails),
+    )
+)]
+pub async fn delete_card(
+    State(state): State<AppState>,
+    caller: Caller,
+    axum::extract::Path(id): axum::extract::Path<String>,
+) -> Result<StatusCode, ApiError> {
+    let id = Uuid::try_parse(&id).map_err(|_| ApiError::NotFound)?;
+    let deleted = state
+        .cards
+        .delete(caller.0.account_id, id)
+        .await
+        .map_err(ApiError::internal)?;
+    if deleted {
+        Ok(StatusCode::NO_CONTENT)
+    } else {
+        Err(ApiError::NotFound)
+    }
+}
