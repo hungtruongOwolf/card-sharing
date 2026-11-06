@@ -57,11 +57,11 @@ pub struct Config {
     /// (`<dir>/<bucket>/<key>`). Unset (default) = no object storage: uploads answer 503 and media
     /// jobs retry (fail closed). Production uses the S3-compatible adapter (ADR-0008).
     pub media_storage_dir: Option<PathBuf>,
-    /// `API_MEDIA_SIGNING_KEY` â€” secret, at least 32 random bytes as base64 (`openssl rand -base64
+    /// `API_MEDIA_SIGNING_KEY` — secret, at least 32 random bytes as base64 (`openssl rand -base64
     /// 32`); the CDN edge verifies with the same key. Unset = no signed URLs: routes that return
     /// media answer 503 (fail closed).
     pub media_signing_key: Option<Secret>,
-    /// `API_MEDIA_BASE_URL` â€” where the `clean` bucket is served: the CDN in production, the
+    /// `API_MEDIA_BASE_URL` — where the `clean` bucket is served: the CDN in production, the
     /// API's own `/v1/media-files` route locally (default `http://127.0.0.1:8080/v1/media-files`).
     pub media_base_url: String,
     /// Deployment profile and content-safety adapters (T-72).
@@ -119,7 +119,7 @@ pub struct MailConfig {
     pub magic_link_url: String,
 }
 
-/// `API_ENV` â€” the deployment profile. Defaults to `production` (the safest assumption):
+/// `API_ENV` — the deployment profile. Defaults to `production` (the safest assumption):
 /// development-only adapters must be enabled on purpose.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AppEnv {
@@ -151,13 +151,13 @@ pub enum SafetyAdapter {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ContentSafetyConfig {
-    /// `API_ENV` â€” `development`, `test`, `staging` or `production` (default).
+    /// `API_ENV` — `development`, `test`, `staging` or `production` (default).
     pub env: AppEnv,
-    /// `API_CSAM_MATCHER` â€” `none` (default) or `fake` (not in production).
+    /// `API_CSAM_MATCHER` — `none` (default) or `fake` (not in production).
     pub csam_matcher: SafetyAdapter,
-    /// `API_NUDITY_CLASSIFIER` â€” `none` (default) or `fake` (not in production).
+    /// `API_NUDITY_CLASSIFIER` — `none` (default) or `fake` (not in production).
     pub nudity_classifier: SafetyAdapter,
-    /// `API_NUDITY_THRESHOLD` (`moderation.nudity_threshold`) â€” a score at or above it holds the
+    /// `API_NUDITY_THRESHOLD` (`moderation.nudity_threshold`) — a score at or above it holds the
     /// card for review. Default 0.5 until the EM picks one from the evaluation set.
     pub nudity_threshold: f32,
 }

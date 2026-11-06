@@ -12,7 +12,8 @@ pub mod sniff;
 pub mod store;
 
 pub use pipeline::{
-    CSAM_MATCHED, FailureCode, ProcessMediaJob, ProcessSettings, sandboxed, sandboxed_decode,
+    CSAM_MATCHED, FailureCode, MEDIA_SETTLED, ProcessMediaJob, ProcessSettings, sandboxed,
+    sandboxed_decode,
 };
 pub use process::{Encoded, ProcessError, Processed, Variant};
 pub use safety::{
@@ -21,8 +22,8 @@ pub use safety::{
     UnconfiguredClassifier, UnconfiguredHashMatcher,
 };
 pub use service::{
-    MAX_UPLOAD_BYTES, MediaError, MediaKind, MediaRecord, MediaService, MediaState, PROCESS_JOB,
-    Uploaded,
+    GateState, MAX_UPLOAD_BYTES, MediaError, MediaKind, MediaRecord, MediaService, MediaState,
+    PROCESS_JOB, Uploaded,
 };
 pub use signer::{SignedUrl, UrlAudience, UrlSigner, VerifyError};
 pub use sniff::{ImageFormat, MAX_DIMENSION, SniffError, SniffOutcome, Sniffed, sniff};

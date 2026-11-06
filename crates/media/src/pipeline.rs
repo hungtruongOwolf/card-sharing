@@ -21,13 +21,17 @@ use uuid::Uuid;
 
 use crate::process::{ProcessError, Processed, decode, process};
 use crate::safety::{ContentGates, HashVerdict, MatchCategory, ScanInput};
-use crate::service::{MediaKind, MediaService};
+use crate::service::{MediaKind, MediaService, MediaState};
 use crate::sniff::ImageFormat;
 use crate::store::{Bucket, ObjectKey, ObjectStore};
 
 /// Outbox topic of a known-CSAM match: `{media_id, account_id, category}`. Its subscriber
 /// suspends the account.
 pub const CSAM_MATCHED: &str = "media.csam_matched";
+
+/// Outbox topic when a media object reaches a final gate state (`clean`, `held`, `blocked`,
+/// `failed`): `{media_id, state}`. Cards waiting for it are re-evaluated.
+pub const MEDIA_SETTLED: &str = "media.settled";
 
 /// Limits of the processing sandbox, and the content gates.
 #[derive(Clone)]
@@ -165,6 +169,23 @@ struct CsamHit {
 
 fn retry(err: impl std::fmt::Display) -> JobError {
     JobError::Retry(err.to_string())
+}
+
+/// Publishes [`MEDIA_SETTLED`] inside the transaction that moved the media to a final state.
+async fn settled(
+    tx: &mut sqlx::PgConnection,
+    id: Uuid,
+    state: MediaState,
+    now: OffsetDateTime,
+) -> Result<(), JobError> {
+    let event = Event {
+        topic: MEDIA_SETTLED,
+        payload: json!({ "media_id": id, "state": state.as_str() }),
+    };
+    outbox::publish(&mut *tx, &event, now)
+        .await
+        .map_err(retry)?;
+    Ok(())
 }
 
 /// Provider names and list versions are short codes; cap what a provider can make us store.
@@ -331,6 +352,7 @@ impl MediaService {
         let keys = self.object_keys(id).await?;
         let (score, model) = scan.classifier.clone().unzip();
         let now = self.clock.now();
+        let mut tx = self.pool.begin().await.map_err(retry)?;
         let updated = sqlx::query(
             "UPDATE media.media_objects
              SET state = 'held', raw_storage_key = NULL, scan_provider = $2,
@@ -344,12 +366,15 @@ impl MediaService {
         .bind(now)
         .bind(score)
         .bind(model)
-        .execute(&self.pool)
+        .execute(&mut *tx)
         .await
         .map_err(retry)?;
-        if updated.rows_affected() == 1
-            && let Some(raw) = &keys.raw
-        {
+        if updated.rows_affected() == 0 {
+            return Ok(());
+        }
+        settled(&mut tx, id, MediaState::Held, now).await?;
+        tx.commit().await.map_err(retry)?;
+        if let Some(raw) = &keys.raw {
             self.delete_quiet(store, Bucket::Quarantine, raw).await;
         }
         tracing::info!(event = "media.held", media_id = %id, "media held by the nudity classifier");
@@ -505,6 +530,7 @@ impl MediaService {
             .execute(&mut *tx)
             .await
             .map_err(retry)?;
+        settled(&mut tx, id, MediaState::Clean, now).await?;
         tx.commit().await.map_err(retry)?;
         for key in served.into_iter().chain(keys.raw.as_ref()) {
             self.delete_quiet(store, Bucket::Quarantine, key).await;
@@ -594,6 +620,7 @@ impl MediaService {
         outbox::publish(&mut *tx, &event, now)
             .await
             .map_err(retry)?;
+        settled(&mut tx, id, MediaState::Blocked, now).await?;
         tx.commit().await.map_err(retry)?;
         for key in std::iter::once(&keys.main)
             .chain(&keys.derivatives)
@@ -621,16 +648,22 @@ impl MediaService {
     /// Marks the media `failed` (terminal). The raw upload stays in quarantine until its
     /// lifecycle rule removes it.
     async fn fail(&self, id: Uuid, code: FailureCode) -> Result<(), JobError> {
-        sqlx::query(
+        let now = self.clock.now();
+        let mut tx = self.pool.begin().await.map_err(retry)?;
+        let updated = sqlx::query(
             "UPDATE media.media_objects SET state = 'failed', failure_code = $2, updated_at = $3
              WHERE id = $1 AND state IN ('uploaded', 'scanning')",
         )
         .bind(id)
         .bind(code.as_str())
-        .bind(self.clock.now())
-        .execute(&self.pool)
+        .bind(now)
+        .execute(&mut *tx)
         .await
         .map_err(retry)?;
+        if updated.rows_affected() == 1 {
+            settled(&mut tx, id, MediaState::Failed, now).await?;
+        }
+        tx.commit().await.map_err(retry)?;
         tracing::warn!(event = "media.failed", media_id = %id, code = code.as_str(), "media processing failed");
         Ok(())
     }

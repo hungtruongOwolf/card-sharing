@@ -166,6 +166,14 @@ impl Row {
     }
 }
 
+/// Gate outcome of one media object.
+#[derive(Debug, Clone, PartialEq)]
+pub struct GateState {
+    pub state: MediaState,
+    pub classifier_score: Option<f32>,
+    pub classifier_model: Option<String>,
+}
+
 /// Result of an upload.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Uploaded {
@@ -281,6 +289,53 @@ impl MediaService {
         .fetch_optional(&self.pool)
         .await?;
         row.map(Row::into_record).transpose()
+    }
+
+    /// Gate states of media objects (missing ids are absent from the map). For the cards
+    /// module, which delivers a card only when all of its media are `clean`.
+    pub async fn gate_states(
+        &self,
+        ids: &[Uuid],
+    ) -> Result<std::collections::HashMap<Uuid, GateState>, MediaError> {
+        let rows: Vec<(Uuid, String, Option<f32>, Option<String>)> = sqlx::query_as(
+            "SELECT id, state, classifier_score, classifier_model
+             FROM media.media_objects WHERE id = ANY($1)",
+        )
+        .bind(ids)
+        .fetch_all(&self.pool)
+        .await?;
+        rows.into_iter()
+            .map(|(id, state, score, model)| {
+                let state = MediaState::parse(&state)
+                    .ok_or_else(|| MediaError::Corrupt("state".to_owned()))?;
+                Ok((
+                    id,
+                    GateState {
+                        state,
+                        classifier_score: score,
+                        classifier_model: model,
+                    },
+                ))
+            })
+            .collect()
+    }
+
+    /// Recipient-facing derivatives `(media_id, derivative_id, variant)` of clean media, for the
+    /// delivery log (which derivative went to which viewer; no image data).
+    pub async fn delivered_derivatives(
+        &self,
+        ids: &[Uuid],
+    ) -> Result<Vec<(Uuid, Uuid, String)>, MediaError> {
+        Ok(sqlx::query_as(
+            "SELECT d.media_id, d.id, d.variant
+             FROM media.media_derivatives d
+             JOIN media.media_objects m ON m.id = d.media_id
+             WHERE d.media_id = ANY($1) AND m.state = 'clean' AND m.kind <> 'original'
+             ORDER BY d.media_id, d.variant",
+        )
+        .bind(ids)
+        .fetch_all(&self.pool)
+        .await?)
     }
 
     /// A mask must have exactly the render's size (T-71): a mismatched pair is refused before a

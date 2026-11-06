@@ -168,7 +168,7 @@ schema `moderation` with `csam_incidents` (`category`, `exact_match`, `provider`
 `evidence_key` in the legal-hold bucket, `UNIQUE(media_id)`, no foreign keys). Clean media: objects copied to `clean` under the
 same keys, `bucket = clean`, raw upload deleted. Blocked media: `bucket = legal_hold`, `storage_key` = the evidence copy,
 derivatives deleted.
-Implemented (T-73, `migrations/*_media_nudity_hold.sql`): `classifier_score REAL CHECK 0â€“1` and `classifier_model` (set
+Implemented (T-73, `migrations/*_media_nudity_hold.sql`): `classifier_score REAL CHECK 0–1` and `classifier_model` (set
 together) on every classified media (card renders, avatars). Held media keep their sanitized copies in quarantine (raw
 upload deleted) for the moderator. Follow-up: lossy WebP for photos (the `image` encoder is lossless
 only).
@@ -188,6 +188,13 @@ deleted)` (`failed` = a media object could not be processed), `mask_media_id` nu
 `(owner_id, sent_at DESC)` and partial `(render|mask|original_media_id) WHERE status = 'pending_scan'` (find cards when a scan
 settles); `card_recipients` with `CHECK (recipient_id <> sender_id)` and the feed index. Media ids are logical references (no
 cross-module foreign keys).
+Implemented (T-76, `migrations/*_cards_delivery.sql`, `crates/cards/src/deliver.rs`): `cards.card_deliveries (card_id,
+recipient_id, media_id, derivative_id, variant, delivered_at)`, one row per recipient and recipient-facing derivative (render
+`feed_1080`/`widget_512`/`thumb_256`, mask `feed_1080`; never originals), ids only (EM decision D2 traceability), and
+`moderation.content_holds` as specified below (`expires_at` = held + 30 d). `cards.evaluate` jobs (from `cards.submitted` and
+`media.settled`) move a `pending_scan` card to `active` (recipients `delivered_at`, delivery log, `cards.delivered`) only when
+every media object is `clean`; a held render gives `held_review` + a `content_holds` row + `cards.held`; any blocked media
+gives `blocked`; failed, deleted or missing media give `failed`; anything still scanning waits.
 
 ### `boards` (owner: boards) — sync semantics in [[ADR-0007-board-sync]]
 | Table | Columns | Indexes | Class | Retention |

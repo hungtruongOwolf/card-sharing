@@ -231,8 +231,15 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
         media_store(config),
     ));
     // Subscribers register here as modules start publishing events.
-    let relay =
-        Arc::new(OutboxRelay::new(pool, clock).subscribe(Arc::new(api::workers::CsamSuspension)));
+    let card_jobs = cards::EvaluateJob {
+        cards: Arc::new(cards::CardService::new(pool.clone(), Arc::clone(&clock))),
+        media: Arc::clone(&media),
+    };
+    let relay = Arc::new(
+        OutboxRelay::new(pool, clock)
+            .subscribe(Arc::new(api::workers::CsamSuspension))
+            .subscribe(Arc::new(cards::EvaluateOnEvents)),
+    );
     let worker = Worker::new(queue, WorkerSettings::default())
         .handle(MAGIC_LINK_JOB, Arc::new(magic_links))
         .handle(
@@ -245,6 +252,7 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
                 },
             }),
         )
+        .handle(cards::EVALUATE_JOB, Arc::new(card_jobs))
         .handle(
             api::workers::SUSPEND_ACCOUNT_JOB,
             Arc::new(api::workers::SuspendAccountJob(Arc::clone(&identity))),
