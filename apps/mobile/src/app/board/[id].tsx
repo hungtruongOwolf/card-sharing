@@ -1,7 +1,14 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback } from 'react';
 
-import { appBoardTextures, BoardScreen, useBoardRepository } from '../../features/boards';
+import {
+  appBoardTextures,
+  BoardScreen,
+  devicePinDisclosure,
+  useBoardMembersApi,
+  useBoardRepository,
+} from '../../features/boards';
+import { useFriendsApi } from '../../features/friends';
 import { useRemoteConfig } from '../../features/remote-config';
 import { useCardsApi } from '../../features/sharing';
 
@@ -11,6 +18,9 @@ export default function BoardRoute() {
   const remoteConfig = useRemoteConfig();
   const cardsApi = useCardsApi();
   const repository = useBoardRepository();
+  const members = useBoardMembersApi();
+  const friendsApi = useFriendsApi();
+  const friends = useCallback(() => friendsApi.listFriends(), [friendsApi]);
   const { id } = useLocalSearchParams<{ id: string }>();
   // The newest feed page: cards I received and my own sent cards the server lets me see.
   const pinnableCards = useCallback(async () => (await cardsApi.feed()).items, [cardsApi]);
@@ -20,6 +30,9 @@ export default function BoardRoute() {
       boardId={typeof id === 'string' ? id : ''}
       textures={appBoardTextures()}
       pinnableCards={pinnableCards}
+      members={members}
+      friends={friends}
+      disclosure={devicePinDisclosure()}
       remoteConfig={remoteConfig?.registry}
       onClose={() => (router.canGoBack() ? router.back() : router.replace('/boards'))}
     />

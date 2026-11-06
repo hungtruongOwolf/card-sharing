@@ -99,6 +99,8 @@ export interface BoardCanvasProps {
   camera?: SharedValue<Camera>;
   /** Edit mode (T-104): pins can be picked up, moved, scaled, rotated and get accessibility actions. */
   editable?: boolean;
+  /** Which pins I may change in edit mode (AC-19.2/19.7); others are not tappable and get no actions. */
+  canEdit?: (pin: BoardPin) => boolean;
   selectedId?: string | null;
   /** Tap on a pin selects it, tap on the empty board clears the selection. */
   onSelect?: (id: string | null) => void;
@@ -114,7 +116,12 @@ export interface BoardCanvasProps {
 type Mode = 'none' | 'camera' | 'pin';
 interface HitPin extends PinGeometry {
   id: string;
+  editable: boolean;
 }
+
+/** Without a rule from the screen, every pin but a private tile or removed card can be edited. */
+const DEFAULT_CAN_EDIT = (pin: BoardPin) =>
+  pin.content.kind !== 'private_tile' && pin.content.kind !== 'removed';
 
 const clamp1 = (value: number) => {
   'worklet';
@@ -242,6 +249,7 @@ export function BoardCanvas({
   focusedId = null,
   camera: external,
   editable = false,
+  canEdit = DEFAULT_CAN_EDIT,
   selectedId = null,
   onSelect,
   onPickUp,
@@ -338,8 +346,10 @@ export function BoardCanvas({
   // Gesture state lives on the UI thread; JS hears about a gesture only when it starts on a pin and when it ends.
   const hitPins = useSharedValue<HitPin[]>([]);
   useEffect(() => {
-    hitPins.set(sortByZ(pins).map((pin) => ({ id: pin.id, ...pinGeometry(pin) })));
-  }, [pins, hitPins]);
+    hitPins.set(
+      sortByZ(pins).map((pin) => ({ id: pin.id, editable: canEdit(pin), ...pinGeometry(pin) })),
+    );
+  }, [pins, hitPins, canEdit]);
   const mode = useSharedValue<Mode>('none');
   const activeGestures = useSharedValue(0);
   const activeId = useSharedValue<string | null>(null);
@@ -381,7 +391,9 @@ export function BoardCanvas({
       'worklet';
       activeGestures.set(activeGestures.get() + 1);
       if (mode.get() !== 'none') return;
-      const hit = editable ? pinAt(point) : null;
+      // The topmost pin under the finger; one I may not change lets the gesture move the board instead.
+      const top = editable ? pinAt(point) : null;
+      const hit = top?.editable ? top : null;
       if (!hit) {
         mode.set('camera');
         return;
@@ -469,7 +481,8 @@ export function BoardCanvas({
       .withTestId(`${testID}-tap`)
       .onEnd((e, success) => {
         if (!success || !editable) return;
-        scheduleOnRN(select, pinAt({ x: e.x, y: e.y })?.id ?? null);
+        const top = pinAt({ x: e.x, y: e.y });
+        scheduleOnRN(select, top?.editable ? top.id : null);
       });
     const doubleTap = Gesture.Tap()
       .numberOfTaps(2)
@@ -586,6 +599,7 @@ export function BoardCanvas({
         <View style={[StyleSheet.absoluteFill, styles.ltr]} pointerEvents="none">
           {labelled.map(({ pin, bounds }) => {
             const topLeft = boardToScreen(settled, bounds);
+            const pinEditable = editable && canEdit(pin);
             return (
               <View
                 key={pin.id}
@@ -593,10 +607,10 @@ export function BoardCanvas({
                 accessible
                 accessibilityRole="image"
                 accessibilityLabel={pinLabel(pin, registry)}
-                accessibilityHint={editable ? t('boards.pin.hint') : undefined}
-                accessibilityState={editable ? { selected: pin.id === selectedId } : undefined}
-                accessibilityActions={editable ? A11Y_ACTIONS : undefined}
-                onAccessibilityAction={editable ? onA11yAction(pin.id) : undefined}
+                accessibilityHint={pinEditable ? t('boards.pin.hint') : undefined}
+                accessibilityState={pinEditable ? { selected: pin.id === selectedId } : undefined}
+                accessibilityActions={pinEditable ? A11Y_ACTIONS : undefined}
+                onAccessibilityAction={pinEditable ? onA11yAction(pin.id) : undefined}
                 style={{
                   position: 'absolute',
                   start: topLeft.x,

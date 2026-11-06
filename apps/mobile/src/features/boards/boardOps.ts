@@ -74,7 +74,7 @@ function applyOne(pins: BoardPin[], op: PinOp): BoardPin[] {
           ? { kind: 'card', card: op.pin.card }
           : { kind: 'decoration', decoration: op.pin.decoration };
       // The server answers an accepted add with version 1; later edits use it as their base version.
-      return [...pins, { id, x, y, scale, rotation, zKey, version: 1, content }];
+      return [...pins, { id, x, y, scale, rotation, zKey, version: 1, content, mine: true }];
     }
     case 'pin.update':
       return pins.map((p) => (p.id === op.pinId ? { ...p, ...op.set, version: p.version + 1 } : p));

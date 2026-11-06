@@ -5,9 +5,11 @@ import type { TextureLod } from '@card-sharing/canvas-engine';
 
 import { useAuthClient, type AuthClient } from '../auth';
 import { downscalePhoto } from '../editor/cardScene';
+import { createBoardMembersApi, type BoardMembersApi } from './boardMembersApi';
 import { createBoardsApi } from './boardsApi';
 import { createBoardStore, type BoardStore } from './boardStore';
 import { createSyncedBoardRepository, type SyncedBoardRepository } from './boardSync';
+import { createPinDisclosure, type PinDisclosure } from './pinDisclosure';
 import { createTextureCache, type TextureCache } from './textureCache';
 
 /** Downloads a signed card render and scales it to the texture level (the full-size decode is dropped). */
@@ -47,6 +49,20 @@ export function appBoardRepository(client: AuthClient): SyncedBoardRepository {
   return repository.repo;
 }
 
+let disclosure: PinDisclosure | null = null;
+
+/** The device's record of the one-time shared-board explanation (AC-19.5). */
+export function devicePinDisclosure(): PinDisclosure {
+  disclosure ??= createPinDisclosure();
+  return disclosure;
+}
+
+/** Members and invitations over the signed-in auth client (T-108). */
+export function useBoardMembersApi(): BoardMembersApi {
+  const client = useAuthClient();
+  return useMemo(() => createBoardMembersApi(client.fetch), [client]);
+}
+
 export function useBoardRepository(): SyncedBoardRepository {
   const client = useAuthClient();
   return useMemo(() => appBoardRepository(client), [client]);
@@ -59,4 +75,5 @@ export function useBoardRepository(): SyncedBoardRepository {
 export async function clearDeviceBoards(): Promise<void> {
   repository = null;
   await deviceBoardStore().clear();
+  await devicePinDisclosure().clear();
 }

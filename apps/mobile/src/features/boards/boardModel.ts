@@ -27,6 +27,8 @@ export interface BoardPin {
   readonly zKey: string;
   readonly version: number;
   readonly content: PinContent;
+  /** I created this pin (collaborators may change only these, AC-19.2). Absent = mine (a local board). */
+  readonly mine?: boolean;
 }
 
 /** A registry reference as boards store it (`{id, version, params}`); params are untrusted until clamped. */
@@ -43,6 +45,8 @@ export interface Board {
   readonly title: string;
   /** Registry backdrop (T-111); null draws the plain desk paper. */
   readonly backdrop: BoardBackdrop | null;
+  /** My role on a server board; absent on a local board (= owner). */
+  readonly role?: 'owner' | 'collaborator';
   /** Monotonic change cursor (`boards.version`). */
   readonly version: number;
   readonly pins: readonly BoardPin[];
@@ -62,6 +66,15 @@ export function clampToBoard<T extends { x: number; y: number }>(point: T): T {
   const clamp = (v: number, max: number) =>
     Number.isFinite(v) ? Math.min(max, Math.max(0, v)) : max / 2;
   return { ...point, x: clamp(point.x, BOARD_SIZE.width), y: clamp(point.y, BOARD_SIZE.height) };
+}
+
+/**
+ * Whether I may pick up, change or remove this pin (AC-19.2): never a private tile (AC-19.7: neutral and not
+ * tappable); on a board I collaborate on, only pins I created. The server enforces the same rule.
+ */
+export function canEditPin(board: Pick<Board, 'role'>, pin: BoardPin): boolean {
+  if (pin.content.kind === 'private_tile' || pin.content.kind === 'removed') return false;
+  return board.role !== 'collaborator' || pin.mine !== false;
 }
 
 /** Unscaled frame of a pin: the card frame, or the decoration's own frame. */
