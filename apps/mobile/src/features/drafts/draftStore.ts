@@ -1,6 +1,13 @@
 import * as SecureStore from 'expo-secure-store';
 
-import { MAX_EFFECTS, type ParamValue } from '@card-sharing/effects-registry';
+import {
+  MAX_EFFECTS,
+  migrateId,
+  registry as shippedRegistry,
+  RETIRED,
+  type ParamValue,
+  type Registry,
+} from '@card-sharing/effects-registry';
 
 import { sanitizeText } from '../../text';
 import { LOCAL_CARD_SCHEMA, type LocalCard } from '../cards/localCard';
@@ -168,6 +175,21 @@ function parseChoice(value: unknown): StyleChoice | null {
   };
 }
 
+/**
+ * A stored choice after the registry ledger's migrations (T-124): unchanged while its id ships, its replacement
+ * (default params, current version) when the id was retired into another, or null when it was retired without one.
+ */
+export function migrateChoice(
+  choice: StyleChoice,
+  registry: Registry = shippedRegistry,
+  retired: Readonly<Record<string, string | null>> = RETIRED,
+): StyleChoice | null {
+  const id = migrateId(choice.id, retired);
+  if (id === choice.id) return choice;
+  const entry = id === null ? undefined : registry.get(id);
+  return entry ? { id: entry.id, version: entry.version, params: {} } : null;
+}
+
 const isIsoDate = (value: unknown): value is string =>
   typeof value === 'string' && !Number.isNaN(Date.parse(value));
 
@@ -207,10 +229,12 @@ export function parseLocalCard(raw: string | null, expectedId?: string): LocalCa
   if (typeof value.draft.wholePhoto !== 'boolean' || typeof value.draft.caption !== 'string') {
     return null;
   }
+  const migrate = (choice: StyleChoice) => migrateChoice(choice);
   const draft: CardDraft = {
-    cut,
-    finish,
-    effects: effects as StyleChoice[],
+    // A retired cut without a replacement stays as stored: the editor falls back to its default.
+    cut: migrate(cut) ?? cut,
+    finish: finish ? migrate(finish) : null,
+    effects: (effects as StyleChoice[]).flatMap((choice) => migrate(choice) ?? []),
     wholePhoto: value.draft.wholePhoto,
     caption: sanitizeText(value.draft.caption),
   };

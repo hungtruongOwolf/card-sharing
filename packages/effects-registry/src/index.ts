@@ -31,5 +31,6 @@ export {
   toServerRegistry,
 } from './registryJson';
 export { ENTRIES } from './entries';
+export { migrateId, RETIRED, SHIPPED_IDS } from './ledger';
 export { BACKDROPS, DECORATIONS, TAPE_COLORS } from './entries/board';
 export { SPEECH_CAPTIONS } from './entries/overlay.speech';

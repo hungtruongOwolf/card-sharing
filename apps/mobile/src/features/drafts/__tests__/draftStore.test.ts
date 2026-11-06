@@ -13,6 +13,7 @@ import {
   DraftStoreError,
   MAX_DRAFTS,
   memoryKeyValueStore,
+  migrateChoice,
   parseLocalCard,
   secureKeyValueStore,
   utf8Length,
@@ -157,6 +158,19 @@ describe('parseLocalCard', () => {
     // JSON.stringify drops the undefined field, like a record saved by an older build.
     const older = { ...draft, effects: undefined };
     expect(parseLocalCard(JSON.stringify({ ...valid, draft: older }))?.draft.effects).toEqual([]);
+  });
+
+  it('migrates retired registry ids (T-124 ledger)', () => {
+    const retired = { 'fx.old': 'fx.matte', 'fx.gone': null };
+    expect(migrateChoice(draft.cut, registry, retired)).toBe(draft.cut);
+    expect(
+      migrateChoice({ id: 'fx.old', version: 3, params: { a: 1 } }, registry, retired),
+    ).toEqual({
+      id: 'fx.matte',
+      version: 1,
+      params: {},
+    });
+    expect(migrateChoice({ id: 'fx.gone', version: 1, params: {} }, registry, retired)).toBeNull();
   });
 
   it('rejects a record stored under another id', () => {
