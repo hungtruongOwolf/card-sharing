@@ -142,6 +142,44 @@ describe('CardEditorScreen', () => {
   );
 
   it(
+    'reopens a saved card with its choices (re-editable until sent)',
+    async () => {
+      const onNext = jest.fn();
+      const holo = registry.get('fx.holo')!;
+      const torn = registry.get('cut.torn')!;
+      await renderEditor(
+        {
+          onNext,
+          initialDraft: {
+            cut: {
+              id: torn.id,
+              version: torn.version,
+              params: { roughness: 0.5, seed: 7, paper: 'kraft' },
+            },
+            finish: { id: holo.id, version: holo.version, params: { intensity: 0.4 } },
+            wholePhoto: false,
+            caption: 'again',
+          },
+        },
+        { reducedMotion: true },
+      );
+      expect(selected('effects.cut.torn.name')).toBe(true);
+      expect(screen.getByTestId('editor-caption')).toHaveTextContent('again');
+      await userEvent.setup().press(screen.getByRole('button', { name: t('editor.next') }));
+      expect(onNext).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cut: expect.objectContaining({
+            id: 'cut.torn',
+            params: expect.objectContaining({ paper: 'kraft' }),
+          }),
+          finish: expect.objectContaining({ id: 'fx.holo', params: { intensity: 0.4 } }),
+        }),
+      );
+    },
+    RENDER_TIMEOUT_MS,
+  );
+
+  it(
     'offers matte, glossy and holo, and keeps holo static under reduced motion',
     async () => {
       await renderEditor({}, { reducedMotion: true });
