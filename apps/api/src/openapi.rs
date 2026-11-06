@@ -155,11 +155,11 @@ pub fn router() -> ApiRouter<AppState> {
             routes!(dev_auth::dev_sign_in),
         )
         .route(
-            RoutePolicy::public().limited("admin.auth"),
+            RoutePolicy::public().limited("admin.auth.login"),
             routes!(admin_auth::staff_login),
         )
         .route(
-            RoutePolicy::public().limited("admin.auth"),
+            RoutePolicy::public().limited("admin.auth.mfa"),
             routes!(admin_auth::staff_mfa),
         )
         .route(

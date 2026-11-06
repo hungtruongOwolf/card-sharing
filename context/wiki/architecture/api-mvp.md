@@ -631,9 +631,9 @@ Staff auth (T-144, #146, server part; the admin console UI is deferred): `routes
 6 digits, ±1 step, each step accepted once): no WebAuthn crate is in `Cargo.lock`, so WebAuthn waits for a dependency window.
 Staff are ordinary accounts promoted only from the CLI: `api staff grant <account-id> <moderator|admin>` prints the
 `otpauth://` URI once (secret stored as `FieldCipher`), `api staff disable <account-id>` disables and ends sessions; there is
-no API to grant roles. Flow: `POST /v1/admin/auth/login` (none, `admin.auth` 5/15 min per IP, fails closed) `{provider, id_token,
+no API to grant roles. Flow: `POST /v1/admin/auth/login` (none, `admin.auth.login` 10/15 min per IP, fails closed) `{provider, id_token,
 nonce}` — a fresh Apple/Google proof as for re-auth → 200 `{mfa_token, expires_at}` (single use, 5 minutes, 5 code attempts);
-`POST /v1/admin/auth/mfa` `{mfa_token, code}` → 200 `{csrf_token, role, idle_expires_at, absolute_expires_at}` + `Set-Cookie:
+`POST /v1/admin/auth/mfa` (`admin.auth.mfa` 20/15 min per IP) `{mfa_token, code}` → 200 `{csrf_token, role, idle_expires_at, absolute_expires_at}` + `Set-Cookie:
 __Host-staff_session=<token>; Path=/; Max-Age=43200; HttpOnly; Secure; SameSite=Strict`. Every refusal of either step (bad
 proof, not staff, disabled, inactive account, wrong/replayed code, used/expired challenge) is the same 401. Staff sessions live
 in `identity.staff_sessions` (token and CSRF hashes only): idle 30 min (sliding), absolute 12 h. Auth kind `staff`: the access

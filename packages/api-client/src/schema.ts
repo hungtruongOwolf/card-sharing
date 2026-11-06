@@ -3212,7 +3212,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description RATE_LIMITED (5 per 15 minutes per IP). */
+            /** @description RATE_LIMITED (10 per 15 minutes per IP). */
             429: {
                 headers: {
                     [name: string]: unknown;

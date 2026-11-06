@@ -313,7 +313,7 @@
             }
           },
           "429": {
-            "description": "RATE_LIMITED (5 per 15 minutes per IP).",
+            "description": "RATE_LIMITED (10 per 15 minutes per IP).",
             "content": {
               "application/json": {
                 "schema": {
@@ -339,7 +339,7 @@
         "x-policy": {
           "attestation": false,
           "auth": "none",
-          "rateLimit": "admin.auth",
+          "rateLimit": "admin.auth.login",
           "role": "guest",
           "versionGate": true
         }
@@ -456,7 +456,7 @@
         "x-policy": {
           "attestation": false,
           "auth": "none",
-          "rateLimit": "admin.auth",
+          "rateLimit": "admin.auth.mfa",
           "role": "guest",
           "versionGate": true
         }

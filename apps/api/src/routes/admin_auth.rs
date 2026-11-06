@@ -124,7 +124,7 @@ fn refused(err: StaffError) -> ApiError {
         (status = OK, description = "Proof accepted: enter the TOTP code next.", body = StaffLoginChallenge),
         (status = BAD_REQUEST, description = "VALIDATION_FAILED.", body = ProblemDetails),
         (status = UNAUTHORIZED, description = "UNAUTHENTICATED (one answer for every refusal).", body = ProblemDetails),
-        (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED (5 per 15 minutes per IP).", body = ProblemDetails),
+        (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED (10 per 15 minutes per IP).", body = ProblemDetails),
         (status = SERVICE_UNAVAILABLE, description = "TEMPORARILY_UNAVAILABLE (provider not configured or unreachable).", body = ProblemDetails),
     )
 )]
