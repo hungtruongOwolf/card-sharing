@@ -4,6 +4,7 @@
 
 use crate::cards_read::deliver_to;
 use crate::common::*;
+use crate::media::without_request_id;
 use crate::social_support::*;
 use http::StatusCode;
 use serde_json::{Value, json};
@@ -103,7 +104,17 @@ async fn new_cards_and_reactions_appear_for_their_recipient_only() {
         Some(&json!({ "up_to": id })),
     )
     .await;
-    assert_problem(response, StatusCode::NOT_FOUND, "NOT_FOUND").await;
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    let denied = without_request_id(body_bytes(response).await);
+    let missing = call(
+        &env,
+        "POST",
+        "/v1/activity/read",
+        &owner,
+        Some(&json!({ "up_to": Uuid::now_v7() })),
+    )
+    .await;
+    assert_eq!(without_request_id(body_bytes(missing).await), denied);
     let response = call(
         &env,
         "POST",
