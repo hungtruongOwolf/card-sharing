@@ -20,6 +20,7 @@ import {
   type OnboardingPhase,
 } from '../features/onboarding';
 import { useCardsApi } from '../features/sharing';
+import { createWidgetTokenApi, deviceWidgetTokenStore, WidgetTokenSync } from '../features/widget';
 import { ThemeProvider, ToastProvider, useTheme } from '../ui';
 
 /**
@@ -73,6 +74,13 @@ function DeviceTimeZone() {
   return <TimeZoneSync api={api} />;
 }
 
+/** Keeps a widget token for this session in the widget-token store (T-91), only while signed in. */
+function WidgetToken() {
+  const authClient = useAuthClient();
+  const [api] = useState(() => createWidgetTokenApi(authClient.fetch));
+  return <WidgetTokenSync api={api} store={deviceWidgetTokenStore()} />;
+}
+
 function PhaseStack() {
   const theme = useTheme();
   const { phase } = useOnboarding();
@@ -84,6 +92,7 @@ function PhaseStack() {
         <>
           <CardPurges />
           <DeviceTimeZone />
+          <WidgetToken />
         </>
       ) : null}
       <Stack
@@ -118,14 +127,17 @@ function Onboarding() {
 
 /**
  * Device copies of account data never outlive the session: the offline feed holds friends' names and captions
- * (T-80), and the outbox holds this account's unsent cards and reactions (T-78), which must never go out as the
- * next account.
+ * (T-80), the outbox holds this account's unsent cards and reactions (T-78), which must never go out as the
+ * next account, and the widget token (T-91) must leave the widget empty (AC-16.2).
  */
 const clearDeviceData = () => {
   void deviceFeedCache()
     .clear()
     .catch(() => undefined);
   void deviceOutboxStore()
+    .clear()
+    .catch(() => undefined);
+  void deviceWidgetTokenStore()
     .clear()
     .catch(() => undefined);
 };
