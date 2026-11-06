@@ -1,6 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 
-import { FakeAuthServer } from '../../../test/fakeAuthServer';
+import { FakeAuthServer, problem } from '../../../test/fakeAuthServer';
 import { secureStoreMock } from '../../../test/secureStoreMock';
 import { AuthError, createAuthClient, type AuthClientOptions, type AuthState } from '../authClient';
 import { sessionFromTokenPair, serializeSession } from '../session';
@@ -246,6 +246,30 @@ describe('revocation and reuse', () => {
     await expect(client.fetch('/v1/me')).rejects.toMatchObject({ code: 'SESSION_REVOKED' });
     expect(client.getState().signOutReason).toBe('revoked');
     expect(server.count('POST', '/v1/auth/refresh')).toBe(0);
+  });
+
+  it('keeps the session on 401 REAUTH_REQUIRED and returns it to the caller (T-26)', async () => {
+    const { server, client } = setup();
+    storeSession(server.issue());
+    server.routes = () => problem(401, 'REAUTH_REQUIRED');
+    const response = await client.fetch('/v1/me/deletion', { method: 'POST' });
+    expect(response.status).toBe(401);
+    expect(client.getState().status).toBe('signedIn');
+    expect(server.count('POST', '/v1/auth/refresh')).toBe(0);
+  });
+
+  it('returns a refused proof to the caller without refreshing or signing out', async () => {
+    const { server, client } = setup();
+    storeSession(server.issue());
+    server.routes = (r) => (r.path === '/v1/auth/reauth' ? problem(401, 'UNAUTHENTICATED') : null);
+    const response = await client.fetchWithProof('/v1/auth/reauth', { method: 'POST' });
+    expect(response.status).toBe(401);
+    expect(client.getState().status).toBe('signedIn');
+    expect(server.count('POST', '/v1/auth/refresh')).toBe(0);
+    // The plain fetch treats the same 401 as a stale session.
+    await expect(client.fetch('/v1/auth/reauth', { method: 'POST' })).rejects.toBeInstanceOf(
+      AuthError,
+    );
   });
 
   it('does not resurrect a session when a refresh finishes after sign-out', async () => {

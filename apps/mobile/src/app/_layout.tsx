@@ -48,6 +48,7 @@ const ROUTES: readonly (readonly [Exclude<OnboardingPhase, 'loading' | 'error'>,
   ['home', 'settings/privacy'],
   ['home', 'settings/feedback'],
   ['home', 'settings/notifications'],
+  ['home', 'settings/delete-account'],
   ['home', 'friends/index'],
   ['home', 'friends/requests'],
   ['home', 'friends/invite'],
@@ -59,6 +60,7 @@ const ROUTES: readonly (readonly [Exclude<OnboardingPhase, 'loading' | 'error'>,
   ['displayName', 'onboarding/display-name'],
   ['handle', 'onboarding/handle'],
   ['camera', 'onboarding/camera'],
+  ['deletionPending', 'account/deletion-pending'],
 ];
 
 /**

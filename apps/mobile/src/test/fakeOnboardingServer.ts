@@ -12,12 +12,13 @@
  */
 import { FakeAuthServer, json, problem, type RecordedRequest } from './fakeAuthServer';
 
-type Status = 'pending_age' | 'pending_profile' | 'active';
+type Status = 'pending_age' | 'pending_profile' | 'active' | 'deletion_pending';
 
 const STEP: Record<Status, 'age' | 'profile' | 'done'> = {
   pending_age: 'age',
   pending_profile: 'profile',
   active: 'done',
+  deletion_pending: 'done',
 };
 
 export class FakeOnboardingServer {

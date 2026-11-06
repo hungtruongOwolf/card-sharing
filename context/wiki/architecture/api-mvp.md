@@ -79,8 +79,11 @@ expired or replayed token are all 401 `UNAUTHENTICATED`. The token is a child se
 session, lives 5 minutes (`identity::REAUTH_TTL`, capped by the parent), replaces the previous re-auth token of that session
 and dies with the parent. `re` routes (`RoutePolicy::reauth()`) need the full session as bearer plus `X-Reauth: <token>` of
 that same session: missing, wrong, other-session or older than 5 minutes = 401 `REAUTH_REQUIRED`. A re-auth token presented
-as a bearer token is 401 on every route. Rate limit `auth.reauth` 5 per 15 minutes per user (fails closed). The app flow
-(native Apple/Google sheet before delete/export) needs a device build. Tests: `tests/api/reauth.rs`.
+as a bearer token is 401 on every route. Rate limit `auth.reauth` 5 per 15 minutes per user (fails closed). App side
+(T-153, #155): a "confirm it's you" sheet (`features/privacy/useReauth.tsx`) asks the sign-in provider seam for a fresh
+proof and keeps the token in memory for one action; the auth client's `fetchWithProof` returns a refused proof (401
+`UNAUTHENTICATED`) to the caller instead of signing out, and every request returns 401 `REAUTH_REQUIRED` to the caller with
+the session kept. The native Apple/Google sheets still need a device build. Tests: `tests/api/reauth.rs`.
 | POST | /v1/attestation/challenge | Nonce for `att` (32 bytes, single use, 5 min) | onb/ses | user | — | 30/min d | no | US-5, US-13 |
 | POST | /v1/attestation/apple-keys | Register this install's App Attest key (attestation object) | onb/ses | user | key bound to caller | 10/day d | no | US-5, US-13 |
 | GET | /v1/me | Account status, onboarding step, profile, resolved policy flags | onb/ses | user | self | 120/min u | yes | US-1–3 |
@@ -581,7 +584,9 @@ grace period now issues a full session, and the policy flag `allow_deletion_pend
 `GET /v1/me` (shows `account.status = deletion_pending`), these two routes and `DELETE /v1/sessions/current`; every other
 route answers 401 `SESSION_REVOKED`, and refresh works for such sessions. Cancelling restores `active` (audit
 `privacy.deletion_cancelled`). Apple refresh-token revocation is done at erasure (T-152), not at the request. Tests:
-`tests/api/deletion.rs`.
+`tests/api/deletion.rs`. App (T-153, #155): Home → Delete account lists the consequences, re-authenticates, sends the
+request with `X-Reauth` and then signs the device out (which clears the widget token, AC-16.2); a session whose `/v1/me`
+says `deletion_pending` gets the `deletionPending` phase: one screen with the grace banner, "Cancel deletion" and "Sign out".
 
 Erasure (T-152, #154): the worker's periodic `privacy.erase_due` (every 10 min) takes requests whose `grace_until` passed
 (`pending` or an interrupted `erasing`), marks them `erasing`, revokes the account's stored Apple refresh tokens at Apple (best
