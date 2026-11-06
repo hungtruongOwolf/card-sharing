@@ -295,3 +295,12 @@ Backend 11 PRs, mobile 6, web 2 merged; #339 (guest report web) and the appeal U
 
 ## [2026-11-06] progress | sprint 8 done
 #339 guest report web, #359 appeal UI, #360 link replay handling merged. Flaky appeals test filed. See [[sprint-8]].
+
+## [2026-11-06] change | Expo SDK 58
+Store Expo Go moved to SDK 58, so the first device demo failed; #362 upgraded the app (Expo 58, RN 0.88, React 19.3) and
+added the pending native modules. CI green; not yet verified on a device. See [[local-dev]].
+
+## [2026-11-06] research | agent-desktop for UI testing
+Tried vercel-labs/agent-desktop (OS accessibility tree via UI Automation) on a test page: snapshot, check, click and
+set-value work; headless `type` is refused in Chrome; browser chrome adds noise. It cannot reach the iOS app, so it is not
+adopted; Playwright (web, in CI) and Maestro (mobile, later) fit better.
