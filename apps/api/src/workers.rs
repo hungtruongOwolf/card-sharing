@@ -139,3 +139,227 @@ impl PeriodicTask for ScanBacklog {
         })
     }
 }
+
+/// Queue age that pages someone (overview.md: "page on-call at queue age > 5 min").
+pub const QUEUE_AGE_ALERT_SECS: i64 = 300;
+/// Delivery SLO (AC-13.2): send to delivered p95 within 60 s.
+pub const DELIVERY_P95_SLO_SECS: f64 = 60.0;
+/// The window the minute snapshot looks back over.
+pub const METRICS_WINDOW: time::Duration = time::Duration::minutes(15);
+
+/// A threshold crossed in a snapshot.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Alert {
+    /// The oldest due job of a lane has waited longer than [`QUEUE_AGE_ALERT_SECS`].
+    QueueAge { lane: Lane, oldest_age_secs: i64 },
+    /// Send-to-delivered p95 above the SLO.
+    DeliveryP95 { p95_secs: f64 },
+}
+
+/// The alerts for these lane stats and delivery latency (pure, so a synthetic test can trip it).
+pub fn alerts(
+    lanes: &[platform::jobs::LaneStats],
+    delivery: &platform::metrics::LatencyStats,
+) -> Vec<Alert> {
+    let mut found: Vec<Alert> = lanes
+        .iter()
+        .filter(|l| l.oldest_age_secs > QUEUE_AGE_ALERT_SECS)
+        .map(|l| Alert::QueueAge {
+            lane: l.lane,
+            oldest_age_secs: l.oldest_age_secs,
+        })
+        .collect();
+    if delivery.count > 0 && delivery.p95_secs > DELIVERY_P95_SLO_SECS {
+        found.push(Alert::DeliveryP95 {
+            p95_secs: delivery.p95_secs,
+        });
+    }
+    found
+}
+
+/// One metrics snapshot (T-97).
+#[derive(Debug, Clone, PartialEq)]
+pub struct Snapshot {
+    pub delivery: platform::metrics::LatencyStats,
+    pub scan: platform::metrics::LatencyStats,
+    pub open_holds: i64,
+    pub lanes: Vec<platform::jobs::LaneStats>,
+    /// Alert push decisions by outcome.
+    pub push: Vec<(String, i64)>,
+    pub invalid_tokens: i64,
+    pub alerts: Vec<Alert>,
+}
+
+/// Delivery SLO, scan latency, holds, queue age per lane and push rates, logged every minute
+/// as `metrics.*` events; crossed thresholds are `alert.*` errors (log-based alerting until a
+/// metrics backend exists).
+#[derive(Clone)]
+pub struct SloReport {
+    pub cards: Arc<cards::CardService>,
+    pub media: Arc<MediaService>,
+    pub queue: Arc<platform::jobs::JobQueue>,
+    pub notifier: Arc<notifications::Notifier>,
+    pub tokens: Arc<notifications::PushTokens>,
+}
+
+impl SloReport {
+    pub const INTERVAL: Duration = Duration::from_secs(60);
+
+    /// Measures everything since `since`.
+    pub async fn snapshot(&self, since: time::OffsetDateTime) -> Result<Snapshot, String> {
+        let delivery = self
+            .cards
+            .delivery_latency(since)
+            .await
+            .map_err(|e| e.to_string())?;
+        let scan = self
+            .media
+            .scan_latency(since)
+            .await
+            .map_err(|e| e.to_string())?;
+        let open_holds = self.cards.open_holds().await.map_err(|e| e.to_string())?;
+        let lanes = self.queue.stats().await.map_err(|e| e.to_string())?;
+        let push = self
+            .notifier
+            .outcomes_since(since)
+            .await
+            .map_err(|e| e.to_string())?;
+        let invalid_tokens = self
+            .tokens
+            .invalidated_since(since)
+            .await
+            .map_err(|e| e.to_string())?;
+        let alerts = alerts(&lanes, &delivery);
+        Ok(Snapshot {
+            delivery,
+            scan,
+            open_holds,
+            lanes,
+            push,
+            invalid_tokens,
+            alerts,
+        })
+    }
+}
+
+fn log_snapshot(s: &Snapshot) {
+    let window_secs = METRICS_WINDOW.whole_seconds();
+    tracing::info!(
+        event = "metrics.send_to_delivered_seconds",
+        window_secs,
+        count = s.delivery.count,
+        p50 = s.delivery.p50_secs,
+        p95 = s.delivery.p95_secs,
+    );
+    tracing::info!(
+        event = "metrics.scan_seconds",
+        window_secs,
+        count = s.scan.count,
+        p50 = s.scan.p50_secs,
+        p95 = s.scan.p95_secs,
+    );
+    tracing::info!(event = "metrics.holds_open", count = s.open_holds);
+    for lane in &s.lanes {
+        tracing::info!(
+            event = "metrics.queue",
+            lane = %lane.lane,
+            depth = lane.depth,
+            oldest_age_secs = lane.oldest_age_secs,
+            dead = lane.dead,
+        );
+    }
+    let count = |outcome: &str| {
+        s.push
+            .iter()
+            .find(|(o, _)| o == outcome)
+            .map_or(0, |(_, n)| *n)
+    };
+    tracing::info!(
+        event = "metrics.push",
+        window_secs,
+        sent = count("sent") + count("sent_batch"),
+        failed = count("failed"),
+        no_target = count("no_target"),
+        capped = count("capped"),
+        batched = count("batched"),
+        invalid_tokens = s.invalid_tokens,
+    );
+    for alert in &s.alerts {
+        match alert {
+            Alert::QueueAge {
+                lane,
+                oldest_age_secs,
+            } => tracing::error!(
+                event = "alert.queue_age",
+                lane = %lane,
+                oldest_age_secs,
+                threshold_secs = QUEUE_AGE_ALERT_SECS,
+                "a job lane is backed up"
+            ),
+            Alert::DeliveryP95 { p95_secs } => tracing::error!(
+                event = "alert.delivery_slo",
+                p95_secs,
+                threshold_secs = DELIVERY_P95_SLO_SECS,
+                "send-to-delivered p95 is above the SLO"
+            ),
+        }
+    }
+}
+
+impl PeriodicTask for SloReport {
+    fn run(&self) -> PeriodicFuture {
+        let report = self.clone();
+        Box::pin(async move {
+            let since = report.queue.now() - METRICS_WINDOW;
+            let snapshot = report.snapshot(since).await?;
+            log_snapshot(&snapshot);
+            Ok(())
+        })
+    }
+}
+
+#[cfg(test)]
+mod slo_tests {
+    use super::*;
+    use platform::jobs::LaneStats;
+    use platform::metrics::LatencyStats;
+
+    fn lane(lane: Lane, oldest_age_secs: i64) -> LaneStats {
+        LaneStats {
+            lane,
+            depth: 1,
+            oldest_age_secs,
+            running: 0,
+            dead: 0,
+        }
+    }
+
+    /// Synthetic check: a lane waiting 6 minutes and a slow p95 both page.
+    #[test]
+    fn thresholds_trip_the_alerts() {
+        let fine = LatencyStats {
+            count: 10,
+            p50_secs: 2.0,
+            p95_secs: 30.0,
+        };
+        assert!(alerts(&[lane(Lane::Critical, 300), lane(Lane::Bulk, 0)], &fine).is_empty());
+        let slow = LatencyStats {
+            count: 10,
+            p50_secs: 20.0,
+            p95_secs: 75.0,
+        };
+        assert_eq!(
+            alerts(&[lane(Lane::Critical, 360), lane(Lane::Default, 10)], &slow),
+            vec![
+                Alert::QueueAge {
+                    lane: Lane::Critical,
+                    oldest_age_secs: 360
+                },
+                Alert::DeliveryP95 { p95_secs: 75.0 },
+            ]
+        );
+        // No samples, no delivery alert.
+        let empty = LatencyStats::from_row((0, None, None));
+        assert!(alerts(&[], &empty).is_empty());
+    }
+}

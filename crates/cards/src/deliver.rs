@@ -357,3 +357,32 @@ impl JobHandler for EvaluateJob {
         })
     }
 }
+
+impl CardService {
+    /// Send-to-delivered latency (`send_to_delivered_seconds`, delivery SLO p50 10 s / p95 60 s)
+    /// of cards delivered since `since` (T-97).
+    pub async fn delivery_latency(
+        &self,
+        since: time::OffsetDateTime,
+    ) -> Result<platform::metrics::LatencyStats, CardError> {
+        let row: (i64, Option<f64>, Option<f64>) = sqlx::query_as(
+            "SELECT count(*),
+                    percentile_cont(0.5) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM delivered_at - sent_at)),
+                    percentile_cont(0.95) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM delivered_at - sent_at))
+             FROM cards.cards WHERE delivered_at IS NOT NULL AND delivered_at >= $1",
+        )
+        .bind(since)
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(platform::metrics::LatencyStats::from_row(row))
+    }
+
+    /// Classifier holds waiting for an appeal or a decision (T-97).
+    pub async fn open_holds(&self) -> Result<i64, CardError> {
+        Ok(sqlx::query_scalar(
+            "SELECT count(*) FROM moderation.content_holds WHERE status IN ('held', 'appealed')",
+        )
+        .fetch_one(&self.pool)
+        .await?)
+    }
+}

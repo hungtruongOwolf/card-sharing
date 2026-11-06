@@ -254,7 +254,7 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
         media: Arc::clone(&media),
     };
     let purge_jobs = cards::PurgeJob {
-        cards: card_service,
+        cards: Arc::clone(&card_service),
         media: Arc::clone(&media),
     };
     let notifier = Arc::new(notifications::Notifier::new(
@@ -277,6 +277,13 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
             .subscribe(Arc::new(cards::EvaluateOnEvents))
             .subscribe(Arc::new(cards::PurgeOnDelete)),
     );
+    let slo_report = api::workers::SloReport {
+        cards: card_service,
+        media: Arc::clone(&media),
+        queue: Arc::clone(&queue),
+        notifier: Arc::clone(&notifier),
+        tokens: Arc::clone(&push_tokens),
+    };
     let worker = Worker::new(queue, WorkerSettings::default())
         .handle(MAGIC_LINK_JOB, Arc::new(magic_links))
         .handle(
@@ -302,6 +309,11 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
         .handle(
             api::workers::SUSPEND_ACCOUNT_JOB,
             Arc::new(api::workers::SuspendAccountJob(Arc::clone(&identity))),
+        )
+        .periodic(
+            "metrics.slo_report",
+            api::workers::SloReport::INTERVAL,
+            Arc::new(slo_report),
         )
         .periodic(
             "media.scan_backlog",

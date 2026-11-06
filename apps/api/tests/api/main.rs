@@ -36,6 +36,7 @@ mod media_gate;
 mod media_hold;
 mod media_process;
 mod media_urls;
+mod metrics;
 mod minor_hint;
 mod notification_preferences;
 mod outbox;
