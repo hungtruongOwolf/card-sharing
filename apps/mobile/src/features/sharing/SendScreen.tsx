@@ -291,6 +291,64 @@ const STATUS_KEY: Record<CardStatus, 'pending' | 'active' | 'held' | 'stopped'> 
   failed: 'stopped',
 };
 
+type AppealState = 'idle' | 'filed' | 'already' | 'gone';
+
+/**
+ * "Ask for a review" on a held card (T-148, AC-28.3): one appeal per hold, decided by a moderator. The server
+ * decides everything (owner, held, once); the screen shows the outcome of the request and never the classifier.
+ */
+function HoldAppeal({ cardId, api, appeal }: { cardId: string; api: CardsApi; appeal: string }) {
+  const [state, setState] = useState<AppealState>(appeal === 'none' ? 'idle' : 'already');
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  async function file() {
+    setBusy(true);
+    setFailed(false);
+    try {
+      await api.appealHold(cardId);
+      setState('filed');
+    } catch (error) {
+      if (error instanceof CardsError && error.kind === 'already_appealed') setState('already');
+      else if (error instanceof CardsError && error.kind === 'not_found') setState('gone');
+      else if (!(error instanceof AuthError && error.kind !== 'unavailable')) setFailed(true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (state !== 'idle') {
+    const key =
+      state === 'filed'
+        ? 'send.appeal.filed'
+        : state === 'already'
+          ? 'send.appeal.already'
+          : 'send.appeal.gone';
+    return (
+      <Text accessibilityRole="alert" testID={`appeal-${state}`}>
+        {t(key)}
+      </Text>
+    );
+  }
+  return (
+    <>
+      <Button
+        block
+        variant="secondary"
+        label={t('send.appeal')}
+        accessibilityHint={t('send.appeal.hint')}
+        loading={busy}
+        onPress={() => void file()}
+      />
+      {failed ? (
+        <Text tone="danger" accessibilityRole="alert">
+          {t('send.appeal.failed')}
+        </Text>
+      ) : null}
+    </>
+  );
+}
+
 /** The owner's view of a just-sent card, refreshed while the content checks run. Copy stays neutral. */
 function SentStatus({
   sent,
@@ -329,14 +387,7 @@ function SentStatus({
         <>
           <Text accessibilityRole="alert">{t('send.status.held')}</Text>
           <Text tone="muted">{t('send.status.held.body')}</Text>
-          <Button
-            block
-            variant="secondary"
-            label={t('send.appeal')}
-            accessibilityHint={t('send.appeal.soon')}
-            disabled
-          />
-          <Text tone="muted">{t('send.appeal.soon')}</Text>
+          <HoldAppeal cardId={sent.id} api={api} appeal={card.data?.hold?.appeal ?? 'none'} />
         </>
       ) : (
         <Text accessibilityRole="alert">{t('send.status.stopped')}</Text>

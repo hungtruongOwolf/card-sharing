@@ -98,6 +98,8 @@ export interface FeedPage {
 export type CardsErrorKind =
   /** 404 `NOT_FOUND`: missing, not mine, or not visible to me (the server answers the same for all). */
   | 'not_found'
+  /** 409 `APPEAL_ALREADY_FILED`: this hold was already appealed or decided (T-148). */
+  | 'already_appealed'
   /** 400 `VALIDATION_FAILED` (audience, caption, mask size, bad image header). */
   | 'invalid'
   /** 413 `MEDIA_TOO_LARGE`. */
@@ -150,6 +152,11 @@ export interface CardsApi {
   getCard(id: string): Promise<CardItem>;
   /** `GET /v1/feed?cursor=` (30 per page). A tampered or expired cursor is `invalid` (400). */
   feed(cursor?: string | null): Promise<FeedPage>;
+  /**
+   * `POST /v1/cards/{id}/appeal` (T-148, AC-28.3): asks a moderator to review the classifier hold on my card, once
+   * per hold. 409 `APPEAL_ALREADY_FILED` → `already_appealed`; not my held card (or the hold expired) → `not_found`.
+   */
+  appealHold(cardId: string): Promise<void>;
   /** `PUT /v1/cards/{id}/reaction {kind}`: sets or replaces my one reaction (AC-17.2). */
   setReaction(cardId: string, kind: string): Promise<void>;
   /** `DELETE /v1/cards/{id}/reaction`. */
@@ -347,6 +354,8 @@ async function failure(response: Response): Promise<CardsError> {
       return new CardsError('unknown_style', code);
     case 'IDEMPOTENCY_KEY_REUSED':
       return new CardsError('key_reused', code);
+    case 'APPEAL_ALREADY_FILED':
+      return new CardsError('already_appealed', code);
   }
   if (code === 404) return new CardsError('not_found', code);
   if (code === 400) return new CardsError('invalid', code);
@@ -419,6 +428,15 @@ export function createCardsApi(
         `/v1/feed${query}`,
         { method: 'GET' },
       );
+    },
+    async appealHold(cardId) {
+      const body: Schemas['AppealRequest'] = {};
+      const response = await fetcher(`/v1/cards/${checkedId(cardId)}/appeal`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!response.ok) throw await failure(response);
     },
     async setReaction(cardId, kind) {
       if (!REACTION.test(kind)) throw new CardsError('invalid');

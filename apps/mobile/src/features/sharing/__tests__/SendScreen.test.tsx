@@ -196,7 +196,41 @@ describe('SendScreen', () => {
     expect(screen.getByText(t('send.status.held.body'))).toBeTruthy();
     expect(
       screen.getByRole('button', { name: t('send.appeal') }).props.accessibilityState,
-    ).toMatchObject({ disabled: true });
+    ).not.toMatchObject({ disabled: true });
+  });
+
+  async function held() {
+    const ctx = await setup();
+    await screen.findByRole('radio', { name: t('send.audience.all', { count: 2 }) });
+    await ctx.user.press(sendButton());
+    await screen.findByTestId('send-status-pending');
+    ctx.server.sentCards()[0]!.status = 'held_review';
+    await screen.findByTestId('send-status-held');
+    return ctx;
+  }
+
+  it('asks for a review once and says it was filed (T-148)', async () => {
+    const { server, user } = await held();
+    await user.press(screen.getByRole('button', { name: t('send.appeal') }));
+    expect(await screen.findByText(t('send.appeal.filed'))).toBeTruthy();
+    const card = server.sentCards()[0]!;
+    expect(card.appeal).toBe('pending');
+    expect(server.count('POST', `/v1/cards/${card.id}/appeal`)).toBe(1);
+    expect(screen.queryByRole('button', { name: t('send.appeal') })).toBeNull();
+  });
+
+  it('says a review was already requested (409 APPEAL_ALREADY_FILED)', async () => {
+    const { server, user } = await held();
+    server.sentCards()[0]!.appeal = 'pending'; // filed from another device meanwhile
+    await user.press(screen.getByRole('button', { name: t('send.appeal') }));
+    expect(await screen.findByText(t('send.appeal.already'))).toBeTruthy();
+  });
+
+  it('says the card no longer waits for a review when the hold is gone (404)', async () => {
+    const { server, user } = await held();
+    server.sentCards()[0]!.status = 'active';
+    await user.press(screen.getByRole('button', { name: t('send.appeal') }));
+    expect(await screen.findByText(t('send.appeal.gone'))).toBeTruthy();
   });
 
   it('shows delivery once the checks pass', async () => {

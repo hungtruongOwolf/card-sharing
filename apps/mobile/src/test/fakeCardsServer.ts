@@ -38,6 +38,8 @@ export interface FakeCard {
   caption: string | null;
   recipients: string[];
   sentAt: number;
+  /** Classifier-hold appeal (T-148): `none` until filed. */
+  appeal?: 'none' | 'pending' | 'released' | 'upheld';
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -180,6 +182,17 @@ export class FakeCardsServer extends FakeSocialServer {
     if (first === 'feed' && !second && method === 'GET') return this.feedRoute(query);
     if (first === 'feed' && second === 'purges' && !third && method === 'POST') {
       return this.purgesRoute(request.body);
+    }
+    if (first === 'cards' && second && third === 'appeal' && method === 'POST') {
+      // apps/api/src/routes/cards.rs (T-148): my held card only (else 404), once per hold (else 409).
+      const card = this.cards.get(second);
+      if (!card || card.owner !== ME || card.status !== 'held_review') return notFound();
+      if ((card.appeal ?? 'none') !== 'none') return problem(409, 'APPEAL_ALREADY_FILED');
+      card.appeal = 'pending';
+      return json(
+        { appeal: { status: 'pending', appealed_at: new Date(this.now()).toISOString() } },
+        202,
+      );
     }
     if (first === 'cards' && second && third === 'reaction' && method === 'PUT') {
       return this.react(second, request.body);
@@ -344,7 +357,7 @@ export class FakeCardsServer extends FakeSocialServer {
               card.status === 'held_review'
                 ? {
                     reason: 'nudity_classifier',
-                    appeal: 'none',
+                    appeal: card.appeal ?? 'none',
                     expires_at: new Date(this.now() + 30 * 86_400_000).toISOString(),
                   }
                 : null,
