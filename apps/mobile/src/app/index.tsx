@@ -4,6 +4,7 @@ import { StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { space } from '@card-sharing/tokens';
 
+import { ActivityButton, useActivityApi } from '../features/activity';
 import { CAPTION_MAX_GRAPHEMES as CAPTION_MAX, checkCaption } from '../features/captions';
 import { HoloCard } from '../features/holo-card';
 import { useOutbox } from '../features/outbox';
@@ -20,6 +21,7 @@ export default function HomeScreen() {
   const toast = useToast();
   const router = useRouter();
   const [sheetOpen, setSheetOpen] = useState(false);
+  const activityApi = useActivityApi();
   const waiting = useOutbox()?.entries.length ?? 0;
   const [caption, setCaption] = useState('');
   const cardWidth = Math.min(width - space[8] * 2, MAX_CARD_WIDTH);
@@ -32,6 +34,7 @@ export default function HomeScreen() {
       <Text tone="muted">{t('home.hint')}</Text>
       <Button label={t('home.capture')} onPress={() => router.push('/capture')} />
       <Button label={t('feed.open')} variant="secondary" onPress={() => router.push('/feed')} />
+      <ActivityButton api={activityApi} onPress={() => router.push('/activity')} />
       {waiting > 0 ? (
         <Button
           label={t('outbox.open', { count: waiting })}

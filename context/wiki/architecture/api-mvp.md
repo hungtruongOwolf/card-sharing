@@ -519,6 +519,14 @@ unfriend, block, delete and answered requests drop items (and they never count a
 plus an HMAC tag (`UrlSigner::token_tag`, purpose `activity_cursor`); tampered → 400. `POST /v1/activity/read {up_to}` marks
 that item and everything older read (a per-account watermark that never moves back); an id that is not the caller's item →
 404. Items are kept 90 days (`notifications.activity.purge`).
+App part (T-88, `apps/mobile/src/features/activity`): the Activity screen (route `activity`) lists pages newest first
+("Show older"; a refused cursor restarts from the top) and resolves each item through its own route: `card.new`,
+`reaction.new` and `card.held` through `GET /v1/cards/{id}` (same `['card', id]` cache entry as the full-screen view, so
+purge sync invalidations reach it; a 404 hides the row), the reactor and new friend through `GET /v1/friends`, and the
+request through the incoming `GET /v1/friend-requests`; a person no longer listed hides the row. Viewing the screen
+sends `POST /v1/activity/read` with the newest item id once per newest item while anything is unread (a 404 re-reads
+the list); this visit keeps the "New" marks. The home Activity button shows `unread_count` as a mustard badge
+("99+" from 100) from the same query.
 
 ### Board read resolution (per viewer V, AC-19.7, AC-19.9, SR-6, SR-21)
 For each card pin (card C, owner O, pinner P): return the card with signed URLs only if C is `active` **and** (V = O, or V is a
