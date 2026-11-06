@@ -24,7 +24,11 @@ const kindOf = (promise: Promise<unknown>) =>
 
 it('reads the step and submits the DOB as YYYY-MM-DD with the session token', async () => {
   const { server, api } = setup();
-  expect(await api.getMe()).toEqual({ step: 'age', deletionPending: false });
+  expect(await api.getMe()).toEqual({
+    step: 'age',
+    deletionPending: false,
+    publicLinksAllowed: true,
+  });
   expect(await api.submitBirthDate('2000-01-31')).toBe('profile');
   const age = server.auth.requests.find((r) => r.path === '/v1/me/age');
   expect(age?.body).toEqual({ birth_date: '2000-01-31' });
@@ -34,13 +38,25 @@ it('reads the step and submits the DOB as YYYY-MM-DD with the session token', as
 it('exposes only the step and the deletion flag from /v1/me, never the region threshold', async () => {
   const { api } = setup();
   const me = await api.getMe();
-  expect(Object.keys(me)).toEqual(['step', 'deletionPending']);
+  expect(Object.keys(me)).toEqual(['step', 'deletionPending', 'publicLinksAllowed']);
+});
+
+it('reads the public-link hint and treats a missing one as unknown (#321)', async () => {
+  const { server, api } = setup();
+  server.publicLinksAllowed = false;
+  expect((await api.getMe()).publicLinksAllowed).toBe(false);
+  server.publicLinksAllowed = null;
+  expect((await api.getMe()).publicLinksAllowed).toBeNull();
 });
 
 it('reports a deletion-pending account', async () => {
   const { server, api } = setup();
   server.status = 'deletion_pending';
-  expect(await api.getMe()).toEqual({ step: 'done', deletionPending: true });
+  expect(await api.getMe()).toEqual({
+    step: 'done',
+    deletionPending: true,
+    publicLinksAllowed: true,
+  });
 });
 
 it('maps the age gate codes', async () => {
@@ -65,7 +81,11 @@ it('maps profile and handle failures', async () => {
   expect(await kindOf(api.saveDisplayName('Mai'))).toBe('unavailable');
   await api.saveDisplayName('Mai');
   await api.claimHandle('mai');
-  expect(await api.getMe()).toEqual({ step: 'done', deletionPending: false });
+  expect(await api.getMe()).toEqual({
+    step: 'done',
+    deletionPending: false,
+    publicLinksAllowed: true,
+  });
   const put = server.auth.requests.find((r) => r.method === 'PUT' && r.path === '/v1/me/handle');
   expect(put?.body).toEqual({ handle: 'taken' });
 });

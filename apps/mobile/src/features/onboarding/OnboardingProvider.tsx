@@ -20,6 +20,8 @@ export interface OnboardingContextValue {
   readonly signInProviders: readonly SignInProvider[];
   /** Development builds only (#306): sign in as a seed user of a local server; null otherwise. */
   readonly devSignIn: DevSignIn | null;
+  /** `/v1/me` `policy.public_links.allowed` (#321); null until known or when the server did not say. */
+  readonly publicLinksAllowed: boolean | null;
   readonly camera: CameraPermissions;
   /** Re-reads `/v1/me` after a failure. */
   retry(): void;
@@ -86,6 +88,7 @@ export function OnboardingProvider({
     }
   }
 
+  const publicLinksAllowed = (signedIn ? me.data?.publicLinksAllowed : null) ?? null;
   const phase = resolvePhase({
     auth: auth.status,
     step: signedIn ? me.data?.step : undefined,
@@ -98,13 +101,18 @@ export function OnboardingProvider({
 
   const value = useMemo<OnboardingContextValue>(() => {
     const setStep = (step: OnboardingStep) =>
-      queryClient.setQueryData(ME_QUERY_KEY, { step, deletionPending: false } satisfies MeSummary);
+      queryClient.setQueryData(ME_QUERY_KEY, {
+        step,
+        deletionPending: false,
+        publicLinksAllowed: null,
+      } satisfies MeSummary);
     const refetchMe = () => queryClient.invalidateQueries({ queryKey: ME_QUERY_KEY });
 
     return {
       phase,
       signInProviders,
       devSignIn,
+      publicLinksAllowed,
       camera,
       retry: () => void refetch(),
       refreshAccount: refetchMe,
@@ -143,7 +151,17 @@ export function OnboardingProvider({
         setCameraHandled(false);
       },
     };
-  }, [phase, signInProviders, devSignIn, camera, refetch, api, authClient, queryClient]);
+  }, [
+    phase,
+    signInProviders,
+    devSignIn,
+    publicLinksAllowed,
+    camera,
+    refetch,
+    api,
+    authClient,
+    queryClient,
+  ]);
 
   return <OnboardingContext.Provider value={value}>{children}</OnboardingContext.Provider>;
 }

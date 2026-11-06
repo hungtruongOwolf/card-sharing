@@ -8,7 +8,10 @@ type AgeRequest = components['schemas']['AgeRequest'];
 type ProfileRequest = components['schemas']['ProfileRequest'];
 type HandleRequest = components['schemas']['HandleRequest'];
 
-/** The part of `GET /v1/me` the onboarding flow reads. The region policy is deliberately not exposed here. */
+/**
+ * The part of `GET /v1/me` the app reads. The region policy itself (thresholds, ages) is deliberately not exposed
+ * here, only the yes/no hints the server resolved for this account.
+ */
 export interface MeSummary {
   readonly step: OnboardingStep;
   /**
@@ -16,6 +19,11 @@ export interface MeSummary {
    * Its session may only read and cancel the deletion, so the app shows nothing else.
    */
   readonly deletionPending: boolean;
+  /**
+   * `policy.public_links.allowed` (#321): whether this account may create public board links (AC-24.6). A client
+   * hint only; null when the server did not say, and the create route stays the authority.
+   */
+  readonly publicLinksAllowed: boolean | null;
 }
 
 export type OnboardingErrorKind =
@@ -70,6 +78,18 @@ function accountStatusFrom(body: unknown): unknown {
   return (account as { status: unknown }).status;
 }
 
+function publicLinksAllowedFrom(body: unknown): boolean | null {
+  const policy =
+    typeof body === 'object' && body !== null ? (body as { policy?: unknown }).policy : null;
+  const links =
+    typeof policy === 'object' && policy !== null
+      ? (policy as { public_links?: unknown }).public_links
+      : null;
+  const allowed =
+    typeof links === 'object' && links !== null ? (links as { allowed?: unknown }).allowed : null;
+  return typeof allowed === 'boolean' ? allowed : null;
+}
+
 async function failure(response: Response): Promise<OnboardingError> {
   const { status } = response;
   const code = await problemCode(response);
@@ -99,7 +119,11 @@ export function createOnboardingApi(fetcher: AuthClient['fetch']): OnboardingApi
     const body: unknown = await response.json().catch(() => null);
     const step = stepFrom(body);
     if (!step) throw new OnboardingError('unavailable', response.status);
-    return { step, deletionPending: accountStatusFrom(body) === 'deletion_pending' };
+    return {
+      step,
+      deletionPending: accountStatusFrom(body) === 'deletion_pending',
+      publicLinksAllowed: publicLinksAllowedFrom(body),
+    };
   };
 
   const readStep = async (response: Response): Promise<OnboardingStep> => {

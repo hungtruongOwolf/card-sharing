@@ -490,8 +490,9 @@ revoke; a created URL is accepted only as `https://<host>/b/<token>`), `PublicLi
 toolbar, owner of a server board only): a one-time link-preview disclosure (AC-24.7), expiry 24 h / 7 days / never
 (default 7 days), the URL shown once with a Share button (no clipboard module is installed; the OS share sheet offers
 copy), active links with Revoke. `publicLinkPrefs.ts` keeps "disclosure seen" and "refused" per device in SecureStore,
-cleared on sign-out. Because `/v1/me` has no public-link flag yet, a minor sees the action until the first create
-answers 403 `POLICY_DISALLOWED`; the app then hides it for good on that device (follow-up #321 asks for the flag).
+cleared on sign-out. The app reads `policy.public_links.allowed` from `/v1/me` (#136, #321): `false` hides the action
+before any attempt, so a minor never sees it (AC-24.6); a missing flag shows it, and a 403 `POLICY_DISALLOWED` still hides
+it for good on that device (covers a policy that changed after `/v1/me` was read).
 
 Snapshots (T-130, #132): `sharing::SnapshotBuilder` (job `sharing.snapshot`) builds one snapshot per board with a live link,
 from the board as its owner reads it (`BoardService::read`): a card pin is public only when the card's owner is the board
