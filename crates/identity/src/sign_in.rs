@@ -90,6 +90,37 @@ impl ProviderSignIn {
         self
     }
 
+    /// Verifies a fresh provider proof (ID token + its raw nonce, single use) for re-auth (T-26)
+    /// and returns the account it belongs to; `None` when no account has this identity. Never
+    /// creates an account.
+    pub async fn verify_proof(
+        &self,
+        provider: Provider,
+        id_token: &str,
+        raw_nonce: &str,
+    ) -> Result<Option<Uuid>, SignInError> {
+        let verifier = self.verifiers.get(&provider).ok_or_else(|| {
+            SignInError::Unavailable(format!("{} not enabled", provider.as_str()))
+        })?;
+        let verified = verifier
+            .verify(id_token, raw_nonce)
+            .await
+            .map_err(|err| match err {
+                VerifyError::Invalid(reason) => SignInError::Rejected(reason),
+                VerifyError::NotConfigured => {
+                    SignInError::Unavailable(format!("{} not configured", provider.as_str()))
+                }
+                VerifyError::KeysUnavailable(reason) => SignInError::Unavailable(reason),
+            })?;
+        self.claim_nonce(&verified).await?;
+        let identity = VerifiedIdentity {
+            provider,
+            subject: verified.subject.clone(),
+            email: verified.email.clone(),
+        };
+        Ok(self.identity.find_account(&identity).await?)
+    }
+
     pub async fn sign_in(
         &self,
         provider: Provider,

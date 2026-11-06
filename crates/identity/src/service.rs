@@ -300,7 +300,11 @@ impl IdentityService {
         Ok((account_id, true))
     }
 
-    async fn find_account(&self, identity: &VerifiedIdentity) -> Result<Option<Uuid>, StoreError> {
+    /// The account a verified provider identity belongs to, if any.
+    pub async fn find_account(
+        &self,
+        identity: &VerifiedIdentity,
+    ) -> Result<Option<Uuid>, StoreError> {
         Ok(sqlx::query_scalar(
             "SELECT account_id FROM identity.auth_identities WHERE provider = $1 AND subject = $2",
         )

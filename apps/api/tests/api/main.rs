@@ -60,6 +60,7 @@ mod public_snapshots;
 mod push_notify;
 mod push_tokens;
 mod rate_limit;
+mod reauth;
 mod registry_style;
 mod request_answers;
 mod request_caps;

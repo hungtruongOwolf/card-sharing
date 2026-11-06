@@ -131,6 +131,10 @@ pub fn router() -> ApiRouter<AppState> {
             routes!(auth::start_email_sign_in),
         )
         .route(
+            RoutePolicy::session().limited("auth.reauth"),
+            routes!(auth::reauthenticate),
+        )
+        .route(
             RoutePolicy::public().limited("auth.refresh"),
             routes!(auth::refresh),
         )

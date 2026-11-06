@@ -57,6 +57,12 @@ routes:
     body: { email: $EMAIL, code_challenge: $CODE_CHALLENGE }
     expect: { guest: 202, onboarding_age: 202, onboarding_profile: 202, user: 202, suspended: 202 }
 
+  # T-26: a proof for a new subject is never the caller's own account (401). Own proofs, replays,
+  # expiry and the `re` check are in tests/api/reauth.rs.
+  - route: POST /v1/auth/reauth
+    body: { provider: apple, id_token: $APPLE_ID_TOKEN, nonce: $NONCE }
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 401, suspended: 403 }
+
   - route: POST /v1/auth/refresh
     body: { refresh_token: $REFRESH_TOKEN }
     expect: { guest: 401, onboarding_age: 200, onboarding_profile: 200, user: 200, suspended: 401 }

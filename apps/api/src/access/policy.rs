@@ -22,7 +22,9 @@ pub enum AuthKind {
     /// `wid`: widget-scoped token or full session of an active account (T-91). A widget token
     /// opens these routes only.
     WidgetOrSession,
-    /// `re`: full session plus a fresh reauth token. Not implemented yet: always denied.
+    /// `re`: full session of an active account plus a fresh re-auth token of that session in
+    /// `X-Reauth` (T-26). [`authorize`] checks the session; the enforcement layer checks the
+    /// re-auth token (401 `REAUTH_REQUIRED`).
     Reauth,
     /// `svc`: the web server's shared credential (`X-Service-Credential`) plus the visitor's IP in
     /// `X-Client-IP`. Only for `/v1/public/*` routes with role guest; checked by
@@ -136,6 +138,11 @@ impl RoutePolicy {
         Self::new(AuthKind::WidgetOrSession, Role::User)
     }
 
+    /// `re` / user: full session plus a fresh re-auth token (`X-Reauth`).
+    pub const fn reauth() -> Self {
+        Self::new(AuthKind::Reauth, Role::User)
+    }
+
     /// `svc` / guest: called by the web server on behalf of an anonymous visitor.
     pub const fn service() -> Self {
         Self::new(AuthKind::Service, Role::Guest)
@@ -232,6 +239,10 @@ pub fn authorize(policy: &RoutePolicy, principal: Option<&Principal>) -> Result<
         return Err(ApiError::Unauthenticated);
     }
 
+    // A re-auth token is never a bearer token (T-26): it only travels in `X-Reauth`.
+    if principal.scope == SessionScope::Reauth {
+        return Err(ApiError::Unauthenticated);
+    }
     // A widget token is read-only and opens `wid` routes only (SR-14, T-91).
     if principal.scope == SessionScope::Widget && policy.auth != AuthKind::WidgetOrSession {
         return Err(ApiError::Forbidden);
@@ -246,7 +257,7 @@ pub fn authorize(policy: &RoutePolicy, principal: Option<&Principal>) -> Result<
             }
         }
         AuthKind::OnboardingOrSession => Ok(()),
-        AuthKind::Session => {
+        AuthKind::Session | AuthKind::Reauth => {
             if principal.scope == SessionScope::Full && principal.status == AccountStatus::Active {
                 Ok(())
             } else {
@@ -261,7 +272,7 @@ pub fn authorize(policy: &RoutePolicy, principal: Option<&Principal>) -> Result<
                 Err(ApiError::OnboardingIncomplete)
             }
         }
-        AuthKind::Reauth | AuthKind::Service | AuthKind::Staff => Err(ApiError::Unauthenticated),
+        AuthKind::Service | AuthKind::Staff => Err(ApiError::Unauthenticated),
     }
 }
 
@@ -423,9 +434,21 @@ mod tests {
     #[test]
     fn unimplemented_kinds_and_staff_roles_are_denied() {
         let full = principal(SessionScope::Full, AccountStatus::Active);
-        for auth in [AuthKind::Reauth, AuthKind::Service, AuthKind::Staff] {
+        for auth in [AuthKind::Service, AuthKind::Staff] {
             let policy = RoutePolicy::new(auth, Role::User);
             assert_eq!(code(authorize(&policy, Some(&full))), "UNAUTHENTICATED");
+        }
+        // `re` passes the session check here; the re-auth token is checked by enforcement.
+        assert_eq!(code(authorize(&RoutePolicy::reauth(), Some(&full))), "OK");
+        // A re-auth token is never a bearer token, on any route.
+        let reauth = principal(SessionScope::Reauth, AccountStatus::Active);
+        for policy in [
+            RoutePolicy::session(),
+            RoutePolicy::reauth(),
+            RoutePolicy::widget_or_session(),
+            RoutePolicy::onboarding_or_session(),
+        ] {
+            assert_eq!(code(authorize(&policy, Some(&reauth))), "UNAUTHENTICATED");
         }
         let moderator_only = RoutePolicy::new(AuthKind::Session, Role::Moderator);
         assert_eq!(

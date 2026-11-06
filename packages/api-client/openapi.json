@@ -669,6 +669,100 @@
         }
       }
     },
+    "/v1/auth/reauth": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Mint a 5-minute re-auth token from a fresh provider proof. Auth: ses.",
+        "description": "The proof must belong to the caller's own account: a valid proof of another account, an\nunknown identity, a forged, expired or replayed token are all 401 `UNAUTHENTICATED`. The token\nis bound to the calling device session and replaces any earlier one of it.",
+        "operationId": "reauthenticate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReauthRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Re-auth token for this device session (5 minutes).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReauthResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED (fields, unknown fields).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED (bad proof, another account's proof, replayed nonce), SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED (5 per 15 minutes).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "TEMPORARILY_UNAVAILABLE (provider not configured or its keys unreachable).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "auth.reauth",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
     "/v1/auth/refresh": {
       "post": {
         "tags": [
@@ -8771,6 +8865,59 @@
           "status": {
             "type": "string",
             "example": "ready"
+          }
+        }
+      },
+      "ReauthProvider": {
+        "type": "string",
+        "description": "Provider of a re-auth proof.",
+        "enum": [
+          "apple",
+          "google"
+        ]
+      },
+      "ReauthRequest": {
+        "type": "object",
+        "description": "Body of `POST /v1/auth/reauth`: a fresh provider proof for the signed-in account.",
+        "required": [
+          "provider",
+          "id_token",
+          "nonce"
+        ],
+        "properties": {
+          "id_token": {
+            "type": "string",
+            "description": "A fresh ID token from the provider's native sheet.",
+            "maxLength": 8192,
+            "minLength": 1
+          },
+          "nonce": {
+            "type": "string",
+            "description": "The raw nonce of this proof (16 to 256 visible ASCII characters, single use), as for\nsign-in.",
+            "maxLength": 256,
+            "minLength": 16
+          },
+          "provider": {
+            "$ref": "#/components/schemas/ReauthProvider"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReauthResponse": {
+        "type": "object",
+        "description": "A re-auth token: send it as `X-Reauth` (next to the normal bearer token) to `re` routes.",
+        "required": [
+          "reauth_token",
+          "expires_at"
+        ],
+        "properties": {
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reauth_token": {
+            "type": "string",
+            "description": "Opaque, single device session, 5 minutes. Never a bearer token."
           }
         }
       },

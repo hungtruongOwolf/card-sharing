@@ -75,6 +75,9 @@ impl ClientIpSource {
     }
 }
 
+/// Header carrying the re-auth token on `re` routes (T-26).
+pub const REAUTH_HEADER: HeaderName = HeaderName::from_static("x-reauth");
+
 /// Looks up the route policy, authenticates the caller when the policy needs it, authorizes,
 /// and inserts the `Principal` for handlers. A route without a policy is refused.
 pub async fn enforce(
@@ -127,6 +130,29 @@ pub async fn enforce(
 
     if let Err(err) = authorize(&policy, principal.as_ref()) {
         return err.into_response();
+    }
+    if policy.auth == AuthKind::Reauth
+        && let Some(principal) = principal.as_ref()
+    {
+        let token = request
+            .headers()
+            .get(REAUTH_HEADER)
+            .and_then(|v| v.to_str().ok())
+            .map(str::trim)
+            .filter(|v| !v.is_empty())
+            .map(str::to_owned);
+        let Some(token) = token else {
+            return ApiError::ReauthRequired.into_response();
+        };
+        match access
+            .identity
+            .reauth_valid(&token, principal.account_id, principal.session_id)
+            .await
+        {
+            Ok(true) => {}
+            Ok(false) => return ApiError::ReauthRequired.into_response(),
+            Err(err) => return ApiError::internal(err).into_response(),
+        }
     }
     // Handlers that apply extra per-IP limits read it (same source as the route limit).
     let client_ip = ClientIp(access.client_ip.client_ip(&request));

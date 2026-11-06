@@ -71,6 +71,16 @@ sign-up opt in with their tickets.
 | POST | /v1/sessions/revoke-all | Log out everywhere (incl. current, widget tokens) | ses | user | self | 10/h u | yes | AC-1.4 |
 | POST | /v1/auth/reauth | Fresh provider proof → reauth token (5 min) | ses | user | proof subject = session account | 5/15 min u | no | US-29, US-30 |
 | DELETE | /v1/sessions/current | Log out (revokes session + widget token of device) | onb/ses | user | own session | 30/min u | yes | US-16 AC-16.2 |
+
+Implemented (T-26, #28, server part): `POST /v1/auth/reauth` takes `{provider: "apple"|"google", id_token, nonce}` (same field
+rules and single-use nonce as sign-in) and answers `{reauth_token, expires_at}`. The proof must resolve to the caller's own
+account (`ProviderSignIn::verify_proof` never creates accounts); another account's proof, an unknown identity, a forged,
+expired or replayed token are all 401 `UNAUTHENTICATED`. The token is a child session (scope `reauth`) of the calling device
+session, lives 5 minutes (`identity::REAUTH_TTL`, capped by the parent), replaces the previous re-auth token of that session
+and dies with the parent. `re` routes (`RoutePolicy::reauth()`) need the full session as bearer plus `X-Reauth: <token>` of
+that same session: missing, wrong, other-session or older than 5 minutes = 401 `REAUTH_REQUIRED`. A re-auth token presented
+as a bearer token is 401 on every route. Rate limit `auth.reauth` 5 per 15 minutes per user (fails closed). The app flow
+(native Apple/Google sheet before delete/export) needs a device build. Tests: `tests/api/reauth.rs`.
 | POST | /v1/attestation/challenge | Nonce for `att` (32 bytes, single use, 5 min) | onb/ses | user | — | 30/min d | no | US-5, US-13 |
 | POST | /v1/attestation/apple-keys | Register this install's App Attest key (attestation object) | onb/ses | user | key bound to caller | 10/day d | no | US-5, US-13 |
 | GET | /v1/me | Account status, onboarding step, profile, resolved policy flags | onb/ses | user | self | 120/min u | yes | US-1–3 |

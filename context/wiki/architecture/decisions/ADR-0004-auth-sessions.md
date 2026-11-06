@@ -42,6 +42,8 @@ We will build **thin in-house auth** in the `identity` crate with **opaque serve
   Scopes: `onboarding` (until age gate + profile done), `full`, `widget` (read-only `GET /v1/widget`), `reauth` (5 min, for deletion/export
   and, when added, email change), `staff`. The widget token is a child of the device session (`parent_session_id`): long-lived, read-only,
   dies when the device session is revoked/expired, on logout, suspend or deletion (AC-16.2, AC-16.5).
+  Implemented (T-26): the `reauth` token is a child of the device session too (5 min, one per session, only valid in
+  `X-Reauth` next to that session's access token, never as a bearer token); see [[api-mvp]].
 - **Session management (AC-1.4):** `GET /v1/sessions` lists active device sessions; revoke one or "log out everywhere"
   (`POST /v1/sessions/revoke-all`). A sign-in from a device id not seen on the account triggers an `auth.new_login` push to the other
   active devices (and an email to the sign-in email when one exists); copy has no precise location.
