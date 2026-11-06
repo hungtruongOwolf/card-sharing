@@ -145,6 +145,34 @@ impl Notification {
         self.kind
     }
 
+    /// Job-payload form (ids and a count only), for pushes deferred past quiet hours.
+    pub fn to_json(&self) -> Value {
+        json!({ "kind": self.kind.as_str(), "subject": self.subject, "count": self.count })
+    }
+
+    /// Inverse of [`Notification::to_json`]; `None` for anything malformed.
+    pub fn from_json(value: &Value) -> Option<Self> {
+        let kind = PushKind::parse(value.get("kind")?.as_str()?)?;
+        let subject = match value.get("subject") {
+            None | Some(Value::Null) => None,
+            Some(v) => Some(Uuid::parse_str(v.as_str()?).ok()?),
+        };
+        let count = match value.get("count") {
+            None | Some(Value::Null) => None,
+            Some(v) => Some(u32::try_from(v.as_u64()?).ok()?),
+        };
+        let valid = match kind {
+            PushKind::CardsNewMany => subject.is_none() && count.is_some(),
+            PushKind::WidgetRefresh => subject.is_none() && count.is_none(),
+            _ => subject.is_some() && count.is_none(),
+        };
+        valid.then_some(Self {
+            kind,
+            subject,
+            count,
+        })
+    }
+
     /// The opaque id the push is about, if its kind carries one.
     pub fn subject(&self) -> Option<Uuid> {
         self.subject
@@ -462,6 +490,26 @@ mod tests {
             Notification::widget_refresh().fcm_message(),
             json!({ "data": { "t": "widget.refresh" }, "android": { "priority": "normal" } })
         );
+    }
+
+    #[test]
+    fn deferred_form_round_trips_and_rejects_garbage() {
+        for n in [
+            Notification::about(PushKind::ReactionNew, id()),
+            Notification::cards_new_many(4),
+            Notification::widget_refresh(),
+        ] {
+            assert_eq!(Notification::from_json(&n.to_json()), Some(n));
+        }
+        for bad in [
+            json!({}),
+            json!({ "kind": "card.new" }),
+            json!({ "kind": "card.new", "subject": "x" }),
+            json!({ "kind": "cards.new_many", "subject": ID, "count": 2 }),
+            json!({ "kind": "nope", "subject": ID }),
+        ] {
+            assert_eq!(Notification::from_json(&bad), None, "{bad}");
+        }
     }
 
     #[test]

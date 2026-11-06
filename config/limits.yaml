@@ -172,6 +172,11 @@ limits:
     requests: 20
     per_secs: 3600
     on_store_failure: open
+  me.notification_preferences: # GET and PUT /v1/me/notification-preferences (T-87)
+    scope: user
+    requests: 30
+    per_secs: 3600
+    on_store_failure: open
   friends.list: # GET /v1/friends
     scope: user
     requests: 60

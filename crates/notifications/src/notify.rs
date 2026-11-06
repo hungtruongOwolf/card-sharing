@@ -11,6 +11,7 @@ use serde_json::{Value, json};
 use sqlx::PgPool;
 use uuid::Uuid;
 
+use crate::preferences::{Category, PreferenceStore};
 use crate::push::{Delivery, Notification, PushKind, PushSender};
 use crate::settings::NotifySettings;
 use crate::tokens::{PushTokens, StoreError, TokenKind};
@@ -149,6 +150,10 @@ impl Subscriber for PushOnEvents {
 /// What happened to one alert for one recipient.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Outcome {
+    /// The recipient turned this type off (AC-31.1).
+    Disabled,
+    /// Inside the recipient's quiet hours: send again at `until` (AC-31.1).
+    Held { until: time::OffsetDateTime },
     /// Sent to at least one device.
     Sent,
     /// Sent as the "N new cards" push.
@@ -170,6 +175,8 @@ pub enum Outcome {
 impl Outcome {
     fn as_str(self) -> &'static str {
         match self {
+            Self::Disabled => "disabled",
+            Self::Held { .. } => "held",
             Self::Sent => "sent",
             Self::SentBatch => "sent_batch",
             Self::Batched => "batched",
@@ -189,6 +196,7 @@ pub struct Notifier {
     tokens: Arc<PushTokens>,
     sender: Arc<dyn PushSender>,
     settings: NotifySettings,
+    preferences: PreferenceStore,
 }
 
 impl Notifier {
@@ -200,6 +208,7 @@ impl Notifier {
         settings: NotifySettings,
     ) -> Self {
         Self {
+            preferences: PreferenceStore::new(pool.clone(), Arc::clone(&clock)),
             pool,
             clock,
             tokens,
@@ -228,6 +237,14 @@ impl Notifier {
         }
         let now = self.clock.now();
         let account = recipient.account_id;
+        // Toggles and quiet hours come first: a held push is decided when it is sent.
+        let prefs = self.preferences.get(account).await?;
+        if Category::of(kind).is_some_and(|c| !prefs.allows(c)) {
+            return Ok(Outcome::Disabled);
+        }
+        if let Some(until) = self.preferences.quiet_until(&prefs, now).await? {
+            return Ok(Outcome::Held { until });
+        }
         let mut tx = self.pool.begin().await?;
         // Serialise decisions per account so cap and batch counts are exact.
         sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1::text, 86))")
@@ -384,6 +401,42 @@ impl Notifier {
         })
     }
 
+    /// Queues `recipient`'s push of event `event_id` again at `until` (end of quiet hours).
+    /// One deferred job per event, recipient and kind.
+    pub async fn defer(
+        &self,
+        event_id: i64,
+        recipient: &Recipient,
+        until: time::OffsetDateTime,
+    ) -> Result<(), StoreError> {
+        let kind = recipient.notification.kind();
+        let job = NewJob::new(
+            Lane::Critical,
+            NOTIFY_JOB,
+            json!({
+                "event_id": event_id,
+                "deferred": {
+                    "account_id": recipient.account_id,
+                    "notification": recipient.notification.to_json(),
+                },
+            }),
+        )
+        .unique(format!(
+            "notify.deferred:{event_id}:{}:{}",
+            recipient.account_id,
+            kind.as_str()
+        ))
+        .run_at(until);
+        platform::jobs::enqueue(&self.pool, &job, self.clock.now()).await?;
+        tracing::info!(event = "push.held", kind = kind.as_str());
+        Ok(())
+    }
+
+    /// Toggles and quiet hours (T-87).
+    pub fn preferences(&self) -> &PreferenceStore {
+        &self.preferences
+    }
+
     /// Deletes push decisions older than 7 days.
     pub async fn purge_log(&self) -> Result<u64, StoreError> {
         let done = sqlx::query("DELETE FROM notifications.push_log WHERE created_at < $1")
@@ -406,17 +459,47 @@ impl JobHandler for NotifyJob {
                 .get("event_id")
                 .and_then(Value::as_i64)
                 .ok_or_else(|| JobError::Permanent("event_id missing".to_owned()))?;
-            let topic = job
-                .payload
-                .get("topic")
-                .and_then(Value::as_str)
-                .ok_or_else(|| JobError::Permanent("topic missing".to_owned()))?;
-            let event = job.payload.get("event").cloned().unwrap_or(Value::Null);
-            for recipient in recipients_of(topic, &event) {
-                notifier
+            let recipients = match job.payload.get("deferred") {
+                // One recipient held past quiet hours (AC-31.1).
+                Some(deferred) => {
+                    let account_id = deferred
+                        .get("account_id")
+                        .and_then(Value::as_str)
+                        .and_then(|s| Uuid::parse_str(s).ok());
+                    let notification = deferred
+                        .get("notification")
+                        .and_then(Notification::from_json);
+                    match (account_id, notification) {
+                        (Some(account_id), Some(notification)) => vec![Recipient {
+                            account_id,
+                            notification,
+                        }],
+                        _ => {
+                            return Err(JobError::Permanent("malformed deferred push".to_owned()));
+                        }
+                    }
+                }
+                None => {
+                    let topic = job
+                        .payload
+                        .get("topic")
+                        .and_then(Value::as_str)
+                        .ok_or_else(|| JobError::Permanent("topic missing".to_owned()))?;
+                    let event = job.payload.get("event").cloned().unwrap_or(Value::Null);
+                    recipients_of(topic, &event)
+                }
+            };
+            for recipient in recipients {
+                let outcome = notifier
                     .notify(event_id, &recipient)
                     .await
                     .map_err(|e| JobError::Retry(e.to_string()))?;
+                if let Outcome::Held { until } = outcome {
+                    notifier
+                        .defer(event_id, &recipient, until)
+                        .await
+                        .map_err(|e| JobError::Retry(e.to_string()))?;
+                }
             }
             Ok(())
         })
