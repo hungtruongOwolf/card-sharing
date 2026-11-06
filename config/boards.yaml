@@ -6,3 +6,7 @@ boards:
   # AC-18.2: boards a user may own at once (deleted boards do not count). The 21st is 409
   # BOARD_LIMIT_REACHED.
   max_per_owner: 20
+  # AC-18.2: live pins per board. Beyond it a pin.add is rejected with PIN_LIMIT_REACHED.
+  max_pins: 100
+  # Ops one POST /v1/boards/{id}/ops request may carry (more is 400).
+  max_ops_per_batch: 50

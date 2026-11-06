@@ -281,6 +281,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/boards/{id}/ops": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply a batch of pin ops. Auth: ses. Members only.
+         * @description `pin.add` places a card or decoration (at most 100 live pins per board); for a card, the
+         *     caller must be able to pin it now (own active card). `pin.update` / `pin.remove` carry the pin
+         *     `base_version`: a mismatch is `conflict` with the current pin. Collaborators move and remove
+         *     only pins they created (`PIN_NOT_YOURS`); the owner may change any pin. A replayed `op_id`
+         *     (or a retried `pin.add` of the caller's own pin) is `applied` again without changing anything.
+         *     A board the caller is not a member of is the missing 404.
+         */
+        post: operations["applyBoardOps"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cards": {
         parameters: {
             query?: never;
@@ -1080,6 +1105,14 @@ export interface components {
              */
             unread_count: number;
         };
+        AddPinOp: {
+            /**
+             * Format: uuid
+             * @description Client idempotency key of this op.
+             */
+            op_id: string;
+            pin: components["schemas"]["NewPinRequest"];
+        };
         AdsView: {
             personalized_requires_consent: boolean;
             rewarded: boolean;
@@ -1496,6 +1529,43 @@ export interface components {
             /** Format: int32 */
             width: number;
         };
+        /** @description A new pin (`pin.add`). Exactly one of `card_id` and `decoration`. */
+        NewPinRequest: {
+            /**
+             * Format: uuid
+             * @description A card the caller may pin (see the operation description).
+             */
+            card_id?: string | null;
+            /** @description Registry reference `{id, version, params?}` of kind `decoration`. */
+            decoration?: Record<string, never> | null;
+            /**
+             * Format: uuid
+             * @description Client-generated UUIDv7.
+             */
+            id: string;
+            /**
+             * Format: double
+             * @description Degrees, -360..=360 (stored normalized to [-180, 180)).
+             */
+            rotation: number;
+            /**
+             * Format: double
+             * @description 0.1..=10.
+             */
+            scale: number;
+            /**
+             * Format: double
+             * @description Centre, as a fraction of the board width (0..=1).
+             */
+            x: number;
+            /**
+             * Format: double
+             * @description Centre, as a fraction of the board height (0..=1).
+             */
+            y: number;
+            /** @description Fractional index for z-order: 1..=32 of `[0-9A-Za-z]`, compared as bytes. */
+            z_key: string;
+        };
         /** @description Body of `PUT` and answer of both routes. */
         NotificationPreferences: {
             quiet_hours: components["schemas"]["QuietHours"];
@@ -1521,6 +1591,81 @@ export interface components {
         OnboardingStep: "age" | "profile" | "done";
         OnboardingView: {
             step: components["schemas"]["OnboardingStep"];
+        };
+        /**
+         * @description A pin's placement as the caller may see it in op results. Card contents are never part of an
+         *     op result: `card_id` is only echoed on pins the caller created; read the board to see cards.
+         */
+        PinLayoutView: {
+            /** Format: uuid */
+            card_id?: string | null;
+            decoration?: Record<string, never> | null;
+            /** Format: uuid */
+            id: string;
+            /** @description `card` or `decoration`. */
+            kind: string;
+            /** @description The caller created this pin (collaborators may move/remove only these). */
+            mine: boolean;
+            /** @description The pin was removed (tombstone). */
+            removed: boolean;
+            /** Format: double */
+            rotation: number;
+            /** Format: double */
+            scale: number;
+            /** Format: int64 */
+            version: number;
+            /** Format: double */
+            x: number;
+            /** Format: double */
+            y: number;
+            z_key: string;
+        };
+        /** @description One op, discriminated by `type`. */
+        PinOpRequest: (components["schemas"]["AddPinOp"] & {
+            /** @enum {string} */
+            type: "pin.add";
+        }) | (components["schemas"]["UpdatePinOp"] & {
+            /** @enum {string} */
+            type: "pin.update";
+        }) | (components["schemas"]["RemovePinOp"] & {
+            /** @enum {string} */
+            type: "pin.remove";
+        });
+        PinOpResultView: {
+            /** @description `rejected`: `NOT_FOUND`, `PIN_NOT_YOURS`, `PIN_LIMIT_REACHED` or `CARD_HELD_FOR_REVIEW`. */
+            code?: string | null;
+            current?: components["schemas"]["PinLayoutView"] | null;
+            /** Format: uuid */
+            op_id: string;
+            pin?: components["schemas"]["PinLayoutView"] | null;
+            /** @description `applied`, `conflict` or `rejected`. */
+            status: string;
+        };
+        /** @description Body of `POST /v1/boards/{id}/ops`. */
+        PinOpsRequest: {
+            /** @description 1..=50 ops with distinct `op_id`s, applied in order. */
+            ops: components["schemas"]["PinOpRequest"][];
+        };
+        PinOpsResponse: {
+            /**
+             * Format: int64
+             * @description The board version after the batch (the delta-sync cursor).
+             */
+            board_version: number;
+            /** @description One result per op, in request order. */
+            results: components["schemas"]["PinOpResultView"][];
+        };
+        /** @description The fields a `pin.update` changes (at least one), same ranges as [`NewPinRequest`]. */
+        PinSetRequest: {
+            /** Format: double */
+            rotation?: number | null;
+            /** Format: double */
+            scale?: number | null;
+            /** Format: double */
+            x?: number | null;
+            /** Format: double */
+            y?: number | null;
+            z_key?: string | null;
         };
         PolicyView: {
             ads: components["schemas"]["AdsView"];
@@ -1664,6 +1809,14 @@ export interface components {
         RefreshRequest: {
             refresh_token: string;
         };
+        RemovePinOp: {
+            /** Format: int64 */
+            base_version: number;
+            /** Format: uuid */
+            op_id: string;
+            /** Format: uuid */
+            pin_id: string;
+        };
         RequestItemView: {
             /** Format: date-time */
             created_at: string;
@@ -1791,6 +1944,18 @@ export interface components {
             refresh_token: string;
             /** @example Bearer */
             token_type: string;
+        };
+        UpdatePinOp: {
+            /**
+             * Format: int64
+             * @description The pin `version` the client last saw.
+             */
+            base_version: number;
+            /** Format: uuid */
+            op_id: string;
+            /** Format: uuid */
+            pin_id: string;
+            set: components["schemas"]["PinSetRequest"];
         };
         /** @description Another account as shown in request and friend lists. */
         UserSummaryView: {
@@ -2735,6 +2900,87 @@ export interface operations {
             };
             /** @description NOT_FOUND: no board of which the caller is a member. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    applyBoardOps: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The board id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PinOpsRequest"];
+            };
+        };
+        responses: {
+            /** @description Per-op results. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PinOpsResponse"];
+                };
+            };
+            /** @description VALIDATION_FAILED: no ops, too many ops, duplicate op ids, values out of range, unknown fields. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND: no board of which the caller is a member. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description UNKNOWN_REGISTRY_ID: a decoration is not a known decoration. */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

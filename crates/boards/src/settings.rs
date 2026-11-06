@@ -25,12 +25,20 @@ pub enum SettingsError {
 pub struct BoardSettings {
     /// Boards one account may own at once (AC-18.2).
     pub max_per_owner: i64,
+    /// Live pins per board (AC-18.2).
+    pub max_pins: i64,
+    /// Ops per `POST /v1/boards/{id}/ops` request.
+    pub max_ops_per_batch: usize,
 }
 
 impl Default for BoardSettings {
     /// The values of the committed `config/boards.yaml`.
     fn default() -> Self {
-        Self { max_per_owner: 20 }
+        Self {
+            max_per_owner: 20,
+            max_pins: 100,
+            max_ops_per_batch: 50,
+        }
     }
 }
 
@@ -45,6 +53,8 @@ struct RawConfig {
 #[serde(deny_unknown_fields)]
 struct RawBoards {
     max_per_owner: i64,
+    max_pins: i64,
+    max_ops_per_batch: i64,
 }
 
 fn in_range(
@@ -71,6 +81,13 @@ impl BoardSettings {
         }
         Ok(Self {
             max_per_owner: in_range(raw.boards.max_per_owner, 1..=1000, "boards.max_per_owner")?,
+            max_pins: in_range(raw.boards.max_pins, 1..=1000, "boards.max_pins")?,
+            max_ops_per_batch: usize::try_from(in_range(
+                raw.boards.max_ops_per_batch,
+                1..=500,
+                "boards.max_ops_per_batch",
+            )?)
+            .map_err(|_| SettingsError::Invalid("boards.max_ops_per_batch".to_owned()))?,
         })
     }
 
@@ -99,11 +116,26 @@ mod tests {
 
     #[test]
     fn rejects_bad_values() {
-        assert!(BoardSettings::from_yaml_str("version: 1\nboards: {max_per_owner: 20}").is_ok());
-        assert!(BoardSettings::from_yaml_str("version: 1\nboards: {max_per_owner: 0}").is_err());
-        assert!(BoardSettings::from_yaml_str("version: 2\nboards: {max_per_owner: 20}").is_err());
         assert!(
-            BoardSettings::from_yaml_str("version: 1\nboards: {max_per_owner: 20, extra: 1}")
+            BoardSettings::from_yaml_str(
+                "version: 1\nboards: {max_per_owner: 20, max_pins: 100, max_ops_per_batch: 50}"
+            )
+            .is_ok()
+        );
+        assert!(
+            BoardSettings::from_yaml_str(
+                "version: 1\nboards: {max_per_owner: 0, max_pins: 100, max_ops_per_batch: 50}"
+            )
+            .is_err()
+        );
+        assert!(
+            BoardSettings::from_yaml_str(
+                "version: 2\nboards: {max_per_owner: 20, max_pins: 100, max_ops_per_batch: 50}"
+            )
+            .is_err()
+        );
+        assert!(
+            BoardSettings::from_yaml_str("version: 1\nboards: {max_per_owner: 20, max_pins: 100, max_ops_per_batch: 50, extra: 1}")
                 .is_err()
         );
     }
