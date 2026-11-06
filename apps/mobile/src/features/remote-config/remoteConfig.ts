@@ -1,14 +1,18 @@
 import type { RemoteRegistryConfig } from '@card-sharing/effects-registry';
 
+import { parseTextFilterConfig, type TextFilterConfig } from '../../text';
+
 /**
  * Public client config (`GET /v1/config`, T-27): feature flags, registry kill switches and product limits.
  * Unauthenticated and CDN-cached, so it carries no user data. Display only: the server enforces its own copy.
- * Read so far: the registry part and the caption limit.
+ * Read so far: the registry part, the caption limit and the text filter hints.
  */
 export interface RemoteConfig {
   registry: RemoteRegistryConfig;
   /** `limits.caption_max_chars` (grapheme clusters), when present and sane. */
   captionMaxGraphemes?: number;
+  /** `text_filter`: term lists for caption hints (#213), when present and well formed. */
+  textFilter?: TextFilterConfig;
 }
 
 /** Upper bound accepted for a served length limit; anything else falls back to the app's default. */
@@ -38,8 +42,10 @@ export function parseRemoteConfig(body: unknown): RemoteConfig | null {
   const captionMaxGraphemes = isRecord(body.limits)
     ? positiveLimit(body.limits.caption_max_chars)
     : undefined;
+  const textFilter = parseTextFilterConfig(body.text_filter);
   return {
     ...(captionMaxGraphemes === undefined ? {} : { captionMaxGraphemes }),
+    ...(textFilter === undefined ? {} : { textFilter }),
     registry: {
       flags: flags as Record<string, boolean>,
       kill_switches: {

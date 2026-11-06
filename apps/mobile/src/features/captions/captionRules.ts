@@ -1,4 +1,4 @@
-import { checkText, type TextCheck } from '../../text';
+import { checkText, type TextCheck, type TextFilterConfig } from '../../text';
 
 /**
  * Caption rules (prd-mvp US-12, SR-28): up to 80 grapheme clusters, emoji allowed, the shared text filter.
@@ -13,7 +13,14 @@ export const CAPTION_MAX_GRAPHEMES = 80;
  */
 export const captionInputCap = (max: number) => max * 16;
 
-/** An empty caption is fine (captions are optional). */
-export function checkCaption(input: string, max = CAPTION_MAX_GRAPHEMES): TextCheck {
-  return checkText(input, { min: 0, max });
+/**
+ * An empty caption is fine (captions are optional). `filter` is the served term-list config (`/v1/config`); without
+ * it only length and sanitizing apply.
+ */
+export function checkCaption(
+  input: string,
+  max = CAPTION_MAX_GRAPHEMES,
+  filter?: TextFilterConfig,
+): TextCheck {
+  return checkText(input, { min: 0, max }, filter);
 }

@@ -24,6 +24,25 @@ describe('remote config', () => {
     for (const bad of [0, -1, 2.5, 1e9, '80', null]) expect(limit(bad)).toBeUndefined();
   });
 
+  it('reads the served text filter hints, all or nothing', () => {
+    const textFilter = {
+      version: 1,
+      max_marks_per_grapheme: 4,
+      max_chars_per_grapheme: 16,
+      lists: { demo: { words: ['darn'], contains: ['frack'] } },
+    };
+    expect(parseRemoteConfig({ text_filter: textFilter })?.textFilter).toEqual({
+      maxMarksPerGrapheme: 4,
+      maxCharsPerGrapheme: 16,
+      lists: { demo: { words: ['darn'], contains: ['frack'] } },
+    });
+    for (const bad of [undefined, { ...textFilter, version: 9 }, { ...textFilter, lists: 'x' }]) {
+      const config = parseRemoteConfig({ text_filter: bad });
+      expect(config).not.toBeNull();
+      expect(config?.textFilter).toBeUndefined();
+    }
+  });
+
   it('fetches GET /v1/config and fails on an error status', async () => {
     const fetchFn = jest.fn(async (url: string) =>
       url.endsWith('/v1/config')

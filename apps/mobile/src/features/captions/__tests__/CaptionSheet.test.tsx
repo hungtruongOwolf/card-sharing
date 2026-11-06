@@ -1,6 +1,7 @@
 import { screen, userEvent } from '@testing-library/react-native';
 
 import { t } from '../../../i18n';
+import { parseTextFilterConfig } from '../../../text';
 import { renderThemed } from '../../../test/render';
 import { CaptionSheet } from '../CaptionSheet';
 import { captionInputCap, checkCaption, CAPTION_MAX_GRAPHEMES } from '../captionRules';
@@ -50,11 +51,25 @@ describe('CaptionSheet', () => {
   });
 
   it('hints that the shared filter would refuse the caption, without naming the word', async () => {
-    const { user, input } = await renderSheet({ max: 80 });
+    const textFilter = parseTextFilterConfig({
+      version: 1,
+      max_marks_per_grapheme: 4,
+      max_chars_per_grapheme: 16,
+      lists: { profanity: { words: [], contains: [BLOCKED] } },
+    });
+    const { user, input } = await renderSheet({ max: 80, textFilter });
     await user.type(input, `oh ${BLOCKED.toUpperCase()}`);
     expect(screen.getByText(t('caption.notAllowed'))).toBeTruthy();
     expect(t('caption.notAllowed')).not.toMatch(new RegExp(BLOCKED, 'i'));
     expect(screen.getByRole('button', { name: t('caption.save') })).toBeDisabled();
+  });
+
+  it('without the served term lists, checks length only (the server still decides on send)', async () => {
+    const { onSave, user, input } = await renderSheet({ max: 80 });
+    await user.type(input, `oh ${BLOCKED}`);
+    expect(screen.queryByText(t('caption.notAllowed'))).toBeNull();
+    await user.press(screen.getByRole('button', { name: t('caption.save') }));
+    expect(onSave).toHaveBeenCalledWith(`oh ${BLOCKED}`);
   });
 
   it('removes an existing caption', async () => {

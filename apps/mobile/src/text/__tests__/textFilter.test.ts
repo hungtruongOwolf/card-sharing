@@ -1,5 +1,12 @@
-import { checkText, fallbackGraphemes, graphemeCount, looksBlocked, sanitizeText } from '..';
-import { TEXT_FILTER_CONFIG } from '../textFilterTerms';
+import {
+  checkText,
+  fallbackGraphemes,
+  graphemeCount,
+  looksBlocked,
+  parseTextFilterConfig,
+  sanitizeText,
+  type TextFilterConfig,
+} from '..';
 
 declare const __dirname: string;
 const { readFileSync } = jest.requireActual('fs') as {
@@ -12,7 +19,10 @@ const probe = (...letters: string[]) => letters.join('');
 const TERM = probe('f', 'u', 'c', 'k');
 const WORD_TERM = probe('s', 'h', 'i', 't');
 
-/** Minimal reader for the fixed shape of config/text_filter.yaml (no YAML dependency in the app). */
+/**
+ * Minimal reader for the fixed shape of config/text_filter.yaml (no YAML dependency in the app). Tests only: the app
+ * gets the same lists from `GET /v1/config` (#213), so the tests use the real lists the server would serve.
+ */
 function readFilterYaml() {
   const yaml = readFileSync(join(__dirname, '../../../../../config/text_filter.yaml'), 'utf8');
   const config: Record<string, number> = {};
@@ -40,25 +50,45 @@ function readFilterYaml() {
   return { config, lists };
 }
 
-describe('client text filter mirror', () => {
-  it('matches config/text_filter.yaml (update textFilterTerms.ts with the YAML)', () => {
-    const { config, lists } = readFilterYaml();
-    expect({
-      version: config.version,
-      maxMarksPerGrapheme: config.max_marks_per_grapheme,
-      maxCharsPerGrapheme: config.max_chars_per_grapheme,
-    }).toEqual({
-      version: TEXT_FILTER_CONFIG.version,
-      maxMarksPerGrapheme: TEXT_FILTER_CONFIG.maxMarksPerGrapheme,
-      maxCharsPerGrapheme: TEXT_FILTER_CONFIG.maxCharsPerGrapheme,
+/** The YAML as the server serves it in `/v1/config` `text_filter`, through the app's own parser. */
+function servedFilter(): TextFilterConfig {
+  const { config, lists } = readFilterYaml();
+  const filter = parseTextFilterConfig({
+    version: config.version,
+    max_marks_per_grapheme: config.max_marks_per_grapheme,
+    max_chars_per_grapheme: config.max_chars_per_grapheme,
+    lists,
+  });
+  if (!filter) throw new Error('config/text_filter.yaml no longer parses as a served text filter');
+  return filter;
+}
+
+const FILTER = servedFilter();
+
+describe('served text filter config', () => {
+  it('accepts the shipped YAML and rejects malformed or unknown-version configs', () => {
+    expect(FILTER.maxMarksPerGrapheme).toBe(4);
+    expect(Object.keys(FILTER.lists).length).toBeGreaterThan(0);
+    const good = { version: 1, max_marks_per_grapheme: 4, max_chars_per_grapheme: 16, lists: {} };
+    expect(parseTextFilterConfig(good)).toEqual({
+      maxMarksPerGrapheme: 4,
+      maxCharsPerGrapheme: 16,
+      lists: {},
     });
-    const mirrored = Object.fromEntries(
-      Object.entries(TEXT_FILTER_CONFIG.lists).map(([name, list]) => [
-        name,
-        { words: [...list.words], contains: [...list.contains] },
-      ]),
-    );
-    expect(mirrored).toEqual(lists);
+    for (const bad of [
+      null,
+      'nope',
+      { ...good, version: 2 },
+      { ...good, max_chars_per_grapheme: 0 },
+      { ...good, max_marks_per_grapheme: -1 },
+      { ...good, lists: [] },
+      { ...good, lists: { x: { words: [3] } } },
+      { ...good, lists: { x: { words: [''] } } },
+      { ...good, lists: { x: { contains: 'term' } } },
+      { ...good, lists: { x: { words: Array(5001).fill('a') } } },
+    ]) {
+      expect(parseTextFilterConfig(bad)).toBeUndefined();
+    }
   });
 });
 
@@ -119,9 +149,9 @@ describe('sanitizeText (same rules as the server)', () => {
 
 describe('looksBlocked (hint only)', () => {
   it('matches whole-word terms as words and contains-terms inside words', () => {
-    expect(looksBlocked(`oh ${WORD_TERM} it`)).toBe(true);
-    expect(looksBlocked(`super${TERM}cat`)).toBe(true);
-    expect(looksBlocked(TERM.split('').join('.'))).toBe(true);
+    expect(looksBlocked(`oh ${WORD_TERM} it`, FILTER)).toBe(true);
+    expect(looksBlocked(`super${TERM}cat`, FILTER)).toBe(true);
+    expect(looksBlocked(TERM.split('').join('.'), FILTER)).toBe(true);
     for (const clean of [
       'Mai the cat',
       'Scunthorpe',
@@ -131,7 +161,7 @@ describe('looksBlocked (hint only)', () => {
       '\u732B\u3061\u3083\u3093',
       'Zo\u00EB & Biscuit',
     ]) {
-      expect(looksBlocked(clean)).toBe(false);
+      expect(looksBlocked(clean, FILTER)).toBe(false);
     }
   });
 
@@ -145,9 +175,9 @@ describe('looksBlocked (hint only)', () => {
       `${f}${u}\u0301${c}${k}`,
       `${f}\u200B${u}${c}${k}`,
     ]) {
-      expect(looksBlocked(sanitizeText(evasion))).toBe(true);
+      expect(looksBlocked(sanitizeText(evasion), FILTER)).toBe(true);
     }
-    expect(looksBlocked(sanitizeText(probe('s', 'h', '1', 't')))).toBe(true);
+    expect(looksBlocked(sanitizeText(probe('s', 'h', '1', 't')), FILTER)).toBe(true);
   });
 });
 
@@ -191,6 +221,22 @@ describe('checkText', () => {
       length: 81,
       issue: 'tooLong',
     });
-    expect(checkText(`my ${TERM}`, { min: 0, max: 80 }).issue).toBe('notAllowed');
+    expect(checkText(`my ${TERM}`, { min: 0, max: 80 }, FILTER).issue).toBe('notAllowed');
+  });
+
+  it('checks only length and sanitizing while the served config is unavailable', () => {
+    expect(checkText(`my ${TERM}\u202E`, { min: 0, max: 80 })).toEqual({
+      text: `my ${TERM}`,
+      length: 3 + TERM.length,
+      issue: null,
+    });
+    expect(checkText('\u{1F431}'.repeat(81), { min: 0, max: 80 }).issue).toBe('tooLong');
+  });
+
+  it('uses the served sanitizer caps', () => {
+    const zalgo = `Z${'\u0336'.repeat(6)}`;
+    const strict = { ...FILTER, maxMarksPerGrapheme: 1 };
+    expect(Array.from(checkText(zalgo, { min: 0, max: 80 }, strict).text)).toHaveLength(2);
+    expect(Array.from(checkText(zalgo, { min: 0, max: 80 }).text)).toHaveLength(5);
   });
 });

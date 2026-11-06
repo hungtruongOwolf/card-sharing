@@ -1,9 +1,12 @@
 //! Public client configuration (`config/client.yaml`): minimum app version, product limits,
-//! feature flags and registry kill switches. Served by `GET /v1/config`; never user data.
+//! feature flags and registry kill switches. Served by `GET /v1/config` together with the text
+//! filter's client hints (`config/text_filter.yaml`, #213); never user data.
 
 use std::collections::BTreeMap;
+use std::hash::{DefaultHasher, Hash, Hasher};
 use std::path::Path;
 
+use platform::text::TextFilterHints;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -56,6 +59,9 @@ pub struct AppConfigResponse {
     pub limits: ClientLimits,
     pub flags: BTreeMap<String, bool>,
     pub kill_switches: KillSwitches,
+    /// Sanitizer caps and term lists of the shared text filter, for instant hints while typing
+    /// (captions, names). The server checks again on submit and its answer is final.
+    pub text_filter: TextFilterHints,
 }
 
 #[derive(Debug, Deserialize)]
@@ -76,6 +82,8 @@ pub struct ClientConfig {
     pub min_app_version: semver::Version,
     pub cache_max_age_secs: u32,
     pub response: AppConfigResponse,
+    /// Strong validator of the serialized `response` (quoted), for `ETag` / `If-None-Match`.
+    pub etag: String,
 }
 
 impl ClientConfig {
@@ -92,10 +100,29 @@ impl ClientConfig {
                 limits: raw.limits,
                 flags: raw.flags,
                 kill_switches: raw.kill_switches,
+                text_filter: TextFilterHints::default(),
             },
             min_app_version,
             cache_max_age_secs: raw.cache_max_age_secs,
-        })
+            etag: String::new(),
+        }
+        .with_etag())
+    }
+
+    /// Serves `hints` (the loaded text filter's client copy) in the response.
+    pub fn with_text_filter(mut self, hints: TextFilterHints) -> Self {
+        self.response.text_filter = hints;
+        self.with_etag()
+    }
+
+    /// Recomputes the `ETag` from the serialized response. `DefaultHasher` uses fixed keys, so
+    /// every instance running the same build and config answers the same tag.
+    fn with_etag(mut self) -> Self {
+        let body = serde_json::to_vec(&self.response).unwrap_or_default();
+        let mut hasher = DefaultHasher::new();
+        body.hash(&mut hasher);
+        self.etag = format!("\"{:016x}\"", hasher.finish());
+        self
     }
 
     pub fn from_path(path: &Path) -> Result<Self, ClientConfigError> {
@@ -120,6 +147,26 @@ mod tests {
             config.response.min_app_version,
             config.min_app_version.to_string()
         );
+    }
+
+    #[test]
+    fn the_etag_follows_the_served_text_filter() {
+        let config = ClientConfig::from_yaml_str(SHIPPED).unwrap();
+        let mut hints = TextFilterHints {
+            version: 1,
+            max_marks_per_grapheme: 4,
+            max_chars_per_grapheme: 16,
+            ..TextFilterHints::default()
+        };
+        let served = config.clone().with_text_filter(hints.clone());
+        assert_ne!(served.etag, config.etag);
+        assert_eq!(served.response.text_filter, hints);
+        assert_eq!(
+            served.etag,
+            config.clone().with_text_filter(hints.clone()).etag
+        );
+        hints.max_marks_per_grapheme = 3;
+        assert_ne!(config.with_text_filter(hints).etag, served.etag);
     }
 
     #[test]

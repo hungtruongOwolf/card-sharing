@@ -1,5 +1,6 @@
 import { graphemeCount } from './graphemes';
 import { looksBlocked, sanitizeText } from './textFilter';
+import type { TextFilterConfig } from './textFilterConfig';
 
 export type TextIssue = 'tooShort' | 'tooLong' | 'notAllowed';
 
@@ -11,16 +12,24 @@ export interface TextCheck {
   issue: TextIssue | null;
 }
 
-/** Client preview of the server's `TextFilter::check` for a field: sanitize, then length, then term lists. */
-export function checkText(input: string, rules: { min: number; max: number }): TextCheck {
-  const text = sanitizeText(input);
+/**
+ * Client preview of the server's `TextFilter::check` for a field: sanitize, then length, then the term lists.
+ * Without the served `filter` (loading, offline, bad response) it sanitizes and checks length only; the server
+ * still refuses blocked text on submit.
+ */
+export function checkText(
+  input: string,
+  rules: { min: number; max: number },
+  filter?: TextFilterConfig,
+): TextCheck {
+  const text = filter ? sanitizeText(input, filter) : sanitizeText(input);
   const length = graphemeCount(text);
   const issue: TextIssue | null =
     length < rules.min
       ? 'tooShort'
       : length > rules.max
         ? 'tooLong'
-        : looksBlocked(text)
+        : filter && looksBlocked(text, filter)
           ? 'notAllowed'
           : null;
   return { text, length, issue };

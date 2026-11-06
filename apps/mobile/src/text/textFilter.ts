@@ -1,11 +1,17 @@
 import { graphemes } from './graphemes';
-import { TEXT_FILTER_CONFIG } from './textFilterTerms';
+import type { TextFilterConfig } from './textFilterConfig';
 
 /**
  * Client mirror of the shared text filter (SR-28, threat-model A-21; crates/platform/src/text.rs) for instant
  * feedback while typing. UX only: the server sanitizes and checks again and its answer is final. Keep the rules
- * in step with the Rust module; the term lists come from config/text_filter.yaml through textFilterTerms.ts.
+ * in step with the Rust module. The term lists and sanitizer caps come from the server (`GET /v1/config`
+ * `text_filter`, #213); no term list is bundled in the app.
  */
+
+/** Sanitizer caps used while the served config is unavailable; same values as config/text_filter.yaml. */
+export const DEFAULT_SANITIZER_CAPS = { maxMarksPerGrapheme: 4, maxCharsPerGrapheme: 16 } as const;
+
+type SanitizerCaps = Pick<TextFilterConfig, 'maxMarksPerGrapheme' | 'maxCharsPerGrapheme'>;
 
 const ZWJ = '\u200D';
 const ZWNJ = '\u200C';
@@ -62,7 +68,7 @@ function isStripped(char: string): boolean {
 
 const isHangulFiller = (char: string) => char === '\u115F' || char === '\u1160';
 
-function cleanCluster(cluster: string): string {
+function cleanCluster(cluster: string, maxMarks: number): string {
   const chars = Array.from(cluster);
   let marks = 0;
   let out = '';
@@ -72,7 +78,7 @@ function cleanCluster(cluster: string): string {
       if (next !== undefined && next !== ZWJ && !MARK.test(next)) out += char;
     } else if (MARK.test(char) && !VIRAMAS.has(char)) {
       marks += 1;
-      if (marks <= TEXT_FILTER_CONFIG.maxMarksPerGrapheme) out += char;
+      if (marks <= maxMarks) out += char;
     } else {
       out += char;
     }
@@ -80,7 +86,7 @@ function cleanCluster(cluster: string): string {
   return out;
 }
 
-function sanitizePass(input: string): string {
+function sanitizePass(input: string, caps: SanitizerCaps): string {
   // 1. NFC; drop invisible and control characters; any whitespace becomes a plain space.
   const visible = Array.from(input.normalize('NFC'), (char) =>
     WHITESPACE.test(char) ? ' ' : isStripped(char) ? '' : char,
@@ -90,8 +96,8 @@ function sanitizePass(input: string): string {
   // 3. Per grapheme: cap marks, keep joining ZWJs only, drop over-long clusters.
   const clusters = graphemes(collapsed)
     .filter((cluster) => !Array.from(cluster).every(isHangulFiller))
-    .map(cleanCluster)
-    .filter((cluster) => Array.from(cluster).length <= TEXT_FILTER_CONFIG.maxCharsPerGrapheme);
+    .map((cluster) => cleanCluster(cluster, caps.maxMarksPerGrapheme))
+    .filter((cluster) => Array.from(cluster).length <= caps.maxCharsPerGrapheme);
   // 4. A non-joiner only stays between two non-ASCII letters.
   const chars = Array.from(clusters.join(''));
   const nonAsciiLetter = (char: string | undefined) =>
@@ -105,10 +111,10 @@ function sanitizePass(input: string): string {
 }
 
 /** Single-line display form, as the server stores it. Idempotent. */
-export function sanitizeText(input: string): string {
-  let current = sanitizePass(input);
+export function sanitizeText(input: string, caps: SanitizerCaps = DEFAULT_SANITIZER_CAPS): string {
+  let current = sanitizePass(input, caps);
   for (let i = 0; i < 3; i++) {
-    const next = sanitizePass(current);
+    const next = sanitizePass(current, caps);
     if (next === current) break;
     current = next;
   }
@@ -193,19 +199,34 @@ const collapseRuns = (word: string) =>
     .filter((char, i, all) => char !== all[i - 1])
     .join('');
 
-const LISTS = Object.entries(TEXT_FILTER_CONFIG.lists).map(([name, list]) => ({
-  name,
-  words: new Set<string>(list.words.map((term) => foldWords(term).join(''))),
-  contains: list.contains.map((term) => foldWords(term).join('')),
-}));
+interface FoldedList {
+  words: Set<string>;
+  contains: string[];
+}
 
-/** True when sanitized `text` would match a server term list (Rust `blocked`). Never reveals which term. */
-export function looksBlocked(text: string): boolean {
+/** Folded lists per served config object, so typing does not refold every term on each keystroke. */
+const foldedCache = new WeakMap<TextFilterConfig, FoldedList[]>();
+
+function foldedLists(config: TextFilterConfig): FoldedList[] {
+  const cached = foldedCache.get(config);
+  if (cached) return cached;
+  const fold = (term: string) => foldWords(term).join('');
+  const lists = Object.values(config.lists).map((list) => ({
+    words: new Set(list.words.map(fold).filter(Boolean)),
+    contains: list.contains.map(fold).filter(Boolean),
+  }));
+  foldedCache.set(config, lists);
+  return lists;
+}
+
+/** True when sanitized `text` would match one of the served term lists (Rust `blocked`). Never reveals which term. */
+export function looksBlocked(text: string, config: TextFilterConfig): boolean {
+  const lists = foldedLists(config);
   const plain = (term: string) => collapseRuns(term) === term;
   const candidates = candidateWords(foldWords(text)).map(
     (word) => [word, collapseRuns(word)] as const,
   );
-  return LISTS.some((list) =>
+  return lists.some((list) =>
     candidates.some(
       ([word, stretched]) =>
         list.words.has(word) ||

@@ -117,8 +117,49 @@ async fn config_is_public_cacheable_and_free_of_user_data() {
         .collect();
     assert_eq!(
         keys,
-        ["flags", "kill_switches", "limits", "min_app_version"]
+        [
+            "flags",
+            "kill_switches",
+            "limits",
+            "min_app_version",
+            "text_filter"
+        ]
     );
+}
+
+#[tokio::test]
+async fn config_serves_the_text_filter_hints_with_an_etag() {
+    let router = offline_app();
+    let response = send(&router, get_request("/v1/config", None)).await;
+    let etag = response
+        .headers()
+        .get("etag")
+        .and_then(|v| v.to_str().ok())
+        .unwrap()
+        .to_owned();
+    assert!(etag.starts_with('"') && etag.ends_with('"'));
+    let body = json_body(response).await;
+    // Exactly the lists of config/text_filter.yaml, as written (#213).
+    let yaml: serde_json::Value = serde_norway::from_str(TEXT_FILTER_YAML).unwrap();
+    assert_eq!(body["text_filter"], yaml);
+
+    // A current If-None-Match answers 304 with no body; a stale one gets the full body.
+    let request = Request::get("/v1/config")
+        .header("if-none-match", &etag)
+        .body(Body::empty())
+        .unwrap();
+    let cached = send(&router, request).await;
+    assert_eq!(cached.status(), StatusCode::NOT_MODIFIED);
+    assert_eq!(
+        cached.headers().get("etag").and_then(|v| v.to_str().ok()),
+        Some(etag.as_str())
+    );
+    assert!(body_bytes(cached).await.is_empty());
+    let request = Request::get("/v1/config")
+        .header("if-none-match", "\"stale\"")
+        .body(Body::empty())
+        .unwrap();
+    assert_eq!(send(&router, request).await.status(), StatusCode::OK);
 }
 
 #[tokio::test]
