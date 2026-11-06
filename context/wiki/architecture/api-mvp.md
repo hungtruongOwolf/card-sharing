@@ -568,6 +568,15 @@ Enlarge (T-135, US-25): each visible card is a server-rendered button (`data-car
 component (`features/public-board/CardEnlarge.tsx`, a delegated click handler on the stage) opens a native modal `<dialog>`
 with the same baked, watermarked still, labelled by its heading; Escape, backdrop click or Close shut it and focus returns
 to the card. No CanvasKit or live holo on the page (#179 removes CanvasKit from `apps/web`). Tests: `enlarge.test.ts`.
+Guest report (T-142, AC-26.3, web part): "Report this board" on `/b/<token>` opens a dialog (AC-26.1 reasons `sexual`,
+`minor_safety`, `harassment`, `violence`, `hate`, `spam`, `other`; optional note <= 500; captcha) that posts JSON to the web
+route `POST /b/<token>/report`. The route accepts same-origin JSON only (`Origin` = `SITE_URL`, body <= 16 KB), verifies the
+captcha **on the web server** through the captcha port (`features/captcha`: verifier + widget registry; `CAPTCHA_PROVIDER`
+empty = reports off, `fake` = development checkbox, refused in production builds; the real vendor is an open EM decision),
+then calls `POST /v1/public/reports` (`svc`, `X-Client-IP`) with `{token, reason, note?}` (never the captcha answer). Web
+answers: 202 accepted, 400 invalid or missing/failed captcha, 404 unusable link, 429 when the API limits (5/h per IP),
+503 when the API or the provider is unavailable. Expected API contract (backend T-142): 2xx accepted, 400 invalid body,
+404 for every unusable token, 429 over the limit. Tests: `report.test.ts`.
 
 US-23 (export) is on-device; the server only supplies the owner's own media via `GET /v1/cards/{id}` / `/v1/me/cards`.
 US-7, US-8, US-10, US-11, US-21 are on-device by design (AC-7.5: nothing uploaded before send); their server touchpoints are the

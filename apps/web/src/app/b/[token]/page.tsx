@@ -3,7 +3,9 @@ import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 
 import { type PublicBoard, pinStylesheet } from '../../../features/public-board/public-board';
+import { captchaProvider } from '../../../features/captcha/captcha';
 import { CardEnlarge } from '../../../features/public-board/CardEnlarge';
+import { ReportBoard } from '../../../features/public-board/ReportBoard';
 import { type EnlargeCard, cardLabel } from '../../../features/public-board/enlarge';
 import { storeLinks } from '../../../features/store-links/store-links';
 import { SITE_NAME } from '../../../site';
@@ -79,6 +81,8 @@ export default async function PublicBoardPage({ params }: Props) {
   }
 
   const { board } = result;
+  // Guest reports are off unless a captcha provider is configured (T-142).
+  const captcha = captchaProvider(process.env);
   const nonce = (await headers()).get('x-nonce') ?? undefined;
   const cardIndexes = board.pins.flatMap((pin, index) => (pin.kind === 'card' ? [index] : []));
   // The enlarge dialog shows the same baked still (no live holo on the web for now, #179).
@@ -148,6 +152,7 @@ export default async function PublicBoardPage({ params }: Props) {
           </a>
         ))}
       </div>
+      {captcha !== null && <ReportBoard token={token} captcha={captcha} />}
     </main>
   );
 }
