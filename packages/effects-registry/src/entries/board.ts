@@ -61,12 +61,12 @@ export const BACKDROPS: readonly EffectEntry[] = [
 ];
 
 export const DECORATIONS: readonly EffectEntry[] = [
-  boardEntry('decoration', 'washi-dots', 'washiDots', { color: tapeColor('mustard') }),
-  boardEntry('decoration', 'washi-stripes', 'washiStripes', { color: tapeColor('sky') }),
-  boardEntry('decoration', 'washi-grid', 'washiGrid', { color: tapeColor('mint') }),
-  boardEntry('decoration', 'ribbon', 'ribbon', { color: tapeColor('coral') }),
+  boardEntry('decoration', 'washi-dots', 'washiDots', { tapeColor: tapeColor('mustard') }),
+  boardEntry('decoration', 'washi-stripes', 'washiStripes', { tapeColor: tapeColor('sky') }),
+  boardEntry('decoration', 'washi-grid', 'washiGrid', { tapeColor: tapeColor('mint') }),
+  boardEntry('decoration', 'ribbon', 'ribbon', { tapeColor: tapeColor('coral') }),
   boardEntry('decoration', 'ticket', 'ticket'),
-  boardEntry('decoration', 'pushpin', 'pushpin', { color: tapeColor('coral') }),
+  boardEntry('decoration', 'pushpin', 'pushpin', { tapeColor: tapeColor('coral') }),
   boardEntry('decoration', 'star', 'star'),
   boardEntry('decoration', 'heart', 'heart'),
   boardEntry('decoration', 'arrow', 'arrow'),

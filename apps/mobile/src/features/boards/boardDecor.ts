@@ -169,7 +169,7 @@ function washi(pattern: 'dots' | 'stripes' | 'grid'): DecorationRenderer {
   return {
     draw: (canvas, size, params) => {
       const path = tapePath(size);
-      canvas.drawPath(path, paint(tape(params.color), TAPE_ALPHA));
+      canvas.drawPath(path, paint(tape(params.tapeColor), TAPE_ALPHA));
       canvas.save();
       canvas.clipPath(path, 1, true);
       const ink = paint('#FFFFFF', 0.55);
@@ -221,7 +221,7 @@ const DECORATIONS: Readonly<Record<string, DecorationRenderer>> = {
       b.lineTo(-w, h * 0.6);
       b.lineTo(-w + 22, 0);
       b.close();
-      canvas.drawPath(b.build(), paint(tape(params.color)));
+      canvas.drawPath(b.build(), paint(tape(params.tapeColor)));
       canvas.drawLine(-w + 24, -h * 0.4, w - 24, -h * 0.4, stroke('#FFFFFF', 2, 0.5));
     },
   },
@@ -258,7 +258,7 @@ const DECORATIONS: Readonly<Record<string, DecorationRenderer>> = {
   pushpin: {
     draw: (canvas, _size, params) => {
       canvas.drawCircle(4, 6, 26, paint('#000000', 0.18));
-      canvas.drawCircle(0, 0, 26, paint(tape(params.color)));
+      canvas.drawCircle(0, 0, 26, paint(tape(params.tapeColor)));
       canvas.drawCircle(-8, -9, 8, paint('#FFFFFF', 0.6));
     },
   },

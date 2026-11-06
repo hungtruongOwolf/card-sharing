@@ -127,7 +127,7 @@ describe('BoardScreen', () => {
         const [added] = (await repository.get(board.id))!.pins;
         expect(added?.content).toEqual({
           kind: 'decoration',
-          decoration: { id: 'deco.washi-dots', version: 1, params: { color: 'mustard' } },
+          decoration: { id: 'deco.washi-dots', version: 1, params: { tapeColor: 'mustard' } },
         });
       });
     },

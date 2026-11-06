@@ -106,7 +106,7 @@ describe('drawDecoration', () => {
 
   it('uses the tape colour param and clamps unknown values to the default', () => {
     const at = (color: unknown) =>
-      centred((c) => drawDecoration(c, { id: 'deco.ribbon', params: { color } }, ctx))(
+      centred((c) => drawDecoration(c, { id: 'deco.ribbon', params: { tapeColor: color } }, ctx))(
         SIZE / 2,
         SIZE / 2 + 20,
       );

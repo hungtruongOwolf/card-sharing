@@ -241,7 +241,7 @@ All are Tier 0, free, static (`liveAllowed: false`), recorded into the board pic
 | Kind | Entries | Params |
 |---|---|---|
 | Backdrop (6) | `bg.paper` (default), `bg.kraft`, `bg.grid`, `bg.dots`, `bg.lined`, `bg.cork` | none; colours follow the colour scheme |
-| Decoration (10) | `deco.washi-dots`, `deco.washi-stripes`, `deco.washi-grid`, `deco.ribbon`, `deco.pushpin` | `color`: `mustard \| sky \| mint \| coral \| lilac` (tape palette, 85% alpha for washi) |
+| Decoration (10) | `deco.washi-dots`, `deco.washi-stripes`, `deco.washi-grid`, `deco.ribbon`, `deco.pushpin` | `tapeColor`: `mustard \| sky \| mint \| coral \| lilac` (tape palette, 85% alpha for washi) |
 | | `deco.ticket`, `deco.star`, `deco.heart`, `deco.arrow`, `deco.squiggle` | none |
 
 An unknown or killed backdrop draws the default paper; an unknown decoration draws nothing (placeholder frame for hit tests), so
