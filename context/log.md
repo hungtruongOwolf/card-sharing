@@ -254,3 +254,9 @@
   client was regenerated locally (lesson: verify log-extracted client diffs with a local generate).
 - Defaults pending EM: no sender name in push payloads; nothing bypasses quiet hours yet; widget endpoint returns the
   sender name (per D3).
+
+## [2026-11-06] progress | Sprint 5 done
+- App: T-87 #282 (63b7277), T-88 #283 (23b77ad), T-91 app part #284 (b9b29d7); #89, #90 closed. #87 (T-85 app part)
+  stays open for a device build.
+- Defaults kept: widget token minted at sign-in (read-only, dies with the session); quiet hours in 30-minute steps
+  saved with an explicit Save (30 writes/hour limit); opening Activity marks everything read.
