@@ -2,7 +2,7 @@
 title: Testing Strategy
 type: guide
 status: draft
-updated: 2026-11-05
+updated: 2026-11-06
 related: [[conventions]], [[security-baseline]]
 ---
 # Testing Strategy
@@ -11,7 +11,7 @@ endpoint (including authz-negative cases), a few E2E tests for critical user jou
 
 | Layer | Scope | Backend tooling | Frontend tooling |
 |---|---|---|---|
-| Unit | pure functions, domain rules | `cargo test`, `proptest` | Vitest |
+| Unit | pure functions, domain rules | `cargo test`, seeded property tests (see below) | Vitest |
 | Integration | handler + DB + auth | `cargo test` + testcontainers Postgres, `sqlx::test` | Vitest + MSW, Testing Library |
 | Contract | API matches OpenAPI | schemathesis / generated client types | generated types |
 | E2E | critical journeys | — | Playwright |
@@ -34,6 +34,14 @@ Backend practice (implemented, sprint 1):
   `rsa` crate fails `cargo deny`), RS256 token signing, and `MockJwks`, a local JWKS HTTP server whose keys and status can
   change mid-test (rotation, outage, fetch counting). `TestEnv` wires it in, plus a fake for Apple's token endpoint. Tests
   against the real providers are deferred until the accounts exist.
+
+- **Board permission properties (T-110, SR-5/6/7/21):** seeded randomized suites without an external crate (`proptest` is
+  not in the dependency tree; a SplitMix64 generator is enough). `crates/boards/src/properties.rs` checks `resolve_pin`,
+  `ViewerContext` and `pin_permission` on 20,000 random worlds each against an oracle written from the spec;
+  `apps/api/tests/api/board_properties.rs` builds 4 random worlds against the real API (adults/minors, friendships, members,
+  cards with random recipients, op sequences by members and non-members, then unfriends and blocks) and asserts every op result
+  and that no card id, caption or media URL reaches a viewer the model does not entitle. Failures print the seed; reproduce with
+  `BOARD_PROPERTY_SEED=<seed>` (and `BOARD_PROPERTY_WORLDS=<n>` for more worlds).
 
 Rules:
 - Test behavior through public interfaces, not internals.

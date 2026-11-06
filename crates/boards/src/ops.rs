@@ -116,21 +116,21 @@ pub(crate) enum CardCheck {
 
 /// What the pin-add rule needs to know about one card, from the actor's point of view.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct CardFacts {
+pub(crate) struct CardFacts {
     /// The actor owns the card.
-    mine: bool,
-    active: bool,
-    held: bool,
+    pub(crate) mine: bool,
+    pub(crate) active: bool,
+    pub(crate) held: bool,
     /// The card was delivered to the actor and is visible to them under the card-read
     /// predicate (SR-4: still friends with its owner, no block, card active, owner active).
-    received_visible: bool,
+    pub(crate) received_visible: bool,
 }
 
 /// The pin-add rule (T-100, AC-19.7, SR-6): a collaborator may pin only their own active cards;
 /// the owner may also pin cards they received and can still see. The actor's own held card gets
 /// its own refusal; everything else (a stranger's card, a card no longer visible, a missing id) is
 /// denied exactly like a missing card.
-fn pin_permission(role: Role, card: Option<CardFacts>) -> CardCheck {
+pub(crate) fn pin_permission(role: Role, card: Option<CardFacts>) -> CardCheck {
     let Some(card) = card else {
         return CardCheck::Denied;
     };
