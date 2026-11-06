@@ -717,7 +717,8 @@ export const en = {
   'boards.members.limit': 'A board can have up to {max, number} collaborators.',
   'boards.members.alreadyInvited': 'They’re already on this board or invited.',
   'boards.disclosure.title': 'Pin your card here?',
-  'boards.disclosure.body': 'Everyone on this board can see this card.',
+  'boards.disclosure.body':
+    'Only people you sent this card to can see it here. Everyone else on the board sees a locked tile.',
   'boards.disclosure.confirm': 'Pin it',
   'boards.disclosure.cancel': 'Not now',
   'boards.invitations.title': 'Invitations',
