@@ -5,6 +5,7 @@ import { useSharedValue } from 'react-native-reanimated';
 
 import type { Mask } from '@card-sharing/canvas-engine';
 import {
+  killedIds,
   MAX_EFFECTS,
   registry as shippedRegistry,
   type EffectEntry,
@@ -224,10 +225,16 @@ function Editor({
   const drawnKey = JSON.stringify(drawn);
   const picture = useMemo(
     () =>
-      drawn ? createPicture((canvas) => drawCard(canvas, registry, drawn, scene), size) : null,
+      drawn
+        ? createPicture(
+            (canvas) =>
+              drawCard(canvas, registry, drawn, scene, { killed: killedIds(remoteConfig) }),
+            size,
+          )
+        : null,
     // `drawn` is rebuilt every render; its JSON is the stable identity.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [drawnKey, scene, registry],
+    [drawnKey, scene, registry, remoteConfig],
   );
 
   const activeTab = tabs.find((tab) => tab.slot === activeSlot) ?? cutTab;

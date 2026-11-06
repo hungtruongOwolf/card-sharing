@@ -405,7 +405,13 @@ describe('CardEditorScreen', () => {
   it(
     'hides the Effects tab when no effect can be listed',
     async () => {
-      await renderEditor();
+      // Every shipped effect switched off remotely.
+      const effects = ENTRIES.filter(
+        (e) => e.kind === 'frame' || e.kind === 'overlay' || e.kind === 'prop',
+      );
+      await renderEditor({
+        remoteConfig: { kill_switches: { effects: effects.map((e) => e.id) } },
+      });
       expect(screen.queryByRole('tab', { name: t('editor.tab.effects') })).toBeNull();
     },
     RENDER_TIMEOUT_MS,

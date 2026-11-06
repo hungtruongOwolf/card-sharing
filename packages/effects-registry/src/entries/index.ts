@@ -7,6 +7,7 @@ import { cutShapeCircle } from './cut.shape.circle';
 import { cutShapeHeart } from './cut.shape.heart';
 import { cutShapeRoundedSquare } from './cut.shape.rounded-square';
 import { cutTorn } from './cut.torn';
+import { framePolaroid } from './frame.polaroid';
 import { fxGlossy } from './fx.glossy';
 import { fxHolo } from './fx.holo';
 import { fxMatte } from './fx.matte';
@@ -28,6 +29,7 @@ export const ENTRIES: readonly EffectEntry[] = [
   fxGlossy,
   fxHolo,
   fxPaperLift,
+  framePolaroid,
   ...BACKDROPS,
   ...DECORATIONS,
 ];

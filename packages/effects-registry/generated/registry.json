@@ -332,6 +332,23 @@
       }
     },
     {
+      "id": "frame.polaroid",
+      "version": 1,
+      "kind": "frame",
+      "stackable": false,
+      "conflicts_with": [],
+      "params": {
+        "captionArea": {
+          "type": "boolean",
+          "default": true
+        },
+        "popOut": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    {
       "id": "fx.glossy",
       "version": 1,
       "kind": "filter",

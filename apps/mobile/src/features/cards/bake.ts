@@ -75,6 +75,8 @@ export interface BakeInput {
   /** Overrides the long side (tests); defaults to the purpose's size. */
   longSide?: number;
   makeSurface?: MakeSurface;
+  /** Registry ids switched off remotely (`killedIds` of `/v1/config`): built-in effects among them are skipped. */
+  killed?: ReadonlySet<string>;
 }
 
 /** Whether the draft's cut style reads the subject mask (the mask is then baked and sent with the card). */
@@ -95,6 +97,7 @@ export function bakeCard({
   purpose,
   longSide = BAKE_LONG_SIDE[purpose],
   makeSurface = rasterSurface,
+  killed,
 }: BakeInput): BakedCard {
   if (!registry.get(draft.cut.id)) throw new BakeError(`unknown cut style ${draft.cut.id}`);
   const { width, height } = bakeSize({ width: photo.width(), height: photo.height() }, longSide);
@@ -103,7 +106,7 @@ export function bakeCard({
   const subject = mask && !draft.wholePhoto ? subjectFor(mask, width) : null;
   const canvas = surface.getCanvas();
   canvas.clear(Skia.Color('transparent'));
-  drawCard(canvas, registry, draft, { width, height, photo, subject });
+  drawCard(canvas, registry, draft, { width, height, photo, subject }, { killed });
   surface.flush();
   const png = surface.makeImageSnapshot().encodeToBytes(ImageFormat.PNG, 100);
   if (png.length === 0) throw new BakeError('png encode failed');

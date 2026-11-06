@@ -2,12 +2,8 @@ import { ClipOp, Skia, type SkCanvas, type SkImage } from '@shopify/react-native
 
 import type { CutSubject } from '../cut-styles';
 import type { LayeredEffects, ResolvedEffect } from './compose';
-import {
-  contentTransform,
-  EFFECT_RENDERERS,
-  type EffectContext,
-  type EffectRenderers,
-} from './effectRenderers';
+import { contentTransform, type EffectContext, type EffectRenderers } from './effectRenderers';
+import { EFFECT_RENDERERS } from './shippedRenderers';
 
 export interface ComposeScene {
   width: number;
@@ -50,16 +46,23 @@ export function drawComposed(
   const frameRef = layers.frame?.entry.renderer.ref;
   const frame = typeof frameRef === 'string' ? renderers.frames[frameRef] : undefined;
   const frameParams = layers.frame?.params ?? {};
-  const content = frame
-    ? contentTransform(width, height, frame.window(width, height, frameParams))
-    : null;
+  const frameWindow = frame?.window(width, height, frameParams);
+  const content =
+    frame && frameWindow
+      ? (frame.content?.(width, height, frameParams, frameWindow) ??
+        contentTransform(width, height, frameWindow))
+      : null;
 
   if (frame && content) {
     frame.back(canvas, context, frameParams);
     canvas.save();
-    const { window } = content;
     canvas.clipRect(
-      Skia.XYWHRect(window.x, window.y, window.width, window.height),
+      Skia.XYWHRect(
+        content.window.x,
+        content.window.y,
+        content.window.width,
+        content.window.height,
+      ),
       ClipOp.Intersect,
       true,
     );

@@ -1,4 +1,5 @@
 export {
+  builtInEffects,
   hasEffectRenderer,
   layerEffects,
   type EffectChoice,
@@ -6,9 +7,10 @@ export {
   type ResolvedEffect,
 } from './compose';
 export { drawComposed, type ComposeScene } from './drawEffects';
+export { EFFECT_RENDERERS } from './shippedRenderers';
+export { drawLiftShadow, liftShadow, type LiftShadow } from './renderers/paperLift';
 export {
   contentTransform,
-  EFFECT_RENDERERS,
   type ContentTransform,
   type EffectContext,
   type EffectParams,

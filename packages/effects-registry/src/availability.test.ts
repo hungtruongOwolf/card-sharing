@@ -111,6 +111,7 @@ describe('visibleEntries', () => {
       'fx.matte',
       'fx.glossy',
       'fx.paper-lift',
+      'frame.polaroid',
     ]);
   });
 
@@ -125,6 +126,7 @@ describe('visibleEntries', () => {
       'fx.glossy',
       'fx.holo',
       'fx.paper-lift',
+      'frame.polaroid',
     ]);
   });
 });
