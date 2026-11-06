@@ -314,6 +314,11 @@ limits:
     requests: 60
     per_secs: 3600
     on_store_failure: open
+  boards.members.remove: # DELETE /v1/boards/{id}/members/{userId} (remove or leave)
+    scope: user
+    requests: 30
+    per_secs: 3600
+    on_store_failure: open
   boards.members.read: # GET /v1/boards/{id}/members
     scope: user
     requests: 60

@@ -318,6 +318,10 @@ pub fn router() -> ApiRouter<AppState> {
             routes!(board_members::list_board_members),
         )
         .route(
+            RoutePolicy::session().limited("boards.members.remove"),
+            routes!(board_members::remove_board_member),
+        )
+        .route(
             RoutePolicy::session()
                 .limited("boards.invitations.create")
                 .idempotency(Idempotency::Required),
