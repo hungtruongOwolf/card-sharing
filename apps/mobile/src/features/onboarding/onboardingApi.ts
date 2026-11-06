@@ -11,6 +11,11 @@ type HandleRequest = components['schemas']['HandleRequest'];
 /** The part of `GET /v1/me` the onboarding flow reads. The region policy is deliberately not exposed here. */
 export interface MeSummary {
   readonly step: OnboardingStep;
+  /**
+   * `account.status = deletion_pending` (T-151): the account asked to be deleted and is in its grace period.
+   * Its session may only read and cancel the deletion, so the app shows nothing else.
+   */
+  readonly deletionPending: boolean;
 }
 
 export type OnboardingErrorKind =
@@ -58,6 +63,13 @@ function stepFrom(body: unknown): OnboardingStep | null {
   return STEPS.find((s) => s === step) ?? null;
 }
 
+function accountStatusFrom(body: unknown): unknown {
+  if (typeof body !== 'object' || body === null || !('account' in body)) return undefined;
+  const account = (body as { account: unknown }).account;
+  if (typeof account !== 'object' || account === null || !('status' in account)) return undefined;
+  return (account as { status: unknown }).status;
+}
+
 async function failure(response: Response): Promise<OnboardingError> {
   const { status } = response;
   const code = await problemCode(response);
@@ -82,6 +94,14 @@ export function createOnboardingApi(fetcher: AuthClient['fetch']): OnboardingApi
         : { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
     });
 
+  const readMe = async (response: Response): Promise<MeSummary> => {
+    if (!response.ok) throw await failure(response);
+    const body: unknown = await response.json().catch(() => null);
+    const step = stepFrom(body);
+    if (!step) throw new OnboardingError('unavailable', response.status);
+    return { step, deletionPending: accountStatusFrom(body) === 'deletion_pending' };
+  };
+
   const readStep = async (response: Response): Promise<OnboardingStep> => {
     if (!response.ok) throw await failure(response);
     const step = stepFrom(await response.json().catch(() => null));
@@ -94,7 +114,7 @@ export function createOnboardingApi(fetcher: AuthClient['fetch']): OnboardingApi
   };
 
   return {
-    getMe: async () => ({ step: await readStep(await send('/v1/me', 'GET')) }),
+    getMe: async () => readMe(await send('/v1/me', 'GET')),
     submitBirthDate: async (birthDate) => {
       const body: AgeRequest = { birth_date: birthDate };
       return readStep(await send('/v1/me/age', 'POST', body));

@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { View } from 'react-native';
 
-import { AuthProvider } from '../features/auth/AuthProvider';
+import { AuthProvider, useAuthClient } from '../features/auth/AuthProvider';
 import { createAuthClient, type AuthClient } from '../features/auth/authClient';
 import { sessionFromTokenPair, type Session } from '../features/auth/session';
 import type { TokenStore } from '../features/auth/tokenStore';
@@ -19,6 +19,8 @@ import { RefusedScreen } from '../features/onboarding/screens/RefusedScreen';
 import { SignInScreen } from '../features/onboarding/screens/SignInScreen';
 import { ErrorScreen, LoadingScreen } from '../features/onboarding/screens/StatusScreens';
 import type { IdTokenCredential, SignInProvider } from '../features/onboarding/signInProviders';
+import { DeletionPendingScreen } from '../features/privacy/DeletionPendingScreen';
+import { createPrivacyApi } from '../features/privacy/privacyApi';
 import type { FakeOnboardingServer } from './fakeOnboardingServer';
 import { renderThemed } from './render';
 
@@ -85,7 +87,8 @@ export function fakeProvider(
 
 /** Same phase → screen mapping as the guarded stack in src/app/_layout.tsx, without the native navigator. */
 function PhaseSwitch() {
-  const { phase } = useOnboarding();
+  const { phase, refreshAccount } = useOnboarding();
+  const authClient = useAuthClient();
   switch (phase) {
     case 'loading':
       return <LoadingScreen />;
@@ -105,6 +108,14 @@ function PhaseSwitch() {
       return <CameraPermissionScreen />;
     case 'home':
       return <View testID="home" />;
+    case 'deletionPending':
+      return (
+        <DeletionPendingScreen
+          api={createPrivacyApi(authClient)}
+          onAccountChanged={refreshAccount}
+          signOut={authClient.signOut}
+        />
+      );
   }
 }
 

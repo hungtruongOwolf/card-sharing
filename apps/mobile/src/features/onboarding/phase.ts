@@ -15,12 +15,16 @@ export type OnboardingPhase =
   | 'displayName'
   | 'handle'
   | 'camera'
-  | 'home';
+  | 'home'
+  /** The account is waiting out its deletion grace period (T-151/T-153): only "cancel" or "sign out". */
+  | 'deletionPending';
 
 export interface PhaseInput {
   readonly auth: AuthStatus;
   /** Server step from `GET /v1/me`; undefined while it loads. */
   readonly step: OnboardingStep | undefined;
+  /** `account.status = deletion_pending` from `GET /v1/me`. */
+  readonly deletionPending?: boolean;
   readonly meFailed: boolean;
   /** The age gate refused this device in this app session; cleared by "Back to start". */
   readonly refused: boolean;
@@ -36,6 +40,7 @@ export function resolvePhase(input: PhaseInput): OnboardingPhase {
   if (input.auth === 'loading') return 'loading';
   if (input.auth === 'signedOut') return 'signIn';
   if (input.step === undefined) return input.meFailed ? 'error' : 'loading';
+  if (input.deletionPending) return 'deletionPending';
   switch (input.step) {
     case 'age':
       return 'birthDate';

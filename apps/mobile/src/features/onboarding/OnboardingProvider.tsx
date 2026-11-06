@@ -3,7 +3,12 @@ import { createContext, useContext, useMemo, useState, type ReactNode } from 're
 
 import { useAuthClient, useAuthState } from '../auth';
 import type { CameraPermissions } from './cameraPermissions';
-import { OnboardingError, type OnboardingApi, type OnboardingStep } from './onboardingApi';
+import {
+  OnboardingError,
+  type MeSummary,
+  type OnboardingApi,
+  type OnboardingStep,
+} from './onboardingApi';
 import { resolvePhase, type OnboardingPhase } from './phase';
 import type { SignInProvider } from './signInProviders';
 
@@ -15,6 +20,8 @@ export interface OnboardingContextValue {
   readonly camera: CameraPermissions;
   /** Re-reads `/v1/me` after a failure. */
   retry(): void;
+  /** Re-reads `/v1/me`, e.g. after a pending deletion was cancelled. */
+  refreshAccount(): Promise<void>;
   /**
    * Submits the date of birth once. Refusal ends the session on the device and shows the refusal screen;
    * an already-locked DOB just moves on to whatever step the server reports. Other failures reject.
@@ -72,6 +79,7 @@ export function OnboardingProvider({ api, signInProviders, camera, children }: P
   const phase = resolvePhase({
     auth: auth.status,
     step: signedIn ? me.data?.step : undefined,
+    deletionPending: signedIn && me.data?.deletionPending === true,
     meFailed: me.isError,
     refused,
     displayNameSaved,
@@ -80,7 +88,7 @@ export function OnboardingProvider({ api, signInProviders, camera, children }: P
 
   const value = useMemo<OnboardingContextValue>(() => {
     const setStep = (step: OnboardingStep) =>
-      queryClient.setQueryData(ME_QUERY_KEY, { step } satisfies { step: OnboardingStep });
+      queryClient.setQueryData(ME_QUERY_KEY, { step, deletionPending: false } satisfies MeSummary);
     const refetchMe = () => queryClient.invalidateQueries({ queryKey: ME_QUERY_KEY });
 
     return {
@@ -88,6 +96,7 @@ export function OnboardingProvider({ api, signInProviders, camera, children }: P
       signInProviders,
       camera,
       retry: () => void refetch(),
+      refreshAccount: refetchMe,
       async submitBirthDate(birthDate) {
         try {
           setStep(await api.submitBirthDate(birthDate));
@@ -113,7 +122,7 @@ export function OnboardingProvider({ api, signInProviders, camera, children }: P
         await api.claimHandle(handle);
         await refetchMe();
         // Still `profile` after a claim means the name was not stored (e.g. app restarted): ask for it again.
-        const step = queryClient.getQueryData<{ step: OnboardingStep }>(ME_QUERY_KEY)?.step;
+        const step = queryClient.getQueryData<MeSummary>(ME_QUERY_KEY)?.step;
         if (step === 'profile') setDisplayNameSaved(false);
       },
       finishCamera: () => setCameraHandled(true),

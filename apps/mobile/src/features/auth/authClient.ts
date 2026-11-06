@@ -82,6 +82,12 @@ export interface AuthClient {
    */
   fetch(path: string, init?: RequestInit): Promise<Response>;
   /**
+   * Like {@link fetch}, for a request whose body carries a credential the server may refuse with 401
+   * `UNAUTHENTICATED` (a re-auth proof, T-26). That 401 comes back as the `Response` and never signs the device
+   * out; an expired access token is still refreshed and retried once, and `SESSION_REVOKED` still ends the session.
+   */
+  fetchWithProof(path: string, init?: RequestInit): Promise<Response>;
+  /**
    * Exchanges a provider ID token (with the nonce the app generated) for a session. The seam that the
    * Apple (T-19) and Google (T-20) sign-in buttons call; the request DTO is provisional until those routes
    * exist in the OpenAPI document.
@@ -251,7 +257,11 @@ export function createAuthClient(options: AuthClientOptions): AuthClient {
       throw new AuthError('unavailable');
     });
 
-  async function authorizedFetch(path: string, request: RequestInit = {}): Promise<Response> {
+  async function authorizedFetch(
+    path: string,
+    request: RequestInit = {},
+    proof = false,
+  ): Promise<Response> {
     await init();
     let current = session;
     if (!current) throw new AuthError('signed_out');
@@ -280,14 +290,21 @@ export function createAuthClient(options: AuthClientOptions): AuthClient {
       throw new AuthError('session_ended', 401, code);
     }
 
+    // The session is fine; the re-auth token (`X-Reauth`, T-26) is missing or stale. The caller asks again.
+    if (code === 'REAUTH_REQUIRED') return first;
+    // The server refused the proof in the body, not the session: hand the answer to the caller.
+    if (proof && code !== 'SESSION_EXPIRED') return first;
+
     // SESSION_EXPIRED, or UNAUTHENTICATED because another request already rotated the pair.
     const latest = await refreshFrom(current);
     const second = await send(path, request, latest.accessToken);
     if (second.status !== 401) return second;
+    const retryCode = await problemCode(second);
+    if (retryCode === 'REAUTH_REQUIRED') return second;
+    if (proof && retryCode !== 'SESSION_REVOKED') return second;
     if (session !== latest) return second; // yet another rotation raced us; let the caller retry
-    const secondCode = await problemCode(second);
-    await endSession(secondCode === 'SESSION_REVOKED' ? 'revoked' : 'invalid');
-    throw new AuthError('session_ended', 401, secondCode);
+    await endSession(retryCode === 'SESSION_REVOKED' ? 'revoked' : 'invalid');
+    throw new AuthError('session_ended', 401, retryCode);
   }
 
   async function signInWithIdToken(
@@ -353,7 +370,8 @@ export function createAuthClient(options: AuthClientOptions): AuthClient {
         listeners.delete(listener);
       };
     },
-    fetch: authorizedFetch,
+    fetch: (path, request) => authorizedFetch(path, request),
+    fetchWithProof: (path, request) => authorizedFetch(path, request, true),
     signInWithIdToken,
     signOut,
     signOutEverywhere,

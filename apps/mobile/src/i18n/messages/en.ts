@@ -498,6 +498,43 @@ export const en = {
     'Every device, including this one, will be signed out. You’ll need to sign in again.',
   'sessions.everywhere.confirm': 'Log out everywhere',
   'sessions.everywhere.cancel': 'Cancel',
+  'reauth.apple': 'Continue with Apple',
+  'reauth.google': 'Continue with Google',
+  'reauth.unavailable': 'This option isn’t available yet.',
+  'reauth.rejected':
+    'We couldn’t confirm it’s you. Use the same Apple or Google account you signed in with.',
+  'reauth.rateLimited': 'Too many tries. Please wait a few minutes and try again.',
+  'reauth.failed': 'That didn’t work. Check your connection and try again.',
+  'privacyData.error.generic': 'That didn’t work. Please try again.',
+  'privacyData.error.rateLimited': 'Too many tries. Please wait a bit and try again.',
+  'privacyData.error.reauthExpired': 'That took too long. Please confirm it’s you again.',
+  'deleteAccount.open': 'Delete account',
+  'deleteAccount.title': 'Delete account',
+  'deleteAccount.intro': 'Deleting your account means:',
+  'deleteAccount.consequence.logout':
+    'You’re signed out on every device, and your widget is emptied.',
+  'deleteAccount.consequence.hidden':
+    'Your cards disappear from your friends’ feeds, boards and public links within a minute.',
+  'deleteAccount.consequence.boards':
+    'Shared boards you own are deleted, and your pins are removed from other people’s boards. Cancelling doesn’t bring these back.',
+  'deleteAccount.consequence.grace': 'For 7 days you can sign in again and cancel the deletion.',
+  'deleteAccount.consequence.final':
+    'After that, your account and everything in it are deleted for good.',
+  'deleteAccount.confirm': 'Delete my account',
+  'deleteAccount.reauth.title': 'Confirm it’s you',
+  'deleteAccount.reauth.body':
+    'Sign in with the account you use for this app to delete it. This starts the 7-day countdown.',
+  'deleteAccount.done': 'Your account will be deleted on {date}. Sign in before then to cancel.',
+  'deletionPending.title': 'Account scheduled for deletion',
+  'deletionPending.loading': 'Loading your deletion details',
+  'deletionPending.banner': 'Your account will be deleted for good on {date}.',
+  'deletionPending.banner.unknown': 'Your account is scheduled for deletion.',
+  'deletionPending.body':
+    'Cancel to keep your account. Boards you owned and pins on other people’s boards were already removed and won’t come back.',
+  'deletionPending.cancel': 'Cancel deletion',
+  'deletionPending.cancelled': 'Deletion cancelled. Welcome back!',
+  'deletionPending.gone': 'There’s no deletion to cancel any more.',
+  'deletionPending.signOut': 'Sign out',
   'friends.open': 'Friends',
   'friends.title': 'Friends',
   'friends.loading': 'Loading your friends',
