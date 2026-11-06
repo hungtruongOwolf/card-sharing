@@ -21,6 +21,18 @@ pub const EXEMPT_TABLES: &[(&str, &str)] = &[
         "keyed by email hash, not by account; deleted after 24 hours",
     ),
     (
+        "identity.staff_members",
+        "staff role and TOTP secret; deleted with the account row (foreign key cascade)",
+    ),
+    (
+        "identity.staff_logins",
+        "5-minute staff login challenges (token hashes); deleted with the staff member",
+    ),
+    (
+        "identity.staff_sessions",
+        "staff sessions (token hashes); deleted with the staff member",
+    ),
+    (
         "moderation.csam_incidents",
         "legal retention of known-CSAM evidence (content-safety.md); never erased on request",
     ),

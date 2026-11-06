@@ -65,7 +65,9 @@ erDiagram
 | `profiles` | `account_id PK FK CASCADE`; `display_name TEXT CHECK len 2–30`; `avatar_media_id UUID NULL`; `handle CITEXT UNIQUE CHECK ~ '^[a-z0-9._]{3,20}$'`; `handle_changed_at`; `findable_by_handle BOOL DEFAULT false` (set by the age gate: true only for sign-ups at or above `discovery.min_age`; only effective at or above that age; minors cannot turn it on) | `UNIQUE(handle)` | U (name, avatar, handle) | With account |
 | `handle_reservations` | `handle CITEXT PK`; `released_by UUID`; `reserved_until` (30 d) | `(reserved_until)` | I | Until expiry |
 | `devices` | `id` (client-generated); `account_id FK CASCADE`; `platform CHECK (ios, android)`; `app_version`; `attest_key_id NULL`; `last_seen_at` | `(account_id)` | I | 90 d inactive |
-| `staff_members` | `account_id PK FK`; `role CHECK (moderator, admin)`; `mfa_secret_enc` / `webauthn_credentials JSONB`; `disabled_at` | — | S | Employment + 2 y |
+| `staff_members` | `account_id PK FK CASCADE`; `role CHECK (moderator, admin)`; `totp_secret_enc` (FieldCipher; WebAuthn credentials later); `totp_last_step` (replay guard); `disabled_at`; `created_at` (T-144: migration `20261121000001`) | — | S | Employment + 2 y |
+| `staff_logins` | Staff login challenge after the provider proof: `id`; `account_id FK`; `token_hash UNIQUE`; `attempts ≤ 5`; `expires_at` (5 min); `used_at` | `(account_id)` | S | Short-lived |
+| `staff_sessions` | Staff cookie session (separate from `sessions`): `id`; `account_id FK`; `token_hash UNIQUE`; `csrf_hash`; `mfa_at`; `idle_expires_at` (30 min sliding); `absolute_expires_at` (12 h); `last_seen_at`; `revoked_at` | `(account_id) WHERE revoked_at IS NULL` | S | 30 d after expiry |
 
 Implementation notes (T-18, `migrations/20261105000001_identity_init.sql`): migrations live in `migrations/` at the repo root,
 named `<timestamp>_<module>_<description>.sql`, applied by `api migrate`; each file touches only its module's schema and revokes

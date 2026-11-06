@@ -50,6 +50,8 @@ pub struct AppState {
     pub sharing: Arc<sharing::SharingService>,
     /// Reports (T-141) and the moderation queue.
     pub reports: Arc<moderation::ReportService>,
+    /// Staff accounts and sessions (T-144).
+    pub staff: Arc<identity::StaffService>,
     /// Captcha verification for guest reports (T-142). `NoCaptcha` until configured (503).
     pub captcha: Arc<dyn moderation::CaptchaVerifier>,
     /// Privacy rules (`config/privacy.yaml`): deletion grace period.
@@ -134,6 +136,10 @@ impl AppState {
                 moderation::ModerationSettings::default(),
             )),
             captcha: Arc::new(moderation::NoCaptcha),
+            staff: Arc::new(identity::StaffService::new(
+                identity.pool().clone(),
+                identity.clock(),
+            )),
             sharing: Arc::new(sharing::SharingService::new(
                 identity.pool().clone(),
                 identity.clock(),

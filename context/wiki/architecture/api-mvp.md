@@ -626,6 +626,25 @@ Review order (`ModerationQueue::live`): priority, then weight, then oldest. 50 r
 12.5) and nothing happens to the target until a moderator acts; a decided item stays as history and a later report opens a new
 one. Tests: `tests/api/report_queue.rs`.
 
+Staff auth (T-144, #146, server part; the admin console UI is deferred): `routes/admin_auth.rs`, `identity::StaffService`
+(`crates/identity/src/staff.rs`, `totp.rs`), access layer `access/staff.rs`. **Second factor = TOTP** (RFC 6238, SHA-1, 30 s,
+6 digits, ±1 step, each step accepted once): no WebAuthn crate is in `Cargo.lock`, so WebAuthn waits for a dependency window.
+Staff are ordinary accounts promoted only from the CLI: `api staff grant <account-id> <moderator|admin>` prints the
+`otpauth://` URI once (secret stored as `FieldCipher`), `api staff disable <account-id>` disables and ends sessions; there is
+no API to grant roles. Flow: `POST /v1/admin/auth/login` (none, `admin.auth.login` 10/15 min per IP, fails closed) `{provider, id_token,
+nonce}` — a fresh Apple/Google proof as for re-auth → 200 `{mfa_token, expires_at}` (single use, 5 minutes, 5 code attempts);
+`POST /v1/admin/auth/mfa` (`admin.auth.mfa` 20/15 min per IP) `{mfa_token, code}` → 200 `{csrf_token, role, idle_expires_at, absolute_expires_at}` + `Set-Cookie:
+__Host-staff_session=<token>; Path=/; Max-Age=43200; HttpOnly; Secure; SameSite=Strict`. Every refusal of either step (bad
+proof, not staff, disabled, inactive account, wrong/replayed code, used/expired challenge) is the same 401. Staff sessions live
+in `identity.staff_sessions` (token and CSRF hashes only): idle 30 min (sliding), absolute 12 h. Auth kind `staff`: the access
+layer reads only the cookie (an app bearer token or the service credential never opens `/v1/admin/*`: 401 / 403), checks the
+role (`staff_moderator` = moderator or admin, `staff_admin` = admin only → 403 otherwise), requires `X-CSRF-Token` on every
+non-GET request (403 when missing or wrong), applies the optional `API_STAFF_IP_ALLOWLIST` (exact IPs; 403 outside) and
+refuses a staff policy outside `/v1/admin/`. Routes so far: `POST /v1/admin/auth/logout` (staff, CSRF) → 204 and clears the
+cookie; `GET /v1/admin/me` (moderator) → `{account_id, role, idle_expires_at, absolute_expires_at}`; `GET /v1/admin/staff`
+(admin) → `{items: [{account_id, role, disabled, created_at}]}`. Separate origin + CORS for the console come with its UI.
+Tests: `tests/api/staff_auth.rs`.
+
 Implemented (T-151, #153): `routes/deletion.rs` → `crates/privacy` (`DeletionService`). `POST /v1/me/deletion` (`re`: bearer +
 `X-Reauth`, else 401 `REAUTH_REQUIRED`; `privacy.deletion.request` 3/day) answers 202 `{deletion: {status: "pending",
 requested_at, grace_until}}`: in one transaction the account turns `deletion_pending` (audit `privacy.deletion_requested`) and

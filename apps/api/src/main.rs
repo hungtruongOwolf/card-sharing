@@ -51,6 +51,9 @@ async fn main() -> anyhow::Result<()> {
         Some("seed") => {
             return run_seed(&config, pool).await;
         }
+        Some("staff") => {
+            return run_staff(&config, pool).await;
+        }
         Some("replay-erasures") => {
             // Restore drill (T-152): after restoring a backup, erase every account that was erased
             // before, so their data does not come back.
@@ -65,7 +68,7 @@ async fn main() -> anyhow::Result<()> {
         }
         Some(other) => {
             anyhow::bail!(
-                "unknown command {other:?} (expected no argument, `migrate`, `worker`, `seed` or `replay-erasures`)"
+                "unknown command {other:?} (expected no argument, `migrate`, `worker`, `seed`, `staff` or `replay-erasures`)"
             )
         }
     }
@@ -185,6 +188,58 @@ fn captcha_verifier(config: &Config) -> Arc<dyn moderation::CaptchaVerifier> {
             Arc::new(moderation::NoCaptcha)
         }
     }
+}
+
+/// `api staff grant <account-id> <moderator|admin>` prints a new TOTP secret (otpauth URI) for
+/// the staff member's authenticator app; `api staff disable <account-id>` disables them and ends
+/// their sessions (T-144). Staff are never added through the API.
+async fn run_staff(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
+    let args: Vec<String> = std::env::args().skip(2).collect();
+    let usage =
+        "usage: api staff grant <account-id> <moderator|admin> | api staff disable <account-id>";
+    let account = args
+        .get(1)
+        .and_then(|id| uuid::Uuid::try_parse(id).ok())
+        .context(usage)?;
+    let staff = identity::StaffService::new(pool, Arc::new(SystemClock));
+    match args.first().map(String::as_str) {
+        Some("grant") => {
+            let role = args
+                .get(2)
+                .and_then(|role| identity::StaffRole::parse(role))
+                .context(usage)?;
+            let cipher = FieldCipher::from_base64(1, config.data_encryption_key.expose())
+                .context("invalid API_DATA_ENCRYPTION_KEY")?;
+            let secret = staff
+                .grant(account, role, &cipher)
+                .await
+                .map_err(|err| anyhow::anyhow!("could not grant staff role: {err}"))?;
+            println!(
+                "Staff role {} granted. Add this to the authenticator app now (shown once):",
+                role.as_str()
+            );
+            println!(
+                "  {}",
+                identity::totp::otpauth_uri(&secret, &account.simple().to_string())
+            );
+        }
+        Some("disable") => {
+            let changed = staff
+                .disable(account)
+                .await
+                .map_err(|err| anyhow::anyhow!("could not disable staff member: {err}"))?;
+            println!(
+                "{}",
+                if changed {
+                    "Disabled."
+                } else {
+                    "Nothing changed."
+                }
+            );
+        }
+        _ => anyhow::bail!(usage),
+    }
+    Ok(())
 }
 
 /// `api seed`: local demo users, friendships, cards and a shared board (src/seed.rs). Refused

@@ -37,6 +37,10 @@ pub struct AccessState {
     /// Digest of the web server's credential (`API_SERVICE_CREDENTIAL`); `None` = `svc` routes
     /// always answer 401.
     pub service_credential: Option<Arc<SecretDigest>>,
+    /// Staff sessions (T-144) for `staff` routes.
+    pub staff: Arc<identity::StaffService>,
+    /// `API_STAFF_IP_ALLOWLIST`; empty = staff routes accept any IP.
+    pub staff_ip_allowlist: Arc<Vec<IpAddr>>,
 }
 
 /// Header carrying the web server's credential on `svc` routes.
@@ -108,6 +112,11 @@ pub async fn enforce(
     let presented = request.headers().contains_key(SERVICE_CREDENTIAL_HEADER);
     if presented || policy.auth == AuthKind::Service {
         return serve_service(&access, &policy, route.as_str(), request, next).await;
+    }
+
+    // Staff routes: the staff cookie, never a bearer token (T-144).
+    if policy.auth == AuthKind::Staff {
+        return super::staff::serve_staff(&access, &policy, route.as_str(), request, next).await;
     }
 
     let principal = if policy.auth.requires_principal() {
@@ -266,7 +275,11 @@ fn check_app_version(headers: &HeaderMap, minimum: &semver::Version) -> Result<(
 
 pub const APP_VERSION_HEADER: HeaderName = HeaderName::from_static("x-app-version");
 
-async fn rate_limit(limiter: &RateLimiter, limit: &str, subject: &Subject) -> Result<(), ApiError> {
+pub(super) async fn rate_limit(
+    limiter: &RateLimiter,
+    limit: &str,
+    subject: &Subject,
+) -> Result<(), ApiError> {
     match limiter.check(limit, subject).await {
         Ok(Decision::Allowed) => Ok(()),
         Ok(Decision::Limited { retry_after_secs }) => {

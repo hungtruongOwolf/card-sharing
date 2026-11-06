@@ -128,6 +128,12 @@ The API binds `127.0.0.1` by default, which a phone cannot reach. On the compute
 Expo Go only runs the SDK it was built for; if the store version of Expo Go no longer supports SDK 57, a development
 build (`eas build --profile development`, needs the Apple Developer account) is required to run the app on the iPhone.
 
+## Staff (moderation) sign-in, server only (T-144)
+There is no admin console yet. To try the staff API locally: sign a seed user in (above), note its id, then
+`cargo run -p api -- staff grant <account id> moderator` (or `admin`) and add the printed `otpauth://` URI to an
+authenticator app. The login needs a real Apple/Google ID token, so end-to-end staff sign-in waits for the provider
+accounts; the flow is covered by `tests/api/staff_auth.rs`.
+
 ## Reset
 `docker compose --env-file .env -f infra/docker-compose.yml down -v` wipes all volumes; then start again from
 `pnpm infra:up`. With filesystem storage also delete `.data/media`.

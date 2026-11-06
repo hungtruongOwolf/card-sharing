@@ -61,6 +61,8 @@ pub fn build(routes: ApiRouter<AppState>, mut state: AppState, config: &Config) 
             .service_credential
             .as_ref()
             .map(|secret| Arc::new(SecretDigest::of(secret.expose().as_bytes()))),
+        staff: Arc::clone(&state.staff),
+        staff_ip_allowlist: Arc::new(config.staff_ip_allowlist.clone()),
     };
 
     let router = router
