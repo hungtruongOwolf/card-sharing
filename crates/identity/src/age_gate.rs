@@ -104,11 +104,11 @@ impl IdentityService {
             ip_country: submission.ip_country,
             declared_country: submission.declared_country,
         };
-        let min_age = policy
-            .resolve_strictest(&[current.clone(), stored.context()])
-            .min_age;
+        let resolved = policy.resolve_strictest(&[current.clone(), stored.context()]);
+        let min_age = resolved.min_age;
+        let age = age_on(birth_date, today);
 
-        if in_cooldown || age_on(birth_date, today) < i32::from(min_age) {
+        if in_cooldown || age < i32::from(min_age) {
             self.refuse(account_id, &cooldown_keys, min_age, &current, in_cooldown)
                 .await?;
             return Ok(AgeOutcome::Refused);
@@ -120,6 +120,8 @@ impl IdentityService {
             declared: submission.declared_country.map(|c| c.to_string()),
         };
         let encrypted = cipher.encrypt(birth_date.to_string().as_bytes(), account_id.as_bytes())?;
+        let now = self.clock.now();
+        let mut tx = self.pool.begin().await?;
         let updated = sqlx::query(
             "UPDATE identity.accounts
              SET birth_date_enc = $2, region_signals = $3, status = 'pending_profile', updated_at = $4
@@ -128,13 +130,28 @@ impl IdentityService {
         .bind(account_id)
         .bind(encrypted)
         .bind(sqlx::types::Json(&signals))
-        .bind(self.clock.now())
-        .execute(&self.pool)
+        .bind(now)
+        .execute(&mut *tx)
         .await?;
         if updated.rows_affected() == 0 {
             // A concurrent submission won; the DOB stays locked to the first one.
             return Err(AgeGateError::AlreadySubmitted);
         }
+        // "Findable by handle" starts on only for people who sign up at or above the discovery
+        // age. Anyone younger starts hidden and stays hidden after reaching it until they turn
+        // it on themselves (EM 2026-11-05); search still checks the age on every query.
+        let findable = age >= i32::from(resolved.discovery.min_age);
+        sqlx::query(
+            "INSERT INTO identity.profiles (account_id, findable_by_handle, created_at, updated_at)
+             VALUES ($1, $2, $3, $3)
+             ON CONFLICT (account_id) DO UPDATE SET findable_by_handle = EXCLUDED.findable_by_handle",
+        )
+        .bind(account_id)
+        .bind(findable)
+        .bind(now)
+        .execute(&mut *tx)
+        .await?;
+        tx.commit().await?;
         self.invalidate_cached_sessions(account_id).await?;
         tracing::info!(event = "age_gate.admitted", %account_id, min_age, "age gate passed");
         Ok(AgeOutcome::Admitted {

@@ -236,6 +236,9 @@ Findable by handle (T-45): `PATCH /v1/me/settings` (ses, limit `me.settings.upda
 `POLICY_DISALLOWED`; turning it off is always allowed. `GET /v1/me` gains the same `settings` object (`findable_by_handle` is
 always false under the discovery age). Search's handle lookup only matches findable accounts (same single query, so the miss
 is the standard one), and a request from a ref whose target turned it off is silently dropped.
+Starting value (EM 2026-11-05): the age gate stores `findable_by_handle = true` only when the account signs up at or above
+`discovery.min_age`; younger sign-ups start `false` and stay hidden after reaching the discovery age until they turn it on
+(`GET /v1/me` then shows `{findable_by_handle: false, can_be_findable: true}`).
 
 Friends (T-46): `GET /v1/friends` (limit `friends.list`) → `{items: [{id, display_name, handle}]}`, most recent friendship
 first, inactive accounts left out. `DELETE /v1/friends/{userId}` (limit `friends.remove`) → 204; a user id that is not the

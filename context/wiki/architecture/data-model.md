@@ -62,7 +62,7 @@ erDiagram
 | `magic_links` | `id`; `email_hash BYTEA`; `token_hash BYTEA UNIQUE` (256-bit raw token); `pkce_challenge BYTEA` (device-bound verifier); `expires_at` (15 min); `used_at` (single use; set only by the in-app confirm, never by a GET, AC-1.3) | `(email_hash, created_at)` | S | 24 h |
 | `sessions` | One row per device sign-in (= refresh-token family). `id`; `account_id FK CASCADE`; `access_token_hash BYTEA UNIQUE` (opaque, 10 min); `access_expires_at`; `scope CHECK (onboarding, full, widget, reauth, staff)`; `parent_session_id UUID NULL` (widget/reauth tokens die with their device session); `device_id NULL`; `client_label TEXT` (platform + app version, for the session list); `ip_country`; `idle_expires_at` (60 d); `absolute_expires_at` (180 d); `last_seen_at`; `revoked_at`; `revoked_reason CHECK (logout, logout_all, refresh_reuse, suspended, deleted, staff) NULL`; `mfa_at NULL` | `(account_id) WHERE revoked_at IS NULL`; `(parent_session_id)` | S | 30 d after expiry |
 | `refresh_tokens` | `token_hash BYTEA PK`; `session_id` (same-schema FK CASCADE); `generation INT`; `issued_at`; `consumed_at NULL`. Presenting a consumed token = reuse ⇒ the whole session family is revoked (`refresh_reuse`) and the user is alerted (AC-1.4) | `(session_id, generation)` | S | With session |
-| `profiles` | `account_id PK FK CASCADE`; `display_name TEXT CHECK len 2–30`; `avatar_media_id UUID NULL`; `handle CITEXT UNIQUE CHECK ~ '^[a-z0-9._]{3,20}$'`; `handle_changed_at`; `findable_by_handle BOOL DEFAULT true` (only effective at or above `discovery.min_age`; minors cannot turn it on) | `UNIQUE(handle)` | U (name, avatar, handle) | With account |
+| `profiles` | `account_id PK FK CASCADE`; `display_name TEXT CHECK len 2–30`; `avatar_media_id UUID NULL`; `handle CITEXT UNIQUE CHECK ~ '^[a-z0-9._]{3,20}$'`; `handle_changed_at`; `findable_by_handle BOOL DEFAULT false` (set by the age gate: true only for sign-ups at or above `discovery.min_age`; only effective at or above that age; minors cannot turn it on) | `UNIQUE(handle)` | U (name, avatar, handle) | With account |
 | `handle_reservations` | `handle CITEXT PK`; `released_by UUID`; `reserved_until` (30 d) | `(reserved_until)` | I | Until expiry |
 | `devices` | `id` (client-generated); `account_id FK CASCADE`; `platform CHECK (ios, android)`; `app_version`; `attest_key_id NULL`; `last_seen_at` | `(account_id)` | I | 90 d inactive |
 | `staff_members` | `account_id PK FK`; `role CHECK (moderator, admin)`; `mfa_secret_enc` / `webauthn_credentials JSONB`; `disabled_at` | — | S | Employment + 2 y |
@@ -78,6 +78,10 @@ Profiles (T-31, `migrations/20261106000001_identity_profiles.sql`): one row per 
 `display_name TEXT NULL` (sanitized by `platform::text`; the CHECK is a storage bound of 480 code points = 30 clusters × 16,
 the grapheme rule lives in the app). `avatar_media_id` is added by the media ticket. `findable_by_handle BOOL NOT NULL DEFAULT true` was added by T-45
 (`20261109000004_identity_findable.sql`); minors cannot turn it on, and search ignores it below `discovery.min_age` anyway.
+Opt-in for minors (EM 2026-11-05, `20261110000001_identity_findable_opt_in.sql`): the default is now `false`, and the age gate
+inserts the profile row with `findable_by_handle = (age at sign-up >= discovery.min_age)`, so an account that signed up younger
+stays hidden after reaching that age until the user turns it on. Existing rows were reset to `false` (the encrypted DOB cannot
+be read in SQL; no deployed environment held real accounts).
 Handles (T-32, `migrations/20261106000002_identity_handles.sql`): `handle TEXT UNIQUE` (stored lowercase instead of CITEXT, same
 case-insensitive uniqueness), `handle_claimed_at` (first claim, starts the 24 h free-change grace window, never reset) and
 `handle_changed_at` (cooldown base); `handle_reservations(handle PK, released_by, reserved_until)` without FK so a reservation

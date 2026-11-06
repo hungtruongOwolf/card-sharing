@@ -80,6 +80,7 @@ Priorities: **M**ust / **S**hould / **C**ould (see MoSCoW). All limits below are
 **Decision (EM 2026-11-04): invite link / QR + exact-handle search.** No contact sync in MVP.
 Safety rules for search (so strangers cannot find minors): exact match only (no prefix/fuzzy/browse), users under
 `discovery.min_age` (region config, default 18) are never returned, adults can turn "Findable by handle" off,
+an account created under `discovery.min_age` stays hidden after reaching it until the user turns "Findable by handle" on (EM 2026-11-05),
 searches are rate-limited, and a result only allows sending a request that must be accepted.
 - **US-4 (M):** As a user, I share my personal invite link/QR so close friends can add me.
   - AC-4.1: Given I tap "Invite", Then I get a share sheet with a link `…/i/<token>` (≥ 128-bit random) and a QR code.

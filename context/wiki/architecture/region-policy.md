@@ -53,6 +53,11 @@ overrides:
   caps the effective age below `adult_age`; an `adult` signal never loosens the DOB; latest signal wins; ignored while the flag
   is off.
 
+- "Findable by handle" starting value (EM 2026-11-05): the age gate compares the age at sign-up with the resolved
+  `discovery.min_age`: at or above it the flag starts on (adults can turn it off, prd-mvp US-5a); below it the flag starts off
+  and stays off after the account reaches the discovery age until the user turns it on. Search still applies the age rule from
+  `AgeService::status` on every query.
+
 ## Implementation (T-38)
 - `invites: {minor_ttl_days: 7, minor_max_uses: 5}` in `config/policy/regions.yaml` (strictest = the smaller value; fields
   missing from a config use these defaults). They apply to personal invite links whose owner is a minor (AC-4.4): stored on the
