@@ -170,6 +170,30 @@ routes:
       suspended: 401
       service: 404
 
+  # T-131: svc only (the web share page). Bad tokens of every kind, throttling and anomalies:
+  # tests/api/public_boards.rs.
+  - route: GET /v1/public/boards/{token}
+    path: /v1/public/boards/AAAAAAAAAAAAAAAAAAAAAA
+    missing_path: /v1/public/boards/BBBBBBBBBBBBBBBBBBBBBB
+    expect:
+      guest: 401
+      onboarding_age: 401
+      onboarding_profile: 401
+      user: 401
+      suspended: 401
+      service: 404
+
+  - route: GET /v1/public/boards/{token}/og
+    path: /v1/public/boards/AAAAAAAAAAAAAAAAAAAAAA/og
+    missing_path: /v1/public/boards/BBBBBBBBBBBBBBBBBBBBBB/og
+    expect:
+      guest: 401
+      onboarding_age: 401
+      onboarding_profile: 401
+      user: 401
+      suspended: 401
+      service: 404
+
   - route: POST /v1/friend-requests
     body: { invite_token: AAAAAAAAAAAAAAAAAAAAAA }
     missing_path: /v1/friend-requests

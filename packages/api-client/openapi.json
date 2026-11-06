@@ -5590,6 +5590,212 @@
         }
       }
     },
+    "/v1/public/boards/{token}": {
+      "get": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Board snapshot for the public page `/b/<token>`. Auth: svc (web server only).",
+        "operationId": "getPublicBoard",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "description": "The token part of a public board link (22 characters).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Client-IP",
+            "in": "header",
+            "description": "The visitor's IP address as the web server saw it (keys the per-IP limit).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The board as guests see it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicBoardResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED (X-Client-IP missing or not an IP address).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED (service credential missing or wrong).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND for every unusable token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED (per visitor IP).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "TEMPORARILY_UNAVAILABLE (rate limit store down or media signing not configured).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "service": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "svc",
+          "rateLimit": "public.boards.read",
+          "role": "guest",
+          "versionGate": true
+        }
+      }
+    },
+    "/v1/public/boards/{token}/og": {
+      "get": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Fresh signed URL of the board's watermarked OG image. Auth: svc (web server only).",
+        "operationId": "getPublicBoardOg",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "description": "The token part of a public board link (22 characters).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Client-IP",
+            "in": "header",
+            "description": "The visitor's IP address as the web server saw it (keys the per-IP limit).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Signed OG image URL (10 minutes).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicOgResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED (X-Client-IP missing or not an IP address).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED (service credential missing or wrong).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND for every unusable token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED (per visitor IP).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "TEMPORARILY_UNAVAILABLE (rate limit store down or media signing not configured).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "service": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "svc",
+          "rateLimit": "public.boards.read",
+          "role": "guest",
+          "versionGate": true
+        }
+      }
+    },
     "/v1/public/invites/{token}": {
       "get": {
         "tags": [
@@ -8185,6 +8391,62 @@
           }
         }
       },
+      "PublicBoardResponse": {
+        "type": "object",
+        "required": [
+          "board",
+          "pins",
+          "noindex",
+          "cache_ttl_s"
+        ],
+        "properties": {
+          "board": {
+            "$ref": "#/components/schemas/PublicBoardView"
+          },
+          "cache_ttl_s": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Seconds the web server may cache this page (purged on revoke, T-133).",
+            "minimum": 0
+          },
+          "noindex": {
+            "type": "boolean",
+            "description": "Always `true`: public pages are not indexed (AC-24.5)."
+          },
+          "pins": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicPinView"
+            },
+            "description": "In z order."
+          }
+        }
+      },
+      "PublicBoardView": {
+        "type": "object",
+        "description": "Board header of a public page.",
+        "required": [
+          "title"
+        ],
+        "properties": {
+          "backdrop": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "Registry reference of the backdrop, or `null` for the default."
+          },
+          "owner_display_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
       "PublicInviteResponse": {
         "type": "object",
         "description": "What the invite landing page shows.",
@@ -8240,6 +8502,101 @@
           "id": {
             "type": "string",
             "format": "uuid"
+          }
+        }
+      },
+      "PublicOgResponse": {
+        "type": "object",
+        "description": "A fresh signed URL of the watermarked OG image (the web server answers 302 to it).",
+        "required": [
+          "url",
+          "expires_at",
+          "cache_ttl_s"
+        ],
+        "properties": {
+          "cache_ttl_s": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "url": {
+            "type": "string"
+          }
+        }
+      },
+      "PublicPinView": {
+        "type": "object",
+        "description": "One pin of a public page: `card` (the owner's own card, watermarked), `private_tile` (any\nother card: position only) or `decoration`.",
+        "required": [
+          "kind",
+          "x",
+          "y",
+          "scale",
+          "rotation",
+          "z_key"
+        ],
+        "properties": {
+          "decoration": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "`decoration` only: its registry reference."
+          },
+          "height": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "image_expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "image_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`card` only: signed URL of the watermarked image (10 minutes)."
+          },
+          "kind": {
+            "type": "string",
+            "example": "card"
+          },
+          "rotation": {
+            "type": "number",
+            "format": "double"
+          },
+          "scale": {
+            "type": "number",
+            "format": "double"
+          },
+          "width": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "x": {
+            "type": "number",
+            "format": "double"
+          },
+          "y": {
+            "type": "number",
+            "format": "double"
+          },
+          "z_key": {
+            "type": "string"
           }
         }
       },

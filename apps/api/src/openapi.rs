@@ -7,8 +7,8 @@ use crate::access::{ApiRouter, Idempotency, RoutePolicy};
 use crate::routes::{
     activity, age_signal, app_config, attestation, auth, blocks, board_invitations, board_members,
     board_ops, board_read, boards, cards, devices, feed, friend_requests, friends, health, invites,
-    me, media, media_files, notification_preferences, public_invites, public_links, sessions,
-    user_search, widget,
+    me, media, media_files, notification_preferences, public_boards, public_invites, public_links,
+    sessions, user_search, widget,
 };
 use crate::state::AppState;
 use platform::problem::ProblemDetails;
@@ -181,6 +181,14 @@ pub fn router() -> ApiRouter<AppState> {
         .route(
             RoutePolicy::service().limited("public.invites.read"),
             routes!(public_invites::get_public_invite),
+        )
+        .route(
+            RoutePolicy::service().limited("public.boards.read"),
+            routes!(public_boards::get_public_board),
+        )
+        .route(
+            RoutePolicy::service().limited("public.boards.read"),
+            routes!(public_boards::get_public_board_og),
         )
         .route(
             RoutePolicy::session()

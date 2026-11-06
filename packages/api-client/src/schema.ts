@@ -1143,6 +1143,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/public/boards/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Board snapshot for the public page `/b/<token>`. Auth: svc (web server only). */
+        get: operations["getPublicBoard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/boards/{token}/og": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Fresh signed URL of the board's watermarked OG image. Auth: svc (web server only). */
+        get: operations["getPublicBoardOg"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/public/invites/{token}": {
         parameters: {
             query?: never;
@@ -2076,6 +2110,25 @@ export interface components {
              */
             handle?: string | null;
         };
+        PublicBoardResponse: {
+            board: components["schemas"]["PublicBoardView"];
+            /**
+             * Format: int32
+             * @description Seconds the web server may cache this page (purged on revoke, T-133).
+             */
+            cache_ttl_s: number;
+            /** @description Always `true`: public pages are not indexed (AC-24.5). */
+            noindex: boolean;
+            /** @description In z order. */
+            pins: components["schemas"]["PublicPinView"][];
+        };
+        /** @description Board header of a public page. */
+        PublicBoardView: {
+            /** @description Registry reference of the backdrop, or `null` for the default. */
+            backdrop?: Record<string, never> | null;
+            owner_display_name?: string | null;
+            title: string;
+        };
         /** @description What the invite landing page shows. */
         PublicInviteResponse: {
             inviter: components["schemas"]["InviterView"];
@@ -2097,6 +2150,41 @@ export interface components {
             expires_at?: string | null;
             /** Format: uuid */
             id: string;
+        };
+        /** @description A fresh signed URL of the watermarked OG image (the web server answers 302 to it). */
+        PublicOgResponse: {
+            /** Format: int32 */
+            cache_ttl_s: number;
+            /** Format: date-time */
+            expires_at: string;
+            url: string;
+        };
+        /**
+         * @description One pin of a public page: `card` (the owner's own card, watermarked), `private_tile` (any
+         *     other card: position only) or `decoration`.
+         */
+        PublicPinView: {
+            /** @description `decoration` only: its registry reference. */
+            decoration?: Record<string, never> | null;
+            /** Format: int64 */
+            height?: number | null;
+            /** Format: date-time */
+            image_expires_at?: string | null;
+            /** @description `card` only: signed URL of the watermarked image (10 minutes). */
+            image_url?: string | null;
+            /** @example card */
+            kind: string;
+            /** Format: double */
+            rotation: number;
+            /** Format: double */
+            scale: number;
+            /** Format: int64 */
+            width?: number | null;
+            /** Format: double */
+            x: number;
+            /** Format: double */
+            y: number;
+            z_key: string;
         };
         /** @description Body of `POST /v1/feed/purges`. */
         PurgeCheckRequest: {
@@ -6427,6 +6515,148 @@ export interface operations {
             };
             /** @description RATE_LIMITED. */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    getPublicBoard: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The visitor's IP address as the web server saw it (keys the per-IP limit). */
+                "X-Client-IP": string;
+            };
+            path: {
+                /** @description The token part of a public board link (22 characters). */
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The board as guests see it. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicBoardResponse"];
+                };
+            };
+            /** @description VALIDATION_FAILED (X-Client-IP missing or not an IP address). */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description UNAUTHENTICATED (service credential missing or wrong). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND for every unusable token. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED (per visitor IP). */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description TEMPORARILY_UNAVAILABLE (rate limit store down or media signing not configured). */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    getPublicBoardOg: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The visitor's IP address as the web server saw it (keys the per-IP limit). */
+                "X-Client-IP": string;
+            };
+            path: {
+                /** @description The token part of a public board link (22 characters). */
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Signed OG image URL (10 minutes). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicOgResponse"];
+                };
+            };
+            /** @description VALIDATION_FAILED (X-Client-IP missing or not an IP address). */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description UNAUTHENTICATED (service credential missing or wrong). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND for every unusable token. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED (per visitor IP). */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description TEMPORARILY_UNAVAILABLE (rate limit store down or media signing not configured). */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

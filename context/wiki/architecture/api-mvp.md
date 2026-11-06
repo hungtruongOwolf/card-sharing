@@ -470,6 +470,19 @@ composition of the same pins (rotation is not drawn). The job runs when a link i
 Rebuilds are idempotent (hash of the document; unchanged = no write; a changed one stores a new OG image and deletes the
 old). Tests: `tests/api/public_snapshots.rs`.
 
+Serving (T-131, #133): `routes/public_boards.rs`. `GET /v1/public/boards/{token}` answers `{board: {title, backdrop,
+owner_display_name}, pins: [{kind: card|private_tile|decoration, x, y, scale, rotation, z_key, image_url?,
+image_expires_at?, width?, height?, decoration?}], noindex: true, cache_ttl_s: 60}`; `/og` answers `{url, expires_at,
+cache_ttl_s}` (the web server 302s). A token works only while the link is live, the board is live and still the owner's, the
+owner's account is `active` and the owner is still at or above `public_links.min_age`; every other case (malformed,
+unknown, revoked, expired, board deleted, owner suspended/ineligible, per-link anomaly) is the byte-identical 404. Card pins
+are re-checked on every request (owner's card, `active`; anything else becomes a `private_tile`), so a card held or deleted
+after the last rebuild never shows. Images are signed per link (viewer id = link id, 10 min). If no snapshot exists yet
+(first view before the job ran) it is built synchronously. Limits: `public.boards.read` 60/min per visitor IP (fails
+closed) and `public.boards.token` 600/min per link; going over the per-link limit revokes the link with reason `anomaly`
+(audit actor `system`) and publishes `sharing.link_disabled {link_id, board_id, owner_id}` (owner notification: follow-up).
+The page route counts `view_count`. Tests: `tests/api/public_boards.rs`.
+
 Implemented (#234): `routes/public_invites.rs` → `SocialService::public_invite_preview` (the same resolution as the in-app
 preview, with "expired" folded into `NOT_FOUND`: unknown, malformed, reset, expired, used up, inviter suspended / banned /
 deletion pending / deleted all answer identical bytes). No avatar, handle or id. The token is never logged (spans record the

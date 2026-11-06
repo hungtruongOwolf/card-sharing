@@ -74,8 +74,8 @@ pub struct CreatedLink {
 
 /// Entry point of the sharing module. Cheap to share (`Arc`).
 pub struct SharingService {
-    pool: PgPool,
-    clock: SharedClock,
+    pub(crate) pool: PgPool,
+    pub(crate) clock: SharedClock,
     settings: SharingSettings,
 }
 
