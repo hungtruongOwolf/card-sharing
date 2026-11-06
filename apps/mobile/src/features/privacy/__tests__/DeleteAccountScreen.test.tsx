@@ -41,6 +41,7 @@ async function setup({
           api={createPrivacyApi(client)}
           providers={providers}
           onDeleted={onDeleted}
+          onOpenExport={() => undefined}
           onBack={() => undefined}
         />
       </AuthProvider>

@@ -20,6 +20,7 @@ import {
   useOnboarding,
   type OnboardingPhase,
 } from '../features/onboarding';
+import { deviceExportStore } from '../features/privacy';
 import { useCardsApi } from '../features/sharing';
 import { createWidgetTokenApi, deviceWidgetTokenStore, WidgetTokenSync } from '../features/widget';
 import { ThemeProvider, ToastProvider, useTheme } from '../ui';
@@ -49,6 +50,7 @@ const ROUTES: readonly (readonly [Exclude<OnboardingPhase, 'loading' | 'error'>,
   ['home', 'settings/feedback'],
   ['home', 'settings/notifications'],
   ['home', 'settings/delete-account'],
+  ['home', 'settings/data-export'],
   ['home', 'friends/index'],
   ['home', 'friends/requests'],
   ['home', 'friends/invite'],
@@ -136,7 +138,7 @@ function Onboarding() {
  * Device copies of account data never outlive the session: the offline feed holds friends' names and captions
  * (T-80), the outbox holds this account's unsent cards and reactions (T-78), which must never go out as the
  * next account, the widget token (T-91) must leave the widget empty (AC-16.2), and board copies (T-105) hold
- * friends' cards and names.
+ * friends' cards and names. The remembered data export (T-155) belongs to the account too.
  */
 const clearDeviceData = () => {
   void deviceFeedCache()
@@ -149,6 +151,9 @@ const clearDeviceData = () => {
     .clear()
     .catch(() => undefined);
   void clearDeviceBoards().catch(() => undefined);
+  void deviceExportStore()
+    .clear()
+    .catch(() => undefined);
 };
 
 export default function RootLayout() {

@@ -28,6 +28,8 @@ export interface DeleteAccountScreenProps {
    * device (sign-out also clears the widget, AC-16.2) and tells the user how to cancel.
    */
   onDeleted: (deletion: PendingDeletion) => void | Promise<void>;
+  /** "Download your data first" (US-30). */
+  onOpenExport: () => void;
   onBack: () => void;
 }
 
@@ -40,6 +42,7 @@ export function DeleteAccountScreen({
   api,
   providers,
   onDeleted,
+  onOpenExport,
   onBack,
 }: DeleteAccountScreenProps) {
   const toast = useToast();
@@ -73,6 +76,13 @@ export function DeleteAccountScreen({
           </Text>
         ))}
       </View>
+      <Button
+        block
+        variant="secondary"
+        label={t('deleteAccount.exportFirst')}
+        disabled={remove.isPending}
+        onPress={onOpenExport}
+      />
       <Button
         block
         variant="danger"

@@ -77,6 +77,11 @@ export default function HomeScreen() {
         onPress={() => router.push('/settings/sessions')}
       />
       <Button
+        label={t('dataExport.open')}
+        variant="ghost"
+        onPress={() => router.push('/settings/data-export')}
+      />
+      <Button
         label={t('deleteAccount.open')}
         variant="ghost"
         onPress={() => router.push('/settings/delete-account')}
