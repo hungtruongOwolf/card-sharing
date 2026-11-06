@@ -460,6 +460,13 @@ after a long offline period, and an unknown id is answered exactly like a purged
 never listed). The app checks on start, on foreground, on every feed refresh and at least every 30 s while open, which keeps
 AC-6.1 / AC-14.1 within 60 s; widget refresh pushes on `cards.deleted` / `social.friendship_removed` come with T-86. There is
 still no Redis friend/block cache, so nothing needs invalidating.
+Mobile client (T-83, `apps/mobile/src/features/feed/purges.ts`, `PurgeSync.tsx`, mounted in the root layout while signed
+in): `syncPurges` sends the ids of the offline feed copy plus the feed on screen (`checkPurges`, batches of 100, only asked
+ids kept), deletes the listed ones from the SecureStore copy (`FeedCache.remove`, keeps the copy's age) and from the feed
+query, and re-reads any open full-screen card so it closes with "card removed". It runs on app start, each time the app
+comes to the foreground and every 30 s while it stays there; a failed check changes nothing and waits for the next
+trigger. A feed load already replaces the copy with the server's answer, so it needs no extra call. Widget and board
+copies join the same id list when they exist.
 
 Implemented (T-84, `crates/cards/src/reactions.rs`): `PUT /v1/cards/{id}/reaction {kind}` and `DELETE …/reaction` (limit
 `cards.react` 120/h) for a recipient who may see the card under the read predicate (never the owner) → 204; anyone else the

@@ -8,7 +8,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { createQueryClient } from '../data/queryClient';
 import { AuthProvider, createAppAuthClient, useAuthClient } from '../features/auth';
 import { FeedbackProvider, securePrefsStorage } from '../features/feedback';
-import { deviceFeedCache } from '../features/feed';
+import { deviceFeedCache, PurgeSync } from '../features/feed';
 import { createAppOutbox, deviceOutboxStore, OutboxProvider } from '../features/outbox';
 import {
   createAppOnboardingDeps,
@@ -18,6 +18,7 @@ import {
   useOnboarding,
   type OnboardingPhase,
 } from '../features/onboarding';
+import { useCardsApi } from '../features/sharing';
 import { ThemeProvider, ToastProvider, useTheme } from '../ui';
 
 /**
@@ -57,25 +58,34 @@ const ROUTES: readonly (readonly [Exclude<OnboardingPhase, 'loading' | 'error'>,
  * there is no "back" into a finished step (the DOB screen in particular, AC-2.3). The server enforces the
  * same order; these guards only keep the UI consistent with it.
  */
+/** Purge instructions for cached friends' cards (T-83), checked only while signed in. */
+function CardPurges() {
+  const api = useCardsApi();
+  return <PurgeSync api={api} cache={deviceFeedCache()} />;
+}
+
 function PhaseStack() {
   const theme = useTheme();
   const { phase } = useOnboarding();
   if (phase === 'loading') return <LoadingScreen />;
   if (phase === 'error') return <ErrorScreen />;
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        gestureEnabled: false,
-        contentStyle: { backgroundColor: theme.color.bg.canvas },
-      }}
-    >
-      {ROUTES.map(([routePhase, name]) => (
-        <Stack.Protected key={name} guard={phase === routePhase}>
-          <Stack.Screen name={name} />
-        </Stack.Protected>
-      ))}
-    </Stack>
+    <>
+      {phase === 'home' ? <CardPurges /> : null}
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          gestureEnabled: false,
+          contentStyle: { backgroundColor: theme.color.bg.canvas },
+        }}
+      >
+        {ROUTES.map(([routePhase, name]) => (
+          <Stack.Protected key={name} guard={phase === routePhase}>
+            <Stack.Screen name={name} />
+          </Stack.Protected>
+        ))}
+      </Stack>
+    </>
   );
 }
 

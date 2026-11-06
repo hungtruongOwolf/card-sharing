@@ -154,7 +154,16 @@ export interface CardsApi {
   setReaction(cardId: string, kind: string): Promise<void>;
   /** `DELETE /v1/cards/{id}/reaction`. */
   clearReaction(cardId: string): Promise<void>;
+  /**
+   * `POST /v1/feed/purges {card_ids}` (T-83, SR-9): which of these cached cards must be deleted now (unfriend,
+   * block, deleted card or sender; an unknown id is answered like a purged one). Any number of ids: sent in
+   * batches of {@link PURGE_CHECK_MAX}. Only ids that were asked about are returned.
+   */
+  checkPurges(cardIds: readonly string[]): Promise<string[]>;
 }
+
+/** Most ids one `POST /v1/feed/purges` accepts. */
+export const PURGE_CHECK_MAX = 100;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const STATUSES: readonly CardStatus[] = [
@@ -273,6 +282,13 @@ export function parseCard(value: unknown): CardItem | null {
     hold: v.is_mine ? holdFrom(v.hold) : null,
     myReaction: optionalText(v.my_reaction, MAX_REACTION_LENGTH),
   };
+}
+
+/** Validates `PurgeInstructions`; a malformed body is null (nothing is deleted on a guess). */
+export function parsePurges(body: unknown): string[] | null {
+  const purge = record(body)?.purge;
+  if (!Array.isArray(purge)) return null;
+  return purge.filter((id): id is string => typeof id === 'string' && UUID.test(id));
 }
 
 /** Validates a `FeedPage`; malformed items are dropped, a malformed cursor ends the feed. */
@@ -419,6 +435,22 @@ export function createCardsApi(
         method: 'DELETE',
       });
       if (!response.ok) throw await failure(response);
+    },
+    async checkPurges(cardIds) {
+      const asked = [...new Set(cardIds)].filter((id) => UUID.test(id));
+      const purged: string[] = [];
+      for (let i = 0; i < asked.length; i += PURGE_CHECK_MAX) {
+        const batch = asked.slice(i, i + PURGE_CHECK_MAX);
+        const body: Schemas['PurgeCheckRequest'] = { card_ids: batch };
+        const purge = await read(parsePurges, '/v1/feed/purges', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const inBatch = new Set(batch);
+        purged.push(...purge.filter((id) => inBatch.has(id)));
+      }
+      return purged;
     },
     async getCard(id) {
       return read(

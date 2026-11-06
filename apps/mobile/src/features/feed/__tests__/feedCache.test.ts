@@ -76,4 +76,16 @@ describe('feed cache', () => {
     expect(kv.items.size).toBe(0);
     expect(await cache.load(NOW)).toBeNull();
   });
+
+  it('removes purged cards and keeps the rest with its age (T-83)', async () => {
+    const kv = memoryKeyValueStore();
+    const cache = createFeedCache(kv);
+    await cache.remove([item(1).id]);
+    expect(kv.items.size).toBe(0);
+    await cache.save([item(1), item(2), item(3)], NOW);
+    await cache.remove([item(1).id, item(3).id, item(9).id]);
+    const loaded = await cache.load(NOW + 1000);
+    expect(loaded?.savedAt).toBe(NOW);
+    expect(loaded?.items.map((i) => i.id)).toEqual([item(2).id]);
+  });
 });

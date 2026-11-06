@@ -158,7 +158,8 @@ export class FakeCardsServer extends FakeSocialServer {
     const [path = '', query = ''] = request.path.split('?');
     const key = `${method} ${path}`;
     const override = this.overrides.get(key);
-    const ours = path === '/v1/media' || path === '/v1/feed' || path.startsWith('/v1/cards');
+    const ours =
+      path === '/v1/media' || path.startsWith('/v1/feed') || path.startsWith('/v1/cards');
     if (!ours) return null;
     if (override) {
       this.overrides.delete(key);
@@ -177,6 +178,9 @@ export class FakeCardsServer extends FakeSocialServer {
     if (first === 'cards' && !second && method === 'POST') return this.createRoute(request);
     if (first === 'cards' && second && !third && method === 'GET') return this.readRoute(second);
     if (first === 'feed' && !second && method === 'GET') return this.feedRoute(query);
+    if (first === 'feed' && second === 'purges' && !third && method === 'POST') {
+      return this.purgesRoute(request.body);
+    }
     if (first === 'cards' && second && third === 'reaction' && method === 'PUT') {
       return this.react(second, request.body);
     }
@@ -388,6 +392,23 @@ export class FakeCardsServer extends FakeSocialServer {
     }
     this.reactions.set(id, kind);
     return new Response(null, { status: 204 });
+  }
+
+  /** `POST /v1/feed/purges`: every asked id I may not read (unknown ones included), in request order, deduped. */
+  private purgesRoute(body: unknown): Response {
+    const ids = (body as { card_ids?: unknown } | undefined)?.card_ids;
+    const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!Array.isArray(ids) || ids.length === 0 || ids.length > 100) {
+      return problem(400, 'VALIDATION_FAILED');
+    }
+    if (!ids.every((id) => typeof id === 'string' && uuid.test(id))) {
+      return problem(400, 'VALIDATION_FAILED');
+    }
+    const purge = [...new Set(ids as string[])].filter((id) => {
+      const card = this.cards.get(id);
+      return !card || !this.visible(card);
+    });
+    return json({ purge });
   }
 
   private readRoute(id: string): Response {

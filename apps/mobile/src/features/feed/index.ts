@@ -14,3 +14,5 @@ export {
   CardViewerScreen,
   type CardViewerScreenProps,
 } from './CardViewerScreen';
+export { PURGE_CHECK_INTERVAL_MS, syncPurges, type PurgeSyncDeps } from './purges';
+export { PurgeSync, type PurgeSyncProps } from './PurgeSync';
