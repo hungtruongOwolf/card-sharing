@@ -4,6 +4,11 @@
 //! this is called), a reason and an optional note. One reporter has at most one report per
 //! target: filing again returns the first report (dedupe), so repeating a report never raises the
 //! target's weight in the queue.
+//!
+//! T-143: every new report joins the one live queue item of its target (created on the first
+//! report) with the reporter's reputation weight (`config/moderation.yaml` `reputation`): new
+//! accounts and guests count for little, reporters whose earlier reports were dismissed count for
+//! less, reporters whose reports led to action count for more. No report ever acts on its own.
 
 use platform::clock::SharedClock;
 use sqlx::PgPool;
@@ -97,8 +102,8 @@ pub struct ReportTarget {
 /// Who files the report.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Reporter {
-    /// A signed-in account.
-    User(Uuid),
+    /// A signed-in account and when it was created (new accounts weigh less).
+    User { id: Uuid, since: OffsetDateTime },
     /// A visitor of a public page (T-142): a keyed hash of the client IP, never the IP itself.
     Guest { ip_hash: [u8; 32] },
 }
@@ -125,8 +130,8 @@ macro_rules! insert_report {
         concat!(
             "INSERT INTO moderation.reports
                (id, source, reporter_id, reporter_ip_hash, target_type, target_id, target_owner_id,
-                reason, note, priority, status, created_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'open', $11) ",
+                reason, note, priority, status, created_at, weight)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'open', $11, $12) ",
             $conflict,
             " RETURNING id"
         )
@@ -165,14 +170,17 @@ impl ReportService {
         let now = self.clock.now();
         let id = Uuid::now_v7();
         let (source, reporter_id, ip_hash) = match report.reporter {
-            Reporter::User(account) => ("user", Some(account), None),
+            Reporter::User { id, .. } => ("user", Some(id), None),
             Reporter::Guest { ip_hash } => ("guest", None, Some(ip_hash.to_vec())),
         };
+        let weight = self.weight(report.reporter, now).await?;
+        let priority = self.settings.priority(report.reason);
         // The dedupe indexes are partial (per source), so the conflict target names them.
         let insert = match report.reporter {
-            Reporter::User(_) => INSERT_USER,
+            Reporter::User { .. } => INSERT_USER,
             Reporter::Guest { .. } => INSERT_GUEST,
         };
+        let mut tx = self.pool.begin().await?;
         let inserted: Option<Uuid> = sqlx::query_scalar(insert)
             .bind(id)
             .bind(source)
@@ -183,11 +191,39 @@ impl ReportService {
             .bind(report.target.owner_id)
             .bind(report.reason.as_str())
             .bind(note.as_deref())
-            .bind(self.settings.priority(report.reason))
+            .bind(priority)
             .bind(now)
-            .fetch_optional(&self.pool)
+            .bind(weight)
+            .fetch_optional(&mut *tx)
             .await?;
         if let Some(id) = inserted {
+            let item: Uuid = sqlx::query_scalar(
+                "INSERT INTO moderation.queue_items
+                   (id, target_type, target_id, target_owner_id, priority, weight, report_count, status,
+                    first_reported_at, last_reported_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, 1, 'open', $7, $7)
+                 ON CONFLICT (target_type, target_id) WHERE status IN ('open', 'in_review')
+                 DO UPDATE SET priority = GREATEST(moderation.queue_items.priority, EXCLUDED.priority),
+                               weight = moderation.queue_items.weight + EXCLUDED.weight,
+                               report_count = moderation.queue_items.report_count + 1,
+                               last_reported_at = EXCLUDED.last_reported_at
+                 RETURNING id",
+            )
+            .bind(Uuid::now_v7())
+            .bind(report.target.kind.as_str())
+            .bind(report.target.id)
+            .bind(report.target.owner_id)
+            .bind(priority)
+            .bind(weight)
+            .bind(now)
+            .fetch_one(&mut *tx)
+            .await?;
+            sqlx::query("UPDATE moderation.reports SET queue_item_id = $2 WHERE id = $1")
+                .bind(id)
+                .bind(item)
+                .execute(&mut *tx)
+                .await?;
+            tx.commit().await?;
             tracing::info!(
                 event = "moderation.report_filed",
                 report_id = %id,
@@ -202,8 +238,9 @@ impl ReportService {
                 created_at: now,
             });
         }
+        tx.rollback().await?;
         let existing: (Uuid, OffsetDateTime) = match report.reporter {
-            Reporter::User(account) => {
+            Reporter::User { id: account, .. } => {
                 sqlx::query_as(
                     "SELECT id, created_at FROM moderation.reports
                      WHERE source = 'user' AND reporter_id = $1 AND target_type = $2 AND target_id = $3",
@@ -232,6 +269,29 @@ impl ReportService {
             duplicate: true,
             created_at: existing.1,
         })
+    }
+
+    /// The reputation weight of a new report by `reporter` (see the module docs).
+    async fn weight(
+        &self,
+        reporter: Reporter,
+        now: OffsetDateTime,
+    ) -> Result<f32, ModerationError> {
+        let Reporter::User { id, since } = reporter else {
+            return Ok(self.settings.reputation.guest_weight);
+        };
+        let (actioned, dismissed): (i64, i64) = sqlx::query_as(
+            "SELECT count(*) FILTER (WHERE status = 'actioned'),
+                    count(*) FILTER (WHERE status = 'dismissed')
+             FROM moderation.reports WHERE reporter_id = $1",
+        )
+        .bind(id)
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(self
+            .settings
+            .reputation
+            .weight(now - since, actioned, dismissed))
     }
 }
 

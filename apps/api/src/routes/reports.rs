@@ -145,7 +145,10 @@ pub async fn create_report(
     let filed = state
         .reports
         .file(&NewReport {
-            reporter: Reporter::User(reporter),
+            reporter: Reporter::User {
+                id: reporter,
+                since: caller.0.account_created_at,
+            },
             target,
             reason: body.reason.into(),
             note: body.note,

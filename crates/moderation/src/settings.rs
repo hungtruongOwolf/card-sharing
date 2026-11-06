@@ -1,5 +1,5 @@
 //! Moderation rules from `config/moderation.yaml` (config over code): the queue priority of each
-//! report reason.
+//! report reason and the reporter reputation weights (T-143).
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -25,10 +25,50 @@ pub enum SettingsError {
     Invalid(String),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ModerationSettings {
     /// Queue priority per reason (higher first). Every reason has one.
     priorities: BTreeMap<&'static str, i16>,
+    pub reputation: Reputation,
+}
+
+/// How much one report adds to its queue item's weight.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Reputation {
+    /// Accounts younger than this many days weigh `new_account_factor`.
+    pub new_account_days: i64,
+    pub new_account_factor: f32,
+    /// A guest report (public page, captcha) weighs this.
+    pub guest_weight: f32,
+    /// Upper bound of one report's weight.
+    pub max_weight: f32,
+}
+
+impl Reputation {
+    /// `age_factor * (1 + actioned) / (1 + dismissed)`, capped at `max_weight`: a reporter whose
+    /// reports were dismissed counts for less, one whose reports led to action counts for more.
+    pub fn weight(&self, account_age: time::Duration, actioned: i64, dismissed: i64) -> f32 {
+        let age_factor = if account_age < time::Duration::days(self.new_account_days) {
+            self.new_account_factor
+        } else {
+            1.0
+        };
+        // Report counts stay small; the conversion only loses precision past 2^24 reports.
+        #[allow(clippy::cast_precision_loss)]
+        let ratio = (1 + actioned.max(0)) as f32 / (1 + dismissed.max(0)) as f32;
+        (age_factor * ratio).min(self.max_weight)
+    }
+}
+
+impl Default for Reputation {
+    fn default() -> Self {
+        Self {
+            new_account_days: 7,
+            new_account_factor: 0.25,
+            guest_weight: 0.1,
+            max_weight: 3.0,
+        }
+    }
 }
 
 impl Default for ModerationSettings {
@@ -48,7 +88,10 @@ impl Default for ModerationSettings {
                 (reason.as_str(), priority)
             })
             .collect();
-        Self { priorities }
+        Self {
+            priorities,
+            reputation: Reputation::default(),
+        }
     }
 }
 
@@ -57,6 +100,16 @@ impl Default for ModerationSettings {
 struct RawConfig {
     version: u32,
     reports: RawReports,
+    reputation: RawReputation,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawReputation {
+    new_account_days: i64,
+    new_account_factor: f32,
+    guest_weight: f32,
+    max_weight: f32,
 }
 
 #[derive(Deserialize)]
@@ -91,7 +144,27 @@ impl ModerationSettings {
                 missing.as_str()
             )));
         }
-        Ok(Self { priorities })
+        let r = raw.reputation;
+        let fraction = |v: f32| v.is_finite() && (0.0..=1.0).contains(&v);
+        if !(0..=365).contains(&r.new_account_days)
+            || !fraction(r.new_account_factor)
+            || !fraction(r.guest_weight)
+            || !(r.max_weight.is_finite() && (1.0..=100.0).contains(&r.max_weight))
+        {
+            return Err(SettingsError::Invalid(
+                "reputation: new_account_days 0..=365, factors 0..=1, max_weight 1..=100"
+                    .to_owned(),
+            ));
+        }
+        Ok(Self {
+            priorities,
+            reputation: Reputation {
+                new_account_days: r.new_account_days,
+                new_account_factor: r.new_account_factor,
+                guest_weight: r.guest_weight,
+                max_weight: r.max_weight,
+            },
+        })
     }
 
     pub fn from_path(path: &Path) -> Result<Self, SettingsError> {
@@ -131,8 +204,19 @@ mod tests {
     }
 
     #[test]
+    fn reputation_weights_new_accounts_and_history() {
+        let r = Reputation::default();
+        let week = time::Duration::days(7);
+        assert!((r.weight(week, 0, 0) - 1.0).abs() < f32::EPSILON);
+        assert!((r.weight(time::Duration::days(1), 0, 0) - 0.25).abs() < f32::EPSILON);
+        assert!((r.weight(week, 0, 3) - 0.25).abs() < f32::EPSILON);
+        assert!((r.weight(week, 1, 0) - 2.0).abs() < f32::EPSILON);
+        assert!((r.weight(week, 50, 0) - 3.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
     fn every_reason_needs_a_priority() {
-        let missing = "version: 1\nreports:\n  priorities:\n    spam: 1\n";
+        let missing = "version: 1\nreports:\n  priorities:\n    spam: 1\nreputation:\n  new_account_days: 7\n  new_account_factor: 0.25\n  guest_weight: 0.1\n  max_weight: 3\n";
         assert!(ModerationSettings::from_yaml_str(missing).is_err());
         let unknown = COMMITTED.replace("spam:", "spamm:");
         assert!(ModerationSettings::from_yaml_str(&unknown).is_err());

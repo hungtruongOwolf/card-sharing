@@ -617,6 +617,15 @@ unusable → one 404) → report stored with `source = guest` and `reporter_ip_h
 under a key derived from `API_DATA_ENCRYPTION_KEY`, label `moderation.guest_report_ip`), never the IP; one report per IP hash and
 link. Tests: `tests/api/public_reports.rs`.
 
+Queue (T-143, #145): every new (non-duplicate) report joins the one **live queue item** of its target
+(`moderation.queue_items`, unique per target while `open`/`in_review`; created by the first report, in the same transaction).
+The item keeps `report_count`, `priority` = the highest reason priority among its reports, and `weight` = the sum of the
+reporters' reputation weights (`config/moderation.yaml` `reputation`): `age_factor × (1 + reporter's actioned reports) / (1 +
+reporter's dismissed reports)`, capped at `max_weight` 3; accounts younger than 7 days have `age_factor` 0.25, guests weigh 0.1.
+Review order (`ModerationQueue::live`): priority, then weight, then oldest. 50 reports from new accounts are one item (weight
+12.5) and nothing happens to the target until a moderator acts; a decided item stays as history and a later report opens a new
+one. Tests: `tests/api/report_queue.rs`.
+
 Implemented (T-151, #153): `routes/deletion.rs` → `crates/privacy` (`DeletionService`). `POST /v1/me/deletion` (`re`: bearer +
 `X-Reauth`, else 401 `REAUTH_REQUIRED`; `privacy.deletion.request` 3/day) answers 202 `{deletion: {status: "pending",
 requested_at, grace_until}}`: in one transaction the account turns `deletion_pending` (audit `privacy.deletion_requested`) and

@@ -25,6 +25,10 @@ pub const EXEMPT_TABLES: &[(&str, &str)] = &[
         "legal retention of known-CSAM evidence (content-safety.md); never erased on request",
     ),
     (
+        "moderation.queue_items",
+        "moderation queue (ids of reported targets and counts only), kept for the moderation retention period",
+    ),
+    (
         "privacy.deletion_requests",
         "deletion tombstone (account id and dates only), kept to replay erasures after a restore",
     ),
