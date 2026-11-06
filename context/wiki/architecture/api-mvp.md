@@ -547,6 +547,10 @@ response headers from data, so the HTML carries no `Cache-Tag` (revoke reaches c
 meets AC-24.4; follow-up for a tag the proxy can compute); a cached "could not open" page can stay up to 60 s; a shared
 cache reuses one CSP nonce for up to 60 s (no injection point exists: React escaping, numbers-only stylesheet). Tests:
 `public-board.test.ts`, `csp.test.ts`, `headers.test.ts`.
+Enlarge (T-135, US-25): each visible card is a server-rendered button (`data-card`, "Enlarge card N of M"); one client
+component (`features/public-board/CardEnlarge.tsx`, a delegated click handler on the stage) opens a native modal `<dialog>`
+with the same baked, watermarked still, labelled by its heading; Escape, backdrop click or Close shut it and focus returns
+to the card. No CanvasKit or live holo on the page (#179 removes CanvasKit from `apps/web`). Tests: `enlarge.test.ts`.
 
 US-23 (export) is on-device; the server only supplies the owner's own media via `GET /v1/cards/{id}` / `/v1/me/cards`.
 US-7, US-8, US-10, US-11, US-21 are on-device by design (AC-7.5: nothing uploaded before send); their server touchpoints are the

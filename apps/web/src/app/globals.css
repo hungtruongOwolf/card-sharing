@@ -200,12 +200,73 @@ body {
   display: block;
 }
 
-.pin-card {
-  object-fit: contain;
-}
-
 .pin-private {
   border-radius: 14px;
   background: var(--color-background);
   border: 1px dashed var(--color-text-secondary);
+}
+
+/* Enlarge a card on the public board page (T-135): the baked still in a modal dialog. */
+button.pin-card {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+}
+
+button.pin-card img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+button.pin-card:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+  border-radius: 14px;
+}
+
+.enlarge-dialog {
+  border: 0;
+  border-radius: var(--radius-card);
+  padding: 1.5rem;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  text-align: center;
+}
+
+.enlarge-dialog::backdrop {
+  background: rgb(0 0 0 / 70%);
+}
+
+.enlarge-title {
+  margin: 0 0 1rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.enlarge-image {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: min(80vw, 420px);
+  max-height: 70dvh;
+  margin: 0 auto 1rem;
+  border-radius: 14px;
+}
+
+.enlarge-close {
+  padding: 0.5rem 1.25rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.enlarge-close:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
 }
