@@ -140,8 +140,8 @@ const clamp01 = (value: number, margin = 0) => Math.min(1 - margin, Math.max(mar
 
 /**
  * Auto-placement when an effect is added: a fresh `seed`, and for anchored entries the tail (`tailX`/`tailY`) or
- * the effect itself (`x`/`y`) on the anchor; a bubble with a tail sits beside and above it. The user can drag
- * everything afterwards.
+ * the effect itself (`x`/`y`) on the anchor; a bubble with a tail sits beside and above it. A prop's `size` follows
+ * the head width (its default fits the default head). The user can drag and resize everything afterwards.
  */
 export function placeEffect(
   entry: EffectEntry,
@@ -166,6 +166,11 @@ export function placeEffect(
   } else if (placeable) {
     params.x = clamp01(point.x);
     params.y = clamp01(point.y);
+  }
+  const size = entry.params.size;
+  if (entry.kind === 'prop' && size?.type === 'number') {
+    const scaled = (size.default * anchors.headWidth) / DEFAULT_ANCHORS.headWidth;
+    params.size = Math.min(size.max, Math.max(size.min, scaled));
   }
   return params;
 }

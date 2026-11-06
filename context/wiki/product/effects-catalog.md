@@ -73,7 +73,7 @@ each `{id, version, params?}`; the id must exist at exactly the exported version
 strict rules as `resolveParams` and missing ones are stored with their defaults. Any violation → 422 `UNKNOWN_REGISTRY_ID` with no
 detail. Shipped entries so far: `cut.none`, `cut.raw`, `cut.diecut`, `cut.torn`, `cut.shape.rounded-square`,
 `cut.shape.circle`, `cut.shape.heart`, `fx.matte`, `fx.glossy`, `fx.holo`, `fx.paper-lift`, `frame.polaroid`,
-`overlay.washi`, `overlay.speech`, `fx.sparkles`; the other MVP
+`overlay.washi`, `overlay.speech`, `fx.sparkles`, `prop.crown`, `prop.party-hat`, `prop.sunglasses`, `prop.mustache`; the other MVP
 entries land with their tickets.
 
 **Cut style rendering (T-62, `apps/mobile/src/features/cut-styles`):** `drawCutStyle(canvas, entry, params, scene)` draws
@@ -173,6 +173,14 @@ white), hearts (pink, upright within ±20°), confetti (tape-like palette). `siz
 Each particle has a twinkle phase; `time` drives a seamless 2 s loop (`export.loop`), but the editor, bakes and reduced
 motion draw time 0, and `cost.liveAllowed` is false: no per-frame cost until a device measurement shows the live
 twinkle holds 30 fps on a low-end phone (the still is the low-end / reduced-motion variant).
+
+**Crown and props (T-123, `entries/props.ts`, `renderers/props.ts`):** four `prop.*` entries (`anchoredAsset`, refs
+`prop:<slug>`) drawn as Skia vectors in a unit box (no bitmap art, so no licence question): `prop.crown` and
+`prop.party-hat` (anchor `top`, stand on the anchor point, conflict with each other: one hat per head),
+`prop.sunglasses` (anchor `eyes`, centred) and `prop.mustache` (anchor `mouth`, centred). Params `size` (width as a
+share of the card, 0.08–1), `angle` (−45..45) and hidden `x`/`y`. Each requires `faceLandmarks` with fallback
+`userPoints`, so today they are placed by the mask heuristic and dragged by hand; auto-placement scales `size` to the
+head (`default × headWidth / 0.4`). Not stackable (one of each).
 
 Rules: adding an effect = add entry + shader/asset + tests (golden snapshot); removing = remove entry **and** migrate stored
 references (fallback to `fx.none`) + update this page ([[change-management]]). Device-capability routing hides entries whose

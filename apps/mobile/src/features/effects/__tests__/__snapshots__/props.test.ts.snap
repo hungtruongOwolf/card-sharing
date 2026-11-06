@@ -1,0 +1,91 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`golden signatures on the dark canvas matches for every prop 1`] = `
+{
+  "prop.crown": [
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 292323ff 3366ccff 3366ccff 3366ccff 3366ccff 1a1a1aff 3366ccff",
+    "3366ccff 2a4a8bff 3366ccff f2b705ff f2b705ff 263f70ff 3366ccff 3366ccff",
+    "3366ccff 2a4a8bff d99a00ff d99a00ff d99a00ff d99a00ff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+  ],
+  "prop.mustache": [
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3b2a20ff 3b2a20ff 3b2a20ff 3b2a20ff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+  ],
+  "prop.party-hat": [
+    "3366ccff 3366ccff 3366ccff 7fb7e6ff 75a8d3ff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff f7a1c4ff 7fb7e6ff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 1a1a1aff f7a1c4ff f7a1c4ff 2c5098ff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 7fb7e6ff 7fb7e6ff 7fb7e6ff f7a1c4ff 3366ccff 3366ccff",
+    "3366ccff 3366ccff f7a1c4ff 7fb7e6ff 7fb7e6ff 7fb7e6ff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+  ],
+  "prop.sunglasses": [
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 1a1a1aff 1a1a1aff 1a1a1aff 1a1a1aff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 1a1a1aff 3366ccff 3366ccff 1a1a1aff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+  ],
+}
+`;
+
+exports[`golden signatures on the light canvas matches for every prop 1`] = `
+{
+  "prop.crown": [
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 292323ff 3366ccff 3366ccff 3366ccff 3366ccff 1a1a1aff 3366ccff",
+    "3366ccff 2a4a8bff 3366ccff f2b705ff f2b705ff 263f70ff 3366ccff 3366ccff",
+    "3366ccff 2a4a8bff d99a00ff d99a00ff d99a00ff d99a00ff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+  ],
+  "prop.mustache": [
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3b2a20ff 3b2a20ff 3b2a20ff 3b2a20ff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+  ],
+  "prop.party-hat": [
+    "3366ccff 3366ccff 3366ccff 7fb7e6ff 75a8d3ff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff f7a1c4ff 7fb7e6ff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 1a1a1aff f7a1c4ff f7a1c4ff 2c5098ff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 7fb7e6ff 7fb7e6ff 7fb7e6ff f7a1c4ff 3366ccff 3366ccff",
+    "3366ccff 3366ccff f7a1c4ff 7fb7e6ff 7fb7e6ff 7fb7e6ff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+  ],
+  "prop.sunglasses": [
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 1a1a1aff 1a1a1aff 1a1a1aff 1a1a1aff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 1a1a1aff 3366ccff 3366ccff 1a1a1aff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+  ],
+}
+`;
