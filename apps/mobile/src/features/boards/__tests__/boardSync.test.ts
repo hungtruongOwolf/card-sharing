@@ -1,3 +1,4 @@
+import { problem } from '../../../test/fakeAuthServer';
 import { FakeBoardsServer } from '../../../test/fakeBoardsServer';
 import { ME } from '../../../test/fakeSocialServer';
 import { memoryStore } from '../../../test/onboardingHarness';
@@ -322,6 +323,84 @@ describe('synced board repository', () => {
     await repo.sync(board.id);
     expect(server.boards.get(board.id)!.pins.get(pin.id)!.removed).toBe(true);
     expect((await repo.get(board.id))!.pins).toEqual([]);
+  });
+});
+
+describe('backdrop sync (#298)', () => {
+  const GRID = { id: 'backdrop.grid', version: 1, params: {} };
+
+  async function syncedBoard() {
+    const ctx = setup();
+    const board = await ctx.repo.create('Trip');
+    await ctx.repo.sync(board.id);
+    return { ...ctx, id: board.id };
+  }
+
+  it('sends a later backdrop change with the board version and keeps it offline until then', async () => {
+    const { server, repo, store, id } = await syncedBoard();
+    server.offline = true;
+    await repo.setBackdrop(id, GRID);
+    expect((await repo.get(id))!.backdrop).toEqual(GRID);
+    expect(repo.pendingCount(id)).toBe(1);
+    expect((await store.load(id))!.pendingBackdrop).toEqual({ backdrop: GRID });
+    expect(await repo.sync(id)).toEqual({ kind: 'offline', pending: 1 });
+
+    server.offline = false;
+    expect(await repo.sync(id)).toEqual({ kind: 'synced', conflicts: 0, rejected: [] });
+    const patch = server.requests.find((r) => r.method === 'PATCH');
+    expect(patch?.body).toEqual({ base_version: 0, backdrop: GRID });
+    expect(server.boards.get(id)!.backdrop).toEqual(GRID);
+    expect(repo.pendingCount(id)).toBe(0);
+    expect((await repo.get(id))!).toMatchObject({ backdrop: GRID, version: 1 });
+  });
+
+  it('sends the version after my pin edits, and null resets to the default', async () => {
+    const { server, repo, id } = await syncedBoard();
+    const board = (await repo.get(id))!;
+    await repo.apply(id, [decoration(board)]);
+    await repo.setBackdrop(id, null);
+    await repo.sync(id);
+    const patch = server.requests.find((r) => r.method === 'PATCH');
+    expect(patch?.body).toEqual({ base_version: 1, backdrop: null });
+    expect(server.boards.get(id)!.version).toBe(2);
+  });
+
+  it('takes the server backdrop on a version conflict', async () => {
+    const { server, repo, id } = await syncedBoard();
+    await repo.setBackdrop(id, GRID);
+    server.overrides.set(`PATCH /v1/boards/${id}`, problem(409, 'BOARD_VERSION_CONFLICT'));
+    server.boards.get(id)!.backdrop = { id: 'backdrop.dots', version: 1, params: {} };
+    expect(await repo.sync(id)).toEqual({ kind: 'synced', conflicts: 1, rejected: [] });
+    expect((await repo.get(id))!.backdrop).toMatchObject({ id: 'backdrop.dots' });
+    expect(repo.pendingCount(id)).toBe(0);
+  });
+
+  it('drops a backdrop the server refuses and never patches a board I do not own', async () => {
+    const { server, repo, id } = await syncedBoard();
+    await repo.setBackdrop(id, { id: 'deco.star', version: 1, params: {} });
+    await repo.sync(id);
+    expect((await repo.get(id))!.backdrop).toBeNull();
+    expect(repo.pendingCount(id)).toBe(0);
+
+    server.addBoard(SHARED, OTHER, [ME]);
+    await repo.refreshList();
+    await repo.sync(SHARED);
+    await repo.setBackdrop(SHARED, GRID);
+    const before = server.count('PATCH', `/v1/boards/${SHARED}`);
+    expect(await repo.sync(SHARED)).toMatchObject({ kind: 'synced' });
+    expect(server.count('PATCH', `/v1/boards/${SHARED}`)).toBe(before);
+    expect((await repo.get(SHARED))!.backdrop).toBeNull();
+  });
+
+  it('a board made offline still sends its backdrop with the create', async () => {
+    const { server, repo } = setup();
+    server.offline = true;
+    const board = await repo.create('Trip');
+    await repo.setBackdrop(board.id, GRID);
+    server.offline = false;
+    await repo.sync(board.id);
+    expect(server.count('PATCH', `/v1/boards/${board.id}`)).toBe(0);
+    expect(server.boards.get(board.id)!.backdrop).toEqual(GRID);
   });
 });
 

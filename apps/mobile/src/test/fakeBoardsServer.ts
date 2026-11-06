@@ -202,7 +202,28 @@ export class FakeBoardsServer {
       return json({ board: this.view(board), pins, full });
     }
     if (match[2] && request.method === 'POST') return this.ops(board, request.body);
+    if (!match[2] && request.method === 'PATCH') return this.update(board, request.body);
     return null;
+  }
+
+  /** `PATCH /v1/boards/{id}` (T-112): owner only (else 404), at `base_version` (else 409), bumps the version. */
+  private update(board: FakeBoard, body: unknown): Response {
+    if (board.owner !== ME) return notFound();
+    const b = (body ?? {}) as { base_version?: unknown; backdrop?: unknown; title?: unknown };
+    if (typeof b.base_version !== 'number' || (!('backdrop' in b) && !('title' in b))) {
+      return problem(400, 'VALIDATION_FAILED');
+    }
+    if (b.base_version !== board.version) return problem(409, 'BOARD_VERSION_CONFLICT');
+    if ('backdrop' in b) {
+      const id = (b.backdrop as { id?: unknown } | null)?.id;
+      if (b.backdrop !== null && (typeof id !== 'string' || !id.startsWith('backdrop.'))) {
+        return problem(422, 'UNKNOWN_REGISTRY_ID');
+      }
+      board.backdrop = b.backdrop;
+    }
+    if (typeof b.title === 'string') board.title = b.title;
+    board.version += 1;
+    return json({ board: this.view(board) });
   }
 
   private membership(request: RecordedRequest, path: string): Response | null {

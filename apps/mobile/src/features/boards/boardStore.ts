@@ -18,6 +18,12 @@ export interface LocalBoard {
   readonly pins: readonly BoardPin[];
   /** My edits in order, not yet accepted or refused. */
   readonly pending: readonly PinOp[];
+  /**
+   * A backdrop change of a board the server already has, not yet accepted (`PATCH /v1/boards/{id}`, #298). Absent:
+   * nothing waiting; `{ backdrop: null }`: back to the default. A board not created yet sends its backdrop with
+   * `POST /v1/boards` instead.
+   */
+  readonly pendingBackdrop?: { readonly backdrop: BoardMeta['backdrop'] };
 }
 
 export interface BoardStore {

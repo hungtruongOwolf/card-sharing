@@ -59,7 +59,9 @@ is not used as the cursor, so other members' changes in between are never skippe
 layout, `conflict` replaces only that pin with `current`, `rejected` drops only that edit and is explained (`PIN_NOT_YOURS`,
 `PIN_LIMIT_REACHED`, `NOT_FOUND`, `CARD_HELD_FOR_REVIEW`). A 404 on the board (removed, deleted) drops the local copy and its queue
 and says "You're no longer on this board". The offline copy (`boardStore.ts`, SecureStore, chunked) never holds signed URLs and
-is cleared on sign-out. Backdrop changes on an existing board stay local until `PATCH /v1/boards/{id}` exists (T-112).
+is cleared on sign-out. A backdrop change on a board the server already has is queued
+(`pendingBackdrop`) and sent after the pull as `PATCH /v1/boards/{id}` with the version just read; a 409 conflict or a
+refusal drops it and keeps the server's backdrop (#298). A board made offline sends its backdrop with `POST /v1/boards`.
 
 Shared boards in the app (T-108): pins carry `mine` from the read; `canEditPin` mirrors the server rule (a collaborator changes
 only pins they created, the owner any pin) and private tiles are never tappable and get no accessibility actions (AC-19.7). The
