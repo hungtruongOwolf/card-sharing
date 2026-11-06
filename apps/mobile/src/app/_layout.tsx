@@ -8,6 +8,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { createQueryClient } from '../data/queryClient';
 import { AuthProvider, createAppAuthClient, useAuthClient } from '../features/auth';
 import { FeedbackProvider, securePrefsStorage } from '../features/feedback';
+import { clearDeviceBoards } from '../features/boards';
 import { deviceFeedCache, PurgeSync } from '../features/feed';
 import { TimeZoneSync, useNotificationsApi } from '../features/notifications';
 import { createAppOutbox, deviceOutboxStore, OutboxProvider } from '../features/outbox';
@@ -131,7 +132,8 @@ function Onboarding() {
 /**
  * Device copies of account data never outlive the session: the offline feed holds friends' names and captions
  * (T-80), the outbox holds this account's unsent cards and reactions (T-78), which must never go out as the
- * next account, and the widget token (T-91) must leave the widget empty (AC-16.2).
+ * next account, the widget token (T-91) must leave the widget empty (AC-16.2), and board copies (T-105) hold
+ * friends' cards and names.
  */
 const clearDeviceData = () => {
   void deviceFeedCache()
@@ -143,6 +145,7 @@ const clearDeviceData = () => {
   void deviceWidgetTokenStore()
     .clear()
     .catch(() => undefined);
+  void clearDeviceBoards().catch(() => undefined);
 };
 
 export default function RootLayout() {

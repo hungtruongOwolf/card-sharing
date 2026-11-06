@@ -36,9 +36,11 @@ import {
 import { hasBoardRenderer } from './boardDecor';
 import type { BoardRepository } from './boardRepository';
 import type { TextureCache } from './textureCache';
+import { boardQueryKey, useBoardSync } from './useBoardSync';
 import { uuidv7 } from './uuidv7';
 
-export const boardQueryKey = (id: string) => ['boards', id] as const;
+export { boardQueryKey };
+
 const PINNABLE_QUERY_KEY = ['boards', 'pinnable'] as const;
 
 /** Space around the pins when the board opens zoomed to fit. */
@@ -77,14 +79,40 @@ export function BoardScreen({ repository, boardId, onClose, ...rest }: BoardScre
     queryKey: boardQueryKey(boardId),
     queryFn: () => repository.get(boardId),
   });
-  const board = query.data;
+  const sync = useBoardSync(repository, boardId);
+  const board = sync.status === 'removed' ? null : query.data;
   return (
     <Screen title={board?.title ?? t('boards.title')} scroll={false} edges={['top']} testID="board">
-      <Button label={t('common.close')} variant="secondary" onPress={onClose} />
+      <View style={styles.toolbar}>
+        <Button label={t('common.close')} variant="secondary" onPress={onClose} />
+        {repository.sync && board ? (
+          <Button
+            label={t('boards.refresh')}
+            variant="ghost"
+            loading={sync.status === 'syncing'}
+            onPress={() => void sync.sync()}
+          />
+        ) : null}
+      </View>
       {query.isPending ? <Text tone="muted">{t('boards.loading')}</Text> : null}
-      {query.isError || board === null ? <Text tone="danger">{t('boards.notFound')}</Text> : null}
+      {sync.status === 'removed' ? (
+        <Text tone="danger">{t('boards.sync.removed')}</Text>
+      ) : query.isError || board === null ? (
+        <Text tone="danger">{t('boards.notFound')}</Text>
+      ) : null}
+      {board && sync.status === 'offline' ? (
+        <Text tone="muted" accessibilityLiveRegion="polite">
+          {t('boards.sync.offline', { count: sync.pending })}
+        </Text>
+      ) : null}
       {board ? (
-        <BoardEditor key={board.id} board={board} repository={repository} {...rest} />
+        <BoardEditor
+          key={board.id}
+          board={board}
+          repository={repository}
+          onEdited={sync.schedule}
+          {...rest}
+        />
       ) : null}
     </Screen>
   );
@@ -92,6 +120,8 @@ export function BoardScreen({ repository, boardId, onClose, ...rest }: BoardScre
 
 interface BoardEditorProps extends Omit<BoardScreenProps, 'boardId' | 'onClose'> {
   board: Board;
+  /** My edits were queued: sync soon. */
+  onEdited: () => void;
 }
 
 function BoardEditor({
@@ -101,6 +131,7 @@ function BoardEditor({
   pinnableCards,
   registry,
   remoteConfig,
+  onEdited,
 }: BoardEditorProps) {
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -129,9 +160,10 @@ function BoardEditor({
       queryClient.setQueryData(key, applyOps(current, real));
       void repository.apply(board.id, real).then((next) => {
         if (next) queryClient.setQueryData(key, next);
+        onEdited();
       });
     },
-    [board, queryClient, repository],
+    [board, queryClient, repository, onEdited],
   );
 
   const pinById = (id: string): BoardPin | undefined => board.pins.find((p) => p.id === id);
@@ -195,6 +227,7 @@ function BoardEditor({
     queryClient.setQueryData(key, { ...board, backdrop });
     void repository.setBackdrop(board.id, backdrop).then((next) => {
       if (next) queryClient.setQueryData(key, next);
+      onEdited();
     });
   };
 

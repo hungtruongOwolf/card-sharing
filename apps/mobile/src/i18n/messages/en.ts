@@ -683,6 +683,17 @@ export const en = {
   'boards.backdrop.option': '{name}',
   'boards.decorate.open': 'Decorate',
   'boards.decorate.title': 'Add a decoration',
+  'boards.refresh': 'Refresh',
+  'boards.sync.offline':
+    '{count, plural, =0 {Offline. Changes will sync when you’re back online.} one {Offline. # change will sync when you’re back online.} other {Offline. # changes will sync when you’re back online.}}',
+  'boards.sync.removed': 'You’re no longer on this board.',
+  'boards.sync.conflict': 'Someone moved a pin at the same time. It now shows their version.',
+  'boards.sync.rejected.notYours': 'You can only change pins you added.',
+  'boards.sync.rejected.limit': 'This board is full. A pin couldn’t be added.',
+  'boards.sync.rejected.held': 'That card is still being reviewed, so it can’t be pinned yet.',
+  'boards.sync.rejected.notFound': 'That card can’t be pinned anymore.',
+  'boards.sync.rejected.other': 'A change couldn’t be saved.',
+  'boards.error.limit': 'You have the most boards allowed. Delete one to start another.',
 } as const;
 
 export type MessageKey = keyof typeof en;

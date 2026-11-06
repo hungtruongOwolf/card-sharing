@@ -1,4 +1,9 @@
-export { appBoardRepository, appBoardTextures } from './appBoards';
+export {
+  appBoardRepository,
+  appBoardTextures,
+  clearDeviceBoards,
+  useBoardRepository,
+} from './appBoards';
 export { BoardCanvas, type BoardCanvasProps } from './BoardCanvas';
 export { BoardLabScreen } from './BoardLabScreen';
 export type { Board, BoardPin, PinContent } from './boardModel';
