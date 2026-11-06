@@ -264,6 +264,11 @@ async fn the_token_and_the_email_never_reach_the_logs() {
     let response = send(&router(&env), start(&email, &ip())).await;
     assert_eq!(response.status(), StatusCode::ACCEPTED);
     let (id, _, _) = links(&env, &email).await.remove(0);
+    // #330: this test registers the first scoped subscriber of the test binary. A callsite that
+    // another test thread registers at that very moment can still store the interest it computed
+    // before our subscriber existed ("never"), and the event below is then skipped. Recompute the
+    // cached interest now that every concurrent registration has finished.
+    tracing::callsite::rebuild_interest_cache();
     let mailer = RecordingMailer::default();
     env.identity
         .deliver_magic_link(
