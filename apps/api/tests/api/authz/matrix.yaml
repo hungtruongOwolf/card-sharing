@@ -220,3 +220,10 @@ routes:
   - route: GET /v1/media-files/{key}
     path: /v1/media-files/0123456789abcdef0123456789abcdef
     expect: { guest: 403, onboarding_age: 403, onboarding_profile: 403, user: 403, suspended: 403 }
+
+  # Send a card (T-75). The matrix body has no media, so allowed callers get 400; ownership (404),
+  # silent recipient drops, replay and the daily cap are in tests/api/cards_send.rs.
+  - route: POST /v1/cards
+    body: { audience: { mode: all } }
+    idempotency_key: true
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 400, suspended: 403 }

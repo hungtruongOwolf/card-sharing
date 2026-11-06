@@ -181,7 +181,13 @@ link id; it is deleted and purged on revoke, but copies already fetched by socia
 |---|---|---|---|---|
 | `cards` | `id`; `owner_id FK CASCADE`; `client_card_id UUID` (outbox idempotency); `status CHECK (pending_scan, held_review, active, blocked, deleted)` (`held_review` = nudity classifier flag, AC-28.3: never delivered unless a moderator releases it); `render_media_id`, `mask_media_id UUID`; `original_media_id UUID NULL` (keep-original only); `style JSONB` (`{cut, finish, effects[]}` registry refs + params); `caption TEXT NULL CHECK len ≤ 80`; `alt_text TEXT NULL`; `audience_mode CHECK (all, subset)`; `schema_version SMALLINT`; `sent_at`; `deleted_at` | `UNIQUE(owner_id, client_card_id)`; `(owner_id, created_at DESC)` | P (caption) | Row soft-deleted → hard delete after 30 d |
 | `card_recipients` | `card_id` (FK cards CASCADE), `recipient_id FK accounts CASCADE`, PK both; `sender_id UUID` (denormalized for feed filter); `delivered_at NULL` (set after scan); `hidden_at NULL` | `(recipient_id, delivered_at DESC, card_id) WHERE delivered_at IS NOT NULL AND hidden_at IS NULL` | I | With card |
-| `reactions` | `card_id`, `reactor_id`, PK both; `kind TEXT` (registry id, e.g. `react.heart`, `react.squish`); `updated_at` | `(card_id)` | I | With card |
+| `reactions` (T-84) | `card_id`, `reactor_id`, PK both; `kind TEXT` (registry id, e.g. `react.heart`, `react.squish`); `updated_at` | `(card_id)` | I | With card |
+
+Implemented (T-75, `migrations/*_cards.sql`): `cards` with status `CHECK (pending_scan, held_review, active, blocked, failed,
+deleted)` (`failed` = a media object could not be processed), `mask_media_id` nullable, `delivered_at`, `updated_at`, indexes
+`(owner_id, sent_at DESC)` and partial `(render|mask|original_media_id) WHERE status = 'pending_scan'` (find cards when a scan
+settles); `card_recipients` with `CHECK (recipient_id <> sender_id)` and the feed index. Media ids are logical references (no
+cross-module foreign keys).
 
 ### `boards` (owner: boards) — sync semantics in [[ADR-0007-board-sync]]
 | Table | Columns | Indexes | Class | Retention |

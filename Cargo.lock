@@ -69,6 +69,7 @@ dependencies = [
  "axum",
  "base64 0.23.1",
  "bytes",
+ "cards",
  "http",
  "http-body-util",
  "identity",
@@ -333,6 +334,19 @@ name = "bytes"
 version = "1.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc652a48c352aef3ea3aed32080501cf3ef6ed5da78602a020c991775b0aff04"
+
+[[package]]
+name = "cards"
+version = "0.1.0"
+dependencies = [
+ "platform",
+ "serde_json",
+ "sqlx",
+ "thiserror",
+ "time",
+ "tracing",
+ "uuid",
+]
 
 [[package]]
 name = "cc"

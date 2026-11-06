@@ -5,8 +5,8 @@ use utoipa_axum::routes;
 
 use crate::access::{ApiRouter, Idempotency, RoutePolicy};
 use crate::routes::{
-    age_signal, app_config, attestation, auth, blocks, friend_requests, friends, health, invites,
-    me, media, media_files, public_invites, sessions, user_search,
+    age_signal, app_config, attestation, auth, blocks, cards, friend_requests, friends, health,
+    invites, me, media, media_files, public_invites, sessions, user_search,
 };
 use crate::state::AppState;
 use platform::problem::ProblemDetails;
@@ -32,6 +32,7 @@ Every operation carries `x-policy` (auth kind, role, attestation) from its deny-
         (name = sessions::TAG, description = "The caller's device sessions (AC-1.4)"),
         (name = me::TAG, description = "The caller's own account and onboarding"),
         (name = invites::TAG, description = "Invites, friend requests, friends, blocks and handle search (US-4, US-5, US-5a, US-6, US-26)"),
+        (name = cards::TAG, description = "Cards: send to friends, read, delete, react (US-13..US-17)"),
         (name = media::TAG, description = "Image uploads into quarantine and their state (ADR-0005)"),
         (name = app_config::TAG, description = "Public client configuration"),
         (name = public_invites::TAG, description = "Server-to-server routes for the web share app (svc, /v1/public/*)")
@@ -222,6 +223,13 @@ pub fn router() -> ApiRouter<AppState> {
                 .limited("media.files.read")
                 .without_version_gate(),
             routes!(media_files::get_media_file),
+        )
+        .route(
+            RoutePolicy::session()
+                .limited("cards.create")
+                .with_attestation()
+                .idempotency(Idempotency::Required),
+            routes!(cards::create_card),
         )
         .undocumented_policy(
             &Method::GET,

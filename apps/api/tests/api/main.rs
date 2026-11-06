@@ -13,6 +13,7 @@ mod attestation;
 mod audit;
 mod authz_matrix;
 mod blocks;
+mod cards_send;
 mod findable;
 mod friend_requests;
 mod friends;

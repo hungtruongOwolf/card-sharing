@@ -42,6 +42,8 @@ pub struct AppState {
     pub age: Arc<AgeService>,
     /// Invites, friend requests, friendships, blocks and handle search.
     pub social: Arc<SocialService>,
+    /// Cards: send, deliver, read, delete, reactions (T-75+).
+    pub cards: Arc<cards::CardService>,
     /// Quarantine uploads and media state (T-70).
     pub media: Arc<MediaService>,
     /// Signs media URLs (T-74). `None` = no key configured: media URLs answer 503.
@@ -96,6 +98,10 @@ impl AppState {
             attestation_mode: AttestationMode::LogOnly,
             age,
             social,
+            cards: Arc::new(cards::CardService::new(
+                identity.pool().clone(),
+                identity.clock(),
+            )),
             media: Arc::new(MediaService::new(
                 identity.pool().clone(),
                 identity.clock(),
