@@ -144,7 +144,7 @@ async fn the_three_notices_appear_in_the_activity_tab_with_ids_only() {
     assert_eq!(response.status(), StatusCode::OK);
     let body: Value = json_body(response).await;
     let items = body["items"].as_array().unwrap();
-    let kinds: Vec<&str> = items.iter().filter_map(|i| i["kind"].as_str()).collect();
+    let kinds: Vec<&str> = items.iter().filter_map(|i| i["type"].as_str()).collect();
     for kind in ["export.requested", "export.ready", "link.disabled"] {
         assert!(kinds.contains(&kind), "{kind} in {kinds:?}");
     }

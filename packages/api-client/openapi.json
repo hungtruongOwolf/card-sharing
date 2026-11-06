@@ -7881,11 +7881,11 @@
           "subject_id": {
             "type": "string",
             "format": "uuid",
-            "description": "The card (`card.*`, `reaction.new`), friend request (`friend.request`) or user\n(`friend.accepted`) the item is about."
+            "description": "The card (`card.*`, `reaction.new`), friend request (`friend.request`), user\n(`friend.accepted`), data export (`export.*`) or public link (`link.disabled`) the item is\nabout."
           },
           "type": {
             "type": "string",
-            "description": "`card.new`, `reaction.new`, `friend.request`, `friend.accepted` or `card.held`."
+            "description": "`card.new`, `reaction.new`, `friend.request`, `friend.accepted`, `card.held`, or an account\nnotice: `export.requested`, `export.ready`, `link.disabled` (#331)."
           },
           "unread": {
             "type": "boolean"
