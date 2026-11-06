@@ -274,3 +274,6 @@ T-103, T-104, T-111, T-105, T-108 merged (#286-#301). Disclosure copy aligned wi
 
 ## [2026-11-06] decision | sprint 6 defaults accepted
 The EM accepted all six board defaults (raw/discussions/2026-11-06-sprint-6-decisions.md); recorded in [[sprint-6]].
+
+## [2026-11-06] change | CI split into parallel jobs
+PR #303: Rust and JS jobs split with aggregators keeping required check names; full run ~3.6 -> ~3.0 min, JS ~1-2.4 -> ~0.8 min. See [[conventions]].

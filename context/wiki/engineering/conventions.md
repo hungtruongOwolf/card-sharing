@@ -42,6 +42,10 @@ decided is written down.
   closing comment. Whoever lands the last commit of a ticket checks the issue is closed.
 - PR ≤ ~400 changed lines; description = what / why / how tested / screenshots.
 - CI must be green (lint, type-check, tests, security audit) before merge. Squash merge.
+- CI layout (`.github/workflows/ci.yml`, 2026-11-06): Rust runs as `rust-lint`, `rust-unit` and three `rust-api` shards
+  that deal the api integration tests round-robin; JS runs as `js-static`, `js-test` and `js-web`. Aggregator jobs keep
+  the six required check names, so adding or splitting jobs needs no branch-protection change: add the new job to the
+  aggregator's `needs`. The critical path is the `user_search` timing-indistinguishability test (~90 s).
 
 ## Definition of Done
 - [ ] Meets acceptance criteria in the PRD/ticket.
