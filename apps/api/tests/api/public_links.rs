@@ -259,11 +259,14 @@ async fn a_minor_owner_is_refused_by_policy() {
         return;
     };
     let teen = minor(&env).await;
+    // #321: `/v1/me` says so up front, with the same rule as the create check.
+    assert!(!public_links_allowed(&env, &teen).await);
     let board = new_board(&env, &teen).await;
     let response = create_link(&env, &teen, board, "7d", None).await;
     assert_problem(response, StatusCode::FORBIDDEN, "POLICY_DISALLOWED").await;
     // 17 is still under the default public_links.min_age (18).
     let seventeen = user_aged(&env, 17).await;
+    assert!(!public_links_allowed(&env, &seventeen).await);
     let board = new_board(&env, &seventeen).await;
     let response = create_link(&env, &seventeen, board, "never", None).await;
     assert_problem(response, StatusCode::FORBIDDEN, "POLICY_DISALLOWED").await;
@@ -274,6 +277,16 @@ async fn a_minor_owner_is_refused_by_policy() {
             .await
             .unwrap();
     assert_eq!(count, 0);
+    let grown_up = adult(&env).await;
+    assert!(public_links_allowed(&env, &grown_up).await);
+}
+
+async fn public_links_allowed(env: &TestEnv, user: &User) -> bool {
+    let response = send(&env.router, get_request("/v1/me", Some(&user.token))).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    json_body(response).await["policy"]["public_links"]["allowed"]
+        .as_bool()
+        .unwrap()
 }
 
 #[tokio::test]

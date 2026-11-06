@@ -151,8 +151,9 @@ app gives Google `hex SHA-256(nonce)` as the sign-in nonce). `iss` = `https://ac
 `aud` ∈ `API_GOOGLE_CLIENT_IDS` (a token issued for another client id → 401), keys from Google's cached JWKS
 (`https://www.googleapis.com/oauth2/v3/certs`). The same email as an Apple account creates a separate account (AC-1.3).
 
-`GET /v1/me` → `{account: {id, status}, onboarding: {step: age|profile|done}, policy: {min_age, ai_effects, ads, ai_label}}`
-(policy = strictest of the signals stored at sign-up and the current IP country) plus `profile: {display_name, handle}` (null
+`GET /v1/me` → `{account: {id, status}, onboarding: {step: age|profile|done}, policy: {min_age, ai_effects, ads, ai_label,
+public_links: {allowed}}}` (policy = strictest of the signals stored at sign-up and the current IP country; `public_links.allowed`
+(#321) = the caller passes the region's `public_links.min_age` by the same rule as the create check, `false` before the age gate) plus `profile: {display_name, handle}` (null
 until set). `GET /v1/config` → `{min_app_version, limits, flags, kill_switches, text_filter}` from `config/client.yaml`,
 `Cache-Control: public, max-age=300` and a strong `ETag` (a matching `If-None-Match` → 304, no body), byte-identical for every
 caller. `text_filter` (#213, EM decision 2026-11-05: term lists are served, not bundled in the app) =
@@ -481,8 +482,8 @@ replay of the create with the same `Idempotency-Key` (24 h window) creates no se
 but **without `url`** and with `url_already_shown: true` (the first response has `url_already_shown: false`). The handler hands
 the idempotency layer a redacted replay body (`access::ReplayBody` response extension), so neither the raw token nor its URL
 ever lands in `platform.idempotency_keys`; only the token hash is stored, in `sharing.public_links`. A client that lost the
-first response revokes the link and creates a new one. `/v1/me` does not say whether the caller may create links; the app shows
-the action and handles 403. Tests: `tests/api/public_links.rs`.
+first response revokes the link and creates a new one. `GET /v1/me` reports `policy.public_links.allowed` (#321), so
+the app hides the action up front; the create check stays the authority (403 `POLICY_DISALLOWED`). Tests: `tests/api/public_links.rs`.
 
 App (T-134, #136): `apps/mobile/src/features/boards` — `publicLinksApi.ts` (list / create with `Idempotency-Key` /
 revoke; a created URL is accepted only as `https://<host>/b/<token>`), `PublicLinksSheet.tsx` ("Share link" on the board
