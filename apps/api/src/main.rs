@@ -102,7 +102,7 @@ async fn main() -> anyhow::Result<()> {
         attestation_service(&config.attestation)?,
         config.attestation.mode,
     );
-    let state = match media_store(&config) {
+    let state = match media_store(&config, &clock)? {
         Some(store) => state.with_media_store(store),
         None => state,
     };
@@ -134,9 +134,19 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Object storage for media from config; `None` = uploads answer 503 (fail closed).
-fn media_store(config: &Config) -> Option<Arc<dyn media::ObjectStore>> {
-    match &config.media_storage_dir {
+/// Object storage for media from config: S3-compatible (R2) or the local filesystem; `None` =
+/// uploads answer 503 (fail closed).
+fn media_store(
+    config: &Config,
+    clock: &SharedClock,
+) -> anyhow::Result<Option<Arc<dyn media::ObjectStore>>> {
+    if let Some(s3) = &config.media_s3 {
+        tracing::info!(region = %s3.region, "S3-compatible media storage");
+        let store = media::S3ObjectStore::new(s3.clone(), Arc::clone(clock))
+            .context("invalid S3 media storage settings")?;
+        return Ok(Some(Arc::new(store)));
+    }
+    Ok(match &config.media_storage_dir {
         Some(dir) => {
             tracing::warn!(
                 dir = %dir.display(),
@@ -145,10 +155,12 @@ fn media_store(config: &Config) -> Option<Arc<dyn media::ObjectStore>> {
             Some(Arc::new(media::FsObjectStore::new(dir.clone())))
         }
         None => {
-            tracing::warn!("API_MEDIA_STORAGE_DIR is unset: media uploads answer 503");
+            tracing::warn!(
+                "no media storage (API_S3_ENDPOINT and API_MEDIA_STORAGE_DIR unset): media uploads answer 503"
+            );
             None
         }
-    }
+    })
 }
 
 /// App Attest (Apple's root) and Play Integrity verifiers from config; an unconfigured platform's
@@ -228,7 +240,7 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
     let media = Arc::new(media::MediaService::new(
         pool.clone(),
         Arc::clone(&clock),
-        media_store(config),
+        media_store(config, &clock)?,
     ));
     // Subscribers register here as modules start publishing events.
     let card_service = Arc::new(cards::CardService::new(pool.clone(), Arc::clone(&clock)));

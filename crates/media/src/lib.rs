@@ -6,6 +6,7 @@
 pub mod pipeline;
 pub mod process;
 pub mod purge;
+pub mod s3;
 pub mod safety;
 pub mod service;
 pub mod signer;
@@ -17,6 +18,7 @@ pub use pipeline::{
     sandboxed_decode,
 };
 pub use process::{Encoded, ProcessError, Processed, Variant};
+pub use s3::{DEFAULT_MAX_OBJECT_BYTES, S3Buckets, S3ConfigError, S3ObjectStore, S3Settings};
 pub use safety::{
     ClassifierVerdict, ContentClassifier, ContentGates, DEFAULT_NUDITY_THRESHOLD, FakeClassifier,
     FakeHashMatcher, HashMatcher, HashVerdict, MatchCategory, ScanInput, Unavailable,

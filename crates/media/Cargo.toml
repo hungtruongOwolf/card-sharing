@@ -15,6 +15,14 @@ ring.workspace = true
 base64.workspace = true
 bytes.workspace = true
 getrandom.workspace = true
+# S3-compatible storage adapter (src/s3.rs): SigV4 over the same hyper + rustls (ring) client stack
+# identity uses, instead of an SDK.
+http.workspace = true
+http-body-util.workspace = true
+hyper-rustls.workspace = true
+hyper-util.workspace = true
+rustls.workspace = true
+rustls-native-certs.workspace = true
 # The only image decoder/encoder (memory-safe, pure Rust): PNG, JPEG, WebP. Decoding runs only in
 # the media worker's sandboxed task (src/pipeline.rs) with size, allocation and time limits.
 image.workspace = true
@@ -28,6 +36,7 @@ tracing.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]
+time = { workspace = true, features = ["macros"] }
 tokio = { workspace = true, features = ["fs", "io-util", "macros", "rt-multi-thread"] }
 
 [lints]

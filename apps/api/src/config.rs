@@ -55,8 +55,16 @@ pub struct Config {
     pub profile_config_path: PathBuf,
     /// `API_MEDIA_STORAGE_DIR` — filesystem object storage root for local development and CI
     /// (`<dir>/<bucket>/<key>`). Unset (default) = no object storage: uploads answer 503 and media
-    /// jobs retry (fail closed). Production uses the S3-compatible adapter (ADR-0008).
+    /// jobs retry (fail closed). Production uses the S3-compatible adapter (`media_s3`).
     pub media_storage_dir: Option<PathBuf>,
+    /// S3-compatible object storage (Cloudflare R2 in production, ADR-0008), enabled by
+    /// `API_S3_ENDPOINT` (`https://<account>.r2.cloudflarestorage.com`; plain `http://` only when
+    /// `API_ENV` is not production). With it: `API_S3_ACCESS_KEY_ID` and
+    /// `API_S3_SECRET_ACCESS_KEY` (secret manager), `API_S3_REGION` (default `auto`) and the
+    /// bucket names `API_S3_BUCKET_QUARANTINE` / `API_S3_BUCKET_CLEAN` /
+    /// `API_S3_BUCKET_LEGAL_HOLD` (defaults `quarantine`, `clean`, `legal-hold`). Setting both this
+    /// and `API_MEDIA_STORAGE_DIR` is a startup error.
+    pub media_s3: Option<media::S3Settings>,
     /// `API_MEDIA_SIGNING_KEY` — secret, at least 32 random bytes as base64 (`openssl rand -base64
     /// 32`); the CDN edge verifies with the same key. Unset = no signed URLs: routes that return
     /// media answer 503 (fail closed).
@@ -273,6 +281,13 @@ impl Config {
             .filter(|dir| !dir.trim().is_empty())
             .map(PathBuf::from);
         let content_safety = content_safety_config(env)?;
+        let media_s3 = media_s3_config(env, content_safety.env)?;
+        if media_s3.is_some() && media_storage_dir.is_some() {
+            return Err(invalid(
+                "API_S3_ENDPOINT",
+                "set either API_S3_ENDPOINT or API_MEDIA_STORAGE_DIR, not both",
+            ));
+        }
         let media_signing_key = env
             .optional("API_MEDIA_SIGNING_KEY")
             .filter(|k| !k.trim().is_empty())
@@ -315,6 +330,7 @@ impl Config {
             profile_config_path,
             social_config_path,
             media_storage_dir,
+            media_s3,
             content_safety,
             media_signing_key,
             media_base_url,
@@ -434,6 +450,44 @@ fn mail_config<F: Fn(&str) -> Option<String>>(env: &Env<F>) -> Result<MailConfig
         from,
         magic_link_url,
     })
+}
+
+/// S3-compatible media storage from `API_S3_*`; `None` when `API_S3_ENDPOINT` is unset.
+fn media_s3_config<F: Fn(&str) -> Option<String>>(
+    env: &Env<F>,
+    app_env: AppEnv,
+) -> Result<Option<media::S3Settings>, ConfigError> {
+    let Some(endpoint) = env
+        .optional("API_S3_ENDPOINT")
+        .filter(|v| !v.trim().is_empty())
+    else {
+        return Ok(None);
+    };
+    let bucket = |key: &str, default: &str| {
+        env.optional(key)
+            .filter(|v| !v.trim().is_empty())
+            .unwrap_or_else(|| default.to_owned())
+    };
+    let settings = media::S3Settings {
+        endpoint: endpoint.trim().to_owned(),
+        region: env
+            .optional("API_S3_REGION")
+            .filter(|v| !v.trim().is_empty())
+            .unwrap_or_else(|| "auto".to_owned()),
+        access_key_id: env.required("API_S3_ACCESS_KEY_ID")?,
+        secret_access_key: env.required_secret("API_S3_SECRET_ACCESS_KEY")?,
+        buckets: media::S3Buckets {
+            quarantine: bucket("API_S3_BUCKET_QUARANTINE", "quarantine"),
+            clean: bucket("API_S3_BUCKET_CLEAN", "clean"),
+            legal_hold: bucket("API_S3_BUCKET_LEGAL_HOLD", "legal-hold"),
+        },
+        allow_http: app_env != AppEnv::Production,
+        max_object_bytes: media::DEFAULT_MAX_OBJECT_BYTES,
+    };
+    settings
+        .validate()
+        .map_err(|e| invalid("API_S3_ENDPOINT", e.to_string()))?;
+    Ok(Some(settings))
 }
 
 fn content_safety_config<F: Fn(&str) -> Option<String>>(
@@ -595,6 +649,44 @@ mod tests {
         );
         assert_eq!(config.request_timeout, Duration::from_secs(15));
         assert_eq!(config.log_format, LogFormat::Json);
+    }
+
+    #[test]
+    fn s3_media_storage_is_validated() {
+        assert!(load(&[]).unwrap().media_s3.is_none());
+        let s3 = [
+            (
+                "API_S3_ENDPOINT",
+                "https://account.r2.cloudflarestorage.com",
+            ),
+            ("API_S3_ACCESS_KEY_ID", "key-id"),
+            ("API_S3_SECRET_ACCESS_KEY", "key-secret"),
+        ];
+        let config = load(&s3).unwrap();
+        let settings = config.media_s3.unwrap();
+        assert_eq!(settings.region, "auto");
+        assert_eq!(settings.buckets.legal_hold, "legal-hold");
+        assert!(!settings.allow_http);
+        // The secret is required and never printed.
+        assert!(load(&s3[..2]).is_err());
+        assert!(!format!("{settings:?}").contains("key-secret"));
+        // Plain http only outside production.
+        let http = [
+            ("API_S3_ENDPOINT", "http://127.0.0.1:9000"),
+            ("API_S3_ACCESS_KEY_ID", "key-id"),
+            ("API_S3_SECRET_ACCESS_KEY", "key-secret"),
+        ];
+        assert!(load(&http).is_err());
+        let mut dev = http.to_vec();
+        dev.push(("API_ENV", "development"));
+        assert!(load(&dev).unwrap().media_s3.unwrap().allow_http);
+        // Not both storages.
+        let mut both = s3.to_vec();
+        both.push(("API_MEDIA_STORAGE_DIR", ".data/media"));
+        assert!(load(&both).is_err());
+        let mut bad = s3.to_vec();
+        bad.push(("API_S3_BUCKET_CLEAN", "Bad_Bucket"));
+        assert!(load(&bad).is_err());
     }
 
     #[test]
