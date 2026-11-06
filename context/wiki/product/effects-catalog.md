@@ -73,7 +73,7 @@ each `{id, version, params?}`; the id must exist at exactly the exported version
 strict rules as `resolveParams` and missing ones are stored with their defaults. Any violation → 422 `UNKNOWN_REGISTRY_ID` with no
 detail. Shipped entries so far: `cut.none`, `cut.raw`, `cut.diecut`, `cut.torn`, `cut.shape.rounded-square`,
 `cut.shape.circle`, `cut.shape.heart`, `fx.matte`, `fx.glossy`, `fx.holo`, `fx.paper-lift`, `frame.polaroid`,
-`overlay.washi`, `overlay.speech`, `fx.sparkles`, `prop.crown`, `prop.party-hat`, `prop.sunglasses`, `prop.mustache`; the other MVP
+`overlay.washi`, `overlay.speech`, `fx.sparkles`, `prop.crown`, `prop.party-hat`, `prop.sunglasses`, `prop.mustache`, `fx.laser-eyes`; the other MVP
 entries land with their tickets.
 
 **Cut style rendering (T-62, `apps/mobile/src/features/cut-styles`):** `drawCutStyle(canvas, entry, params, scene)` draws
@@ -181,6 +181,16 @@ twinkle holds 30 fps on a low-end phone (the still is the low-end / reduced-moti
 share of the card, 0.08–1), `angle` (−45..45) and hidden `x`/`y`. Each requires `faceLandmarks` with fallback
 `userPoints`, so today they are placed by the mask heuristic and dragged by hand; auto-placement scales `size` to the
 head (`default × headWidth / 0.4`). Not stackable (one of each).
+
+**Laser eyes (T-121, `renderers/laserEyes.ts`, shared `renderers/glow.ts`):** `fx.laser-eyes` (kind `overlay`,
+`beam:laserEyes`, anchor `eyes`, requires `faceLandmarks` with fallback `userPoints`) ships as a still that works on
+the anchor fallback, without native code: hidden `x`/`y` = the eyes' midpoint and `eyeGap` (0.02–0.6, set from the
+anchors' eye distance on add) place two eyes; each gets a white core inside a blurred `color` glow (default
+`#FF2D2D`), a tapering beam along `angle` (−180..180, default 15°) of `beamLength` (0.2–3) × the short side, `glow`
+0–1 and an optional four-point `flare`. All paint is additive (`Plus`), so it reads on dark and light photos. `time`
+drives a seamless 2 s pulse for a future loop export; the editor, bakes and reduced motion draw time 0 and
+`liveAllowed` is false. The catalog's SkSL beam + ember particles are simplified to vector glow (no ember particles).
+The shared `effects.param.color` label now reads "Colour" (border and beam).
 
 Rules: adding an effect = add entry + shader/asset + tests (golden snapshot); removing = remove entry **and** migrate stored
 references (fallback to `fx.none`) + update this page ([[change-management]]). Device-capability routing hides entries whose

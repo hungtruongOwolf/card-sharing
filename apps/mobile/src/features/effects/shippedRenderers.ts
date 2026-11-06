@@ -1,4 +1,5 @@
 import type { EffectRenderers } from './effectRenderers';
+import { laserEyes } from './renderers/laserEyes';
 import { paperLift } from './renderers/paperLift';
 import { polaroid } from './renderers/polaroid';
 import { PROP_RENDERERS } from './renderers/props';
@@ -17,6 +18,7 @@ export const EFFECT_RENDERERS: EffectRenderers = {
     'text:speech': speech,
     'particles:sparkles': sparklesRenderer,
     ...PROP_RENDERERS,
+    'beam:laserEyes': laserEyes,
   },
   frames: {
     'frame:polaroid': polaroid,

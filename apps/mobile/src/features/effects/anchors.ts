@@ -167,6 +167,12 @@ export function placeEffect(
     params.x = clamp01(point.x);
     params.y = clamp01(point.y);
   }
+  // Two-eye effects learn the eye distance too.
+  const gap = entry.params.eyeGap;
+  if (entry.anchor === 'eyes' && gap?.type === 'number') {
+    const distance = Math.abs(anchors.eyes[1].x - anchors.eyes[0].x);
+    params.eyeGap = Math.min(gap.max, Math.max(gap.min, distance));
+  }
   const size = entry.params.size;
   if (entry.kind === 'prop' && size?.type === 'number') {
     const scaled = (size.default * anchors.headWidth) / DEFAULT_ANCHORS.headWidth;
