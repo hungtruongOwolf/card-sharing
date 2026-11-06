@@ -2,7 +2,7 @@
 title: ADR-0007 Board sync model (async ops now, Yjs-ready)
 type: decision
 status: accepted
-updated: 2026-11-04
+updated: 2026-11-06
 sources: [raw/discussions/2026-11-04-infra-qa.md, raw/discussions/2026-11-04-security-qa.md]
 related: [[overview]], [[data-model]], [[api-mvp]], [[prd-mvp]], [[ADR-0002-cross-platform-stack]], [[glossary]], [[threat-model-mvp]]
 ---
@@ -55,5 +55,5 @@ pins as private tiles and the minor's display name only (AC-19.9).
 - Negative / trade-offs accepted: whole-pin conflicts (a move and a rotate of the same pin at the same time → one loses, client refreshes);
   board metadata (title/backdrop) uses board-level `base_version`; op log retained 30 d only; per-viewer resolution costs a batched
   visibility + age + friend-set lookup on every board read; collaborators see private tiles they cannot open (by design).
-- Follow-ups: fractional-index library shared in `packages/canvas-engine`; property tests for op application + permissions;
+- Follow-ups: fractional-index library shared in `packages/canvas-engine` (done, T-104: `zKey.ts`, base-62 keys with a length-coded integer part, ≤ 32 chars, property-tested); property tests for op application + permissions;
   authz-matrix tests for invitation states, block resolution and the minor rule (adult/minor × friend/non-friend × pinner/owner).

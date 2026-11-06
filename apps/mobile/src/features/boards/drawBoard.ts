@@ -14,6 +14,8 @@ export interface BoardPalette {
   tile: string;
   /** Lock glyph and outlines. */
   ink: string;
+  /** Dashed outline of the selected pin (with the frame, never colour alone). */
+  selection: string;
 }
 
 export function boardPalette(color: SemanticColors): BoardPalette {
@@ -22,6 +24,7 @@ export function boardPalette(color: SemanticColors): BoardPalette {
     ghost: color.bg.paperAlt,
     tile: color.bg.paper,
     ink: color.fg.subtle,
+    selection: color.focus.ring,
   };
 }
 
@@ -74,20 +77,21 @@ function strokePaint(color: string, dashed: boolean) {
 /** A closed padlock at the origin: the only mark on a private tile (no owner, no hint of the card). */
 function drawLock(canvas: SkCanvas, ink: string) {
   const { body, shackle } = LOCK;
-  const paint = fillPaint(ink);
-  canvas.drawRRect(
-    Skia.RRectXY(Skia.XYWHRect(-body / 2, -body / 4, body, body * 0.75), 8, 8),
-    paint,
-  );
+  // Shackle first: a stroked rounded rect whose lower half the body then covers.
   const ring = strokePaint(ink, false);
   ring.setStrokeWidth(8);
-  const arc = Skia.Path.Make();
-  arc.addArc(
-    Skia.XYWHRect(-shackle, -body / 4 - shackle * 1.6, shackle * 2, shackle * 3),
-    180,
-    180,
+  canvas.drawRRect(
+    Skia.RRectXY(
+      Skia.XYWHRect(-shackle, -body / 4 - shackle * 1.6, shackle * 2, shackle * 3),
+      shackle,
+      shackle,
+    ),
+    ring,
   );
-  canvas.drawPath(arc, ring);
+  canvas.drawRRect(
+    Skia.RRectXY(Skia.XYWHRect(-body / 2, -body / 4, body, body * 0.75), 8, 8),
+    fillPaint(ink),
+  );
 }
 
 /** Draws one pin's content in its own frame (the transform is already applied). */
@@ -117,6 +121,21 @@ export function drawPinContent(canvas: SkCanvas, item: DrawablePin, palette: Boa
       canvas.drawRRect(frame, strokePaint(palette.ink, true));
       return;
   }
+}
+
+const SELECTION_GAP = 10;
+
+/** Dashed outline around the pin frame marking the selected pin (design-system.md §4 Sticker "selected"). */
+export function drawSelection(canvas: SkCanvas, palette: BoardPalette): void {
+  const rect = Skia.XYWHRect(
+    -PIN_FRAME.width / 2 - SELECTION_GAP,
+    -PIN_FRAME.height / 2 - SELECTION_GAP,
+    PIN_FRAME.width + SELECTION_GAP * 2,
+    PIN_FRAME.height + SELECTION_GAP * 2,
+  );
+  const paint = strokePaint(palette.selection, true);
+  paint.setStrokeWidth(OUTLINE_WIDTH * 1.5);
+  canvas.drawRRect(Skia.RRectXY(rect, CORNER + SELECTION_GAP, CORNER + SELECTION_GAP), paint);
 }
 
 /** Draws pins (already culled and in z order) in board units. */

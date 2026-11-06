@@ -1,5 +1,7 @@
 import { Skia, type SkImage } from '@shopify/react-native-skia';
 
+import { zKeyBetween } from '@card-sharing/canvas-engine';
+
 import { BOARD_SIZE, type Board, type BoardPin } from './boardModel';
 
 /**
@@ -29,10 +31,6 @@ export const LAB_URL_PREFIX = 'lab://sticker/';
 const COLUMNS = 10;
 const STEP = 230;
 
-/** Base-62 z keys `a00`, `a01`, ...: ordered like the fractional index the server stores. */
-const DIGITS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
-export const labZKey = (i: number) => `a${DIGITS[Math.floor(i / 62) % 62]}${DIGITS[i % 62]}`;
-
 /** Small deterministic jitter so the board looks hand-placed. */
 const jitter = (i: number, salt: number) =>
   (((i * 9301 + salt * 49297) % 233280) / 233280 - 0.5) * 2;
@@ -40,7 +38,9 @@ const jitter = (i: number, salt: number) =>
 /** `title` is shown by the lab screen only. */
 export function labBoard(pins: number, holo: number, title = ''): Board {
   const items: BoardPin[] = [];
+  let zKey: string | null = null;
   for (let i = 0; i < pins; i++) {
+    zKey = zKeyBetween(zKey, null);
     const id = `00000000-0000-7000-8000-${String(i).padStart(12, '0')}`;
     items.push({
       id,
@@ -48,7 +48,7 @@ export function labBoard(pins: number, holo: number, title = ''): Board {
       y: 220 + Math.floor(i / COLUMNS) * (STEP * 1.3) + jitter(i, 2) * 30,
       scale: 0.8 + (jitter(i, 3) + 1) * 0.15,
       rotation: jitter(i, 4) * 12,
-      zKey: labZKey(i),
+      zKey,
       version: 1,
       content: {
         kind: 'card',

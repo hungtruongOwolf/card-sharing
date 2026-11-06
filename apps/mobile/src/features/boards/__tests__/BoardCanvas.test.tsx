@@ -2,7 +2,7 @@
  * @jest-environment @shopify/react-native-skia/jestEnv.js
  */
 import { Skia, type SkImage } from '@shopify/react-native-skia';
-import { act, screen } from '@testing-library/react-native';
+import { act, fireEvent, screen } from '@testing-library/react-native';
 import { State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
 import { makeMutable } from 'react-native-reanimated';
@@ -41,8 +41,18 @@ const shiny = pin(
   { kind: 'card', card: cardItem({ finish: holo(), sender: { id: 'u2', displayName: null } }) },
 );
 
+interface EditProps {
+  editable?: boolean;
+  selectedId?: string | null;
+  onSelect?: jest.Mock;
+  onPickUp?: jest.Mock;
+  onCommit?: jest.Mock;
+  onAction?: jest.Mock;
+}
+
 async function renderBoard(
   options: { reducedMotion?: boolean; scheme?: 'light' | 'dark'; camera?: Camera } = {},
+  edit: EditProps = {},
 ) {
   const load = jest.fn(async () => texture());
   const textures = createTextureCache({ load });
@@ -56,6 +66,7 @@ async function renderBoard(
       initialCamera={camera.get()}
       camera={camera}
       registry={registry}
+      {...edit}
     />,
     options,
   );
@@ -119,6 +130,128 @@ describe('BoardCanvas', () => {
         ]);
       });
       expect(camera.get().zoom).toBeCloseTo(2);
+    },
+    RENDER_TIMEOUT_MS,
+  );
+
+  it(
+    'picks up, moves and commits a pin dragged in edit mode, leaving the camera alone',
+    async () => {
+      const onPickUp = jest.fn();
+      const onCommit = jest.fn();
+      const { camera } = await renderBoard({}, { editable: true, onPickUp, onCommit });
+      await act(async () => {
+        fireGestureHandler(getByGestureTestId('board-canvas-pan'), [
+          { state: State.BEGAN, x: 150, y: 200, translationX: 0, translationY: 0 },
+          { state: State.ACTIVE, x: 150, y: 200, translationX: 0, translationY: 0 },
+          { x: 200, y: 230, translationX: 50, translationY: 30 },
+          { state: State.END, x: 200, y: 230, translationX: 50, translationY: 30 },
+        ]);
+      });
+      expect(onPickUp).toHaveBeenCalledWith(shown.id);
+      expect(onCommit).toHaveBeenCalledWith(shown.id, { x: 200, y: 230, scale: 1, rotation: 0 });
+      expect(camera.get()).toEqual({ x: 0, y: 0, zoom: 1 });
+    },
+    RENDER_TIMEOUT_MS,
+  );
+
+  it(
+    'scales within limits and snaps rotation to a detent on release',
+    async () => {
+      const onCommit = jest.fn();
+      await renderBoard({}, { editable: true, onCommit });
+      await act(async () => {
+        fireGestureHandler(getByGestureTestId('board-canvas-rotation'), [
+          { state: State.BEGAN, rotation: 0, anchorX: 150, anchorY: 200 },
+          { state: State.ACTIVE, rotation: 0, anchorX: 150, anchorY: 200 },
+          { rotation: (88 * Math.PI) / 180, anchorX: 150, anchorY: 200 },
+          { state: State.END, rotation: (88 * Math.PI) / 180, anchorX: 150, anchorY: 200 },
+        ]);
+      });
+      expect(onCommit).toHaveBeenLastCalledWith(
+        shown.id,
+        expect.objectContaining({ rotation: 90 }),
+      );
+      await act(async () => {
+        fireGestureHandler(getByGestureTestId('board-canvas-pinch'), [
+          { state: State.BEGAN, scale: 1, focalX: 150, focalY: 200 },
+          { state: State.ACTIVE, scale: 1, focalX: 150, focalY: 200 },
+          { scale: 20, focalX: 150, focalY: 200 },
+          { state: State.END, scale: 20, focalX: 150, focalY: 200 },
+        ]);
+      });
+      expect(onCommit).toHaveBeenLastCalledWith(shown.id, expect.objectContaining({ scale: 4 }));
+    },
+    RENDER_TIMEOUT_MS,
+  );
+
+  it(
+    'selects with a tap and clears the selection on the empty board',
+    async () => {
+      const onSelect = jest.fn();
+      await renderBoard({}, { editable: true, onSelect });
+      const tap = (x: number, y: number) =>
+        act(async () => {
+          fireGestureHandler(getByGestureTestId('board-canvas-tap'), [
+            { state: State.BEGAN, x, y },
+            { state: State.ACTIVE, x, y },
+            { state: State.END, x, y },
+          ]);
+        });
+      await tap(150, 200);
+      expect(onSelect).toHaveBeenLastCalledWith(shown.id);
+      await tap(20, 780);
+      expect(onSelect).toHaveBeenLastCalledWith(null);
+    },
+    RENDER_TIMEOUT_MS,
+  );
+
+  it(
+    'offers move, rotate, scale, layer and remove as screen-reader actions in edit mode only',
+    async () => {
+      const onAction = jest.fn();
+      await renderBoard({}, { editable: true, onAction, selectedId: shown.id });
+      const view = screen.getByTestId(`board-pin-${shown.id}`);
+      expect(view.props.accessibilityActions.map((a: { name: string }) => a.name)).toEqual([
+        'moveUp',
+        'moveDown',
+        'moveLeft',
+        'moveRight',
+        'rotateLeft',
+        'rotateRight',
+        'bigger',
+        'smaller',
+        'bringToFront',
+        'sendToBack',
+        'remove',
+      ]);
+      expect(view.props.accessibilityState).toEqual({ selected: true });
+      await fireEvent(view, 'accessibilityAction', { nativeEvent: { actionName: 'bringToFront' } });
+      await fireEvent(view, 'accessibilityAction', { nativeEvent: { actionName: 'unknown' } });
+      expect(onAction).toHaveBeenCalledTimes(1);
+      expect(onAction).toHaveBeenCalledWith(shown.id, 'bringToFront');
+    },
+    RENDER_TIMEOUT_MS,
+  );
+
+  it(
+    'does not move pins or offer actions when not editable',
+    async () => {
+      const onCommit = jest.fn();
+      const { camera } = await renderBoard({}, { onCommit });
+      expect(
+        screen.getByTestId(`board-pin-${shown.id}`).props.accessibilityActions,
+      ).toBeUndefined();
+      await act(async () => {
+        fireGestureHandler(getByGestureTestId('board-canvas-pan'), [
+          { state: State.BEGAN, x: 150, y: 200, translationX: 0, translationY: 0 },
+          { state: State.ACTIVE, x: 150, y: 200, translationX: 0, translationY: 0 },
+          { x: 200, y: 200, translationX: 50, translationY: 0 },
+          { state: State.END, x: 200, y: 200, translationX: 50, translationY: 0 },
+        ]);
+      });
+      expect(onCommit).not.toHaveBeenCalled();
+      expect(camera.get().x).toBeCloseTo(-50);
     },
     RENDER_TIMEOUT_MS,
   );

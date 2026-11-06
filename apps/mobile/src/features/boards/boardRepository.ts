@@ -1,4 +1,5 @@
 import type { Board } from './boardModel';
+import { applyOps, type PinOp } from './boardOps';
 import { uuidv7 } from './uuidv7';
 
 /** One row of the boards list. */
@@ -18,6 +19,8 @@ export interface BoardRepository {
   get(id: string): Promise<Board | null>;
   /** A new personal board with a client UUIDv7 id. */
   create(title: string): Promise<Board>;
+  /** Applies my edits locally (optimistic); null when the board is gone. */
+  apply(id: string, ops: readonly PinOp[]): Promise<Board | null>;
 }
 
 export function createMemoryBoardRepository(seed: readonly Board[] = []): BoardRepository {
@@ -30,6 +33,13 @@ export function createMemoryBoardRepository(seed: readonly Board[] = []): BoardR
       const board: Board = { id: uuidv7(), title, backdrop: null, version: 0, pins: [] };
       boards.set(board.id, board);
       return board;
+    },
+    async apply(id, ops) {
+      const board = boards.get(id);
+      if (!board) return null;
+      const next = applyOps(board, ops);
+      boards.set(id, next);
+      return next;
     },
   };
 }

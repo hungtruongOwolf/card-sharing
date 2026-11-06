@@ -35,6 +35,8 @@ export interface BoardScenePlan {
   window: Rect;
   /** Bottom to top: runs of baked pins between live-finish pins, so z order is exact. */
   layers: SceneLayer[];
+  /** The pin being edited: drawn on top with a gesture-driven transform, never in a picture. */
+  floating: { pin: BoardPin; finish: { entry: EffectEntry; intensity: number } | null } | null;
   /** Pins inside the window, bottom to top (accessibility layer, texture requests). */
   visible: BoardPin[];
   textures: TextureRequest[];
@@ -50,6 +52,8 @@ export interface PlanInput {
   remoteConfig?: RemoteRegistryConfig;
   /** The focused pin gets the first live slot (design-system.md §4: holo live only when selected/focused). */
   focusedId?: string | null;
+  /** The selected pin in edit mode; it is lifted out of the pictures (implies focus). */
+  floatingId?: string | null;
 }
 
 function finishOf(
@@ -88,12 +92,13 @@ export function planBoardScene(input: PlanInput): BoardScenePlan {
   ).map((g) => g.pin);
 
   const killed = killedIds(input.remoteConfig);
+  const focusedId = input.floatingId ?? input.focusedId;
   const candidates = visible
     .map((pin) => ({
       pin,
       finish: finishOf(pin, input.registry, killed),
       shown: overlapArea(pinBounds(pinGeometry(pin)), onScreen),
-      focused: pin.id === input.focusedId,
+      focused: pin.id === focusedId,
     }))
     .filter((c) => c.finish !== null && c.shown > 0)
     .sort((a, b) => Number(b.focused) - Number(a.focused) || b.shown - a.shown);
@@ -105,8 +110,16 @@ export function planBoardScene(input: PlanInput): BoardScenePlan {
     candidates.filter((_, i) => modes[i] === 'live').map((c) => [c.pin.id, c.finish!]),
   );
 
+  const floatingPin = input.floatingId
+    ? (input.pins.find((p) => p.id === input.floatingId) ?? null)
+    : null;
+  const floating = floatingPin
+    ? { pin: floatingPin, finish: live.get(floatingPin.id) ?? null }
+    : null;
+
   const layers: SceneLayer[] = [];
   for (const pin of visible) {
+    if (pin.id === floatingPin?.id) continue;
     const finish = live.get(pin.id);
     if (finish) {
       layers.push({ kind: 'live', pin, ...finish });
@@ -119,7 +132,9 @@ export function planBoardScene(input: PlanInput): BoardScenePlan {
 
   const screenLong = Math.max(view.width, view.height) * pixelRatio;
   const textures: TextureRequest[] = [];
-  for (const pin of visible) {
+  const textured =
+    floatingPin && !visible.includes(floatingPin) ? [...visible, floatingPin] : visible;
+  for (const pin of textured) {
     if (pin.content.kind !== 'card' || !pin.content.card.media) continue;
     const onScreenPx = pinScreenLongSide(pinGeometry(pin), camera.zoom) * pixelRatio;
     textures.push({
@@ -128,5 +143,5 @@ export function planBoardScene(input: PlanInput): BoardScenePlan {
       lod: textureLod(onScreenPx, screenLong),
     });
   }
-  return { window, layers, visible, textures };
+  return { window, layers, floating, visible, textures };
 }
