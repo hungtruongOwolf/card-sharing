@@ -802,8 +802,9 @@ Mobile client (T-77, #79, `apps/mobile/src/features/sharing`): the editor's Next
 `Idempotency-Key` = `client_card_id` = the local card id. The request is fixed per send job, so "Try again" repeats it
 byte for byte (uploads already done are not repeated); a 422 `IDEMPOTENCY_KEY_REUSED` offers "Send as a new card" (new
 id). After the 202 the owner view (`GET /v1/cards/{id}`) is polled about a minute while `pending_scan` and shown neutrally
-(on its way / delivered / waiting for a review / couldn't be sent); the appeal entry point is shown disabled until
-`POST /v1/cards/{id}/appeal` exists. A sent card leaves the drafts tray.
+(on its way / delivered / waiting for a review / couldn't be sent); a held card offers "Ask for a review"
+(`POST /v1/cards/{id}/appeal`, T-148): filed, already requested (409 `APPEAL_ALREADY_FILED`) and no longer held (404) each
+get their own neutral line. A sent card leaves the drafts tray.
 
 Implemented (T-79, `crates/cards/src/access.rs`, `GET /v1/cards/{id}`, limit `cards.read` 300/min): visibility is one SQL
 predicate: owner (any status but `deleted`) **or** (`card.status = active` ∧ viewer's `card_recipients` row delivered and not

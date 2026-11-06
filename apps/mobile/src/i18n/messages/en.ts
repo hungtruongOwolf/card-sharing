@@ -248,7 +248,11 @@ export const en = {
   'send.status.held.body': 'Only you can see it for now. Nobody has received it yet.',
   'send.status.stopped': 'This card couldn’t be sent.',
   'send.appeal': 'Ask for a review',
-  'send.appeal.soon': 'Asking for a review comes in an app update.',
+  'send.appeal.hint': 'A person on our team looks at the card. You can ask once.',
+  'send.appeal.filed': 'Thanks. Someone on our team will review your card.',
+  'send.appeal.already': 'A review was already requested for this card.',
+  'send.appeal.gone': 'This card is no longer waiting for a review.',
+  'send.appeal.failed': 'That didn’t work. Please try again.',
 
   'feed.open': 'Feed',
   'feed.title': 'From your friends',
