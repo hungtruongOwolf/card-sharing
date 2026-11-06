@@ -9,6 +9,7 @@ import { t } from '../../../i18n';
 import { renderCards } from '../../../test/cardsHarness';
 import { problem } from '../../../test/fakeAuthServer';
 import type { FakeCardsServer } from '../../../test/fakeCardsServer';
+import { ME } from '../../../test/fakeSocialServer';
 import { SCHEMES } from '../../../test/render';
 import { cardQueryKey, CardViewerScreen } from '../CardViewerScreen';
 
@@ -42,12 +43,16 @@ async function open({
   finish = HOLO as typeof HOLO | null,
   skewMs = 0,
   extra,
+  mine = false,
+  share,
 }: {
   scheme?: 'light' | 'dark';
   reducedMotion?: boolean;
   finish?: typeof HOLO | null;
   skewMs?: number;
   extra?: (server: FakeCardsServer, cardId: string) => void;
+  mine?: boolean;
+  share?: (png: Uint8Array) => Promise<boolean>;
 } = {}) {
   const onClose = jest.fn();
   let cardId = '';
@@ -58,6 +63,8 @@ async function open({
         api={apis.cards}
         cardId={cardId}
         now={() => clock() + skewMs}
+        loadRender={async () => mockSkImage}
+        share={share}
         onClose={onClose}
       />
     ),
@@ -73,7 +80,11 @@ async function open({
           cut: { id: 'cut.none', version: 1, params: {} },
           ...(finish && { finish }),
         };
-        cardId = server.addIncomingCard(mai.id, { caption: 'zoomies', style }).id;
+        cardId = (
+          mine
+            ? server.addIncomingCard(ME, { caption: 'zoomies', style, recipients: [mai.id] })
+            : server.addIncomingCard(mai.id, { caption: 'zoomies', style })
+        ).id;
         extra?.(server, cardId);
       },
     },
@@ -82,6 +93,33 @@ async function open({
 }
 
 describe('CardViewerScreen', () => {
+  it(
+    'exports only my own card, with the brand mark, through the share sheet (T-127)',
+    async () => {
+      const share = jest.fn(async () => true);
+      await open({ mine: true, share });
+      await screen.findByTestId('card-viewer-image');
+      await act(async () => {
+        fireEvent.press(screen.getByRole('button', { name: t('card.export') }));
+      });
+      await waitFor(() => expect(share).toHaveBeenCalledTimes(1));
+      const png = (share.mock.calls[0] as unknown as [Uint8Array])[0];
+      // PNG signature.
+      expect(Array.from(png.slice(0, 4))).toEqual([0x89, 0x50, 0x4e, 0x47]);
+    },
+    RENDER_TIMEOUT_MS,
+  );
+
+  it(
+    "never offers export on a friend's card (AC-23.2)",
+    async () => {
+      await open({ share: jest.fn() });
+      await screen.findByTestId('card-viewer-image');
+      expect(screen.queryByRole('button', { name: t('card.export') })).toBeNull();
+    },
+    RENDER_TIMEOUT_MS,
+  );
+
   it.each(SCHEMES)(
     'shows the card with a fresh picture, its alt text and a live holo finish (%s)',
     async (scheme) => {

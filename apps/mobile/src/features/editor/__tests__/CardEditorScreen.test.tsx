@@ -2,7 +2,7 @@
  * @jest-environment @shopify/react-native-skia/jestEnv.js
  */
 import { Skia } from '@shopify/react-native-skia';
-import { act, fireEvent, screen, userEvent } from '@testing-library/react-native';
+import { act, fireEvent, screen, userEvent, waitFor } from '@testing-library/react-native';
 import { Platform, StyleSheet } from 'react-native';
 import { State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
@@ -468,6 +468,21 @@ describe('CardEditorScreen', () => {
       expect(
         screen.getByText(t('editor.effects.surprised', { name: t('effects.overlay.washi.name') })),
       ).toBeTruthy();
+    },
+    RENDER_TIMEOUT_MS,
+  );
+
+  it(
+    "exports the user's own draft with the brand mark through the share sheet (T-127)",
+    async () => {
+      const shareExport = jest.fn(async () => true);
+      await renderEditor({ shareExport, loadFonts: async () => undefined });
+      await act(async () => {
+        fireEvent.press(screen.getByRole('button', { name: t('card.export') }));
+      });
+      await waitFor(() => expect(shareExport).toHaveBeenCalledTimes(1));
+      const png = (shareExport.mock.calls[0] as unknown as [Uint8Array])[0];
+      expect(Array.from(png.slice(0, 4))).toEqual([0x89, 0x50, 0x4e, 0x47]);
     },
     RENDER_TIMEOUT_MS,
   );
