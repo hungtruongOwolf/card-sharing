@@ -76,6 +76,12 @@ pub struct Config {
     pub content_safety: ContentSafetyConfig,
     /// `API_SOCIAL_CONFIG_PATH` — default `config/social.yaml` (invite links, friend caps, search).
     pub social_config_path: PathBuf,
+    /// `API_NOTIFICATIONS_CONFIG_PATH` — default `config/notifications.yaml` (push cap, batching).
+    pub notifications_config_path: PathBuf,
+    /// `API_PUSH_SENDER` — `none` (default: pushes are dropped, the activity tab still has every
+    /// event) or `fake` (records payloads in memory; refused when `API_ENV=production`). Real
+    /// APNs/FCM adapters arrive with their credentials (T-86 follow-up).
+    pub push_sender: SafetyAdapter,
     /// `API_APPLE_CLIENT_IDS` — comma-separated `aud` values accepted in Apple ID tokens (the iOS
     /// bundle id; a Services ID if web sign-in is ever added). Empty (default) = Apple sign-in
     /// answers 503.
@@ -276,12 +282,16 @@ impl Config {
         let social_config_path = env
             .optional("API_SOCIAL_CONFIG_PATH")
             .map_or_else(|| PathBuf::from("config/social.yaml"), PathBuf::from);
+        let notifications_config_path = env
+            .optional("API_NOTIFICATIONS_CONFIG_PATH")
+            .map_or_else(|| PathBuf::from("config/notifications.yaml"), PathBuf::from);
         let media_storage_dir = env
             .optional("API_MEDIA_STORAGE_DIR")
             .filter(|dir| !dir.trim().is_empty())
             .map(PathBuf::from);
         let content_safety = content_safety_config(env)?;
         let media_s3 = media_s3_config(env, content_safety.env)?;
+        let push_sender = safety_adapter(env, "API_PUSH_SENDER", content_safety.env)?;
         if media_s3.is_some() && media_storage_dir.is_some() {
             return Err(invalid(
                 "API_S3_ENDPOINT",
@@ -329,6 +339,8 @@ impl Config {
             text_filter_config_path,
             profile_config_path,
             social_config_path,
+            notifications_config_path,
+            push_sender,
             media_storage_dir,
             media_s3,
             content_safety,
@@ -703,6 +715,12 @@ mod tests {
             assert_eq!(config.content_safety.csam_matcher, SafetyAdapter::Fake);
         }
         assert!(load(&[("API_NUDITY_CLASSIFIER", "fake")]).is_err());
+        // The fake push sender too (T-86).
+        assert_eq!(load(&[]).unwrap().push_sender, SafetyAdapter::None);
+        assert!(load(&[("API_PUSH_SENDER", "fake")]).is_err());
+        let config = load(&[("API_ENV", "staging"), ("API_PUSH_SENDER", "fake")]).unwrap();
+        assert_eq!(config.push_sender, SafetyAdapter::Fake);
+        assert!(load(&[("API_ENV", "staging"), ("API_PUSH_SENDER", "apns")]).is_err());
         let config = load(&[("API_ENV", "staging"), ("API_NUDITY_CLASSIFIER", "fake")]).unwrap();
         assert_eq!(config.content_safety.nudity_classifier, SafetyAdapter::Fake);
         assert!((config.content_safety.nudity_threshold - 0.5).abs() < f32::EPSILON);
