@@ -41,7 +41,7 @@ describe('picker tabs', () => {
   });
 
   it('lists finishes but never built-in entries such as paper lift', () => {
-    expect(tabIds(true).finish).toEqual(['fx.holo']);
+    expect(tabIds(true).finish).toEqual(['fx.matte', 'fx.glossy', 'fx.holo']);
   });
 
   it('respects remote kill switches and feature flags', () => {
@@ -49,7 +49,7 @@ describe('picker tabs', () => {
       kill_switches: { cut_styles: ['cut.diecut'], finishes: ['fx.holo'] },
     });
     expect(killed.cut).not.toContain('cut.diecut');
-    expect(killed.finish).toEqual([]);
+    expect(killed.finish).toEqual(['fx.matte', 'fx.glossy']);
     const dark = createRegistry(
       ENTRIES.map((e) => (e.id === 'cut.raw' ? { ...e, flags: { featureFlag: 'raw_v2' } } : e)),
     );
@@ -99,8 +99,10 @@ describe('picker tabs', () => {
     expect(state('cut.raw')).toEqual({ kind: 'locked', unlock: 'pro' });
     expect(cut!.entries.map((e) => e.id)).not.toContain('cut.raw');
     expect(state('cut.torn')).toEqual({ kind: 'unavailable', reason: 'needsUpdate' });
-    expect(finish!.tiles).toEqual([
-      expect.objectContaining({ isNew: true, state: { kind: 'available' } }),
+    expect(finish!.tiles.map((tile) => [tile.entry.id, tile.isNew, tile.state.kind])).toEqual([
+      ['fx.matte', false, 'available'],
+      ['fx.glossy', false, 'available'],
+      ['fx.holo', true, 'available'],
     ]);
   });
 

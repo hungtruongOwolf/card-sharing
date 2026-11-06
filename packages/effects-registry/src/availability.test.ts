@@ -103,6 +103,8 @@ describe('visibleEntries', () => {
       'cut.shape.rounded-square',
       'cut.shape.circle',
       'cut.shape.heart',
+      'fx.matte',
+      'fx.glossy',
       'fx.paper-lift',
     ]);
   });
@@ -114,6 +116,8 @@ describe('visibleEntries', () => {
       'cut.shape.rounded-square',
       'cut.shape.circle',
       'cut.shape.heart',
+      'fx.matte',
+      'fx.glossy',
       'fx.holo',
       'fx.paper-lift',
     ]);

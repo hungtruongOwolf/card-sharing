@@ -89,6 +89,37 @@ describe('drawCard', () => {
     expect(holo(2, 2)[3]).toBe(0);
   });
 
+  it.each(['fx.matte', 'fx.glossy'])('lays %s over the card pixels only', (finish) => {
+    const plain = render(draft('cut.raw'));
+    const finished = render(draft('cut.raw', finish));
+    const inside: [number, number] = [SIZE / 2, Math.round(SIZE * 0.6)];
+    expect(finished(...inside)).not.toEqual(plain(...inside));
+    expect(finished(...inside)[3]).toBe(255);
+    expect(finished(2, 2)[3]).toBe(0);
+  });
+
+  it('renders every finish byte-stable, so baked cards can be golden-tested', () => {
+    for (const finish of ['fx.matte', 'fx.glossy', 'fx.holo']) {
+      const first = render(draft('cut.none', finish));
+      const second = render(draft('cut.none', finish));
+      for (const [x, y] of [
+        [10, 10],
+        [48, 48],
+        [80, 20],
+      ] as const) {
+        expect(second(x, y)).toEqual(first(x, y));
+      }
+    }
+  });
+
+  it('keeps the photo readable under the default matte wash', () => {
+    const at = render(draft('cut.none', 'fx.matte'));
+    const [r, g, b] = at(SIZE / 2, SIZE / 2);
+    // Still clearly the blue photo: blue dominates even at the default intensity.
+    expect(b! - r!).toBeGreaterThan(60);
+    expect(g).toBeLessThan(200);
+  });
+
   it('draws nothing for an id the registry no longer has', () => {
     const at = render({ ...draft('cut.none'), cut: { id: 'cut.gone', version: 1, params: {} } });
     expect(at(SIZE / 2, SIZE / 2)[3]).toBe(0);
