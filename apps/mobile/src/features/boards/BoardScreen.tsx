@@ -74,7 +74,7 @@ export interface BoardScreenProps {
   members?: BoardMembersApi;
   /** My current friends, the only people I can invite. */
   friends?: () => Promise<readonly Person[]>;
-  /** The one-time "everyone on this board can see this card" explanation (AC-19.5). */
+  /** The one-time explanation that only recipients of the card see it on the board (AC-19.5 as resolved by AC-19.7). */
   disclosure?: PinDisclosure;
   onClose: () => void;
 }
