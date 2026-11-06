@@ -1,4 +1,4 @@
-import { captchaProvider, captchaVerifier } from '../../../../features/captcha/captcha';
+import { captchaProvider } from '../../../../features/captcha/captcha';
 import {
   OUTCOME_STATUS,
   isSameOriginJson,
@@ -11,7 +11,7 @@ import { siteUrl } from '../../../../site';
 
 type Context = { params: Promise<{ token: string }> };
 
-/** Far above a valid body (reason + 500-character note + captcha answer). */
+/** Far above a valid body (reason + 500-character note + captcha token). */
 const MAX_BODY_BYTES = 16 * 1024;
 
 function answer(outcome: ReportOutcome): Response {
@@ -22,9 +22,9 @@ function answer(outcome: ReportOutcome): Response {
 }
 
 /**
- * `POST /b/<token>/report` (T-142, AC-26.3): a guest reports a public board. Same-origin JSON only,
- * captcha verified here (server-side), then forwarded to the API with the visitor IP, which keys the
- * API's 5-per-hour limit. Off unless a captcha provider is configured.
+ * `POST /b/<token>/report` (T-142, AC-26.3): a guest reports a public board. Same-origin JSON only;
+ * forwarded with the widget's captcha token to the API, which verifies the captcha server-side and
+ * applies its 5-per-hour limit per visitor IP. Off unless a captcha widget provider is configured.
  */
 export async function POST(request: Request, { params }: Context): Promise<Response> {
   const { token } = await params;
@@ -57,9 +57,7 @@ export async function POST(request: Request, { params }: Context): Promise<Respo
   if (report === 'no-captcha') {
     return answer('captcha');
   }
+  // The API verifies the captcha token (single enforcement point) before it looks the link up.
   const ip = visitorIp(request.headers, config.clientIpHeader);
-  if (!(await captchaVerifier(provider).verify(report.captcha, ip))) {
-    return answer('captcha');
-  }
   return answer(await submitReport(token, report, config, ip));
 }

@@ -53,7 +53,11 @@ export function ReportBoard({ token, captcha }: Props) {
       const response = await fetch(`/b/${token}/report`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ reason, note: note.trim() === '' ? null : note, captcha: answer }),
+        body: JSON.stringify({
+          reason,
+          note: note.trim() === '' ? null : note,
+          captcha_token: answer,
+        }),
         credentials: 'omit',
       });
       const body: unknown = await response.json().catch(() => null);

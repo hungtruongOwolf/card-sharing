@@ -569,14 +569,16 @@ component (`features/public-board/CardEnlarge.tsx`, a delegated click handler on
 with the same baked, watermarked still, labelled by its heading; Escape, backdrop click or Close shut it and focus returns
 to the card. No CanvasKit or live holo on the page (#179 removes CanvasKit from `apps/web`). Tests: `enlarge.test.ts`.
 Guest report (T-142, AC-26.3, web part): "Report this board" on `/b/<token>` opens a dialog (AC-26.1 reasons `sexual`,
-`minor_safety`, `harassment`, `violence`, `hate`, `spam`, `other`; optional note <= 500; captcha) that posts JSON to the web
-route `POST /b/<token>/report`. The route accepts same-origin JSON only (`Origin` = `SITE_URL`, body <= 16 KB), verifies the
-captcha **on the web server** through the captcha port (`features/captcha`: verifier + widget registry; `CAPTCHA_PROVIDER`
-empty = reports off, `fake` = development checkbox, refused in production builds; the real vendor is an open EM decision),
-then calls `POST /v1/public/reports` (`svc`, `X-Client-IP`) with `{token, reason, note?}` (never the captcha answer). Web
-answers: 202 accepted, 400 invalid or missing/failed captcha, 404 unusable link, 429 when the API limits (5/h per IP),
-503 when the API or the provider is unavailable. Expected API contract (backend T-142): 2xx accepted, 400 invalid body,
-404 for every unusable token, 429 over the limit. Tests: `report.test.ts`.
+`minor_safety`, `harassment`, `violence`, `hate`, `spam`, `other`; optional note <= 500; captcha widget) that posts JSON
+`{reason, note, captcha_token}` to the web route `POST /b/<token>/report`. The route accepts same-origin JSON only (`Origin` =
+`SITE_URL`, body <= 16 KB), validates the body and forwards it to `POST /v1/public/reports` (`svc`, `X-Client-IP`) as exactly
+the generated client's `PublicReportRequest` `{token, reason, captcha_token, note?}`. **The web server does not verify the
+captcha and holds no captcha secret**: the API is the single enforcement point (server part below). The web side only chooses
+the widget (`features/captcha`: `CAPTCHA_PROVIDER` empty = no widget, reports off; `fake` = development checkbox that yields
+`fake-captcha-pass`, refused in production builds; a real vendor adds a widget, its public site key and CSP origins). Web
+answers: 202 accepted (API 202), 400 invalid body or missing/failed captcha (API 400, the body having been validated first),
+404 unusable link, 429 over 5/h per IP, 503 when the API, its captcha provider (`API_CAPTCHA_VERIFIER=none` by default) or the
+widget provider is unavailable. Tests: `report.test.ts`.
 
 US-23 (export) is on-device; the server only supplies the owner's own media via `GET /v1/cards/{id}` / `/v1/me/cards`.
 US-7, US-8, US-10, US-11, US-21 are on-device by design (AC-7.5: nothing uploaded before send); their server touchpoints are the

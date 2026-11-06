@@ -2,18 +2,15 @@
 
 import { useId } from 'react';
 
-import type { CaptchaProvider } from './captcha';
+import { type CaptchaProvider, FAKE_CAPTCHA_TOKEN } from './captcha';
 
 interface Props {
   provider: CaptchaProvider;
-  /** The provider's answer once solved, `null` while unsolved. */
+  /** The provider's token once solved, `null` while unsolved. */
   onAnswer: (answer: string | null) => void;
 }
 
-/** Same value as `FAKE_CAPTCHA_ANSWER` in captcha.ts (that module is server-side). */
-const FAKE_ANSWER = 'fake-captcha-pass';
-
-/** Development stand-in: a checkbox, clearly labelled, that the fake verifier accepts. */
+/** Development stand-in: a checkbox, clearly labelled, whose token the API's fake verifier accepts. */
 function FakeCaptcha({ onAnswer }: Pick<Props, 'onAnswer'>) {
   const id = useId();
   return (
@@ -21,14 +18,14 @@ function FakeCaptcha({ onAnswer }: Pick<Props, 'onAnswer'>) {
       <input
         id={id}
         type="checkbox"
-        onChange={(event) => onAnswer(event.target.checked ? FAKE_ANSWER : null)}
+        onChange={(event) => onAnswer(event.target.checked ? FAKE_CAPTCHA_TOKEN : null)}
       />
       <label htmlFor={id}>I am not a robot (development check)</label>
     </div>
   );
 }
 
-/** Captcha widget registry, keyed like the server verifiers in captcha.ts. */
+/** Captcha widget registry, keyed by `CaptchaProvider`; the API verifies the token. */
 export function CaptchaField({ provider, onAnswer }: Props) {
   switch (provider) {
     case 'fake':

@@ -1,4 +1,6 @@
-import { MAX_CAPTCHA_ANSWER } from '../captcha/captcha.ts';
+import type { components } from '@card-sharing/api-client';
+
+import { MAX_CAPTCHA_TOKEN } from '../captcha/captcha.ts';
 import { type ServiceApiConfig, servicePost } from '../service-api/service-api.ts';
 
 import { isBoardToken } from './public-board.ts';
@@ -11,14 +13,16 @@ import {
 
 /**
  * Guest report of a public board link (T-142, US-26 AC-26.3, SR-31). The browser posts to the web
- * server's `/b/<token>/report`; the web server checks the request, verifies the captcha and calls
- * the API's `POST /v1/public/reports` (`svc`, `X-Client-IP`; the API limits 5 per hour per IP).
+ * server's `/b/<token>/report`; the web server checks the request and forwards it, with the
+ * widget's captcha token, to the API's `POST /v1/public/reports` (`svc`, `X-Client-IP`). The API
+ * verifies the captcha and limits 5 reports per hour per IP.
  */
 
 export type ReportRequest = {
   readonly reason: ReportReason;
   readonly note: string | null;
-  readonly captcha: string;
+  /** The widget token, forwarded unchanged as `captcha_token`. */
+  readonly captchaToken: string;
 };
 
 /** HTTP status the web route answers for each outcome (AC: bad captcha 400, 6th report 429). */
@@ -43,10 +47,10 @@ export function parseReportRequest(value: unknown): ReportRequest | 'no-captcha'
     if (typeof body.note !== 'string' || body.note.length > MAX_REPORT_NOTE) return null;
     note = body.note.trim() === '' ? null : body.note.trim();
   }
-  const captcha = body.captcha;
+  const captcha = body.captcha_token;
   if (typeof captcha !== 'string' || captcha === '') return 'no-captcha';
-  if (captcha.length > MAX_CAPTCHA_ANSWER) return null;
-  return { reason: body.reason as ReportReason, note, captcha };
+  if (captcha.length > MAX_CAPTCHA_TOKEN) return null;
+  return { reason: body.reason as ReportReason, note, captchaToken: captcha };
 }
 
 /**
@@ -59,26 +63,34 @@ export function isSameOriginJson(headers: Headers, siteOrigin: string): boolean 
   return origin === siteOrigin && /^application\/json(\s*;|$)/i.test(type);
 }
 
-/** Forwards a verified report to the API. Never throws. */
+/** The API's request body, exactly as the generated client types it. */
+type PublicReportRequest = components['schemas']['PublicReportRequest'];
+
+/**
+ * Forwards a report to the API with the widget's captcha token; the API verifies the captcha.
+ * Never throws.
+ */
 export async function submitReport(
   token: string,
-  report: Pick<ReportRequest, 'reason' | 'note'>,
+  report: Pick<ReportRequest, 'reason' | 'note' | 'captchaToken'>,
   config: ServiceApiConfig,
   clientIp: string,
   fetchImpl: typeof fetch = fetch,
 ): Promise<ReportOutcome> {
   if (!isBoardToken(token)) return 'gone';
-  const response = await servicePost(
-    '/v1/public/reports',
-    { token, reason: report.reason, ...(report.note === null ? {} : { note: report.note }) },
-    config,
-    clientIp,
-    fetchImpl,
-  );
+  const body: PublicReportRequest = {
+    token,
+    reason: report.reason,
+    captcha_token: report.captchaToken,
+    ...(report.note === null ? {} : { note: report.note }),
+  };
+  const response = await servicePost('/v1/public/reports', body, config, clientIp, fetchImpl);
   if (response === null) return 'unavailable';
-  if (response.ok) return 'accepted';
+  if (response.status === 202) return 'accepted';
   if (response.status === 404) return 'gone';
   if (response.status === 429) return 'limited';
-  if (response.status === 400) return 'invalid';
+  // The body was validated here first, so a 400 from the API means a missing or failed captcha.
+  if (response.status === 400) return 'captcha';
+  // 503: no captcha provider configured on the API, or the provider is down.
   return 'unavailable';
 }
