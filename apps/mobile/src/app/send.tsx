@@ -7,6 +7,7 @@ import { prepareForSend, type LocalCard } from '../features/cards';
 import { deviceDraftStore } from '../features/drafts';
 import { createSyntheticMaskSource, noMaskSource } from '../features/editor';
 import { useFriendsApi } from '../features/friends';
+import { useOutbox } from '../features/outbox';
 import { useRemoteConfig } from '../features/remote-config';
 import { SendScreen, useCardsApi } from '../features/sharing';
 import { t } from '../i18n';
@@ -24,6 +25,7 @@ export default function SendRoute() {
   const friendsApi = useFriendsApi();
   const cardsApi = useCardsApi();
   const remoteConfig = useRemoteConfig();
+  const outbox = useOutbox()?.outbox;
   // The same mask source as the editor, so the sent card matches what the user styled.
   const maskSource = useMemo(() => (__DEV__ ? createSyntheticMaskSource() : noMaskSource), []);
   const prepare = useCallback(
@@ -63,6 +65,7 @@ export default function SendRoute() {
       removeDraft={(id) => deviceDraftStore().remove(id)}
       registry={registry}
       recipientsMax={remoteConfig?.cardRecipientsMax}
+      queue={outbox ? (job) => outbox.enqueueSend(job) : undefined}
       onEdit={() => router.replace({ pathname: '/editor', params: { draft: card.id } })}
       onOpenFriends={() => router.push('/friends')}
       onDone={() => router.replace('/')}

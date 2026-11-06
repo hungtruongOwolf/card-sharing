@@ -515,6 +515,13 @@ on `code`); `requestId` equals the `X-Request-Id` response header. Generic codes
 - **Idempotency-Key** (UUID, required where marked): stored 24 h per `(user, route, key)` with request hash; replay returns the stored
   response; same key + different body → 422 `IDEMPOTENCY_KEY_REUSED`; concurrent → 409 `IDEMPOTENCY_IN_PROGRESS`. The offline outbox
   reuses the key on every retry (no duplicate cards, AC-13.3). Board ops use `op_id` instead.
+  Mobile outbox (T-78, #80, `apps/mobile/src/features/outbox`): a send or reaction that fails for a retryable reason
+  (network, 5xx, 409, 429) is queued with its exact request: a send keeps its `SendJob` (key = `client_card_id`, fixed
+  body, media ids once uploaded, so a retry neither re-uploads nor changes the body), a reaction keeps the newest value
+  per card. Attempts run on app start, on return to the foreground and when the backoff is due (5 s doubling to 15 min);
+  no connectivity listener yet (#265). A refusal, or 24 h of failures, stops the entry as "Not sent" with Retry/Delete;
+  pending entries can be cancelled (Home shows "N waiting to send", `/outbox`). Entries live in SecureStore (one value
+  each, at most 50; SQLite waits for #244) and are cleared on sign-out so they never go out as another account.
   Implemented (T-14, `platform::idempotency` + `apps/api/src/access/idempotency.rs`): a route opts in with
   `RoutePolicy::idempotency(Required | Optional)` (published as `x-policy.idempotency`; authenticated routes only, keys are
   scoped by account, so another account reusing a key gets its own fresh execution). Missing (when required) or non-UUID key →

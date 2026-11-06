@@ -24,10 +24,12 @@ function seed(server: FakeCardsServer) {
 async function setup({
   scheme = 'light' as const,
   cache = createFeedCache(memoryKeyValueStore()),
+  queueReaction,
   extra,
 }: {
   scheme?: 'light' | 'dark';
   cache?: FeedCache;
+  queueReaction?: (cardId: string, kind: string | null) => Promise<boolean>;
   extra?: (server: FakeCardsServer, people: ReturnType<typeof seed>) => void;
 } = {}) {
   let people!: ReturnType<typeof seed>;
@@ -39,6 +41,7 @@ async function setup({
         api={apis.cards}
         cache={cache}
         reactions={REACTIONS}
+        queueReaction={queueReaction}
         now={() => clock()}
         onCompose={onCompose}
         onBack={() => undefined}
@@ -213,5 +216,21 @@ describe('FeedScreen', () => {
     await user.press(screen.getByRole('button', { name: t('feed.retry') }));
     expect(await screen.findByText('zoomies')).toBeTruthy();
     expect(server.count('GET', '/v1/feed')).toBe(2);
+  });
+
+  it('queues a reaction while offline and keeps it on the card', async () => {
+    const queueReaction = jest.fn(() => Promise.resolve(true));
+    const { server, user, newest } = await setup({ queueReaction });
+    await screen.findByText('zoomies');
+    server.overrides.set(
+      `PUT /v1/cards/${newest.id}/reaction`,
+      problem(503, 'TEMPORARILY_UNAVAILABLE'),
+    );
+    const heart = () => screen.getAllByRole('button', { name: t('feed.reaction.heart') })[0]!;
+    await user.press(heart());
+    expect(await screen.findByText(t('feed.reaction.queued'))).toBeTruthy();
+    expect(queueReaction).toHaveBeenCalledWith(newest.id, 'react.heart');
+    expect(heart().props.accessibilityState).toMatchObject({ selected: true });
+    expect(server.reactions.has(newest.id)).toBe(false);
   });
 });

@@ -6,6 +6,7 @@ import { space } from '@card-sharing/tokens';
 
 import { CAPTION_MAX_GRAPHEMES as CAPTION_MAX, checkCaption } from '../features/captions';
 import { HoloCard } from '../features/holo-card';
+import { useOutbox } from '../features/outbox';
 import { t } from '../i18n';
 import { Button, Screen, Sheet, Text, TextField, useToast } from '../ui';
 
@@ -19,6 +20,7 @@ export default function HomeScreen() {
   const toast = useToast();
   const router = useRouter();
   const [sheetOpen, setSheetOpen] = useState(false);
+  const waiting = useOutbox()?.entries.length ?? 0;
   const [caption, setCaption] = useState('');
   const cardWidth = Math.min(width - space[8] * 2, MAX_CARD_WIDTH);
   // Graphemes, not UTF-16 code units: an emoji counts as one character (T-69).
@@ -30,6 +32,13 @@ export default function HomeScreen() {
       <Text tone="muted">{t('home.hint')}</Text>
       <Button label={t('home.capture')} onPress={() => router.push('/capture')} />
       <Button label={t('feed.open')} variant="secondary" onPress={() => router.push('/feed')} />
+      {waiting > 0 ? (
+        <Button
+          label={t('outbox.open', { count: waiting })}
+          variant="secondary"
+          onPress={() => router.push('/outbox')}
+        />
+      ) : null}
       <Button
         label={t('drafts.open.home')}
         variant="secondary"

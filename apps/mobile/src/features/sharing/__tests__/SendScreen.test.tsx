@@ -10,6 +10,7 @@ import { SCHEMES } from '../../../test/render';
 import { newLocalCard, type LocalCard } from '../../cards/localCard';
 import type { PreparedCard } from '../../cards/prepare';
 import { styleChoice } from '../../editor/editorState';
+import type { SendJob } from '../sendCard';
 import { SendScreen } from '../SendScreen';
 
 const CARD_ID = '0c0c0c0c-0c0c-4c0c-8c0c-0c0c0c0c0c0c';
@@ -45,11 +46,13 @@ async function setup({
   scheme = 'light' as const,
   card = localCard(),
   withMask = false,
+  queue,
   extra,
 }: {
   scheme?: 'light' | 'dark';
   card?: LocalCard;
   withMask?: boolean;
+  queue?: (job: SendJob) => Promise<boolean>;
   extra?: (server: FakeCardsServer) => void;
 } = {}) {
   let people!: ReturnType<typeof seed>;
@@ -67,6 +70,7 @@ async function setup({
         prepare={prepare}
         removeDraft={removeDraft}
         statusPollMs={10}
+        queue={queue}
         onEdit={() => undefined}
         onOpenFriends={() => undefined}
         onDone={onDone}
@@ -241,5 +245,34 @@ describe('SendScreen', () => {
     await waitFor(() =>
       expect(sendButton().props.accessibilityState).toMatchObject({ disabled: true }),
     );
+  });
+
+  it('hands a send that cannot go out now to the outbox with its job', async () => {
+    const queue = jest.fn((_job: SendJob) => Promise.resolve(true));
+    const { server, user, removeDraft } = await setup({
+      queue,
+      extra: (s) => s.overrides.set('POST /v1/cards', problem(503, 'TEMPORARILY_UNAVAILABLE')),
+    });
+    await screen.findByRole('radio', { name: t('send.audience.all', { count: 2 }) });
+    await user.press(sendButton());
+    expect(await screen.findByTestId('send-queued')).toBeTruthy();
+    expect(queue).toHaveBeenCalledWith(
+      expect.objectContaining({ clientCardId: CARD_ID, media: expect.anything() }),
+    );
+    expect(server.sentCards()).toHaveLength(0);
+    // The draft stays until the outbox delivers it.
+    expect(removeDraft).not.toHaveBeenCalled();
+  });
+
+  it('does not queue a send the server refused', async () => {
+    const queue = jest.fn(() => Promise.resolve(true));
+    const { user } = await setup({
+      queue,
+      extra: (s) => s.overrides.set('POST /v1/cards', problem(403, 'ACCOUNT_SUSPENDED')),
+    });
+    await screen.findByRole('radio', { name: t('send.audience.all', { count: 2 }) });
+    await user.press(sendButton());
+    expect(await screen.findByText(t('send.error.notAllowed'))).toBeTruthy();
+    expect(queue).not.toHaveBeenCalled();
   });
 });

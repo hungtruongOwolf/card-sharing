@@ -28,6 +28,11 @@ export interface SendScreenProps {
   registry?: Registry;
   /** `limits.card_recipients_max` from `/v1/config`; the server enforces its own copy. */
   recipientsMax?: number;
+  /**
+   * Offline outbox (T-78): a send that fails for a retryable reason (offline, server busy) is handed over and goes
+   * out by itself later with the same idempotency key. Resolves false when the outbox cannot hold it.
+   */
+  queue?: (job: SendJob) => Promise<boolean>;
   /** How often the owner view of a just-sent card is refreshed while its content checks run. */
   statusPollMs?: number;
   onEdit: () => void;
@@ -44,7 +49,8 @@ type Phase =
   | { step: 'compose' }
   | { step: 'sending'; job: SendJob | null }
   | { step: 'failed'; job: SendJob | null; error: unknown }
-  | { step: 'sent'; sent: SentCard };
+  | { step: 'sent'; sent: SentCard }
+  | { step: 'queued' };
 
 const sessionEnded = (error: unknown): boolean =>
   error instanceof AuthError && (error.kind === 'session_ended' || error.kind === 'signed_out');
@@ -90,6 +96,7 @@ export function SendScreen({
   registry = shippedRegistry,
   recipientsMax = DEFAULT_RECIPIENTS_MAX,
   statusPollMs = DEFAULT_STATUS_POLL_MS,
+  queue,
   onEdit,
   onOpenFriends,
   onDone,
@@ -129,6 +136,10 @@ export function SendScreen({
       removeDraft(card.id).catch(() => undefined);
     } catch (error) {
       if (sessionEnded(error)) return;
+      if (job && queue && isRetryable(error) && (await queue(job).catch(() => false))) {
+        setPhase({ step: 'queued' });
+        return;
+      }
       feedback.emit('error');
       // A job that never got built (stale style) can be composed again; any other job is kept for the retry.
       setPhase({ step: 'failed', job, error });
@@ -136,6 +147,16 @@ export function SendScreen({
       running.current = false;
     }
   };
+
+  if (phase.step === 'queued') {
+    return (
+      <Screen title={t('send.title')} testID="send-queued">
+        <Text accessibilityRole="alert">{t('send.queued')}</Text>
+        <Text tone="muted">{t('send.queued.body')}</Text>
+        <Button block label={t('send.done')} onPress={onDone} />
+      </Screen>
+    );
+  }
 
   if (phase.step === 'sent') {
     return <SentStatus sent={phase.sent} api={cardsApi} pollMs={statusPollMs} onDone={onDone} />;
