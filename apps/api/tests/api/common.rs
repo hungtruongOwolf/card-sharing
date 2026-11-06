@@ -53,6 +53,8 @@ pub fn test_config() -> Config {
         text_filter_config_path: "unused-in-tests".into(),
         profile_config_path: "unused-in-tests".into(),
         social_config_path: "unused-in-tests".into(),
+        notifications_config_path: "unused-in-tests".into(),
+        push_sender: api::config::SafetyAdapter::Fake,
         media_storage_dir: None,
         media_s3: None,
         media_signing_key: None,
