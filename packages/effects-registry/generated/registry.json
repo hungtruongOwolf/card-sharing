@@ -349,6 +349,57 @@
       }
     },
     {
+      "id": "fx.fire-breath",
+      "version": 1,
+      "kind": "overlay",
+      "stackable": false,
+      "conflicts_with": [],
+      "params": {
+        "angle": {
+          "type": "number",
+          "min": -180,
+          "max": 180,
+          "default": 0
+        },
+        "length": {
+          "type": "number",
+          "min": 0.2,
+          "max": 1.2,
+          "default": 0.55
+        },
+        "puffs": {
+          "type": "integer",
+          "min": 0,
+          "max": 300,
+          "default": 40
+        },
+        "seed": {
+          "type": "integer",
+          "min": 1,
+          "max": 9999,
+          "default": 1
+        },
+        "spread": {
+          "type": "number",
+          "min": 10,
+          "max": 45,
+          "default": 22
+        },
+        "x": {
+          "type": "number",
+          "min": 0,
+          "max": 1,
+          "default": 0.5
+        },
+        "y": {
+          "type": "number",
+          "min": 0,
+          "max": 1,
+          "default": 0.5
+        }
+      }
+    },
+    {
       "id": "fx.glossy",
       "version": 1,
       "kind": "filter",

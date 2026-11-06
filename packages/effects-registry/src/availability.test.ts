@@ -120,6 +120,7 @@ describe('visibleEntries', () => {
       'prop.sunglasses',
       'prop.mustache',
       'fx.laser-eyes',
+      'fx.fire-breath',
     ]);
   });
 
@@ -143,6 +144,7 @@ describe('visibleEntries', () => {
       'prop.sunglasses',
       'prop.mustache',
       'fx.laser-eyes',
+      'fx.fire-breath',
     ]);
   });
 });

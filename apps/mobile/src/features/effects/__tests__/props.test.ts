@@ -133,13 +133,15 @@ describe('props family', () => {
     );
   });
 
-  it('ships the ten MVP effects of effects-catalog.md §3.3 except the two with live beams/flames', () => {
+  it('completes the ten MVP effects of effects-catalog.md §3.3 (AC-21.1)', () => {
     const mvp = [
       'cut.diecut',
       'fx.paper-lift',
       'fx.holo',
       'frame.polaroid',
       'overlay.washi',
+      'fx.fire-breath',
+      'fx.laser-eyes',
       'prop.crown',
       'fx.sparkles',
       'overlay.speech',
