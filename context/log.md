@@ -280,3 +280,6 @@ PR #303: Rust and JS jobs split with aggregators keeping required check names; f
 
 ## [2026-11-06] plan | sprint 7
 Two lanes: backend (T-3 demo stack first, public links, privacy) and mobile (Tier-0 effects, export, link management). See [[sprint-7]].
+
+## [2026-11-06] progress | sprint 7 mobile lane done
+T-114, T-118..T-125, T-124, T-127 merged (#305-#323); T-134 partly (#328, #136 open on #321). See [[sprint-7]].
