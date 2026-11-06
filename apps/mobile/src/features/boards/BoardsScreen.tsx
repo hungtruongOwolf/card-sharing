@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { space } from '@card-sharing/tokens';
@@ -20,6 +21,14 @@ export function BoardsScreen({ repository, onOpen, onOpenLab }: BoardsScreenProp
   const queryClient = useQueryClient();
   const toast = useToast();
   const query = useQuery({ queryKey: BOARDS_QUERY_KEY, queryFn: () => repository.list() });
+  // Boards shared with me or made on another device (T-105); offline, the local list stays.
+  useEffect(() => {
+    if (!repository.refreshList) return;
+    repository
+      .refreshList()
+      .then(() => queryClient.invalidateQueries({ queryKey: BOARDS_QUERY_KEY }))
+      .catch(() => undefined);
+  }, [repository, queryClient]);
   const create = useMutation({
     mutationFn: () => repository.create(t('boards.defaultTitle')),
     onSuccess: async (board) => {

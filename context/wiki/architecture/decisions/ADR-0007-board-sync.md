@@ -50,6 +50,17 @@ pins as private tiles and the minor's display name only (AC-19.9).
   Because visibility is per viewer, Phase 2 must send each client a filtered projection (pin card refs resolved server-side), never the
   raw shared doc with foreign card ids/URLs.
 
+## Client implementation (T-105)
+`apps/mobile/src/features/boards/boardSync.ts`: every edit applies locally at once and queues as an op (queued edits on one pin
+are coalesced: update + update, add + update, add + remove = nothing; never into an op in flight). A sync (on open, foreground,
+the Refresh button and 1.5 s after an edit) first creates a board made offline (`POST /v1/boards`, client UUIDv7), pushes the
+queue in batches of 50, then pulls `GET /v1/boards/{id}?since_version=<last pulled version>`; the op response's `board_version`
+is not used as the cursor, so other members' changes in between are never skipped. Per-op results: `applied` takes the server
+layout, `conflict` replaces only that pin with `current`, `rejected` drops only that edit and is explained (`PIN_NOT_YOURS`,
+`PIN_LIMIT_REACHED`, `NOT_FOUND`, `CARD_HELD_FOR_REVIEW`). A 404 on the board (removed, deleted) drops the local copy and its queue
+and says "You're no longer on this board". The offline copy (`boardStore.ts`, SecureStore, chunked) never holds signed URLs and
+is cleared on sign-out. Backdrop changes on an existing board stay local until `PATCH /v1/boards/{id}` exists (T-112).
+
 ## Consequences
 - Positive: exact PRD semantics; simple SQL (`UPDATE … WHERE id=$1 AND version=$2`); offline-friendly; no data-model change for realtime.
 - Negative / trade-offs accepted: whole-pin conflicts (a move and a rotate of the same pin at the same time → one loses, client refreshes);

@@ -1,8 +1,13 @@
 import { Skia, type SkImage } from '@shopify/react-native-skia';
+import { useMemo } from 'react';
+
 import type { TextureLod } from '@card-sharing/canvas-engine';
 
+import { useAuthClient, type AuthClient } from '../auth';
 import { downscalePhoto } from '../editor/cardScene';
-import { createMemoryBoardRepository, type BoardRepository } from './boardRepository';
+import { createBoardsApi } from './boardsApi';
+import { createBoardStore, type BoardStore } from './boardStore';
+import { createSyncedBoardRepository, type SyncedBoardRepository } from './boardSync';
 import { createTextureCache, type TextureCache } from './textureCache';
 
 /** Downloads a signed card render and scales it to the texture level (the full-size decode is dropped). */
@@ -13,7 +18,8 @@ export async function loadRemoteTexture(url: string, lod: TextureLod): Promise<S
 }
 
 let textures: TextureCache<SkImage> | null = null;
-let repository: BoardRepository | null = null;
+let store: BoardStore | null = null;
+let repository: { client: AuthClient; repo: SyncedBoardRepository } | null = null;
 
 /** One texture cache for every board screen, so reopening a board reuses decoded pins. */
 export function appBoardTextures(): TextureCache<SkImage> {
@@ -21,10 +27,36 @@ export function appBoardTextures(): TextureCache<SkImage> {
   return textures;
 }
 
+/** The device's offline board copies (SecureStore-backed), created on first use. */
+export function deviceBoardStore(): BoardStore {
+  store ??= createBoardStore();
+  return store;
+}
+
+/** The app's boards over the signed-in auth client: local first, synced with the server (T-105). */
+export function appBoardRepository(client: AuthClient): SyncedBoardRepository {
+  if (repository?.client !== client) {
+    repository = {
+      client,
+      repo: createSyncedBoardRepository({
+        api: createBoardsApi(client.fetch),
+        store: deviceBoardStore(),
+      }),
+    };
+  }
+  return repository.repo;
+}
+
+export function useBoardRepository(): SyncedBoardRepository {
+  const client = useAuthClient();
+  return useMemo(() => appBoardRepository(client), [client]);
+}
+
 /**
- * The app's boards until the board endpoints and offline sync land (T-101, T-105): in memory, starting empty.
+ * Sign-out: board copies hold friends' cards and names, so they never outlive the session. Drops the in-memory
+ * repository too, so the next account starts empty.
  */
-export function appBoardRepository(): BoardRepository {
-  repository ??= createMemoryBoardRepository();
-  return repository;
+export async function clearDeviceBoards(): Promise<void> {
+  repository = null;
+  await deviceBoardStore().clear();
 }
