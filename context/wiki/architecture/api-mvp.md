@@ -469,6 +469,14 @@ idempotent replay of the create (24 h window) is served from the idempotency sto
 in `platform.idempotency_keys` for up to 24 h. `/v1/me` does not say whether the caller may create links; the app shows
 the action and handles 403. Tests: `tests/api/public_links.rs`.
 
+App (T-134, #136): `apps/mobile/src/features/boards` — `publicLinksApi.ts` (list / create with `Idempotency-Key` /
+revoke; a created URL is accepted only as `https://<host>/b/<token>`), `PublicLinksSheet.tsx` ("Share link" on the board
+toolbar, owner of a server board only): a one-time link-preview disclosure (AC-24.7), expiry 24 h / 7 days / never
+(default 7 days), the URL shown once with a Share button (no clipboard module is installed; the OS share sheet offers
+copy), active links with Revoke. `publicLinkPrefs.ts` keeps "disclosure seen" and "refused" per device in SecureStore,
+cleared on sign-out. Because `/v1/me` has no public-link flag yet, a minor sees the action until the first create
+answers 403 `POLICY_DISALLOWED`; the app then hides it for good on that device (follow-up #321 asks for the flag).
+
 Snapshots (T-130, #132): `sharing::SnapshotBuilder` (job `sharing.snapshot`) builds one snapshot per board with a live link,
 from the board as its owner reads it (`BoardService::read`): a card pin is public only when the card's owner is the board
 owner and the card is `active`; everything else (friends' cards, held/blocked cards, pins hidden from the owner) is a

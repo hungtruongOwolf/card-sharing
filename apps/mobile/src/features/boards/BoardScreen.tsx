@@ -1,6 +1,6 @@
 import type { SkImage } from '@shopify/react-native-skia';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Image, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 
@@ -46,6 +46,9 @@ import {
 import { hasBoardRenderer } from './boardDecor';
 import type { BoardRepository } from './boardRepository';
 import type { PinDisclosure } from './pinDisclosure';
+import type { PublicLinkPrefs } from './publicLinkPrefs';
+import type { PublicLinksApi } from './publicLinksApi';
+import { PublicLinksSheet } from './PublicLinksSheet';
 import type { TextureCache } from './textureCache';
 import { boardQueryKey, useBoardSync } from './useBoardSync';
 import { uuidv7 } from './uuidv7';
@@ -76,6 +79,8 @@ export interface BoardScreenProps {
   friends?: () => Promise<readonly Person[]>;
   /** The one-time explanation that only recipients of the card see it on the board (AC-19.5 as resolved by AC-19.7). */
   disclosure?: PinDisclosure;
+  /** Public links (T-134): owner of a server board only; absent hides the action. */
+  publicLinks?: { api: PublicLinksApi; prefs: PublicLinkPrefs };
   onClose: () => void;
 }
 
@@ -159,6 +164,7 @@ function BoardEditor({
   members,
   friends,
   disclosure,
+  publicLinks,
 }: BoardEditorProps) {
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -170,7 +176,20 @@ function BoardEditor({
   const [initialCamera] = useState(() => openingCamera(board, view));
   const camera = useSharedValue<Camera>(initialCamera);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [sheet, setSheet] = useState<'cards' | 'backdrop' | 'decorate' | 'members' | null>(null);
+  const [sheet, setSheet] = useState<
+    'cards' | 'backdrop' | 'decorate' | 'members' | 'links' | null
+  >(null);
+  // Share links are for the owner of a server board, unless the server already refused them here (AC-24.6).
+  const [linksDisallowed, setLinksDisallowed] = useState<boolean | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void publicLinks?.prefs.disallowed().then((value) => !cancelled && setLinksDisallowed(value));
+    return () => {
+      cancelled = true;
+    };
+  }, [publicLinks]);
+  const canShareLink =
+    board.role === 'owner' && publicLinks !== undefined && linksDisallowed === false;
   const [disclosing, setDisclosing] = useState<CardItem | null>(null);
   // A server board: membership comes from the server (a local board has no role and is mine alone).
   const membersApi = board.role ? members : undefined;
@@ -320,6 +339,13 @@ function BoardEditor({
                 onPress={() => setSheet('backdrop')}
               />
             ) : null}
+            {canShareLink ? (
+              <Button
+                label={t('boards.links.open')}
+                variant="secondary"
+                onPress={() => setSheet('links')}
+              />
+            ) : null}
             {membersApi ? (
               <Button
                 label={t('boards.members.open')}
@@ -362,6 +388,16 @@ function BoardEditor({
           friends={friends}
           onClose={() => setSheet(null)}
           onLeft={onLeft}
+        />
+      ) : null}
+      {publicLinks && board.role === 'owner' ? (
+        <PublicLinksSheet
+          visible={sheet === 'links'}
+          boardId={board.id}
+          api={publicLinks.api}
+          prefs={publicLinks.prefs}
+          onClose={() => setSheet(null)}
+          onDisallowed={() => setLinksDisallowed(true)}
         />
       ) : null}
       <Sheet

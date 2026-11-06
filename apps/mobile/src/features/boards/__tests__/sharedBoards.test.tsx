@@ -19,11 +19,13 @@ import type { KeyValueStore } from '../../drafts/draftStore';
 import { createBoardMembersApi, InviteError } from '../boardMembersApi';
 import { canEditPin, type BoardPin } from '../boardModel';
 import { createBoardsApi } from '../boardsApi';
-import { BoardScreen } from '../BoardScreen';
+import { BoardScreen, type BoardScreenProps } from '../BoardScreen';
 import { BoardsScreen } from '../BoardsScreen';
 import { createBoardStore } from '../boardStore';
 import { createSyncedBoardRepository } from '../boardSync';
 import { memoryPinDisclosure } from '../pinDisclosure';
+import { memoryPublicLinkPrefs } from '../publicLinkPrefs';
+import type { PublicLinksApi } from '../publicLinksApi';
 import { createTextureCache } from '../textureCache';
 
 jest.mock('@shopify/react-native-skia', () =>
@@ -196,6 +198,7 @@ describe('shared board screen', () => {
     ctx: Awaited<ReturnType<typeof open>>,
     boardId: string,
     cards = [cardItem({ isMine: true })],
+    publicLinks?: BoardScreenProps['publicLinks'],
   ) {
     await ctx.repo.refreshList();
     await renderThemed(
@@ -211,6 +214,7 @@ describe('shared board screen', () => {
             { id: THIRD, displayName: 'Linh', handle: null },
           ]}
           disclosure={ctx.disclosure}
+          publicLinks={publicLinks}
           onClose={jest.fn()}
         />
       </QueryClientProvider>,
@@ -242,6 +246,32 @@ describe('shared board screen', () => {
       await pinMine();
       await waitFor(async () => expect((await ctx.repo.get(THEIRS))!.pins).toHaveLength(2));
       expect(screen.queryByText(t('boards.disclosure.body'))).toBeNull();
+    },
+    RENDER_TIMEOUT_MS,
+  );
+
+  it(
+    'offers Share link only to the owner, and never after the server refused it (T-134, AC-24.6)',
+    async () => {
+      const api: PublicLinksApi = {
+        list: jest.fn(async () => []),
+        create: jest.fn(),
+        revoke: jest.fn(),
+      };
+      const ctx = await open(MINE);
+      ctx.server.addBoard(MINE, ME, [ME], 'Trip');
+      ctx.server.addBoard(THEIRS, OTHER, [ME]);
+      await render(ctx, MINE, undefined, { api, prefs: memoryPublicLinkPrefs() });
+      expect(await screen.findByRole('button', { name: t('boards.links.open') })).toBeTruthy();
+      screen.unmount();
+      await render(ctx, THEIRS, undefined, { api, prefs: memoryPublicLinkPrefs() });
+      expect(screen.queryByRole('button', { name: t('boards.links.open') })).toBeNull();
+      screen.unmount();
+      await render(ctx, MINE, undefined, {
+        api,
+        prefs: memoryPublicLinkPrefs({ disallowed: true }),
+      });
+      expect(screen.queryByRole('button', { name: t('boards.links.open') })).toBeNull();
     },
     RENDER_TIMEOUT_MS,
   );
