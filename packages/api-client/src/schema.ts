@@ -330,6 +330,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/feed/purges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Which cached cards to purge. Auth: ses.
+         * @description The app sends the ids it keeps offline on every sync (app start, foreground, feed refresh,
+         *     and at least every 30 s while open) and deletes every id in `purge`: cards whose sender was
+         *     unfriended or blocked (either way), deleted cards, and cards of suspended or deleted accounts
+         *     (AC-6.1, AC-14.1, SR-9). The answer uses the same predicate as a card read, so it is effective
+         *     the moment the change commits. An unknown id is purged exactly like a deleted one.
+         */
+        post: operations["checkFeedPurges"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/friend-requests": {
         parameters: {
             query?: never;
@@ -1280,6 +1304,18 @@ export interface components {
         /** @description What the invite landing page shows. */
         PublicInviteResponse: {
             inviter: components["schemas"]["InviterView"];
+        };
+        /** @description Body of `POST /v1/feed/purges`. */
+        PurgeCheckRequest: {
+            /** @description Ids of the cards the app keeps offline (feed copy, widget, boards), 1..=100. */
+            card_ids: string[];
+        };
+        PurgeInstructions: {
+            /**
+             * @description Cached cards to delete now (with any metadata or pictures kept for them). The ids are a
+             *     subset of the request; a card the caller may still see is never listed.
+             */
+            purge: string[];
         };
         ReactionList: {
             /** @description Newest first; only people who are still my friends. */
@@ -2539,6 +2575,66 @@ export interface operations {
             };
             /** @description TEMPORARILY_UNAVAILABLE: media signing not configured. */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    checkFeedPurges: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PurgeCheckRequest"];
+            };
+        };
+        responses: {
+            /** @description The cached cards to delete. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurgeInstructions"];
+                };
+            };
+            /** @description VALIDATION_FAILED: empty list, more than 100 ids or a malformed id. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

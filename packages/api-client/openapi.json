@@ -1482,6 +1482,90 @@
         }
       }
     },
+    "/v1/feed/purges": {
+      "post": {
+        "tags": [
+          "cards"
+        ],
+        "summary": "Which cached cards to purge. Auth: ses.",
+        "description": "The app sends the ids it keeps offline on every sync (app start, foreground, feed refresh,\nand at least every 30 s while open) and deletes every id in `purge`: cards whose sender was\nunfriended or blocked (either way), deleted cards, and cards of suspended or deleted accounts\n(AC-6.1, AC-14.1, SR-9). The answer uses the same predicate as a card read, so it is effective\nthe moment the change commits. An unknown id is purged exactly like a deleted one.",
+        "operationId": "checkFeedPurges",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PurgeCheckRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "The cached cards to delete.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurgeInstructions"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED: empty list, more than 100 ids or a malformed id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "feed.purges",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
     "/v1/friend-requests": {
       "get": {
         "tags": [
@@ -4846,6 +4930,38 @@
         "properties": {
           "inviter": {
             "$ref": "#/components/schemas/InviterView"
+          }
+        }
+      },
+      "PurgeCheckRequest": {
+        "type": "object",
+        "description": "Body of `POST /v1/feed/purges`.",
+        "required": [
+          "card_ids"
+        ],
+        "properties": {
+          "card_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Ids of the cards the app keeps offline (feed copy, widget, boards), 1..=100."
+          }
+        },
+        "additionalProperties": false
+      },
+      "PurgeInstructions": {
+        "type": "object",
+        "required": [
+          "purge"
+        ],
+        "properties": {
+          "purge": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Cached cards to delete now (with any metadata or pictures kept for them). The ids are a\nsubset of the request; a card the caller may still see is never listed."
           }
         }
       },
