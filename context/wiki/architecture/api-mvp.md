@@ -476,9 +476,12 @@ same 404 `NOT_FOUND` as a missing id; the body is validated before the ownership
 ownership: below the region's `public_links.min_age` (default 18) the answer is 403 `POLICY_DISALLOWED` (AC-24.6). Revoking
 an already revoked or expired own link is 204 again (no second audit entry). Create and revoke write audit events
 `sharing.link_created` / `sharing.link_revoked` (target `public_link:<id>`, detail `board_id`, `reason`). Rate limits:
-`sharing.links.create` 20/day, `sharing.links.read` 60/min, `sharing.links.revoke` 60/h per user. Known trade-off: an
-idempotent replay of the create (24 h window) is served from the idempotency store, so the create response (with the URL) sits
-in `platform.idempotency_keys` for up to 24 h. `/v1/me` does not say whether the caller may create links; the app shows
+`sharing.links.create` 20/day, `sharing.links.read` 60/min, `sharing.links.revoke` 60/h per user. Idempotent replay (#333): a
+replay of the create with the same `Idempotency-Key` (24 h window) creates no second link and answers 201 with the same link
+but **without `url`** and with `url_already_shown: true` (the first response has `url_already_shown: false`). The handler hands
+the idempotency layer a redacted replay body (`access::ReplayBody` response extension), so neither the raw token nor its URL
+ever lands in `platform.idempotency_keys`; only the token hash is stored, in `sharing.public_links`. A client that lost the
+first response revokes the link and creates a new one. `/v1/me` does not say whether the caller may create links; the app shows
 the action and handles 403. Tests: `tests/api/public_links.rs`.
 
 App (T-134, #136): `apps/mobile/src/features/boards` — `publicLinksApi.ts` (list / create with `Idempotency-Key` /

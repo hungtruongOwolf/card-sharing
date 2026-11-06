@@ -161,7 +161,7 @@ L = likelihood (H/M/L, given free tools). I = impact (Crit/H/M/L). SR = requirem
 | SR-9 | Unfriend/block/delete purge cached items: clients send their cached card ids to `POST /v1/feed/purges` on every sync (≤ 30 s while open) and drop what it lists (best effort, T-83) | AC-6.1, AC-14.1 |
 | SR-10 | Per-user signed-URL issuance and media-fetch budgets; anomaly alerts (rate, many IPs) | NEW (abuse) |
 | SR-11 | Originals (if kept) are owner-only; recipients get display derivatives; EXIF stripped | NEW AC-13.6, AC-13.4 |
-| SR-12 | Recipients intersected server-side with current friends at send time; idempotency keys scoped per user | AC-13.1, NFR reliability |
+| SR-12 | Recipients intersected server-side with current friends at send time; idempotency keys scoped per user; responses carrying a one-time bearer secret (public link URLs) are stored for replay redacted, never with the secret (#333) | AC-13.1, NFR reliability |
 | SR-13 | Attestation (App Attest / Play Integrity) on sign-up, send, invite accept, friend request, search; server-side verdict check | NFR security (extend to sign-up/search) |
 | SR-14 | Widget: scoped read-only token, protected cache, lock-screen display per D3 (accepted risk), cleared on logout/delete, re-validated within 60 s on unfriend/block/delete | AC-16.2 + NEW AC-16.4/16.5 |
 | SR-15 | Push: tokens unique per account and session-bound, pruned on logout/delete/invalid; payload = opaque id + generic text, no URL/caption/image; APNs/FCM credentials in secret manager | AC-31.2 (strengthen) |

@@ -179,9 +179,40 @@ async fn a_replayed_create_returns_the_same_link() {
     let board = new_board(&env, &owner).await;
     let key = Uuid::now_v7();
     let first = json_body(create_link(&env, &owner, board, "7d", Some(key)).await).await;
-    let again = json_body(create_link(&env, &owner, board, "7d", Some(key)).await).await;
-    assert_eq!(first, again);
+    assert_eq!(first["link"]["url_already_shown"], false);
+    let token = token_of(&first["link"]);
+    let replayed = create_link(&env, &owner, board, "7d", Some(key)).await;
+    assert_eq!(replayed.status(), StatusCode::CREATED);
+    assert_eq!(
+        replayed.headers().get("idempotent-replayed").unwrap(),
+        "true"
+    );
+    let again = json_body(replayed).await;
+    // #333: the same link, but its URL is not kept anywhere for the replay.
+    assert_eq!(again["link"]["id"], first["link"]["id"]);
+    assert_eq!(again["link"]["expires_at"], first["link"]["expires_at"]);
+    assert!(again["link"].get("url").is_none(), "{again}");
+    assert_eq!(again["link"]["url_already_shown"], true);
     assert_eq!(listed(&env, &owner, board).await.len(), 1);
+
+    // No token material in the idempotency store (raw token, its URL path, or its hash).
+    let stored: Vec<Vec<u8>> = sqlx::query_scalar(
+        "SELECT response_body FROM platform.idempotency_keys
+         WHERE key = $1 AND response_body IS NOT NULL",
+    )
+    .bind(key)
+    .fetch_all(env.identity.pool())
+    .await
+    .unwrap();
+    assert_eq!(stored.len(), 1);
+    let stored = String::from_utf8(stored[0].clone()).unwrap();
+    let hash: String = Sha256::digest(token.as_bytes())
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect();
+    for secret in [token.as_str(), "/b/", hash.as_str()] {
+        assert!(!stored.contains(secret), "idempotency row holds {secret:?}");
+    }
 }
 
 #[tokio::test]

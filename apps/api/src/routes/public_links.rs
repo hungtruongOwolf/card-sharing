@@ -2,11 +2,13 @@
 //!
 //! Owner only: a board the caller does not own (a collaborator's board included) and a link of
 //! someone else are the same 404 as a missing id. Owners younger than the region's
-//! `public_links.min_age` get 403 `POLICY_DISALLOWED`. The raw token is in the create response
-//! only; lists never carry it.
+//! `public_links.min_age` get 403 `POLICY_DISALLOWED`. The raw token is in the first create
+//! response only: lists never carry it, and an idempotent replay of the create answers the link
+//! without its URL, because the stored replay body is redacted (#333).
 
-use axum::Json;
 use axum::extract::{Path, State};
+use axum::response::{IntoResponse, Response};
+use axum::{Extension, Json};
 use boards::Role;
 use http::{HeaderMap, StatusCode};
 use platform::problem::{ApiError, ProblemDetails};
@@ -17,7 +19,7 @@ use time::OffsetDateTime;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
-use crate::access::{Caller, ValidJson};
+use crate::access::{Caller, ReplayBody, ValidJson};
 use crate::routes::boards::{board_error, board_id};
 use crate::state::AppState;
 
@@ -33,7 +35,7 @@ pub struct CreatePublicLinkRequest {
 }
 
 /// A public link as its owner sees it in lists (no token).
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct PublicLinkView {
     #[schema(format = "uuid")]
     pub id: String,
@@ -64,9 +66,14 @@ impl From<PublicLink> for PublicLinkView {
 pub struct CreatedPublicLinkView {
     #[serde(flatten)]
     pub link: PublicLinkView,
-    /// `<share base>/b/<token>`: shown once, never retrievable again.
+    /// `<share base>/b/<token>`: shown once, never retrievable again. Absent on an idempotent
+    /// replay of the same request (`url_already_shown: true`): the server does not keep it.
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[schema(example = "https://share.example/b/3q2-7wAAAAAAAAAAAAAAAA")]
-    pub url: String,
+    pub url: Option<String>,
+    /// `true` on an idempotent replay (header `Idempotent-Replayed: true`): the link exists but
+    /// its URL was in the first response only. To share it again, revoke it and create a new one.
+    pub url_already_shown: bool,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -107,7 +114,7 @@ async fn owned_board(state: &AppState, board: Uuid, caller: Uuid) -> Result<(), 
     params(("id" = String, Path, format = "uuid", description = "The board id.")),
     request_body = CreatePublicLinkRequest,
     responses(
-        (status = CREATED, description = "Created; `link.url` is shown only now.", body = CreatedPublicLinkEnvelope),
+        (status = CREATED, description = "Created; `link.url` is shown only now. A replay with the same Idempotency-Key answers the same link without `url` and with `url_already_shown: true` (no second link).", body = CreatedPublicLinkEnvelope),
         (status = BAD_REQUEST, description = "VALIDATION_FAILED (expires_in), or a missing Idempotency-Key.", body = ProblemDetails),
         (status = UNAUTHORIZED, description = "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.", body = ProblemDetails),
         (status = FORBIDDEN, description = "POLICY_DISALLOWED (owner under public_links.min_age), ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.", body = ProblemDetails),
@@ -121,7 +128,7 @@ pub async fn create_public_link(
     headers: HeaderMap,
     Path(id): Path<String>,
     body: ValidJson<CreatePublicLinkRequest>,
-) -> Result<(StatusCode, Json<CreatedPublicLinkEnvelope>), ApiError> {
+) -> Result<Response, ApiError> {
     let board = board_id(&id)?;
     let owner = caller.0.account_id;
     let expiry = Expiry::parse(&body.0.expires_in)
@@ -144,15 +151,28 @@ pub async fn create_public_link(
         .create(owner, board, expiry)
         .await
         .map_err(ApiError::internal)?;
+    let link = PublicLinkView::from(created.link);
+    // What a replay answers: the same link, without the URL (#333).
+    let replay = serde_json::to_vec(&CreatedPublicLinkEnvelope {
+        link: CreatedPublicLinkView {
+            link: link.clone(),
+            url: None,
+            url_already_shown: true,
+        },
+    })
+    .map_err(ApiError::internal)?;
     Ok((
         StatusCode::CREATED,
+        Extension(ReplayBody(replay)),
         Json(CreatedPublicLinkEnvelope {
             link: CreatedPublicLinkView {
-                link: created.link.into(),
-                url: created.url,
+                link,
+                url: Some(created.url),
+                url_already_shown: false,
             },
         }),
-    ))
+    )
+        .into_response())
 }
 
 /// Live public links of a board. Auth: ses. Owner only. Never returns tokens or URLs.

@@ -1874,10 +1874,16 @@ export interface components {
         /** @description A new link: the only response that carries its URL (and so the raw token). */
         CreatedPublicLinkView: components["schemas"]["PublicLinkView"] & {
             /**
-             * @description `<share base>/b/<token>`: shown once, never retrievable again.
+             * @description `<share base>/b/<token>`: shown once, never retrievable again. Absent on an idempotent
+             *     replay of the same request (`url_already_shown: true`): the server does not keep it.
              * @example https://share.example/b/3q2-7wAAAAAAAAAAAAAAAA
              */
-            url: string;
+            url?: string | null;
+            /**
+             * @description `true` on an idempotent replay (header `Idempotent-Replayed: true`): the link exists but
+             *     its URL was in the first response only. To share it again, revoke it and create a new one.
+             */
+            url_already_shown: boolean;
         };
         DeletionEnvelope: {
             deletion: components["schemas"]["DeletionView"];
@@ -4579,7 +4585,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Created; `link.url` is shown only now. */
+            /** @description Created; `link.url` is shown only now. A replay with the same Idempotency-Key answers the same link without `url` and with `url_already_shown: true` (no second link). */
             201: {
                 headers: {
                     [name: string]: unknown;

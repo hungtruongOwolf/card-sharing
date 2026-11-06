@@ -20,6 +20,12 @@ pub const IDEMPOTENCY_KEY_HEADER: HeaderName = HeaderName::from_static("idempote
 /// Set on a replayed response, so clients and logs can tell it apart from a fresh one.
 pub const IDEMPOTENT_REPLAYED_HEADER: HeaderName = HeaderName::from_static("idempotent-replayed");
 
+/// Response extension set by a handler whose response carries a one-time secret (a bearer URL):
+/// the body to store for replays instead of the one sent now, so the secret never lands in
+/// `platform.idempotency_keys` (#333). A replay then answers this redacted body.
+#[derive(Debug, Clone)]
+pub struct ReplayBody(pub Vec<u8>);
+
 /// Upper bound when buffering bodies. Requests are already capped by the body-limit layer; this
 /// only bounds responses, which are small JSON documents.
 const MAX_BUFFERED: usize = 1024 * 1024;
@@ -58,14 +64,16 @@ pub(super) async fn run(
     };
 
     let response = next.run(Request::from_parts(parts, Body::from(body))).await;
-    let (parts, body) = response.into_parts();
+    let (mut parts, body) = response.into_parts();
+    let replay_body = parts.extensions.remove::<ReplayBody>();
     let Ok(body) = to_bytes(body, MAX_BUFFERED).await else {
         release(store, &claim).await;
         return ApiError::internal("response body could not be buffered").into_response();
     };
 
     let status = parts.status.as_u16();
-    if is_storable(status, body.len()) {
+    let stored_body = replay_body.map_or_else(|| body.to_vec(), |replay| replay.0);
+    if is_storable(status, stored_body.len()) {
         let stored = StoredResponse {
             status,
             content_type: parts
@@ -73,7 +81,7 @@ pub(super) async fn run(
                 .get(header::CONTENT_TYPE)
                 .and_then(|v| v.to_str().ok())
                 .map(str::to_owned),
-            body: body.to_vec(),
+            body: stored_body,
         };
         match store.complete(&claim, &stored).await {
             Ok(true) => {}
@@ -81,10 +89,10 @@ pub(super) async fn run(
             Err(err) => tracing::error!(error = %err, route, "failed to store idempotent response"),
         }
     } else {
-        if body.len() > MAX_STORED_BODY {
+        if stored_body.len() > MAX_STORED_BODY {
             tracing::warn!(
                 route,
-                size = body.len(),
+                size = stored_body.len(),
                 "response too large to store for replay"
             );
         }
