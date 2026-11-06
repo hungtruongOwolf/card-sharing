@@ -445,6 +445,34 @@ describe('CardEditorScreen', () => {
   );
 
   it(
+    'adds a random effect only when Surprise me is tapped, from what the device may show (T-125)',
+    async () => {
+      const onDraftChange = jest.fn();
+      const effects = ENTRIES.filter(
+        (e) =>
+          (e.kind === 'frame' || e.kind === 'overlay' || e.kind === 'prop') &&
+          e.id !== 'overlay.washi',
+      );
+      await renderEditor({
+        onDraftChange,
+        loadFonts: async () => undefined,
+        // Everything but washi tape switched off: the surprise can only be washi.
+        remoteConfig: { kill_switches: { effects: effects.map((e) => e.id) } },
+      });
+      const user = userEvent.setup();
+      await user.press(screen.getByRole('tab', { name: t('editor.tab.effects') }));
+      expect(onDraftChange).toHaveBeenLastCalledWith(expect.objectContaining({ effects: [] }));
+      await user.press(screen.getByRole('button', { name: t('editor.effects.surprise') }));
+      const added = onDraftChange.mock.lastCall[0].effects;
+      expect(added.map((e: { id: string }) => e.id)).toEqual(['overlay.washi']);
+      expect(
+        screen.getByText(t('editor.effects.surprised', { name: t('effects.overlay.washi.name') })),
+      ).toBeTruthy();
+    },
+    RENDER_TIMEOUT_MS,
+  );
+
+  it(
     'hides the Effects tab when no effect can be listed',
     async () => {
       // Every shipped effect switched off remotely.

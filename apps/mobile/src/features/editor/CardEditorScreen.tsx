@@ -31,9 +31,11 @@ import {
   MOVE_STEP,
   movePlacement,
   noAnchorProvider,
+  pickSurprise,
   placeEffect,
   placementTargets,
   resolveAnchors,
+  surpriseParams,
   type AnchorProvider,
   type NativeAnchors,
   type PlacementTarget,
@@ -283,7 +285,11 @@ function Editor({
     activeTab.slot === 'effects'
       ? effects.some(({ choice }) => choice.id === entry.id)
       : entry.id === active?.entry.id;
-  const pickEffect = (entry: EffectEntry, another = false) => {
+  const pickEffect = (
+    entry: EffectEntry,
+    another = false,
+    extra: Readonly<Record<string, ParamValue>> = {},
+  ) => {
     const held = effects.find(({ choice }) => choice.id === entry.id);
     if (held && !another) {
       setFocusedEffect(held.index);
@@ -307,9 +313,24 @@ function Editor({
     }
     // Anchored effects start on the face or head (native landmarks, else the subject heuristic); all stay draggable.
     const anchors = resolveAnchors(native, hasSubject ? mask : null);
-    dispatch({ type: 'addEffect', entry, registry, params: placeEffect(entry, anchors) });
+    dispatch({
+      type: 'addEffect',
+      entry,
+      registry,
+      params: { ...placeEffect(entry, anchors), ...extra },
+    });
     setPlaceTarget('body');
     setFocusedEffect(next.length - 1);
+  };
+  /** One random available effect with random choices, only on this explicit tap (T-125, AC-21.4). */
+  const surprise = () => {
+    const entry = pickSurprise(
+      effectsTab?.entries ?? [],
+      new Set(effects.map(({ choice }) => choice.id)),
+    );
+    if (!entry) return;
+    pickEffect(entry, true, surpriseParams(entry));
+    toast.show({ message: t('editor.effects.surprised', { name: t(entry.name as MessageKey) }) });
   };
   const select = (entry: EffectEntry | null) =>
     dispatch(
@@ -491,6 +512,14 @@ function Editor({
         ))}
       </View>
       <View style={styles.row}>
+        {activeTab.slot === 'effects' ? (
+          <Button
+            label={t('editor.effects.surprise')}
+            variant="secondary"
+            accessibilityHint={t('editor.effects.surprise.hint')}
+            onPress={surprise}
+          />
+        ) : null}
         {activeTab.slot === 'finish' ? (
           <Button
             label={t('editor.finish.none')}

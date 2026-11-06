@@ -199,6 +199,12 @@ from hidden `x`/`y` along `angle` (−180..180, default 0 = to the right), `leng
 every Skia backend accepts) plus `puffs` seeded flame puffs (hidden, 0–300 per the catalog budget, default 40 = the
 light variant) that drift outwards on a seamless 2 s loop. `liveAllowed` false, `cost.gpu` L; time 0 for stills.
 
+**Surprise me (T-125, US-22, `effects/surprise.ts`):** a "Surprise me" button on the Effects tab adds one random
+effect from the tab's **available** entries (capability routing, kill switches, feature flags and locks already
+applied), preferring entries not on the card yet, with random values for its visible enum params (caption, shape,
+pattern, tape colour...) on top of the usual auto-placement; a toast names it. It only ever runs on that tap (AC-21.4)
+and is one undo step like any other add.
+
 Rules: adding an effect = add entry + shader/asset + tests (golden snapshot); removing = remove entry **and** migrate stored
 references (fallback to `fx.none`) + update this page ([[change-management]]). Device-capability routing hides entries whose
 `requires` fail and shows the `fallback` UX instead.

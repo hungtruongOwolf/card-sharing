@@ -23,6 +23,7 @@ export {
 export { loadEffectFonts, memeFont, setMemeTypeface, type FontLoader } from './effectFonts';
 export { MOVE_STEP, movePlacement, placementTargets, type PlacementTarget } from './placement';
 export { speechText } from './renderers/speech';
+export { pickSurprise, surpriseParams } from './surprise';
 export { TAPE_ALPHA, TAPE_PALETTE, tapeTone } from './tape';
 export { drawLiftShadow, liftShadow, type LiftShadow } from './renderers/paperLift';
 export {
