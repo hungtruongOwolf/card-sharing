@@ -72,7 +72,9 @@ as in [[ADR-0005-media-pipeline]]. The EM decides by **2026-11-18**. Every vendo
   API_NUDITY_THRESHOLD` (default **0.5**, EM decision 4 pending) marks the media `held`: it stays in quarantine and is never
   signed (the owner sees only the hold, not a URL to the held image). `classifier_score` and `classifier_model` are stored on
   every classified media. Adapters `none` (default) and `fake` (yellow top-left pixel = 0.99, blue = outage), the fake refused
-  when `API_ENV=production`. The card side (`held_review`, `content_holds`, `card.held`, appeal) lands with the card tickets.
+  when `API_ENV=production`. Card side (T-76): a card whose render is held becomes `held_review` with a `moderation.content_holds` row (model,
+  score, 30-day expiry) and a `cards.held` event; the owner's card view shows the `hold` block (T-79). Appeal and moderator
+  release/uphold are later tickets.
 - **Latency:** on-device latency needs an iOS dev build (deferred, see [[sprint-1]]). Server CPU latency is not measured yet.
 
 ## Open decisions (EM)
