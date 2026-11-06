@@ -407,6 +407,129 @@
           "default": 1
         }
       }
+    },
+    {
+      "id": "overlay.speech",
+      "version": 1,
+      "kind": "overlay",
+      "stackable": true,
+      "conflicts_with": [],
+      "params": {
+        "caption": {
+          "type": "enum",
+          "values": [
+            "hello",
+            "lol",
+            "omg",
+            "mood",
+            "nope",
+            "yum",
+            "zoomies",
+            "feedMe",
+            "mine",
+            "bestDay"
+          ],
+          "default": "hello"
+        },
+        "shape": {
+          "type": "enum",
+          "values": [
+            "bubble",
+            "meme"
+          ],
+          "default": "bubble"
+        },
+        "size": {
+          "type": "number",
+          "min": 0.6,
+          "max": 1.6,
+          "default": 1
+        },
+        "tailX": {
+          "type": "number",
+          "min": 0,
+          "max": 1,
+          "default": 0.5
+        },
+        "tailY": {
+          "type": "number",
+          "min": 0,
+          "max": 1,
+          "default": 0.4
+        },
+        "x": {
+          "type": "number",
+          "min": 0,
+          "max": 1,
+          "default": 0.7
+        },
+        "y": {
+          "type": "number",
+          "min": 0,
+          "max": 1,
+          "default": 0.15
+        }
+      }
+    },
+    {
+      "id": "overlay.washi",
+      "version": 1,
+      "kind": "overlay",
+      "stackable": true,
+      "conflicts_with": [],
+      "params": {
+        "angle": {
+          "type": "number",
+          "min": -45,
+          "max": 45,
+          "default": -8
+        },
+        "length": {
+          "type": "number",
+          "min": 0.2,
+          "max": 0.9,
+          "default": 0.45
+        },
+        "pattern": {
+          "type": "enum",
+          "values": [
+            "dots",
+            "stripes",
+            "grid",
+            "plain"
+          ],
+          "default": "dots"
+        },
+        "seed": {
+          "type": "integer",
+          "min": 1,
+          "max": 9999,
+          "default": 1
+        },
+        "tapeColor": {
+          "type": "enum",
+          "values": [
+            "mustard",
+            "sky",
+            "mint",
+            "coral",
+            "lilac"
+          ],
+          "default": "mustard"
+        },
+        "x": {
+          "type": "number",
+          "min": 0,
+          "max": 1,
+          "default": 0.5
+        },
+        "y": {
+          "type": "number",
+          "min": 0,
+          "max": 1,
+          "default": 0.06
+        }
+      }
     }
   ]
 }

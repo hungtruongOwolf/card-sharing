@@ -32,3 +32,4 @@ export {
 } from './registryJson';
 export { ENTRIES } from './entries';
 export { BACKDROPS, DECORATIONS, TAPE_COLORS } from './entries/board';
+export { SPEECH_CAPTIONS } from './entries/overlay.speech';

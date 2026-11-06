@@ -12,6 +12,8 @@ import { fxGlossy } from './fx.glossy';
 import { fxHolo } from './fx.holo';
 import { fxMatte } from './fx.matte';
 import { fxPaperLift } from './fx.paper-lift';
+import { overlaySpeech } from './overlay.speech';
+import { overlayWashi } from './overlay.washi';
 
 /**
  * Every shipped entry, in picker order. Adding an effect = one entry file + one line here + tests
@@ -30,6 +32,8 @@ export const ENTRIES: readonly EffectEntry[] = [
   fxHolo,
   fxPaperLift,
   framePolaroid,
+  overlayWashi,
+  overlaySpeech,
   ...BACKDROPS,
   ...DECORATIONS,
 ];

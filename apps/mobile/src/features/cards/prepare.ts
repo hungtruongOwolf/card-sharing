@@ -2,6 +2,7 @@ import type { Registry } from '@card-sharing/effects-registry';
 
 import { loadImageFromUri, type LoadImage } from '../editor/CardEditorScreen';
 import type { MaskSource } from '../editor/maskSource';
+import { loadEffectFonts } from '../effects';
 import { bakeCard, BakeError, encodeOriginal, type BakedImage } from './bake';
 import type { LocalCard } from './localCard';
 
@@ -20,6 +21,8 @@ export interface PrepareDeps {
   loadImage?: LoadImage;
   /** Registry ids switched off remotely, so the bake matches the editor preview. */
   killed?: ReadonlySet<string>;
+  /** Loads the fonts text effects draw with before the bake (tests inject one). */
+  loadFonts?: () => Promise<void>;
 }
 
 /**
@@ -30,13 +33,20 @@ export interface PrepareDeps {
 export async function prepareForSend(
   card: LocalCard,
   keepOriginal: boolean,
-  { registry, maskSource, loadImage = loadImageFromUri, killed }: PrepareDeps,
+  {
+    registry,
+    maskSource,
+    loadImage = loadImageFromUri,
+    killed,
+    loadFonts = loadEffectFonts,
+  }: PrepareDeps,
 ): Promise<PreparedCard> {
   const [photo, mask] = await Promise.all([
     loadImage(card.photo.uri),
     card.draft.wholePhoto
       ? Promise.resolve(null)
       : maskSource.maskFor(card.photo).catch(() => null),
+    loadFonts().catch(() => undefined),
   ]);
   if (!photo) throw new BakeError('photo unavailable');
   const baked = bakeCard({ registry, draft: card.draft, photo, mask, purpose: 'send', killed });

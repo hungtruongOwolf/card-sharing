@@ -64,7 +64,13 @@ export type EditorAction =
    * Adds an effect. Chosen effects it cannot stack with (the same non-stackable entry, a `conflictsWith` pair) are
    * replaced by it; nothing happens when the card already holds `MAX_EFFECTS`.
    */
-  | { type: 'addEffect'; entry: EffectEntry; registry: Registry }
+  | {
+      type: 'addEffect';
+      entry: EffectEntry;
+      registry: Registry;
+      /** Initial params (auto-placement, a fresh seed); clamped like any other. */
+      params?: Readonly<Record<string, unknown>>;
+    }
   | { type: 'removeEffect'; index: number }
   | {
       type: 'setEffectParams';
@@ -126,7 +132,7 @@ function nextDraft(draft: CardDraft, action: EditorAction): CardDraft {
       // Selects the entry too: the screen may show a fallback entry the draft does not hold yet.
       return { ...draft, [action.slot]: styleChoice(action.entry, action.params) };
     case 'addEffect': {
-      const effects = addEffect(draft.effects, action.entry, action.registry);
+      const effects = addEffect(draft.effects, action.entry, action.registry, action.params);
       return effects ? { ...draft, effects } : draft;
     }
     case 'removeEffect':
@@ -192,13 +198,14 @@ export function addEffect(
   effects: readonly StyleChoice[],
   entry: EffectEntry,
   registry: Registry,
+  params?: Readonly<Record<string, unknown>>,
 ): StyleChoice[] | null {
   const kept = effects.filter((choice) => {
     const other = registry.get(choice.id);
     return !other || stackConflict(other, entry) === null;
   });
   if (kept.length >= MAX_EFFECTS) return null;
-  return [...kept, styleChoice(entry)];
+  return [...kept, styleChoice(entry, params)];
 }
 
 /** Ids `entry` would replace if added (for the "replaced" announcement). */
