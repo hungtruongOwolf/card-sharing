@@ -296,7 +296,7 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
     ));
     let magic_links = MagicLinkJob {
         identity: Arc::clone(&identity),
-        cipher,
+        cipher: Arc::clone(&cipher),
         mailer: mailer(&config.mail)?,
         template: MagicLinkTemplate {
             link_url: config.mail.magic_link_url.clone(),
@@ -325,6 +325,31 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
         pool.clone(),
         Arc::clone(&clock),
         media_store(config, &clock)?,
+    ));
+    // Public snapshots (T-130) read boards as their owner: the boards service needs the age
+    // service for the minor rule.
+    let policy = Arc::new(
+        PolicyService::from_path(&config.policy_config_path)
+            .context("failed to load region policy config")?,
+    );
+    let age = Arc::new(identity::AgeService::new(
+        Arc::clone(&identity),
+        policy,
+        Arc::clone(&cipher),
+        config.os_age_signals_enabled,
+    ));
+    let board_service = Arc::new(boards::BoardService::new(
+        pool.clone(),
+        Arc::clone(&clock),
+        boards::BoardSettings::from_path(&config.boards_config_path)
+            .context("failed to load boards config")?,
+        age,
+    ));
+    let snapshots = Arc::new(sharing::SnapshotBuilder::new(
+        pool.clone(),
+        Arc::clone(&clock),
+        board_service,
+        Arc::clone(&media),
     ));
     // Subscribers register here as modules start publishing events.
     let card_service = Arc::new(cards::CardService::new(pool.clone(), Arc::clone(&clock)));
@@ -355,7 +380,8 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
             .subscribe(Arc::new(api::workers::CsamSuspension))
             .subscribe(Arc::new(cards::EvaluateOnEvents))
             .subscribe(Arc::new(cards::PurgeOnDelete))
-            .subscribe(Arc::new(boards::ResolveBlocksOnEvents)),
+            .subscribe(Arc::new(boards::ResolveBlocksOnEvents))
+            .subscribe(Arc::new(sharing::SnapshotOnEvents)),
     );
     let slo_report = api::workers::SloReport {
         cards: card_service,
@@ -385,6 +411,10 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
         .handle(
             boards::CHANGED_JOB,
             Arc::new(boards::BoardChangedJob(board_changes)),
+        )
+        .handle(
+            sharing::SNAPSHOT_JOB,
+            Arc::new(sharing::SnapshotJob(snapshots)),
         )
         .handle(
             notifications::ACTIVITY_JOB,

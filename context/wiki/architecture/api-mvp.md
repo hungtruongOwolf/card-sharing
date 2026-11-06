@@ -459,6 +459,17 @@ idempotent replay of the create (24 h window) is served from the idempotency sto
 in `platform.idempotency_keys` for up to 24 h. `/v1/me` does not say whether the caller may create links; the app shows
 the action and handles 403. Tests: `tests/api/public_links.rs`.
 
+Snapshots (T-130, #132): `sharing::SnapshotBuilder` (job `sharing.snapshot`) builds one snapshot per board with a live link,
+from the board as its owner reads it (`BoardService::read`): a card pin is public only when the card's owner is the board
+owner and the card is `active`; everything else (friends' cards, held/blocked cards, pins hidden from the owner) is a
+`private_tile` with position only; decorations stay; removed pins are dropped. Public card images are watermarked
+derivatives (render feed_1080 with the mask applied, at most 1080 px, lossless WebP, a "CARDSHARING" band plus faint diagonal
+stripes, 5x7 bitmap font, no font files) stored once per card in the clean bucket; the OG image is a watermarked 1200x630
+composition of the same pins (rotation is not drawn). The job runs when a link is created (same transaction), on
+`boards.board_updated` and on `cards.deleted` (rebuilds every snapshot showing the card, then deletes its public image).
+Rebuilds are idempotent (hash of the document; unchanged = no write; a changed one stores a new OG image and deletes the
+old). Tests: `tests/api/public_snapshots.rs`.
+
 Implemented (#234): `routes/public_invites.rs` → `SocialService::public_invite_preview` (the same resolution as the in-app
 preview, with "expired" folded into `NOT_FOUND`: unknown, malformed, reset, expired, used up, inviter suspended / banned /
 deletion pending / deleted all answer identical bytes). No avatar, handle or id. The token is never logged (spans record the

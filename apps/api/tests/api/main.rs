@@ -53,6 +53,7 @@ mod outbox;
 mod profile;
 mod public_invites;
 mod public_links;
+mod public_snapshots;
 mod push_notify;
 mod push_tokens;
 mod rate_limit;
