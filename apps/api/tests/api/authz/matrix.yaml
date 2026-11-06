@@ -131,6 +131,16 @@ routes:
   - route: GET /v1/admin/staff
     expect: { guest: 401, onboarding_age: 401, onboarding_profile: 401, user: 401, suspended: 401 }
 
+  # Moderation queue and actions (T-146): staff cookie only. Roles, CSRF, two-person bans:
+  # tests/api/moderation_actions.rs.
+  - route: GET /v1/admin/reports
+    expect: { guest: 401, onboarding_age: 401, onboarding_profile: 401, user: 401, suspended: 401 }
+
+  - route: POST /v1/admin/reports/{id}/actions
+    path: /v1/admin/reports/0192f0c1-7c1e-7a3b-9d2e-000000000000/actions
+    body: { action: dismiss, reason: test }
+    expect: { guest: 401, onboarding_age: 401, onboarding_profile: 401, user: 401, suspended: 401 }
+
   - route: POST /v1/auth/refresh
     body: { refresh_token: $REFRESH_TOKEN }
     expect: { guest: 401, onboarding_age: 200, onboarding_profile: 200, user: 200, suspended: 401 }

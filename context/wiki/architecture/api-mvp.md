@@ -645,6 +645,25 @@ cookie; `GET /v1/admin/me` (moderator) → `{account_id, role, idle_expires_at, 
 (admin) → `{items: [{account_id, role, disabled, created_at}]}`. Separate origin + CORS for the console come with its UI.
 Tests: `tests/api/staff_auth.rs`.
 
+Moderation actions (T-146, #148): `routes/admin_reports.rs`, `moderation::ModerationActions`, migration `20261121000002`.
+`GET /v1/admin/reports` (staff moderator, `admin.read`) → `{items: [{id, target_type, target_id, target_owner_id, priority,
+weight, report_count, status, first_reported_at, last_reported_at}]}` (live queue items, worst first, at most 100; ids and counts
+only, no content); every read writes an audit event `moderation.staff_view` (actor = staff). `POST /v1/admin/reports/{id}/actions`
+(staff moderator, `X-CSRF-Token`, `admin.actions` 120/min) `{action: dismiss|remove_content|revoke_link|warn|suspend|ban, reason:
+1..500 chars, until?}` on a **queue item id** → 200 `{action: {id, action, status: "applied"}}`; the item and all its reports
+become `dismissed` (dismiss) or `actioned` (everything else, which feeds reporter reputation), and one append-only
+`moderation.moderation_actions` row keeps actor, optional second actor, action, target, reason, `until` and time, plus an audit
+event `moderation.action` (ids and codes only; the reason stays in the moderation table). Effects through the owning modules:
+`remove_content` deletes a card (`CardService::delete` as its owner) or a board (`delete_board`) or revokes a link; `revoke_link`
+(public links only, else 400) → `SharingService::revoke_for_moderation` (reason `moderator`, CDN purge job); `suspend` needs
+`until` (future, ≤ 365 days; refused on other actions) → `IdentityService::suspend_account` (sessions revoked); `warn` is
+recorded only (user notice: follow-up). `ban` is **admin only** (moderator → 403): an account up to 30 days old is banned at once
+(`IdentityService::ban_account`, sessions revoked, audit `account.banned`); an older one needs **two different admins** (D6) — the
+first request answers 202 `{status: "pending_second_admin"}` and is stored in `moderation.pending_bans` for 48 h, the same admin
+again stays pending, a second admin applies it (the first admin is the actor of record, the second `second_actor_id`). A decided
+or unknown item is 404. `release_hold` / `uphold_hold` arrive with appeals (T-148), where holds enter the queue. Tests:
+`tests/api/moderation_actions.rs`.
+
 Implemented (T-151, #153): `routes/deletion.rs` → `crates/privacy` (`DeletionService`). `POST /v1/me/deletion` (`re`: bearer +
 `X-Reauth`, else 401 `REAUTH_REQUIRED`; `privacy.deletion.request` 3/day) answers 202 `{deletion: {status: "pending",
 requested_at, grace_until}}`: in one transaction the account turns `deletion_pending` (audit `privacy.deletion_requested`) and

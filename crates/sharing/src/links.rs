@@ -173,6 +173,41 @@ impl SharingService {
         Ok(links)
     }
 
+    /// Revokes any link for a moderation decision (T-146): reason `moderator`, audited as the
+    /// system, CDN purge scheduled. `false` when the link does not exist; an already revoked link
+    /// is a no-op success.
+    pub async fn revoke_for_moderation(&self, link_id: Uuid) -> Result<bool, SharingError> {
+        let now = self.clock.now();
+        let mut tx = self.pool.begin().await?;
+        let found: Option<(Uuid, bool)> = sqlx::query_as(
+            "SELECT board_id, revoked_at IS NULL FROM sharing.public_links WHERE id = $1 FOR UPDATE",
+        )
+        .bind(link_id)
+        .fetch_optional(&mut *tx)
+        .await?;
+        let Some((board_id, live)) = found else {
+            return Ok(false);
+        };
+        if live {
+            sqlx::query(
+                "UPDATE sharing.public_links SET revoked_at = $2, revoked_reason = 'moderator'
+                 WHERE id = $1",
+            )
+            .bind(link_id)
+            .bind(now)
+            .execute(&mut *tx)
+            .await?;
+            let entry = AuditEntry::new(Actor::System, AuditAction::PublicLinkRevoked)
+                .target("public_link", link_id)
+                .detail("board_id", board_id.to_string())
+                .detail("reason", "moderator");
+            audit::record(&mut *tx, &entry, now).await?;
+            platform::jobs::enqueue(&mut *tx, &crate::purge::job_for_link(link_id), now).await?;
+        }
+        tx.commit().await?;
+        Ok(true)
+    }
+
     /// Revokes `owner`'s link `link_id`. `false` when no such link of theirs exists (the caller
     /// answers 404). Revoking an already revoked or expired link is a no-op success.
     pub async fn revoke(&self, owner: Uuid, link_id: Uuid) -> Result<bool, SharingError> {
