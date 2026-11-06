@@ -112,6 +112,8 @@ describe('visibleEntries', () => {
       'fx.glossy',
       'fx.paper-lift',
       'frame.polaroid',
+      'overlay.washi',
+      'overlay.speech',
     ]);
   });
 
@@ -127,6 +129,8 @@ describe('visibleEntries', () => {
       'fx.holo',
       'fx.paper-lift',
       'frame.polaroid',
+      'overlay.washi',
+      'overlay.speech',
     ]);
   });
 });

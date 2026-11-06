@@ -72,7 +72,8 @@ each `{id, version, params?}`; the id must exist at exactly the exported version
 `filter`, `effects` = any non-cut kind); non-stackable entries appear once, `conflicts_with` pairs are refused; params follow the same
 strict rules as `resolveParams` and missing ones are stored with their defaults. Any violation → 422 `UNKNOWN_REGISTRY_ID` with no
 detail. Shipped entries so far: `cut.none`, `cut.raw`, `cut.diecut`, `cut.torn`, `cut.shape.rounded-square`,
-`cut.shape.circle`, `cut.shape.heart`, `fx.matte`, `fx.glossy`, `fx.holo`, `fx.paper-lift`, `frame.polaroid`; the other MVP
+`cut.shape.circle`, `cut.shape.heart`, `fx.matte`, `fx.glossy`, `fx.holo`, `fx.paper-lift`, `frame.polaroid`,
+`overlay.washi`, `overlay.speech`; the other MVP
 entries land with their tickets.
 
 **Cut style rendering (T-62, `apps/mobile/src/features/cut-styles`):** `drawCutStyle(canvas, entry, params, scene)` draws
@@ -143,6 +144,26 @@ renderer type `vector`) paints warm white paper (`#FBFAF5`, part of the card, no
 over the top border. Frames may override the window transform (`FrameRenderer.content`). Both are static
 (`motion.reduced: static`, no live cost); light/dark golden signatures live in
 `features/effects/__tests__/paperLiftPolaroid.test.ts`.
+
+**Anchors, placement, washi and speech (T-119, `features/effects`):** the **anchor port** (`anchors.ts`) is an
+`AnchorProvider` (`anchorsFor(photo)`, native Vision / ML Kit providers T-115..T-117 plug in later; the editor takes
+`anchorSource`, default `noAnchorProvider`) followed by the catalog fallback chain: native → mask heuristic
+(`maskAnchors`: head = centroid of the top 20 % band of the subject, crown = band top, eyes 40 % and mouth 75 % into the
+band, `headWidth` = band width) → `DEFAULT_ANCHORS` (centred face guess, whole-photo cards). Points are shares of the
+card. `placeEffect` auto-places an added effect: a fresh `seed`, a tail (`tailX`/`tailY`) or the effect itself (`x`/`y`)
+on its `anchor`. **Placement** is the manual fallback (`userPoints`): hidden number param pairs `x`/`y` (body) and
+`tailX`/`tailY` (tail) make an entry draggable on the editor preview (one undo step per drag); a Move / Aim the tail
+choice appears when an entry has both; screen readers get move left/right/up/down actions (5 % steps).
+`overlay.washi` (`tape:washi`): strip `length` x card width, 8.5 % of the short side high, seeded zig-zag torn ends,
+pattern dots/stripes/grid/plain in white that the multiply blend turns into gaps, 85 % alpha, `angle` −45..45, tape
+palette shared with board tape (`effects/tape.ts`), stackable. `overlay.speech` (`text:speech`, anchor `mouth`,
+requires `faceLandmarks` with fallback `userPoints`): **curated captions only** (`SPEECH_CAPTIONS`, enum param
+`caption`, copy `effects.param.caption.<value>` shared by the picker and the drawn text, sanitized; no free text, so no
+user text is baked into images, SR-28); `shape` bubble (white rounded box, dark outline, tail stopping at 75 % of the
+way to the anchor) or meme (white Anton capitals, dark outline); `size` 0.6–1.6; kept inside the card. Text effects
+draw with Anton bundled as a Metro asset and decoded by Skia (`effectFonts.ts`, `loadEffectFonts`), because Skia cannot
+read the expo-font embedded faces on Android; the editor and the send bake wait for it, and text draws nothing while
+it is missing. Width comes from glyph advances (`measureText` is not on every Skia backend).
 
 Rules: adding an effect = add entry + shader/asset + tests (golden snapshot); removing = remove entry **and** migrate stored
 references (fallback to `fx.none`) + update this page ([[change-management]]). Device-capability routing hides entries whose

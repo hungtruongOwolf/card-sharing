@@ -3,7 +3,7 @@
  */
 import { Skia } from '@shopify/react-native-skia';
 import { act, fireEvent, screen, userEvent } from '@testing-library/react-native';
-import { Platform } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import { State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
 
@@ -398,6 +398,48 @@ describe('CardEditorScreen', () => {
           effects: [{ id: 'fx.grain', version: 1, params: { intensity: 0.6 } }],
         }),
       );
+    },
+    RENDER_TIMEOUT_MS,
+  );
+
+  it(
+    'places a speech bubble on the subject and lets the user drag it and aim its tail (T-119)',
+    async () => {
+      const onDraftChange = jest.fn();
+      const anchorSource = { anchorsFor: jest.fn(async () => null) };
+      await renderEditor({ onDraftChange, anchorSource, loadFonts: async () => undefined });
+      expect(anchorSource.anchorsFor).toHaveBeenCalledWith(photo);
+      const user = userEvent.setup();
+      await user.press(screen.getByRole('tab', { name: t('editor.tab.effects') }));
+      await user.press(screen.getByRole('button', { name: t('effects.overlay.speech.name') }));
+      const speech = () => onDraftChange.mock.lastCall[0].effects[0].params;
+      // No native landmarks: the tail aims at the subject's head band (mask heuristic), the bubble sits beside it.
+      const placed = speech();
+      expect(placed.tailX).toBeCloseTo(0.5, 1);
+      expect(placed.tailY).toBeGreaterThan(0.1);
+      expect(placed.tailY).toBeLessThan(0.5);
+      expect(screen.getByText(t('editor.place.hint'))).toBeTruthy();
+
+      await act(async () => {
+        fireGestureHandler(getByGestureTestId('editor-place'), [
+          { state: State.BEGAN, translationX: 0, translationY: 0 },
+          { state: State.ACTIVE, translationX: 10, translationY: 0 },
+          { translationX: 30, translationY: 20 },
+          { state: State.END, translationX: 30, translationY: 20 },
+        ]);
+      });
+      const preview = screen.getByTestId('editor-preview');
+      const { width } = StyleSheet.flatten(preview.props.style) as { width: number };
+      expect(speech().x).toBeCloseTo(placed.x + 30 / width, 3);
+      expect(speech().tailX).toBe(placed.tailX);
+      // One drag, one undo step.
+      await user.press(screen.getByRole('button', { name: t('editor.undo') }));
+      expect(speech()).toEqual(placed);
+
+      await user.press(screen.getByRole('radio', { name: t('editor.place.tail') }));
+      await fireEvent(preview, 'accessibilityAction', { nativeEvent: { actionName: 'move-up' } });
+      expect(speech().tailY).toBeCloseTo(placed.tailY - 0.05);
+      expect(speech().x).toBe(placed.x);
     },
     RENDER_TIMEOUT_MS,
   );

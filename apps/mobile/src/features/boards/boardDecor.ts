@@ -15,6 +15,7 @@ import {
 } from '@card-sharing/effects-registry';
 import type { ColorScheme, SemanticColors } from '@card-sharing/tokens';
 
+import { TAPE_ALPHA, TAPE_PALETTE, tapeTone } from '../effects/tape';
 import { decorationSize } from './decorationFrames';
 
 /**
@@ -24,15 +25,7 @@ import { decorationSize } from './decorationFrames';
  * their frame. Neither carries user content; colours come from the theme (paper) or the tape palette.
  */
 
-/** Physical tape tones (design-system.md §2 washi: semi-transparent, 85% alpha), same in both schemes. */
-export const TAPE_PALETTE: Readonly<Record<string, string>> = {
-  mustard: '#E8B53A',
-  sky: '#8EC5E8',
-  mint: '#9ED9B8',
-  coral: '#F08C7A',
-  lilac: '#C3A8E6',
-};
-const TAPE_ALPHA = 0.85;
+export { TAPE_PALETTE };
 
 export interface DecorContext {
   scheme: ColorScheme;
@@ -146,9 +139,7 @@ const BACKDROPS: Readonly<Record<string, BackdropRenderer>> = {
   },
 };
 
-function tape(color: unknown): string {
-  return TAPE_PALETTE[typeof color === 'string' ? color : ''] ?? TAPE_PALETTE.mustard!;
-}
+const tape = tapeTone;
 
 /** A tape strip with zig-zag torn ends, centred on the origin. */
 function tapePath(size: Size) {

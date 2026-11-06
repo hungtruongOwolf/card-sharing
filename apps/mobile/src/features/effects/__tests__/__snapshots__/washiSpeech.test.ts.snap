@@ -1,0 +1,71 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`golden signatures on the dark canvas matches for tape, bubble and meme caption 1`] = `
+{
+  "meme": [
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff b6b6b6ff 7d7d7dff bcbcbcff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+  ],
+  "speech": [
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff e2e2e2ff aaaaaaff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 294682ff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+  ],
+  "washi": [
+    "3366ccff 3366ccff 2f4d46ff 305675ff 2f4f54ff 2f4d46ff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+  ],
+}
+`;
+
+exports[`golden signatures on the light canvas matches for tape, bubble and meme caption 1`] = `
+{
+  "meme": [
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff b6b6b6ff 7d7d7dff bcbcbcff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+  ],
+  "speech": [
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff e2e2e2ff aaaaaaff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 294682ff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+  ],
+  "washi": [
+    "3366ccff 3366ccff 2f4d46ff 305675ff 2f4f54ff 2f4d46ff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+  ],
+}
+`;

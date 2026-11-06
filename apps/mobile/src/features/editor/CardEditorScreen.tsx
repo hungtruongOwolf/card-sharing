@@ -1,6 +1,13 @@
 import { Canvas, createPicture, Picture, Skia, type SkImage } from '@shopify/react-native-skia';
 import { useEffect, useMemo, useReducer, useState } from 'react';
-import { StyleSheet, Switch, useWindowDimensions, View } from 'react-native';
+import {
+  StyleSheet,
+  Switch,
+  useWindowDimensions,
+  View,
+  type AccessibilityActionEvent,
+} from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSharedValue } from 'react-native-reanimated';
 
 import type { Mask } from '@card-sharing/canvas-engine';
@@ -9,6 +16,7 @@ import {
   MAX_EFFECTS,
   registry as shippedRegistry,
   type EffectEntry,
+  type ParamValue,
   type Registry,
   type RemoteRegistryConfig,
 } from '@card-sharing/effects-registry';
@@ -18,6 +26,18 @@ import { t, type MessageKey } from '../../i18n';
 import type { TextFilterConfig } from '../../text';
 import { Button, Screen, Text, useTheme, useToast } from '../../ui';
 import type { CapturedPhoto } from '../capture';
+import {
+  loadEffectFonts,
+  MOVE_STEP,
+  movePlacement,
+  noAnchorProvider,
+  placeEffect,
+  placementTargets,
+  resolveAnchors,
+  type AnchorProvider,
+  type NativeAnchors,
+  type PlacementTarget,
+} from '../effects';
 import { CAPTION_MAX_GRAPHEMES, CaptionSheet } from '../captions';
 import { Squish } from '../feedback';
 import { downscalePhoto, drawCard, previewSize, subjectFor } from './cardScene';
@@ -77,6 +97,10 @@ export interface CardEditorScreenProps {
   initialDraft?: CardDraft;
   /** Called with the shown draft whenever it changes (auto-save to the drafts tray, T-68). */
   onDraftChange?: (draft: CardDraft) => void;
+  /** Native face / pet landmarks (T-115..T-117); without one, anchors come from the mask heuristic. */
+  anchorSource?: AnchorProvider;
+  /** Loads the fonts text effects draw with (tests inject one). */
+  loadFonts?: () => Promise<void>;
   /** Back to capture (also the way out of the error state). */
   onBack: () => void;
   /** Next step for the finished draft (send, a later ticket). Without it the editor has no Next button. */
@@ -86,22 +110,31 @@ export interface CardEditorScreenProps {
 type Loaded =
   | { status: 'loading' }
   | { status: 'error' }
-  | { status: 'ready'; image: SkImage; mask: Mask | null };
+  | { status: 'ready'; image: SkImage; mask: Mask | null; native: NativeAnchors | null };
 
 /**
  * Card editor (T-64, US-10/US-11): from a captured or imported photo to a styled card. Loads the photo and the
  * subject mask (null = whole-photo card), then hands over to the editor proper.
  */
 export function CardEditorScreen(props: CardEditorScreenProps) {
-  const { photo, maskSource, loadImage = loadImageFromUri, onBack } = props;
+  const {
+    photo,
+    maskSource,
+    loadImage = loadImageFromUri,
+    anchorSource = noAnchorProvider,
+    loadFonts = loadEffectFonts,
+    onBack,
+  } = props;
   const [loaded, setLoaded] = useState<Loaded>({ status: 'loading' });
 
   useEffect(() => {
     let cancelled = false;
     // A failed segmentation is not an error: the card falls back to the whole photo.
     const mask = maskSource.maskFor(photo).catch(() => null);
-    void Promise.all([loadImage(photo.uri), mask])
-      .then(([image, subjectMask]) => {
+    // Landmarks and fonts are optional too: effects fall back to the mask heuristic and blank text.
+    const native = anchorSource.anchorsFor(photo).catch(() => null);
+    void Promise.all([loadImage(photo.uri), mask, native, loadFonts().catch(() => undefined)])
+      .then(([image, subjectMask, nativeAnchors]) => {
         if (cancelled) return;
         setLoaded(
           image
@@ -109,6 +142,7 @@ export function CardEditorScreen(props: CardEditorScreenProps) {
                 status: 'ready',
                 image: downscalePhoto(image, PREVIEW_PHOTO_MAX_SIDE),
                 mask: subjectMask,
+                native: nativeAnchors,
               }
             : { status: 'error' },
         );
@@ -119,7 +153,7 @@ export function CardEditorScreen(props: CardEditorScreenProps) {
     return () => {
       cancelled = true;
     };
-  }, [photo, maskSource, loadImage]);
+  }, [photo, maskSource, loadImage, anchorSource, loadFonts]);
 
   if (loaded.status === 'loading') {
     return (
@@ -136,12 +170,13 @@ export function CardEditorScreen(props: CardEditorScreenProps) {
       </Screen>
     );
   }
-  return <Editor {...props} image={loaded.image} mask={loaded.mask} />;
+  return <Editor {...props} image={loaded.image} mask={loaded.mask} native={loaded.native} />;
 }
 
 interface EditorProps extends CardEditorScreenProps {
   image: SkImage;
   mask: Mask | null;
+  native: NativeAnchors | null;
 }
 
 /** The selected entry of a tab, falling back to the default when the stored one is no longer listed. */
@@ -156,6 +191,7 @@ function resolveSelection(tab: PickerTab, draft: CardDraft, hasSubject: boolean)
 function Editor({
   image,
   mask,
+  native,
   appVersion,
   remoteConfig,
   registry = shippedRegistry,
@@ -181,6 +217,9 @@ function Editor({
   const [activeSlot, setActiveSlot] = useState<PickerSlot>('cut');
   /** Index in `draft.effects` of the effect whose controls are shown. */
   const [focusedEffect, setFocusedEffect] = useState<number | null>(null);
+  /** Which point of the focused effect a drag on the preview moves. */
+  const [placeTarget, setPlaceTarget] = useState<PlacementTarget>('body');
+  const dragStart = useSharedValue<Readonly<Record<string, ParamValue>> | null>(null);
   const [captionOpen, setCaptionOpen] = useState(false);
   const toast = useToast();
   const { reducedMotion } = useTheme();
@@ -266,7 +305,10 @@ function Editor({
         }),
       });
     }
-    dispatch({ type: 'addEffect', entry, registry });
+    // Anchored effects start on the face or head (native landmarks, else the subject heuristic); all stay draggable.
+    const anchors = resolveAnchors(native, hasSubject ? mask : null);
+    dispatch({ type: 'addEffect', entry, registry, params: placeEffect(entry, anchors) });
+    setPlaceTarget('body');
     setFocusedEffect(next.length - 1);
   };
   const select = (entry: EffectEntry | null) =>
@@ -289,6 +331,58 @@ function Editor({
       else select(tile.entry);
     } else if (tile.state.kind === 'locked') toast.show({ message: t('editor.tile.locked.toast') });
     else toast.show({ message: unavailableReason(tile.state.reason) });
+  };
+
+  const targets = activeTab.slot === 'effects' && focused ? placementTargets(focused.entry) : [];
+  const target = targets.includes(placeTarget) ? placeTarget : targets[0];
+  const place = (
+    dx: number,
+    dy: number,
+    start: Readonly<Record<string, ParamValue>>,
+    transient: boolean,
+  ) => {
+    if (!focused || !target) return;
+    dispatch({
+      type: 'setEffectParams',
+      index: focused.index,
+      entry: focused.entry,
+      params: movePlacement(focused.choice.params, target, start, dx, dy),
+      transient,
+    });
+  };
+  // Drag on the preview moves the focused effect (or its tail): the manual placement fallback for anchors.
+  const placeGesture = Gesture.Pan()
+    .withTestId('editor-place')
+    .enabled(target !== undefined)
+    .runOnJS(true)
+    .onBegin(() => {
+      dragStart.set(focused?.choice.params ?? null);
+    })
+    .onUpdate((event) => {
+      const start = dragStart.get();
+      if (start) {
+        place(event.translationX / size.width, event.translationY / size.height, start, true);
+      }
+    })
+    .onFinalize(() => {
+      dragStart.set(null);
+      dispatch({ type: 'settle' });
+    });
+  const placeActions = target
+    ? (['left', 'right', 'up', 'down'] as const).map((name) => ({
+        name: `move-${name}`,
+        label: t(`editor.place.${name}`),
+      }))
+    : undefined;
+  const onPlaceAction = (event: AccessibilityActionEvent) => {
+    const step: Record<string, [number, number]> = {
+      'move-left': [-MOVE_STEP, 0],
+      'move-right': [MOVE_STEP, 0],
+      'move-up': [0, -MOVE_STEP],
+      'move-down': [0, MOVE_STEP],
+    };
+    const delta = step[event.nativeEvent.actionName];
+    if (delta && focused) place(delta[0], delta[1], focused.choice.params, false);
   };
 
   const baseLabel = cut
@@ -324,29 +418,34 @@ function Editor({
         />
       </View>
       <Squish style={styles.center} press={press} gestureTestId="editor-squish">
-        <View
-          style={[styles.preview, size]}
-          accessible
-          accessibilityRole="image"
-          accessibilityLabel={previewLabel}
-          testID="editor-preview"
-        >
-          {picture && liveFinish ? (
-            <LiveFinishPreview
-              card={{ picture }}
-              width={size.width}
-              height={size.height}
-              intensity={Number(liveFinish.params.intensity ?? 1)}
-              press={press}
-            />
-          ) : picture ? (
-            <Canvas style={size}>
-              <Picture picture={picture} />
-            </Canvas>
-          ) : (
-            <Text tone="muted">{t('editor.unavailable')}</Text>
-          )}
-        </View>
+        <GestureDetector gesture={placeGesture}>
+          <View
+            style={[styles.preview, size]}
+            accessible
+            accessibilityRole="image"
+            accessibilityLabel={previewLabel}
+            accessibilityHint={target ? t('editor.place.hint') : undefined}
+            accessibilityActions={placeActions}
+            onAccessibilityAction={onPlaceAction}
+            testID="editor-preview"
+          >
+            {picture && liveFinish ? (
+              <LiveFinishPreview
+                card={{ picture }}
+                width={size.width}
+                height={size.height}
+                intensity={Number(liveFinish.params.intensity ?? 1)}
+                press={press}
+              />
+            ) : picture ? (
+              <Canvas style={size}>
+                <Picture picture={picture} />
+              </Canvas>
+            ) : (
+              <Text tone="muted">{t('editor.unavailable')}</Text>
+            )}
+          </View>
+        </GestureDetector>
       </Squish>
       {draft.caption ? (
         <Text variant="hand.md" style={styles.caption} testID="editor-caption">
@@ -443,6 +542,21 @@ function Editor({
           />
         </View>
       ) : null}
+      {targets.length > 1 ? (
+        <View style={styles.row} accessibilityRole="radiogroup">
+          {targets.map((option) => (
+            <Button
+              key={option}
+              label={t(option === 'tail' ? 'editor.place.tail' : 'editor.place.body')}
+              variant={option === target ? 'primary' : 'secondary'}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: option === target }}
+              onPress={() => setPlaceTarget(option)}
+            />
+          ))}
+        </View>
+      ) : null}
+      {target ? <Text tone="muted">{t('editor.place.hint')}</Text> : null}
       {active ? (
         <ParamControls
           entry={active.entry}
