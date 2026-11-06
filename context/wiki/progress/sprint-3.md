@@ -3,7 +3,7 @@ title: Sprint 3 — friends (M2)
 type: status
 status: accepted
 updated: 2026-11-05
-sources: [raw/discussions/2026-11-05-sprint-1-kickoff-qa.md]
+sources: [raw/discussions/2026-11-05-sprint-1-kickoff-qa.md, raw/discussions/2026-11-05-sprint-3-decisions-qa.md]
 related: [[mvp-plan]], [[sprint-2]], [[status]], [[prd-mvp]], [[api-mvp]], [[data-model]], [[region-policy]], [[threat-model-mvp]]
 ---
 # Sprint 3 — friends (M2)
@@ -40,7 +40,7 @@ pulled forward from M3 (T-64, T-63, T-69) landed in [[sprint-2]].
 | #197 mobile sessions settings (list, revoke, log out everywhere) | #215 | a6ac299 | Revoking another device has no confirm; only "Log out everywhere" asks |
 | #212 editor polish (drag sliders, thumbnails, tile states) | #218 | 45b24a8 | One drag = one undo step; mask-needing styles stay hidden on whole-photo cards |
 | T-37 invite link and reset (crate `social`) | #217 | bcc4181 | |
-| T-38 minor invite rules (7-day TTL, 5 uses, from region config) | #219 | ba3e034 | Use cap 5 is a lead default |
+| T-38 minor invite rules (7-day TTL, 5 uses, from region config) | #219 | ba3e034 | Use cap 5 confirmed by the EM |
 | T-39 request from invite (silent drop when blocked) | #220 | ddcde02 | |
 | T-40 accept/decline/cancel (20-friend cap under advisory lock) | #221 | e9ab73b | Cursor pagination noted in the PR |
 | T-41 caps (20 pending, 30/day) and 14-day expiry job | #222 | 4a819d6 | |
@@ -49,5 +49,11 @@ pulled forward from M3 (T-64, T-63, T-69) landed in [[sprint-2]].
 | T-45 findable toggle (`PATCH /v1/me/settings`) | #226 | 67538a9 | |
 | T-46 friends list, silent unfriend | #227 | 91ec42d | |
 | T-47 block/unblock, silent | #228 | 4f7ad0f | #225 widen "related" to senders/board members |
-| T-48 invite landing page | | | Unblocked (endpoints merged) |
-| T-44 find a friend by handle | | | Unblocked; mobile friend screens tracked in #216 |
+| T-48 invite landing page | | | Blocked on #234 (public invite endpoint + `svc` principal) |
+| #216 mobile friend screens (API, friends/requests, invite + QR, privacy) | #229-#232 | 00d3176, 645c929, 576a950, aeff0aa | Pure-TS QR encoder (v1-10); scan on a device pending |
+| T-44 find a friend by handle | #233 | fb48503 | |
+
+## EM decisions (2026-11-05)
+- Turning 18 keeps the account hidden from handle search until the user opts in (changes T-45's default).
+- Caption term lists are served through `/v1/config`, not bundled in the app (#213).
+- Minor invite use cap 5, search floor 150 ms and the other lane defaults are kept.

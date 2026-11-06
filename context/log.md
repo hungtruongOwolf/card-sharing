@@ -210,3 +210,9 @@
   #39-#45, #47-#49 closed. Follow-ups #216 (mobile friend screens), #225 (block "related" scope).
 - Defaults pending EM confirmation: minor invite use cap 5; findable defaults on when a minor turns 18; search latency
   floor 150 ms; accepted AC-5.2 residual (409 at a full friend list vs 201 when also blocked).
+
+## [2026-11-05] decision+progress | Sprint 3 app lane done; EM decisions
+- #216 friend screens #229-#232, T-44 #233; #216 and #46 closed. T-48 blocked on new backend issue #234 (public
+  invite endpoint + `svc` principal). Attestation header for social calls noted on #38 (T-36).
+- EM ([[sprint-3]], raw/discussions/2026-11-05-sprint-3-decisions-qa.md): turning 18 stays unfindable until opt-in;
+  term lists via `/v1/config` (#213); keep minor invite cap 5, 150 ms search floor and other defaults.
