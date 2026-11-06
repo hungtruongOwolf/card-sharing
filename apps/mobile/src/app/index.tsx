@@ -34,6 +34,7 @@ export default function HomeScreen() {
       <Text tone="muted">{t('home.hint')}</Text>
       <Button label={t('home.capture')} onPress={() => router.push('/capture')} />
       <Button label={t('feed.open')} variant="secondary" onPress={() => router.push('/feed')} />
+      <Button label={t('boards.open')} variant="secondary" onPress={() => router.push('/boards')} />
       <ActivityButton api={activityApi} onPress={() => router.push('/activity')} />
       {waiting > 0 ? (
         <Button

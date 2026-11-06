@@ -575,6 +575,28 @@ export const en = {
   'activity.retry': 'Try again',
   'activity.error.load': 'Couldn’t load your activity.',
   'activity.error.older': 'Couldn’t load older activity. Please try again.',
+  'boards.open': 'Boards',
+  'boards.title': 'Boards',
+  'boards.new': 'New board',
+  'boards.defaultTitle': 'My board',
+  'boards.loading': 'Loading boards',
+  'boards.notFound': 'This board isn’t available.',
+  'boards.empty': 'No pins yet.',
+  'boards.list.empty': 'No boards yet. Start one and pin your favourite cards.',
+  'boards.list.item': '{title}, {count, plural, =0 {no pins} one {# pin} other {# pins}}',
+  'boards.error.create': 'Couldn’t start a board. Please try again.',
+  'boards.canvas.label':
+    'Board, {count, plural, =0 {no pins in view} one {# pin in view} other {# pins in view}}',
+  'boards.pin.card': 'Card from {name}',
+  'boards.pin.card.someone': 'Card',
+  'boards.pin.private': 'Private card',
+  'boards.pin.removed': 'Card removed',
+  'boards.lab.open': 'Open board lab',
+  'boards.lab.title': 'Board lab',
+  'boards.lab.hint':
+    'Drag to pan, pinch to zoom. Holo pins animate within the live budget; the rest are baked.',
+  'boards.lab.knob.pins': 'Pins',
+  'boards.lab.knob.holo': 'Holo pins',
 } as const;
 
 export type MessageKey = keyof typeof en;
