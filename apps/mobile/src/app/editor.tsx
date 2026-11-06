@@ -13,12 +13,13 @@ import {
 } from '../features/editor';
 import { useRemoteConfig } from '../features/remote-config';
 import { t } from '../i18n';
-import { Screen, Text } from '../ui';
+import { Screen, Text, useToast } from '../ui';
 
 /**
  * Card editor (T-64). A new photo arrives as route params from capture; `?draft=<id>` reopens a draft from the
  * drafts tray (T-68). Every change auto-saves to the drafts tray. Until the real segmenters land (T-54/T-55),
- * development builds use a synthetic subject mask and release builds make whole-photo cards.
+ * development builds use a synthetic subject mask and release builds make whole-photo cards. Next saves the draft
+ * and opens the send screen (T-77).
  */
 export default function EditorRoute() {
   const params = useLocalSearchParams();
@@ -59,7 +60,8 @@ function Editor({ photo, existing }: { photo: CapturedPhoto; existing: LocalCard
   const router = useRouter();
   const maskSource = useMemo(() => (__DEV__ ? createSyntheticMaskSource() : noMaskSource), []);
   const remoteConfig = useRemoteConfig();
-  const onDraftChange = useDraftAutosave(deviceDraftStore(), photo, existing);
+  const toast = useToast();
+  const { onDraftChange, saveNow } = useDraftAutosave(deviceDraftStore(), photo, existing);
   return (
     <CardEditorScreen
       photo={photo}
@@ -70,6 +72,12 @@ function Editor({ photo, existing }: { photo: CapturedPhoto; existing: LocalCard
       textFilter={remoteConfig?.textFilter}
       initialDraft={existing?.draft}
       onDraftChange={onDraftChange}
+      onNext={(draft) =>
+        saveNow(draft).then(
+          (card) => router.push({ pathname: '/send', params: { draft: card.id } }),
+          () => toast.show({ message: t('drafts.saveFailed'), variant: 'error' }),
+        )
+      }
       onBack={() => (router.canGoBack() ? router.back() : router.replace('/capture'))}
     />
   );

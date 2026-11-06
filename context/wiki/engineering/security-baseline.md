@@ -2,7 +2,7 @@
 title: Security Baseline
 type: guide
 status: accepted
-updated: 2026-11-04
+updated: 2026-11-06
 sources: [raw/discussions/2026-11-04-kickoff.md]
 related: [[conventions]], [[overview]], [[testing-strategy]]
 ---
@@ -126,6 +126,10 @@ Notes:
   Draft records (photo reference + style choices, ≤ 2 KB, at most 40) live in expo-secure-store with
   `WHEN_UNLOCKED_THIS_DEVICE_ONLY`: encrypted at rest, never in an iCloud/iTunes backup, excluded from Android Auto Backup
   by the config plugin. Photos stay in the app cache (not backed up on either OS). Stored records are parsed as untrusted.
+  The only upload path is the send screen (T-77, `apps/mobile/src/features/sharing`): it bakes and uploads after the
+  user taps Send, sends the rendered card (+ mask only when the cut style reads it, + a re-encoded original only with
+  "keep original" on, AC-13.4), and validates every card/media response at the boundary (http(s) media URLs only;
+  `original_url` is never kept).
 - MVP threat model, abuse cases and SR-1…SR-37 live in [[threat-model-mvp]]; every feature PR checks the SRs it touches.
 - Region-specific rules (age, consent, ads) resolved server-side from config — [[region-policy]].
 - See [[genai-effects]], [[monetization]], [[subject-cutout]], [[ADR-0003-effects-tiers]].

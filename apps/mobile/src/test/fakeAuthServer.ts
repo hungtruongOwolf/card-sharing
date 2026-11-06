@@ -46,7 +46,11 @@ export interface RecordedRequest {
   authorization: string | null;
   appVersion: string | null;
   idempotencyKey: string | null;
+  contentType: string | null;
+  /** Parsed JSON for string bodies. */
   body: unknown;
+  /** The body as sent (e.g. the bytes of a media upload). */
+  rawBody: unknown;
 }
 
 export const problem = (status: number, code: string) =>
@@ -150,7 +154,9 @@ export class FakeAuthServer {
       authorization: headers.get('Authorization'),
       appVersion: headers.get('X-App-Version'),
       idempotencyKey: headers.get('Idempotency-Key'),
+      contentType: headers.get('Content-Type'),
       body,
+      rawBody: init?.body,
     };
     this.requests.push(recorded);
     // Let concurrent callers interleave like real network I/O.

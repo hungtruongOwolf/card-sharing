@@ -10,7 +10,8 @@ import {
 import type { Mask } from '@card-sharing/canvas-engine';
 import type { Registry } from '@card-sharing/effects-registry';
 
-import { drawCard, subjectFor } from '../editor/cardScene';
+import { downscalePhoto, drawCard, subjectFor } from '../editor/cardScene';
+import { BakeError } from './bakeError';
 import type { CardDraft } from '../editor/editorState';
 
 /**
@@ -26,15 +27,24 @@ export type BakePurpose = keyof typeof BAKE_LONG_SIDE;
 export interface BakedImage {
   width: number;
   height: number;
-  /** PNG bytes. */
-  png: Uint8Array;
+  /** `image/png` for renders and masks, `image/jpeg` for a kept original. */
+  contentType: 'image/png' | 'image/jpeg';
+  bytes: Uint8Array;
 }
 
 export interface BakedCard {
   render: BakedImage;
-  /** Grayscale 8-bit PNG of the subject mask, only when the card's cut style uses it. */
+  /**
+   * Grayscale 8-bit PNG of the subject mask at the render's exact size (the server refuses any other size), only
+   * when the card's cut style uses it.
+   */
   mask: BakedImage | null;
 }
+
+/** Long side cap of a kept original (`POST /v1/media` refuses more than 4096 px per side). */
+export const ORIGINAL_MAX_SIDE = 4096;
+/** JPEG quality of a kept original: visually lossless, well under the 10 MiB upload cap at 4096 px. */
+export const ORIGINAL_JPEG_QUALITY = 92;
 
 export type MakeSurface = (width: number, height: number) => SkSurface | null;
 
@@ -74,9 +84,7 @@ export function usesMask(registry: Registry, draft: CardDraft): boolean {
   return !!cut && (cut.inputs.includes('mask') || cut.inputs.includes('contour'));
 }
 
-export class BakeError extends Error {
-  override readonly name = 'BakeError';
-}
+export { BakeError };
 
 /** Renders the card and encodes it. Throws {@link BakeError} when a surface or the encoder is unavailable. */
 export function bakeCard({
@@ -100,9 +108,45 @@ export function bakeCard({
   const png = surface.makeImageSnapshot().encodeToBytes(ImageFormat.PNG, 100);
   if (png.length === 0) throw new BakeError('png encode failed');
   return {
-    render: { width, height, png },
-    mask: mask && usesMask(registry, draft) ? encodeMask(mask) : null,
+    render: { width, height, contentType: 'image/png', bytes: png },
+    mask: mask && usesMask(registry, draft) ? encodeMask(resampleMask(mask, width, height)) : null,
   };
+}
+
+/** Bilinear resample of an 8-bit mask to `width` x `height` (pixel centres aligned; edges clamp). */
+export function resampleMask(mask: Mask, width: number, height: number): Mask {
+  if (mask.width === width && mask.height === height) return mask;
+  const data = new Uint8Array(width * height);
+  const sx = mask.width / width;
+  const sy = mask.height / height;
+  const at = (x: number, y: number) => mask.data[y * mask.width + x]!;
+  for (let y = 0; y < height; y++) {
+    const fy = Math.min(mask.height - 1, Math.max(0, (y + 0.5) * sy - 0.5));
+    const y0 = Math.floor(fy);
+    const y1 = Math.min(mask.height - 1, y0 + 1);
+    const wy = fy - y0;
+    for (let x = 0; x < width; x++) {
+      const fx = Math.min(mask.width - 1, Math.max(0, (x + 0.5) * sx - 0.5));
+      const x0 = Math.floor(fx);
+      const x1 = Math.min(mask.width - 1, x0 + 1);
+      const wx = fx - x0;
+      const top = at(x0, y0) * (1 - wx) + at(x1, y0) * wx;
+      const bottom = at(x0, y1) * (1 - wx) + at(x1, y1) * wx;
+      data[y * width + x] = Math.round(top * (1 - wy) + bottom * wy);
+    }
+  }
+  return { width, height, data };
+}
+
+/**
+ * The "keep original" upload (AC-13.4, off by default): the photo re-encoded as JPEG, at most 4096 px per side.
+ * Re-encoding drops EXIF (location, device) on the device already; the server strips it again (AC-13.6).
+ */
+export function encodeOriginal(photo: SkImage): BakedImage {
+  const image = downscalePhoto(photo, ORIGINAL_MAX_SIDE);
+  const jpeg = image.encodeToBytes(ImageFormat.JPEG, ORIGINAL_JPEG_QUALITY);
+  if (jpeg.length === 0) throw new BakeError('original encode failed');
+  return { width: image.width(), height: image.height(), contentType: 'image/jpeg', bytes: jpeg };
 }
 
 /** The 8-bit mask as a grayscale PNG at its own resolution (the photo's aspect ratio). */
@@ -119,5 +163,5 @@ export function encodeMask(mask: Mask): BakedImage {
   );
   const png = image?.encodeToBytes(ImageFormat.PNG, 100);
   if (!png || png.length === 0) throw new BakeError('mask encode failed');
-  return { width: mask.width, height: mask.height, png };
+  return { width: mask.width, height: mask.height, contentType: 'image/png', bytes: png };
 }

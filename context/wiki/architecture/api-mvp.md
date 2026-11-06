@@ -2,7 +2,7 @@
 title: API contract — MVP (/v1)
 type: spec
 status: proposed
-updated: 2026-11-05
+updated: 2026-11-06
 sources: [raw/discussions/2026-11-04-infra-qa.md, raw/discussions/2026-11-04-prd-design-qa.md, raw/discussions/2026-11-04-security-qa.md]
 related: [[prd-mvp]], [[overview]], [[data-model]], [[security-baseline]], [[ADR-0004-auth-sessions]], [[ADR-0005-media-pipeline]], [[ADR-0006-job-queue]], [[ADR-0007-board-sync]], [[region-policy]], [[threat-model-mvp]], [[effects-catalog]]
 ---
@@ -399,6 +399,16 @@ must have the render's exact size (400). `style` → registry (422 `UNKNOWN_REGI
 with current friends (non-friends dropped silently, never named). Card (`pending_scan`), recipients (`delivered_at` NULL) and
 the `cards.submitted {card_id, owner_id}` event are written in one transaction; the same `client_card_id` later returns the
 first card (202). Response `{card: {id, status, recipient_count}}`.
+
+Mobile client (T-77, #79, `apps/mobile/src/features/sharing`): the editor's Next (or Send in the drafts tray) opens
+`/send?draft=<id>`. Audience = all friends by default or a subset (`GET /v1/friends`, at most
+`limits.card_recipients_max`); "keep original" is off by default. Tapping Send bakes, uploads `card_render` (+ `mask`,
++ `original`) through `POST /v1/media?kind=` as raw bytes, then `POST /v1/cards` with the strict style block and
+`Idempotency-Key` = `client_card_id` = the local card id. The request is fixed per send job, so "Try again" repeats it
+byte for byte (uploads already done are not repeated); a 422 `IDEMPOTENCY_KEY_REUSED` offers "Send as a new card" (new
+id). After the 202 the owner view (`GET /v1/cards/{id}`) is polled about a minute while `pending_scan` and shown neutrally
+(on its way / delivered / waiting for a review / couldn't be sent); the appeal entry point is shown disabled until
+`POST /v1/cards/{id}/appeal` exists. A sent card leaves the drafts tray.
 
 Implemented (T-79, `crates/cards/src/access.rs`, `GET /v1/cards/{id}`, limit `cards.read` 300/min): visibility is one SQL
 predicate: owner (any status but `deleted`) **or** (`card.status = active` ∧ viewer's `card_recipients` row delivered and not
