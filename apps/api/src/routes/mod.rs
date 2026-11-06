@@ -9,6 +9,7 @@ pub mod health;
 pub mod invites;
 pub mod me;
 pub mod media;
+pub mod media_files;
 pub mod public_invites;
 pub mod sessions;
 pub mod user_search;

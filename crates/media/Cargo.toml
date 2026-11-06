@@ -9,7 +9,10 @@ license.workspace = true
 
 [dependencies]
 platform.workspace = true
+# HMAC-SHA256 for signed media URLs (already the workspace's crypto provider).
+ring.workspace = true
 
+base64.workspace = true
 bytes.workspace = true
 getrandom.workspace = true
 # The only image decoder/encoder (memory-safe, pure Rust): PNG, JPEG, WebP. Decoding runs only in

@@ -465,6 +465,19 @@ on `code`); `requestId` equals the `X-Request-Id` response header. Generic codes
 - **Signed URLs:** issued only inside DTOs of an endpoint that just passed the object check; CDN-verified signature over path + expiry
   (+ viewer id for audit), TTL 10 min app/web, 5 min staff, 24 h export ZIP; keys are random (no ids in paths). `expires_at` returned so
   clients refetch the DTO rather than retrying the URL ([[ADR-0005-media-pipeline]]).
+  Implemented (T-74, `crates/media/src/signer.rs`): `UrlSigner` = HMAC-SHA256 (`ring`) over `v1 
+ key 
+ exp 
+ viewer`;
+  URL `<API_MEDIA_BASE_URL>/<key>?exp=<unix>&v=<viewer>&sig=<base64url>`. It takes only an `ObjectKey` (exactly 32 lowercase
+  hex chars), so a prefix or wildcard cannot be expressed; `SignedUrl` and keys are redacted in `Debug`. Key
+  `API_MEDIA_SIGNING_KEY` (secret, â‰¥ 32 bytes; unset = routes returning media answer 503). Routes call
+  `AppState::charge_url_budget(caller, n)` once per response before signing: limit `media.urls` (1000 URLs/min per user,
+  `RateLimiter::check_cost`) â†’ 429 `RATE_LIMITED` plus a `media.url_budget_exceeded` log event (alert). The local edge
+  `GET /v1/media-files/{key}` (auth none, `media.files.read` 1200/min per IP, no version gate) verifies the signature and
+  serves only the `clean` bucket (`image/webp`, `nosniff`, `Content-Disposition: inline`, `Cache-Control: private` until
+  expiry); missing/tampered/expired â†’ 403 `FORBIDDEN`, missing object â†’ 404. In production the CDN runs the same check
+  in front of R2 (Cloudflare Worker, devops follow-up).
 - **Versioning:** `/v1` additive only; breaking change → `/v2` or ADR. OpenAPI regenerated and diffed in CI.
 - **Headers:** `X-Request-Id` echoed; `X-App-Version` required from mobile (min-version gate → 426 `UPGRADE_REQUIRED`).
 

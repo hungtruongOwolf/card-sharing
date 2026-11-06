@@ -54,6 +54,8 @@ pub fn test_config() -> Config {
         profile_config_path: "unused-in-tests".into(),
         social_config_path: "unused-in-tests".into(),
         media_storage_dir: None,
+        media_signing_key: None,
+        media_base_url: "https://media.cardsharing.test".to_owned(),
         content_safety: api::config::ContentSafetyConfig {
             env: api::config::AppEnv::Test,
             csam_matcher: api::config::SafetyAdapter::Fake,
@@ -93,6 +95,14 @@ pub const GOOGLE_ISSUER: &str = "https://accounts.google.com";
 /// Header the tests use as the trusted IP-country header.
 pub const TEST_COUNTRY_HEADER: &str = "x-test-ip-country";
 pub const CLIENT_YAML: &str = include_str!("../../../../config/client.yaml");
+
+/// Base URL of signed media in tests: the API's own edge route.
+pub const TEST_MEDIA_BASE_URL: &str = "http://localhost/v1/media-files";
+
+/// URL signer with a test-only key.
+pub fn test_signer() -> media::UrlSigner {
+    media::UrlSigner::new(&[42u8; 32], TEST_MEDIA_BASE_URL).unwrap()
+}
 
 /// Test-only data key (32 zero bytes).
 pub fn field_cipher() -> FieldCipher {
@@ -209,7 +219,9 @@ impl TestEnv {
         .with_os_age_signals(test_config().os_age_signals_enabled)
         .with_social_settings(social_settings());
         let media_store = Arc::new(media::MemoryObjectStore::default());
-        let state = state.with_media_store(media_store.clone());
+        let state = state
+            .with_media_store(media_store.clone())
+            .with_media_signer(Arc::new(test_signer()));
         let jwks = MockJwks::start(vec![TestRsaKey::shared().jwk()]).await;
         let apple_tokens = Arc::new(FakeAppleTokens::default());
         let sign_in = test_sign_in(

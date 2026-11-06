@@ -257,6 +257,18 @@ impl RateLimiter {
 
     /// Takes one token from the caller's bucket for limit `name` (and from its global bucket).
     pub async fn check(&self, name: &str, subject: &Subject) -> Result<Decision, UnknownLimit> {
+        self.check_cost(name, subject, 1).await
+    }
+
+    /// Takes `cost` tokens at once (e.g. one per signed URL in a response). A cost above the
+    /// bucket capacity is always limited.
+    pub async fn check_cost(
+        &self,
+        name: &str,
+        subject: &Subject,
+        cost: u32,
+    ) -> Result<Decision, UnknownLimit> {
+        let cost = f64::from(cost.max(1));
         let spec = self
             .config
             .get(name)
@@ -265,7 +277,7 @@ impl RateLimiter {
 
         if let Some(global) = spec.global {
             let key = format!("{}:{name}:global", self.key_prefix);
-            let bucket = Bucket::new(global.requests, global.per_secs);
+            let bucket = Bucket::new(global.requests, global.per_secs).with_cost(cost);
             let decision = self.take(&key, bucket, spec.on_store_failure, now).await;
             if decision != Decision::Allowed {
                 return Ok(decision);
@@ -280,14 +292,14 @@ impl RateLimiter {
             }
             _ => spec.requests,
         };
-        let bucket = Bucket::new(requests, spec.per_secs);
+        let bucket = Bucket::new(requests, spec.per_secs).with_cost(cost);
         let decision = self.take(&key, bucket, spec.on_store_failure, now).await;
         if decision != Decision::Allowed {
             return Ok(decision);
         }
         for (index, window) in spec.also.iter().enumerate() {
             let key = format!("{}:{name}:w{index}:{subject_key}", self.key_prefix);
-            let bucket = Bucket::new(window.requests, window.per_secs);
+            let bucket = Bucket::new(window.requests, window.per_secs).with_cost(cost);
             let decision = self.take(&key, bucket, spec.on_store_failure, now).await;
             if decision != Decision::Allowed {
                 return Ok(decision);
@@ -351,6 +363,8 @@ struct Bucket {
     capacity: f64,
     refill_per_ms: f64,
     ttl_ms: i64,
+    /// Tokens one take consumes.
+    cost: f64,
 }
 
 impl Bucket {
@@ -360,7 +374,13 @@ impl Bucket {
             capacity: f64::from(requests),
             refill_per_ms: f64::from(requests) / per_ms,
             ttl_ms: i64::from(per_secs) * 1000 + 1000,
+            cost: 1.0,
         }
+    }
+
+    fn with_cost(mut self, cost: f64) -> Self {
+        self.cost = cost;
+        self
     }
 
     /// Same arithmetic as the Lua script. Returns `(new_tokens, decision)`.
@@ -374,10 +394,10 @@ impl Bucket {
             tokens = (tokens + elapsed * self.refill_per_ms).min(self.capacity);
             last = now_ms;
         }
-        if tokens >= 1.0 {
-            (tokens - 1.0, last, Decision::Allowed)
+        if tokens >= self.cost {
+            (tokens - self.cost, last, Decision::Allowed)
         } else {
-            let wait_ms = ((1.0 - tokens) / self.refill_per_ms).ceil();
+            let wait_ms = ((self.cost - tokens) / self.refill_per_ms).ceil();
             (tokens, last, limited_after_ms(wait_ms))
         }
     }
@@ -406,11 +426,12 @@ if now_ms > last_ms then
   tokens = math.min(capacity, tokens + (now_ms - last_ms) * refill_per_ms)
   last_ms = now_ms
 end
+local cost = tonumber(ARGV[5])
 local wait_ms = 0
-if tokens >= 1 then
-  tokens = tokens - 1
+if tokens >= cost then
+  tokens = tokens - cost
 else
-  wait_ms = math.ceil((1 - tokens) / refill_per_ms)
+  wait_ms = math.ceil((cost - tokens) / refill_per_ms)
 end
 redis.call('HSET', KEYS[1], 'tokens', tostring(tokens), 'last_ms', tostring(last_ms))
 redis.call('PEXPIRE', KEYS[1], ttl_ms)
@@ -429,7 +450,8 @@ async fn take_in_redis(
         .arg(bucket.capacity)
         .arg(bucket.refill_per_ms)
         .arg(now_ms)
-        .arg(bucket.ttl_ms);
+        .arg(bucket.ttl_ms)
+        .arg(bucket.cost);
     let call = invocation.invoke_async::<i64>(&mut redis);
     match tokio::time::timeout(STORE_TIMEOUT, call).await {
         Err(_) => Err("timed out".to_owned()),
@@ -533,6 +555,33 @@ limits:
             limiter.check("test.user", &subject).await.unwrap(),
             Decision::Allowed
         );
+    }
+
+    #[tokio::test]
+    async fn costs_take_several_tokens_at_once() {
+        let (limiter, clock) = limiter();
+        let subject = old_account();
+        assert_eq!(
+            limiter.check_cost("test.user", &subject, 2).await.unwrap(),
+            Decision::Allowed
+        );
+        // One token left: a cost of 2 waits for one more token (20 s).
+        assert_eq!(
+            limiter.check_cost("test.user", &subject, 2).await.unwrap(),
+            Decision::Limited {
+                retry_after_secs: 20
+            }
+        );
+        assert_eq!(
+            limiter.check("test.user", &subject).await.unwrap(),
+            Decision::Allowed
+        );
+        // Above the capacity: always limited.
+        clock.advance(time::Duration::seconds(120));
+        assert!(matches!(
+            limiter.check_cost("test.user", &subject, 4).await.unwrap(),
+            Decision::Limited { .. }
+        ));
     }
 
     #[tokio::test]

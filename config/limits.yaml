@@ -209,3 +209,13 @@ limits:
     requests: 120
     per_secs: 60
     on_store_failure: open
+  media.urls: # signed media URLs issued to one user (SR-10; charged per URL by the routes that return media)
+    scope: user
+    requests: 1000
+    per_secs: 60
+    on_store_failure: open
+  media.files.read: # GET /v1/media-files/{key} (local edge for signed URLs; the CDN serves production)
+    scope: ip
+    requests: 1200
+    per_secs: 60
+    on_store_failure: open

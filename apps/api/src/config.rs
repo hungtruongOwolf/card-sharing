@@ -57,6 +57,13 @@ pub struct Config {
     /// (`<dir>/<bucket>/<key>`). Unset (default) = no object storage: uploads answer 503 and media
     /// jobs retry (fail closed). Production uses the S3-compatible adapter (ADR-0008).
     pub media_storage_dir: Option<PathBuf>,
+    /// `API_MEDIA_SIGNING_KEY` â€” secret, at least 32 random bytes as base64 (`openssl rand -base64
+    /// 32`); the CDN edge verifies with the same key. Unset = no signed URLs: routes that return
+    /// media answer 503 (fail closed).
+    pub media_signing_key: Option<Secret>,
+    /// `API_MEDIA_BASE_URL` â€” where the `clean` bucket is served: the CDN in production, the
+    /// API's own `/v1/media-files` route locally (default `http://127.0.0.1:8080/v1/media-files`).
+    pub media_base_url: String,
     /// Deployment profile and content-safety adapters (T-72).
     pub content_safety: ContentSafetyConfig,
     /// `API_SOCIAL_CONFIG_PATH` — default `config/social.yaml` (invite links, friend caps, search).
@@ -266,6 +273,20 @@ impl Config {
             .filter(|dir| !dir.trim().is_empty())
             .map(PathBuf::from);
         let content_safety = content_safety_config(env)?;
+        let media_signing_key = env
+            .optional("API_MEDIA_SIGNING_KEY")
+            .filter(|k| !k.trim().is_empty())
+            .map(Secret::new);
+        if let Some(key) = &media_signing_key {
+            media::UrlSigner::from_base64(key.expose(), "https://check.invalid")
+                .map_err(|e| invalid("API_MEDIA_SIGNING_KEY", e.to_string()))?;
+        }
+        let media_base_url = env
+            .optional("API_MEDIA_BASE_URL")
+            .unwrap_or_else(|| "http://127.0.0.1:8080/v1/media-files".to_owned());
+        if !(media_base_url.starts_with("https://") || media_base_url.starts_with("http://")) {
+            return Err(invalid("API_MEDIA_BASE_URL", "must be an http(s) URL"));
+        }
         let apple_client_ids = client_ids(env, "API_APPLE_CLIENT_IDS")?;
         let google_client_ids = client_ids(env, "API_GOOGLE_CLIENT_IDS")?;
         let auth_clock_skew_secs = env.in_range("API_AUTH_CLOCK_SKEW_SECS", 60, 0..=300)?;
@@ -295,6 +316,8 @@ impl Config {
             social_config_path,
             media_storage_dir,
             content_safety,
+            media_signing_key,
+            media_base_url,
             apple_client_ids,
             google_client_ids,
             auth_clock_skew: Duration::from_secs(auth_clock_skew_secs),
@@ -596,6 +619,21 @@ mod tests {
         }
         assert!(load(&[("API_ENV", "prod")]).is_err());
         assert!(load(&[("API_ENV", "development"), ("API_CSAM_MATCHER", "photodna")]).is_err());
+    }
+
+    #[test]
+    fn media_signing_key_is_optional_but_must_be_long() {
+        let config = load(&[]).unwrap();
+        assert!(config.media_signing_key.is_none());
+        assert!(load(&[("API_MEDIA_SIGNING_KEY", "c2hvcnQ=")]).is_err());
+        let config = load(&[(
+            "API_MEDIA_SIGNING_KEY",
+            "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        )])
+        .unwrap();
+        assert!(config.media_signing_key.is_some());
+        assert!(!format!("{config:?}").contains("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"));
+        assert!(load(&[("API_MEDIA_BASE_URL", "ftp://x")]).is_err());
     }
 
     #[test]

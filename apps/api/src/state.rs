@@ -2,10 +2,12 @@ use std::sync::Arc;
 
 use http::{HeaderMap, HeaderName};
 use identity::{AgeService, AttestationService, IdentityService, ProfileRules, ProviderSignIn};
-use media::{MediaService, ObjectStore};
+use media::{MediaService, ObjectKey, ObjectStore, SignedUrl, UrlAudience, UrlSigner};
 use platform::crypto::FieldCipher;
 use platform::idempotency::{IdempotencySettings, IdempotencyStore};
+use platform::problem::ApiError;
 use platform::rate_limit::RateLimiter;
+use platform::rate_limit::{AccountSubject, Decision, Subject};
 use platform::text::TextFilter;
 use policy::{CountryCode, PolicyService};
 use registry::Registry;
@@ -15,6 +17,9 @@ use crate::access::SessionResolver;
 use crate::client_config::ClientConfig;
 use crate::config::AttestationMode;
 use crate::identity_adapter::IdentitySessions;
+
+/// Rate limit (config/limits.yaml) that budgets signed-URL issuance per user (SR-10).
+pub const MEDIA_URL_LIMIT: &str = "media.urls";
 
 /// Rules for user-written profile text (config/text_filter.yaml, config/profile.yaml).
 pub struct ProfileSettings {
@@ -39,6 +44,8 @@ pub struct AppState {
     pub social: Arc<SocialService>,
     /// Quarantine uploads and media state (T-70).
     pub media: Arc<MediaService>,
+    /// Signs media URLs (T-74). `None` = no key configured: media URLs answer 503.
+    pub media_signer: Option<Arc<UrlSigner>>,
     /// Resolves bearer tokens for the access-policy gate (identity sessions by default).
     pub sessions: Arc<dyn SessionResolver>,
     pub limiter: Arc<RateLimiter>,
@@ -94,6 +101,7 @@ impl AppState {
                 identity.clock(),
                 None,
             )),
+            media_signer: None,
             policy,
             sessions: Arc::new(IdentitySessions(Arc::clone(&identity))),
             idempotency: Arc::new(IdempotencyStore::new(
@@ -138,6 +146,64 @@ impl AppState {
             Some(store),
         ));
         self
+    }
+
+    /// Installs the media URL signer (`API_MEDIA_SIGNING_KEY`, `API_MEDIA_BASE_URL`).
+    pub fn with_media_signer(mut self, signer: Arc<UrlSigner>) -> Self {
+        self.media_signer = Some(signer);
+        self
+    }
+
+    /// Charges `urls` signed-URL issuances to the caller's budget (SR-10, limit `media.urls`).
+    /// Call it once per response, after the access check and before signing. Exhausting the
+    /// budget is an anomaly: it is logged for alerting and answered 429.
+    pub async fn charge_url_budget(
+        &self,
+        principal: &crate::access::Principal,
+        urls: u32,
+    ) -> Result<(), ApiError> {
+        if urls == 0 {
+            return Ok(());
+        }
+        let subject = Subject {
+            account: Some(AccountSubject {
+                id: principal.account_id,
+                created_at: principal.account_created_at,
+            }),
+            device: principal.device_id,
+            ip: None,
+        };
+        match self
+            .limiter
+            .check_cost(MEDIA_URL_LIMIT, &subject, urls)
+            .await
+        {
+            Ok(Decision::Allowed) => Ok(()),
+            Ok(Decision::Limited { retry_after_secs }) => {
+                tracing::warn!(
+                    event = "media.url_budget_exceeded",
+                    account_id = %principal.account_id,
+                    urls,
+                    "signed-URL issuance budget exhausted"
+                );
+                Err(ApiError::RateLimited { retry_after_secs })
+            }
+            Ok(Decision::Unavailable) => Err(ApiError::Unavailable {
+                retry_after_secs: 5,
+            }),
+            Err(err) => Err(ApiError::internal(err)),
+        }
+    }
+
+    /// A signed URL for one exact `clean` object, for `viewer`. Access must already be decided.
+    pub fn sign_media(&self, key: &ObjectKey, viewer: uuid::Uuid) -> Result<SignedUrl, ApiError> {
+        let signer = self.media_signer.as_ref().ok_or_else(|| {
+            tracing::error!("media URL requested but API_MEDIA_SIGNING_KEY is not configured");
+            ApiError::Unavailable {
+                retry_after_secs: 30,
+            }
+        })?;
+        Ok(signer.sign(key, viewer, UrlAudience::App, self.identity.clock().now()))
     }
 
     /// Installs the social rules (`config/social.yaml`).
