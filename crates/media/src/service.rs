@@ -122,9 +122,9 @@ pub enum MediaError {
 
 /// Entry point of the media module.
 pub struct MediaService {
-    pool: PgPool,
-    clock: SharedClock,
-    store: Option<Arc<dyn ObjectStore>>,
+    pub(crate) pool: PgPool,
+    pub(crate) clock: SharedClock,
+    pub(crate) store: Option<Arc<dyn ObjectStore>>,
 }
 
 #[derive(sqlx::FromRow)]
@@ -283,6 +283,15 @@ impl MediaService {
         row.map(Row::into_record).transpose()
     }
 
+    /// A mask must have exactly the render's size (T-71): a mismatched pair is refused before a
+    /// card is created, so the recipient never composes a mask over the wrong image.
+    pub fn mask_fits(render: &MediaRecord, mask: &MediaRecord) -> bool {
+        render.kind == MediaKind::CardRender
+            && mask.kind == MediaKind::Mask
+            && render.width == mask.width
+            && render.height == mask.height
+    }
+
     /// The media object if `owner` owns it; `None` for a missing id or someone else's.
     pub async fn owned(&self, owner: Uuid, id: Uuid) -> Result<Option<MediaRecord>, MediaError> {
         let row: Option<Row> = sqlx::query_as(concat!(
@@ -295,5 +304,57 @@ impl MediaService {
         .fetch_optional(&self.pool)
         .await?;
         row.map(Row::into_record).transpose()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn record(kind: MediaKind, width: i32, height: i32) -> MediaRecord {
+        MediaRecord {
+            id: Uuid::now_v7(),
+            owner_id: Uuid::now_v7(),
+            kind,
+            state: MediaState::Clean,
+            content_type: "image/webp",
+            byte_size: 1,
+            width,
+            height,
+            created_at: OffsetDateTime::UNIX_EPOCH,
+        }
+    }
+
+    #[test]
+    fn mask_must_match_the_render_size() {
+        let render = record(MediaKind::CardRender, 1080, 1350);
+        assert!(MediaService::mask_fits(
+            &render,
+            &record(MediaKind::Mask, 1080, 1350)
+        ));
+        assert!(!MediaService::mask_fits(
+            &render,
+            &record(MediaKind::Mask, 1080, 1349)
+        ));
+        assert!(!MediaService::mask_fits(
+            &render,
+            &record(MediaKind::Mask, 1350, 1080)
+        ));
+        // Kinds must be right too.
+        assert!(!MediaService::mask_fits(
+            &render,
+            &record(MediaKind::Original, 1080, 1350)
+        ));
+    }
+
+    #[test]
+    fn kinds_and_states_round_trip() {
+        for kind in MediaKind::ALL {
+            assert_eq!(MediaKind::parse(kind.as_str()), Some(kind));
+        }
+        for state in MediaState::ALL {
+            assert_eq!(MediaState::parse(state.as_str()), Some(state));
+        }
+        assert_eq!(MediaKind::parse("CARD_RENDER"), None);
     }
 }

@@ -12,6 +12,9 @@ platform.workspace = true
 
 bytes.workspace = true
 getrandom.workspace = true
+# The only image decoder/encoder (memory-safe, pure Rust): PNG, JPEG, WebP. Decoding runs only in
+# the media worker's sandboxed task (src/pipeline.rs) with size, allocation and time limits.
+image.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
 sqlx.workspace = true

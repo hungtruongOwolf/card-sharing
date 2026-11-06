@@ -24,6 +24,7 @@ mod jobs;
 mod magic_link;
 mod me;
 mod media;
+mod media_process;
 mod minor_hint;
 mod outbox;
 mod profile;

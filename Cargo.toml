@@ -27,6 +27,8 @@ base64 = "0.23.1"
 chacha20poly1305 = { version = "0.11.0", default-features = false, features = ["alloc"] }
 getrandom = "0.4.3"
 http = "1"
+# Media re-encoding (crates/media): PNG/JPEG/WebP only, no rayon, no AVIF/TIFF/GIF codecs.
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "webp"] }
 # HTTPS client for provider JWKS and Apple's token endpoint (crates/identity/src/oidc/http.rs). Plain
 # hyper + hyper-rustls with our ring rustls config: reqwest's rustls mode always pulls a platform
 # verifier with a CDLA-licensed root bundle and, by default, aws-lc.

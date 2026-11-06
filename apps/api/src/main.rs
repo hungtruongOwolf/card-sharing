@@ -213,10 +213,22 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
         Arc::clone(&clock),
         social.retention_days,
     ));
+    let media = Arc::new(media::MediaService::new(
+        pool.clone(),
+        Arc::clone(&clock),
+        media_store(config),
+    ));
     // Subscribers register here as modules start publishing events.
     let relay = Arc::new(OutboxRelay::new(pool, clock));
     let worker = Worker::new(queue, WorkerSettings::default())
         .handle(MAGIC_LINK_JOB, Arc::new(magic_links))
+        .handle(
+            media::PROCESS_JOB,
+            Arc::new(media::ProcessMediaJob {
+                media,
+                settings: media::ProcessSettings::default(),
+            }),
+        )
         .periodic(
             "identity.magic_links.purge",
             std::time::Duration::from_secs(3600),

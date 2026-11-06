@@ -41,6 +41,8 @@ uuid.workspace = true
 
 [dev-dependencies]
 base64.workspace = true
+# Real PNG/JPEG test images for the media pipeline tests.
+image.workspace = true
 # Runtime-generated App Attest and Play Integrity test vectors.
 attestation = { workspace = true, features = ["test-support"] }
 # Mock JWKS server, locally generated RSA keys and ID-token minting.
