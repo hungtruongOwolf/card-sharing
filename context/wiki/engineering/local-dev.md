@@ -90,12 +90,15 @@ Safety rules:
 ### Sign the app in as a seed user (#306)
 `.env.example` sets `API_DEV_SIGN_IN=true` (allowed only with `API_ENV=development` or `test`; the API refuses to start
 otherwise, and with the flag off `/v1/dev/*` answers 404). Then:
-1. `pnpm infra:up`, `pnpm dev:seed`, `pnpm dev:api`. For a phone on the same Wi-Fi set `API_BIND_ADDR=0.0.0.0:8080` in
-   `.env` and point the app at `http://<your PC's LAN IP>:8080` (simulators can use `http://127.0.0.1:8080`, Android
-   emulator `http://10.0.2.2:8080`).
-2. In a development build of the app, choose "Sign in as demo user" and pick `alice.demo`, `bob.demo` or `mia.demo`
-   (the app calls `GET /v1/dev/seed-users`, then `POST /v1/dev/sign-in {"handle": "..."}`). Release builds have no
-   such entry.
+1. `pnpm infra:up`, `pnpm dev:seed`, `pnpm dev:api`. For a phone see "From a phone on the same Wi-Fi" below
+   (simulators can use `http://127.0.0.1:8080`, the Android emulator `http://10.0.2.2:8080`).
+2. In a development build of the app (`pnpm dev:mobile`, i.e. `expo start` in development mode), the sign-in screen
+   shows a dashed "Development only" box under the Apple/Google buttons: tap "Sign in as demo user", then
+   `alice.demo`, `bob.demo` or `mia.demo` (under 18). The app calls `GET /v1/dev/seed-users`, then
+   `POST /v1/dev/sign-in {"handle": "..."}`, stores the session like a provider sign-in and continues from `/v1/me`.
+   The box exists only when `__DEV__` is true (`features/onboarding/devSignIn.ts`, `DevSignInSection.tsx`), so release
+   builds have no entry; a server without the flag answers 404 and the box says so. Seed users have no Apple/Google
+   identity, so re-auth screens (delete account, data export) cannot be completed as them.
 3. Without the app (PowerShell):
    ```powershell
    Invoke-RestMethod http://127.0.0.1:8080/v1/dev/seed-users
@@ -104,6 +107,26 @@ otherwise, and with the flag off `/v1/dev/*` answers 404). Then:
    ```
 Only the three seed personas can be signed into (by their `seed.<key>` identity, never by handle lookup); every sign-in is
 audited as `auth.sign_in` with provider `dev`. Contract: [[api-mvp]]; threat: SR-38 in [[threat-model-mvp]].
+
+### From a phone on the same Wi-Fi
+The API binds `127.0.0.1` by default, which a phone cannot reach. On the computer running the API:
+1. Find its LAN IP (`ipconfig` on Windows: the Wi-Fi adapter's IPv4 address, for example `192.168.1.20`). The app
+   accepts plain http only to private addresses (`localhost`, `10.x`, `172.16-31.x`, `192.168.x`) and only in
+   development builds (`features/auth/config.ts`); release builds require https.
+2. In `.env`: `API_BIND_ADDR=0.0.0.0:8080` (listen on every interface) and
+   `API_MEDIA_BASE_URL=http://192.168.1.20:8080/v1/media-files`, so the signed image URLs point at an address the phone
+   can load (with MinIO, `API_S3_ENDPOINT` must use the LAN IP too). Restart `pnpm dev:api`.
+3. Allow inbound TCP 8080 (API) and 8081 (Metro bundler) on private networks in the Windows firewall (Windows asks the
+   first time the process listens; choose "Private networks"). Do not open them on public networks.
+4. `cp apps/mobile/.env.example apps/mobile/.env` and set `EXPO_PUBLIC_API_URL=http://192.168.1.20:8080`. The value is
+   inlined at bundle time: after a change, restart with `pnpm --filter @card-sharing/mobile start --clear`.
+5. Phone and computer on the same Wi-Fi (guest networks often isolate devices). Check from the phone's browser that
+   `http://192.168.1.20:8080/healthz` answers, then open the app from the QR code `pnpm dev:mobile` prints.
+6. Sign in as a demo user (step 2 above). Undo `API_BIND_ADDR` when done; the dev sign-in must never run on a network
+   you do not trust, since anyone who reaches the port can sign in as a seed user.
+
+Expo Go only runs the SDK it was built for; if the store version of Expo Go no longer supports SDK 57, a development
+build (`eas build --profile development`, needs the Apple Developer account) is required to run the app on the iPhone.
 
 ## Reset
 `docker compose --env-file .env -f infra/docker-compose.yml down -v` wipes all volumes; then start again from

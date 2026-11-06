@@ -5,6 +5,7 @@ import { Button, Screen, Text } from '../../../ui';
 import { useAuthClient, type IdTokenProvider } from '../../auth';
 import { useOnboarding } from '../OnboardingProvider';
 import type { SignInProvider } from '../signInProviders';
+import { DevSignInSection } from './DevSignInSection';
 import { FormMessage } from './FormMessage';
 
 const LABELS: Record<IdTokenProvider, MessageKey> = {
@@ -17,7 +18,7 @@ const LABELS: Record<IdTokenProvider, MessageKey> = {
  * `signInWithIdToken` seam; the server creates the account and the flow continues from `/v1/me`.
  */
 export function SignInScreen() {
-  const { signInProviders } = useOnboarding();
+  const { signInProviders, devSignIn } = useOnboarding();
   const authClient = useAuthClient();
   const [busy, setBusy] = useState<IdTokenProvider | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -57,6 +58,8 @@ export function SignInScreen() {
         />
       ))}
       <FormMessage message={message} />
+      {/* Development builds only (#306): `__DEV__` is false in release builds, so this entry is compiled out. */}
+      {__DEV__ && devSignIn ? <DevSignInSection devSignIn={devSignIn} /> : null}
     </Screen>
   );
 }
