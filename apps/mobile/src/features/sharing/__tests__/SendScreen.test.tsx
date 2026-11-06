@@ -18,7 +18,13 @@ const CARD_ID = '0c0c0c0c-0c0c-4c0c-8c0c-0c0c0c0c0c0c';
 function localCard(cut = 'cut.none'): LocalCard {
   return newLocalCard(
     { uri: 'file:///cache/a.jpg', width: 3, height: 4, origin: 'camera' },
-    { cut: styleChoice(registry.get(cut)!), finish: null, wholePhoto: false, caption: ' zoomies ' },
+    {
+      cut: styleChoice(registry.get(cut)!),
+      finish: null,
+      effects: [],
+      wholePhoto: false,
+      caption: ' zoomies ',
+    },
     new Date('2026-11-05T09:00:00Z'),
     CARD_ID,
   );

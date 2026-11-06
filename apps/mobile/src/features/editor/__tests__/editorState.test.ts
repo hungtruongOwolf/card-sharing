@@ -1,11 +1,18 @@
-import { registry, type EffectEntry } from '@card-sharing/effects-registry';
+import {
+  createRegistry,
+  MAX_EFFECTS,
+  registry,
+  type EffectEntry,
+} from '@card-sharing/effects-registry';
 
 import {
+  addEffect,
   canRedo,
   canUndo,
   editorReducer,
   HISTORY_LIMIT,
   initialHistory,
+  replacedBy,
   type EditorAction,
   type EditorHistory,
 } from '../editorState';
@@ -26,6 +33,7 @@ describe('editor state', () => {
     expect(start.present).toEqual({
       cut: { id: 'cut.none', version: 1, params: { cornerRadiusPct: 4 } },
       finish: null,
+      effects: [],
       wholePhoto: false,
       caption: '',
     });
@@ -118,5 +126,85 @@ describe('editor state', () => {
       });
     }
     expect(history.past).toHaveLength(HISTORY_LIMIT);
+  });
+});
+
+describe('stacked effects (T-114)', () => {
+  const start = initialHistory(entry('cut.none'));
+  const holo = entry('fx.holo');
+  // Test entries: an effect-slot filter that stacks, and two frames that refuse each other.
+  const sheen: EffectEntry = { ...holo, id: 'fx.sheen', tags: [], stackable: true };
+  const frameA: EffectEntry = {
+    ...holo,
+    id: 'frame.a',
+    kind: 'frame',
+    layer: 'frame',
+    tags: [],
+    stackable: false,
+    conflictsWith: ['frame.b'],
+  };
+  const frameB: EffectEntry = { ...frameA, id: 'frame.b', conflictsWith: [] };
+  const testRegistry = createRegistry([...registry.entries, sheen, frameA, frameB]);
+  const add = (effect: EffectEntry): EditorAction => ({
+    type: 'addEffect',
+    entry: effect,
+    registry: testRegistry,
+  });
+  const ids = (history: EditorHistory) => history.present.effects.map((e) => e.id);
+
+  it('adds nothing on its own (AC-21.4) and stacks effects in the order chosen', () => {
+    expect(start.present.effects).toEqual([]);
+    expect(ids(run(start, add(sheen), add(frameA), add(sheen)))).toEqual([
+      'fx.sheen',
+      'frame.a',
+      'fx.sheen',
+    ]);
+  });
+
+  it('replaces what a new effect cannot stack with', () => {
+    expect(ids(run(start, add(sheen), add(frameA), add(frameB)))).toEqual(['fx.sheen', 'frame.b']);
+    expect(ids(run(start, add(frameA), add(frameA)))).toEqual(['frame.a']);
+    expect(replacedBy(run(start, add(frameA)).present.effects, frameB, testRegistry)).toEqual([
+      'frame.a',
+    ]);
+  });
+
+  it(`holds at most ${MAX_EFFECTS} effects`, () => {
+    const full = run(start, ...Array.from({ length: MAX_EFFECTS }, () => add(sheen)));
+    expect(full.present.effects).toHaveLength(MAX_EFFECTS);
+    expect(run(full, add(sheen))).toBe(full);
+    expect(addEffect(full.present.effects, sheen, testRegistry)).toBeNull();
+  });
+
+  it('edits and removes one effect by index, undoably', () => {
+    const two = run(start, add(sheen), add(sheen));
+    const edited = run(two, {
+      type: 'setEffectParams',
+      index: 1,
+      entry: sheen,
+      params: { intensity: 0.3 },
+    });
+    expect(edited.present.effects.map((e) => e.params.intensity)).toEqual([0.8, 0.3]);
+    // A stale index (the entry there changed) is ignored.
+    expect(
+      run(edited, { type: 'setEffectParams', index: 1, entry: frameA, params: {} }).present,
+    ).toEqual(edited.present);
+    const removed = run(edited, { type: 'removeEffect', index: 0 });
+    expect(removed.present.effects.map((e) => e.params.intensity)).toEqual([0.3]);
+    expect(run(removed, { type: 'undo' }).present).toEqual(edited.present);
+  });
+
+  it('records a param drag on an effect as one undo step', () => {
+    const one = run(start, add(sheen));
+    const drag = (intensity: number): EditorAction => ({
+      type: 'setEffectParams',
+      index: 0,
+      entry: sheen,
+      params: { intensity },
+      transient: true,
+    });
+    const dragged = run(one, drag(0.5), drag(0.2), { type: 'settle' });
+    expect(dragged.present.effects[0]?.params.intensity).toBe(0.2);
+    expect(run(dragged, { type: 'undo' }).present).toEqual(one.present);
   });
 });

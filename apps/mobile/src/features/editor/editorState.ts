@@ -1,4 +1,11 @@
-import { clampParams, type EffectEntry, type ParamValue } from '@card-sharing/effects-registry';
+import {
+  clampParams,
+  MAX_EFFECTS,
+  stackConflict,
+  type EffectEntry,
+  type ParamValue,
+  type Registry,
+} from '@card-sharing/effects-registry';
 
 import { sanitizeText } from '../../text';
 
@@ -18,6 +25,11 @@ export interface CardDraft {
   cut: StyleChoice;
   /** Optional finish (`fx.*` entry tagged `finish`); null = no finish. */
   finish: StyleChoice | null;
+  /**
+   * Stacked effects (overlays, props, frames, extra filters), in the order the user added them; at most
+   * `MAX_EFFECTS`, never two that conflict (T-114). Empty until the user picks one (AC-21.4).
+   */
+  effects: readonly StyleChoice[];
   /** "Use whole photo" (prd-mvp AC-7.4): ignore the subject mask even when there is one. */
   wholePhoto: boolean;
   /** Optional caption (US-12), stored sanitized; '' = none. Length and filter rules live in features/captions. */
@@ -48,6 +60,19 @@ export type EditorAction =
       /** Part of a gesture: shown at once, recorded as one undo step on `settle`. */
       transient?: boolean;
     }
+  /**
+   * Adds an effect. Chosen effects it cannot stack with (the same non-stackable entry, a `conflictsWith` pair) are
+   * replaced by it; nothing happens when the card already holds `MAX_EFFECTS`.
+   */
+  | { type: 'addEffect'; entry: EffectEntry; registry: Registry }
+  | { type: 'removeEffect'; index: number }
+  | {
+      type: 'setEffectParams';
+      index: number;
+      entry: EffectEntry;
+      params: Readonly<Record<string, unknown>>;
+      transient?: boolean;
+    }
   | { type: 'settle' }
   | { type: 'setWholePhoto'; value: boolean }
   | { type: 'setCaption'; text: string }
@@ -65,7 +90,7 @@ export function styleChoice(entry: EffectEntry, params?: unknown): StyleChoice {
 export function initialHistory(cut: EffectEntry): EditorHistory {
   return {
     past: [],
-    present: { cut: styleChoice(cut), finish: null, wholePhoto: false, caption: '' },
+    present: { cut: styleChoice(cut), finish: null, effects: [], wholePhoto: false, caption: '' },
     future: [],
     gestureBase: null,
   };
@@ -100,6 +125,21 @@ function nextDraft(draft: CardDraft, action: EditorAction): CardDraft {
     case 'setParams':
       // Selects the entry too: the screen may show a fallback entry the draft does not hold yet.
       return { ...draft, [action.slot]: styleChoice(action.entry, action.params) };
+    case 'addEffect': {
+      const effects = addEffect(draft.effects, action.entry, action.registry);
+      return effects ? { ...draft, effects } : draft;
+    }
+    case 'removeEffect':
+      return { ...draft, effects: draft.effects.filter((_, i) => i !== action.index) };
+    case 'setEffectParams': {
+      const current = draft.effects[action.index];
+      // Only the entry held at that index may change (a stale index after an undo is ignored).
+      if (current?.id !== action.entry.id) return draft;
+      const effects = draft.effects.map((choice, i) =>
+        i === action.index ? styleChoice(action.entry, action.params) : choice,
+      );
+      return { ...draft, effects };
+    }
     case 'setWholePhoto':
       return { ...draft, wholePhoto: action.value };
     case 'setCaption':
@@ -113,7 +153,7 @@ function nextDraft(draft: CardDraft, action: EditorAction): CardDraft {
 }
 
 export function editorReducer(current: EditorHistory, action: EditorAction): EditorHistory {
-  if (action.type === 'setParams' && action.transient) {
+  if ((action.type === 'setParams' || action.type === 'setEffectParams') && action.transient) {
     const next = nextDraft(current.present, action);
     if (sameDraft(current.present, next)) return current;
     return { ...current, present: next, gestureBase: current.gestureBase ?? current.present };
@@ -142,6 +182,37 @@ export function editorReducer(current: EditorHistory, action: EditorAction): Edi
     };
   }
   return commit(history, nextDraft(history.present, action));
+}
+
+/**
+ * The effect list after adding `entry`: chosen effects it cannot stack with are dropped (it replaces them), then it
+ * goes on top. Null when the list is full. Unknown stored ids are kept; send-time checks deal with them.
+ */
+export function addEffect(
+  effects: readonly StyleChoice[],
+  entry: EffectEntry,
+  registry: Registry,
+): StyleChoice[] | null {
+  const kept = effects.filter((choice) => {
+    const other = registry.get(choice.id);
+    return !other || stackConflict(other, entry) === null;
+  });
+  if (kept.length >= MAX_EFFECTS) return null;
+  return [...kept, styleChoice(entry)];
+}
+
+/** Ids `entry` would replace if added (for the "replaced" announcement). */
+export function replacedBy(
+  effects: readonly StyleChoice[],
+  entry: EffectEntry,
+  registry: Registry,
+): string[] {
+  return effects
+    .filter((choice) => {
+      const other = registry.get(choice.id);
+      return !!other && stackConflict(other, entry) !== null;
+    })
+    .map((choice) => choice.id);
 }
 
 export const canUndo = (history: EditorHistory) =>

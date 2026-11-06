@@ -54,7 +54,13 @@ function setup() {
   });
   const card = newLocalCard(
     { uri: 'file:///cache/a.jpg', width: 3, height: 4, origin: 'camera' },
-    { cut: styleChoice(registry.get('cut.none')!), finish: null, wholePhoto: true, caption: 'hi' },
+    {
+      cut: styleChoice(registry.get('cut.none')!),
+      finish: null,
+      effects: [],
+      wholePhoto: true,
+      caption: 'hi',
+    },
     new Date(server.now()),
     CARD_ID,
   );

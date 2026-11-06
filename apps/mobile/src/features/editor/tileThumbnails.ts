@@ -63,16 +63,22 @@ export function bakeThumbnail(
 export function tileDraft(tab: PickerTab, entryId: string, shown: CardDraft): CardDraft | null {
   const entry = tab.tiles.find((tile) => tile.entry.id === entryId)?.entry;
   if (!entry) return null;
-  return tab.slot === 'cut'
-    ? { ...shown, cut: styleChoice(entry), caption: '' }
-    : { ...shown, finish: styleChoice(entry), caption: '' };
+  switch (tab.slot) {
+    case 'cut':
+      return { ...shown, cut: styleChoice(entry), caption: '' };
+    case 'finish':
+      return { ...shown, finish: styleChoice(entry), caption: '' };
+    case 'effects':
+      // The effect alone on the current card, so each tile shows what it adds.
+      return { ...shown, effects: [styleChoice(entry)], caption: '' };
+  }
 }
 
 /**
  * Baked previews of the active tab's tiles on the current photo, keyed by entry id. Baked after the first paint
  * (an effect), so opening a tab never waits on them; a tile shows a placeholder until its thumbnail is ready.
  * Unavailable tiles get none (they cannot draw on this card). Re-bakes only when what the tiles show changes:
- * for cut tiles the finish and whole-photo choice, for finish tiles the cut.
+ * the whole-photo choice and the other slots (cut tiles keep the finish, finish tiles the cut, effect tiles both).
  */
 export function useTileThumbnails(
   registry: Registry,
@@ -83,11 +89,12 @@ export function useTileThumbnails(
 ): Readonly<Record<string, string>> {
   const scene = useMemo(() => thumbScene(image, mask, PixelRatio.get()), [image, mask]);
   const context = shown
-    ? JSON.stringify(
-        tab.slot === 'cut'
-          ? { slot: tab.slot, finish: shown.finish, wholePhoto: shown.wholePhoto }
-          : { slot: tab.slot, cut: shown.cut, wholePhoto: shown.wholePhoto },
-      )
+    ? JSON.stringify({
+        slot: tab.slot,
+        cut: tab.slot === 'cut' ? null : shown.cut,
+        finish: tab.slot === 'finish' ? null : shown.finish,
+        wholePhoto: shown.wholePhoto,
+      })
     : '';
   const ids = tab.tiles
     .filter((tile) => tile.state.kind !== 'unavailable')

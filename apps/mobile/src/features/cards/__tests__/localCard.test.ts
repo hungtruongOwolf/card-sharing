@@ -1,4 +1,9 @@
-import { registry, type EffectEntry } from '@card-sharing/effects-registry';
+import {
+  createRegistry,
+  MAX_EFFECTS,
+  registry,
+  type EffectEntry,
+} from '@card-sharing/effects-registry';
 
 import type { CapturedPhoto } from '../../capture';
 import { styleChoice, type CardDraft } from '../../editor/editorState';
@@ -19,6 +24,7 @@ const photo: CapturedPhoto = {
 const draft: CardDraft = {
   cut: styleChoice(entry('cut.diecut')),
   finish: styleChoice(entry('fx.holo')),
+  effects: [],
   wholePhoto: false,
   caption: 'hi',
 };
@@ -77,6 +83,51 @@ describe('styleBlock (strict send-time check)', () => {
     ],
   ])('rejects %s', (_label, bad, error) => {
     const result = styleBlock(registry, bad as CardDraft);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toMatch(error);
+  });
+});
+
+describe('styleBlock effects (T-114)', () => {
+  const holo = entry('fx.holo');
+  const sheen: EffectEntry = { ...holo, id: 'fx.sheen', tags: [] };
+  const frameA: EffectEntry = {
+    ...holo,
+    id: 'frame.a',
+    kind: 'frame',
+    layer: 'frame',
+    tags: [],
+    stackable: false,
+    conflictsWith: ['frame.b'],
+  };
+  const frameB: EffectEntry = { ...frameA, id: 'frame.b', conflictsWith: [] };
+  const testRegistry = createRegistry([...registry.entries, sheen, frameA, frameB]);
+  const withEffects = (...effects: EffectEntry[]): CardDraft => ({
+    ...draft,
+    effects: effects.map((effect) => styleChoice(effect)),
+  });
+
+  it('sends the stacked effects with full params, in the order chosen', () => {
+    const result = styleBlock(testRegistry, withEffects(frameA, sheen, sheen));
+    expect(result.ok && result.style.effects).toEqual([
+      { id: 'frame.a', version: 1, params: { intensity: 0.8 } },
+      { id: 'fx.sheen', version: 1, params: { intensity: 0.8 } },
+      { id: 'fx.sheen', version: 1, params: { intensity: 0.8 } },
+    ]);
+  });
+
+  it.each([
+    ['conflicting entries', withEffects(frameA, frameB), /conflicts with/],
+    ['a non-stackable entry twice', withEffects(frameA, frameA), /not stackable/],
+    ['a cut style in the effects', withEffects(entry('cut.none')), /unknown cut.none/],
+    ['a board decoration in the effects', withEffects(entry('deco.star')), /unknown deco.star/],
+    [
+      `more than ${MAX_EFFECTS} effects`,
+      withEffects(...Array.from({ length: MAX_EFFECTS + 1 }, () => sheen)),
+      /too many effects/,
+    ],
+  ])('rejects %s', (_label, bad, error) => {
+    const result = styleBlock(testRegistry, bad);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toMatch(error);
   });

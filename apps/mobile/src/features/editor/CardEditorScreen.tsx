@@ -5,6 +5,7 @@ import { useSharedValue } from 'react-native-reanimated';
 
 import type { Mask } from '@card-sharing/canvas-engine';
 import {
+  MAX_EFFECTS,
   registry as shippedRegistry,
   type EffectEntry,
   type Registry,
@@ -21,13 +22,15 @@ import { Squish } from '../feedback';
 import { downscalePhoto, drawCard, previewSize, subjectFor } from './cardScene';
 import { EffectTile, unavailableReason } from './EffectTile';
 import {
+  addEffect,
   canRedo,
   canUndo,
   editorReducer,
   initialHistory,
+  replacedBy,
   styleChoice,
   type CardDraft,
-  type StyleSlot,
+  type StyleChoice,
 } from './editorState';
 import { planFinishModes } from './liveFinish';
 import { LiveFinishPreview } from './LiveFinishPreview';
@@ -37,6 +40,7 @@ import {
   defaultCut,
   deviceContext,
   pickerTabs,
+  type PickerSlot,
   type PickerTab,
   type PickerTile,
 } from './pickerTabs';
@@ -141,7 +145,7 @@ interface EditorProps extends CardEditorScreenProps {
 
 /** The selected entry of a tab, falling back to the default when the stored one is no longer listed. */
 function resolveSelection(tab: PickerTab, draft: CardDraft, hasSubject: boolean) {
-  const stored = draft[tab.slot];
+  const stored = tab.slot === 'cut' ? draft.cut : draft.finish;
   const listed = stored ? tab.entries.find((entry) => entry.id === stored.id) : undefined;
   if (listed && stored) return { entry: listed, choice: stored };
   const fallback = tab.optional ? undefined : defaultCut(tab.entries, hasSubject);
@@ -173,7 +177,9 @@ function Editor({
     const cut = defaultCut(tabs[0]?.entries ?? [], subject !== null);
     return initialHistory(cut ?? registry.byKind('cutStyle')[0]!);
   });
-  const [activeSlot, setActiveSlot] = useState<StyleSlot>('cut');
+  const [activeSlot, setActiveSlot] = useState<PickerSlot>('cut');
+  /** Index in `draft.effects` of the effect whose controls are shown. */
+  const [focusedEffect, setFocusedEffect] = useState<number | null>(null);
   const [captionOpen, setCaptionOpen] = useState(false);
   const toast = useToast();
   const { reducedMotion } = useTheme();
@@ -186,10 +192,14 @@ function Editor({
   const cut = resolveSelection(cutTab, draft, hasSubject);
   const finishTab = tabs.find((tab) => tab.slot === 'finish')!;
   const finish = resolveSelection(finishTab, draft, hasSubject);
+  const effectsTab = tabs.find((tab) => tab.slot === 'effects');
+  // Effects the device or config no longer allows are dropped from what is shown and sent (like a hidden cut).
+  const effects = listedEffects(effectsTab, draft.effects);
   const shown: CardDraft | null = cut
     ? {
         cut: cut.choice,
         finish: finish?.choice ?? null,
+        effects: effects.map(({ choice }) => choice),
         wholePhoto: draft.wholePhoto,
         caption: draft.caption,
       }
@@ -221,7 +231,37 @@ function Editor({
   );
 
   const activeTab = tabs.find((tab) => tab.slot === activeSlot) ?? cutTab;
-  const active = activeSlot === 'cut' ? cut : finish;
+  const focused = effects.find(({ index }) => index === focusedEffect) ?? null;
+  const active = activeTab.slot === 'cut' ? cut : activeTab.slot === 'finish' ? finish : focused;
+  const isSelected = (entry: EffectEntry) =>
+    activeTab.slot === 'effects'
+      ? effects.some(({ choice }) => choice.id === entry.id)
+      : entry.id === active?.entry.id;
+  const pickEffect = (entry: EffectEntry, another = false) => {
+    const held = effects.find(({ choice }) => choice.id === entry.id);
+    if (held && !another) {
+      setFocusedEffect(held.index);
+      return;
+    }
+    const next = addEffect(draft.effects, entry, registry);
+    if (!next) {
+      toast.show({ message: t('editor.effects.full', { max: MAX_EFFECTS }) });
+      return;
+    }
+    const replaced = replacedBy(draft.effects, entry, registry)
+      .map((id) => registry.get(id))
+      .filter((other) => other !== undefined && other.id !== entry.id);
+    if (replaced.length > 0) {
+      toast.show({
+        message: t('editor.effects.replaced', {
+          name: t(entry.name as MessageKey),
+          replaced: replaced.map((other) => t(other!.name as MessageKey)).join(', '),
+        }),
+      });
+    }
+    dispatch({ type: 'addEffect', entry, registry });
+    setFocusedEffect(next.length - 1);
+  };
   const select = (entry: EffectEntry | null) =>
     dispatch(
       activeTab.slot === 'cut' && entry
@@ -229,16 +269,22 @@ function Editor({
         : { type: 'select', slot: 'finish', entry },
     );
   const setParams = (entry: EffectEntry, params: Record<string, unknown>, transient?: boolean) =>
-    dispatch({ type: 'setParams', slot: activeTab.slot, entry, params, transient });
+    dispatch(
+      activeTab.slot === 'effects'
+        ? { type: 'setEffectParams', index: focused?.index ?? -1, entry, params, transient }
+        : { type: 'setParams', slot: activeTab.slot, entry, params, transient },
+    );
   const thumbnails = useTileThumbnails(registry, activeTab, shown, image, mask);
   const tileSize = thumbSize(image.width() / image.height());
   const pressTile = (tile: PickerTile) => {
-    if (tile.state.kind === 'available') select(tile.entry);
-    else if (tile.state.kind === 'locked') toast.show({ message: t('editor.tile.locked.toast') });
+    if (tile.state.kind === 'available') {
+      if (activeTab.slot === 'effects') pickEffect(tile.entry);
+      else select(tile.entry);
+    } else if (tile.state.kind === 'locked') toast.show({ message: t('editor.tile.locked.toast') });
     else toast.show({ message: unavailableReason(tile.state.reason) });
   };
 
-  const previewLabel = cut
+  const baseLabel = cut
     ? finish
       ? t('editor.preview.labelWithFinish', {
           style: t(cut.entry.a11yLabel as MessageKey),
@@ -246,6 +292,13 @@ function Editor({
         })
       : t('editor.preview.label', { style: t(cut.entry.a11yLabel as MessageKey) })
     : undefined;
+  const previewLabel =
+    baseLabel && effects.length > 0
+      ? t('editor.preview.labelWithEffects', {
+          label: baseLabel,
+          effects: effects.map(({ entry }) => t(entry.a11yLabel as MessageKey)).join(', '),
+        })
+      : baseLabel;
 
   return (
     <Screen title={t('editor.title')} testID="editor">
@@ -332,7 +385,7 @@ function Editor({
         ))}
       </View>
       <View style={styles.row}>
-        {activeTab.optional ? (
+        {activeTab.slot === 'finish' ? (
           <Button
             label={t('editor.finish.none')}
             variant={active ? 'secondary' : 'primary'}
@@ -344,7 +397,7 @@ function Editor({
           <EffectTile
             key={tile.entry.id}
             tile={tile}
-            selected={tile.entry.id === active?.entry.id}
+            selected={isSelected(tile.entry)}
             thumbnail={thumbnails[tile.entry.id]}
             size={tileSize}
             onPress={() => pressTile(tile)}
@@ -363,6 +416,26 @@ function Editor({
           ))}
         </View>
       ) : null}
+      {activeTab.slot === 'effects' && focused ? (
+        <View style={styles.row}>
+          <Text style={styles.shrink}>{t(focused.entry.name as MessageKey)}</Text>
+          {focused.entry.stackable && draft.effects.length < MAX_EFFECTS ? (
+            <Button
+              label={t('editor.effects.addAnother')}
+              variant="secondary"
+              onPress={() => pickEffect(focused.entry, true)}
+            />
+          ) : null}
+          <Button
+            label={t('editor.effects.remove', { name: t(focused.entry.name as MessageKey) })}
+            variant="ghost"
+            onPress={() => {
+              dispatch({ type: 'removeEffect', index: focused.index });
+              setFocusedEffect(null);
+            }}
+          />
+        </View>
+      ) : null}
       {active ? (
         <ParamControls
           entry={active.entry}
@@ -376,6 +449,14 @@ function Editor({
       ) : null}
     </Screen>
   );
+}
+
+/** The draft's effects the Effects tab still lists, with their index in `draft.effects`. */
+function listedEffects(tab: PickerTab | undefined, choices: readonly StyleChoice[]) {
+  return choices.flatMap((choice, index) => {
+    const entry = tab?.entries.find((listed) => listed.id === choice.id);
+    return entry ? [{ entry, choice, index }] : [];
+  });
 }
 
 const styles = StyleSheet.create({

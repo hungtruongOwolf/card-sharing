@@ -45,6 +45,7 @@ function photo(width = 120, height = 160): SkImage {
 const draft = (cut: string, finish: string | null = null, wholePhoto = false): CardDraft => ({
   cut: styleChoice(entry(cut)),
   finish: finish ? styleChoice(entry(finish)) : null,
+  effects: [],
   wholePhoto,
   caption: '',
 });

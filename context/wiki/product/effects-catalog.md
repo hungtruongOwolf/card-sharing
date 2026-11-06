@@ -115,6 +115,22 @@ The 60 fps with 3 live holo cards budget is the T-52 estimate and still needs a 
 Masks come from a `MaskSource` seam: development builds use a synthetic subject, release builds `noMaskSource`
 (whole-photo cards) until the segmenters T-54/T-55 plug in.
 
+**Effect picker and composition (T-114):** the draft holds `effects: {id, version, params}[]` besides `cut` and
+`finish`, empty until the user taps an effect (AC-21.4). The editor's *Effects* tab lists the stackable kinds
+(`EFFECT_SLOT_KINDS`: filter, overlay, prop, frame, layout) minus finishes and built-ins, with a renderer in this build;
+the tab is hidden while it would be empty. Tapping a tile adds the effect (or focuses it when already on the card);
+"Add another" stacks a second copy of a stackable entry; "Remove" drops it; every change is one undo step and param
+drags settle into one step. Stacking rules live in `packages/effects-registry/src/stacking.ts` and mirror the server's
+`check_combination`: `stackable: false` = the same id at most once, `conflictsWith` either way, at most `MAX_EFFECTS` (8).
+A new effect **replaces** what it cannot stack with (a toast names what it replaced) instead of being refused.
+`drawCard` composes in catalog order: the frame's `back`, then inside its window (uniform centre-crop) the `under`
+effects, the card layer (cut style, finish, filter-kind effects SrcATop), `subject` and `over` effects, then the frame's
+`front`. The card layer is recorded once as a picture and handed to effects as `context.card`, so shadows can follow its
+shape. Effect renderers are keyed by `renderer.ref` in `apps/mobile/src/features/effects` (`EFFECT_RENDERERS.effects`
+for under/subject/over, `.frames` for frames); filter-kind effects reuse the finish renderers. Effects the device or
+config no longer allows are dropped from the shown and sent draft. Drafts store the list (records saved before T-114
+read as no effects); `styleBlock` sends it as `style.effects` after the strict per-entry and stacking checks.
+
 Rules: adding an effect = add entry + shader/asset + tests (golden snapshot); removing = remove entry **and** migrate stored
 references (fallback to `fx.none`) + update this page ([[change-management]]). Device-capability routing hides entries whose
 `requires` fail and shows the `fallback` UX instead.

@@ -1,6 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 
-import type { ParamValue } from '@card-sharing/effects-registry';
+import { MAX_EFFECTS, type ParamValue } from '@card-sharing/effects-registry';
 
 import { sanitizeText } from '../../text';
 import { LOCAL_CARD_SCHEMA, type LocalCard } from '../cards/localCard';
@@ -199,12 +199,18 @@ export function parseLocalCard(raw: string | null, expectedId?: string): LocalCa
   const cut = parseChoice(value.draft.cut);
   const finish = value.draft.finish === null ? null : parseChoice(value.draft.finish);
   if (!cut || (value.draft.finish !== null && !finish)) return null;
+  // Drafts saved before effects existed (T-114) have no list: no effects.
+  const storedEffects = value.draft.effects ?? [];
+  if (!Array.isArray(storedEffects) || storedEffects.length > MAX_EFFECTS) return null;
+  const effects = storedEffects.map(parseChoice);
+  if (effects.some((choice) => choice === null)) return null;
   if (typeof value.draft.wholePhoto !== 'boolean' || typeof value.draft.caption !== 'string') {
     return null;
   }
   const draft: CardDraft = {
     cut,
     finish,
+    effects: effects as StyleChoice[],
     wholePhoto: value.draft.wholePhoto,
     caption: sanitizeText(value.draft.caption),
   };

@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 
 import {
+  EFFECT_SLOT_KINDS,
   killedIds,
   resolveAvailability,
   type Capability,
@@ -12,8 +13,12 @@ import {
 
 import type { MessageKey } from '../../i18n';
 import { hasCutRenderer } from '../cut-styles';
+import { hasEffectRenderer } from '../effects';
 import { hasFinishRenderer } from './drawFinish';
 import type { StyleSlot } from './editorState';
+
+/** A picker tab: one cut style, one optional finish, or a stack of effects. */
+export type PickerSlot = StyleSlot | 'effects';
 
 /** Why a tile is shown but cannot be used on this card or device (design-system "Effect tile"). */
 export type UnavailableReason =
@@ -44,9 +49,9 @@ export interface PickerTile {
  * device cannot use for another reason are shown as unavailable with the reason; non-free entries are locked.
  */
 export interface PickerTab {
-  slot: StyleSlot;
+  slot: PickerSlot;
   labelKey: MessageKey;
-  /** Finishes are optional; cut styles always have a selection. */
+  /** Finishes and effects are optional; cut styles always have a selection. */
   optional: boolean;
   /** Every tile the picker shows, in registry order. */
   tiles: PickerTile[];
@@ -96,7 +101,7 @@ export function pickerTabs(
 ): PickerTab[] {
   const killed = killedIds(config);
   const tab = (
-    slot: StyleSlot,
+    slot: PickerSlot,
     labelKey: MessageKey,
     optional: boolean,
     candidates: EffectEntry[],
@@ -113,10 +118,22 @@ export function pickerTabs(
       entries: tiles.filter((t) => t.state.kind === 'available').map((t) => t.entry),
     };
   };
+  const effects = tab('effects', 'editor.tab.effects', true, registry.entries.filter(isEffect));
   return [
     tab('cut', 'editor.tab.cut', false, registry.byKind('cutStyle').filter(hasCutRenderer)),
     tab('finish', 'editor.tab.finish', true, registry.byTag('finish').filter(hasFinishRenderer)),
+    // Shown once at least one effect can be listed (T-114).
+    ...(effects.tiles.length > 0 ? [effects] : []),
   ];
+}
+
+/**
+ * Entries the Effects tab lists: stackable kinds (`EFFECT_SLOT_KINDS`) other than the finishes, which have their
+ * own tab, with a renderer this build has (filters reuse the finish renderers).
+ */
+function isEffect(entry: EffectEntry): boolean {
+  if (!EFFECT_SLOT_KINDS.includes(entry.kind) || entry.tags.includes('finish')) return false;
+  return entry.kind === 'filter' ? hasFinishRenderer(entry) : hasEffectRenderer(entry);
 }
 
 /**
