@@ -205,6 +205,10 @@ gives `blocked`; failed, deleted or missing media give `failed`; anything still 
 | `pins` | `id` (client-generated UUIDv7); `board_id FK CASCADE`; `created_by UUID`; `kind CHECK (card, decoration)`; `card_id UUID NULL` (logical ref); `decoration JSONB NULL`; `x, y REAL` (board units), `scale REAL CHECK 0.1–10`, `rotation REAL`; `z_key TEXT` (fractional index); `version BIGINT`; `changed_at_board_version BIGINT`; `updated_by`; `deleted_at` (tombstone for sync); `CHECK ((kind='card') = (card_id IS NOT NULL))` | `(board_id, changed_at_board_version)`; `(card_id)` (card-delete fan-out); `(board_id) WHERE deleted_at IS NULL` | I | Tombstones purged 30 d |
 | `board_ops` | `board_id FK CASCADE`; `seq BIGINT` (= board version); `op_id UUID UNIQUE` (client idempotency); `actor_id`; `op JSONB`; `created_at`; PK `(board_id, seq)` | `UNIQUE(op_id)` | I | 30 d (Phase 2: Yjs update log) |
 
+Implemented (T-98, `migrations/20261117000001_boards.sql`): `boards.boards` (title `CHECK char_length 1–400`, graphemes 1–60 checked
+by the API; `backdrop JSONB NULL`; `version` starts at 1; `created_at`, `updated_at`) and `boards.board_members` (the owner is a member
+with role `owner`, one owner per board by a partial unique index). Pins, the op log and invitations join with T-99 and T-106.
+
 Board invitation rules (AC-19.1, AC-19.8): the invitee must be the owner's current friend at invite **and** at accept; members +
 pending invitations ≤ 8 (`boards.max_collaborators`), counted under `pg_advisory_xact_lock(board_id)`; ≤ 30 invitations per owner
 per day; re-inviting the same user to the same board waits `boards.reinvite_cooldown` (7 d) after a decline. Declines are silent: the

@@ -109,6 +109,9 @@ pub enum ApiError {
     /// One side of a friendship is at the friend cap (AC-5.2).
     #[error("friend limit reached")]
     FriendLimitReached,
+    /// The caller already owns the maximum number of boards (AC-18.2).
+    #[error("board limit reached")]
+    BoardLimitReached,
     #[error("method not allowed")]
     MethodNotAllowed,
     #[error("request timed out")]
@@ -150,7 +153,8 @@ impl ApiError {
             Self::HandleTaken
             | Self::IdempotencyInProgress
             | Self::AlreadyFriends
-            | Self::FriendLimitReached => StatusCode::CONFLICT,
+            | Self::FriendLimitReached
+            | Self::BoardLimitReached => StatusCode::CONFLICT,
             Self::IdempotencyKeyReused | Self::UnknownRegistryId => {
                 StatusCode::UNPROCESSABLE_ENTITY
             }
@@ -184,6 +188,7 @@ impl ApiError {
             Self::InviteExpired => "INVITE_EXPIRED",
             Self::AlreadyFriends => "ALREADY_FRIENDS",
             Self::FriendLimitReached => "FRIEND_LIMIT_REACHED",
+            Self::BoardLimitReached => "BOARD_LIMIT_REACHED",
             Self::HandleTaken => "HANDLE_TAKEN",
             Self::IdempotencyKeyReused => "IDEMPOTENCY_KEY_REUSED",
             Self::UnknownRegistryId => "UNKNOWN_REGISTRY_ID",
@@ -293,6 +298,7 @@ mod tests {
             ApiError::InviteExpired,
             ApiError::AlreadyFriends,
             ApiError::FriendLimitReached,
+            ApiError::BoardLimitReached,
             ApiError::IdempotencyKeyReused,
             ApiError::UnknownRegistryId,
             ApiError::IdempotencyInProgress,

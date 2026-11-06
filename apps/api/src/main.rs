@@ -87,6 +87,8 @@ async fn main() -> anyhow::Result<()> {
     };
     let social = social::SocialSettings::from_path(&config.social_config_path)
         .context("failed to load social config")?;
+    let board_settings = boards::BoardSettings::from_path(&config.boards_config_path)
+        .context("failed to load boards config")?;
     let state = AppState::new(
         policy,
         limiter,
@@ -98,6 +100,7 @@ async fn main() -> anyhow::Result<()> {
     .with_ip_country_header(config.ip_country_header.clone())
     .with_os_age_signals(config.os_age_signals_enabled)
     .with_social_settings(social)
+    .with_board_settings(board_settings)
     .with_attestation(
         attestation_service(&config.attestation)?,
         config.attestation.mode,

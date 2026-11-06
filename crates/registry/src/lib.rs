@@ -52,6 +52,10 @@ pub enum Kind {
     Prop,
     Frame,
     Layout,
+    /// A board backdrop (T-98 validates references; entries arrive with T-111).
+    Backdrop,
+    /// A board decoration pin (entries arrive with T-111).
+    Decoration,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
@@ -171,7 +175,16 @@ impl Registry {
                     }
                     let mut normalized = Vec::with_capacity(items.len());
                     for item in items {
-                        let (entry, value) = self.reference(item, |k| k != Kind::CutStyle)?;
+                        let (entry, value) = self.reference(item, |k| {
+                            matches!(
+                                k,
+                                Kind::Filter
+                                    | Kind::Overlay
+                                    | Kind::Prop
+                                    | Kind::Frame
+                                    | Kind::Layout
+                            )
+                        })?;
                         chosen.push(entry);
                         normalized.push(value);
                     }
@@ -182,6 +195,13 @@ impl Registry {
         }
         check_combination(&chosen)?;
         Ok(Value::Object(out))
+    }
+
+    /// Validates one `{id, version, params?}` reference that must be of `kind` (a board backdrop
+    /// or decoration) and returns it normalized. Same generic refusal as [`Self::validate_style`].
+    pub fn validate_reference(&self, value: &Value, kind: Kind) -> Result<Value, RegistryError> {
+        self.reference(value, |k| k == kind)
+            .map(|(_, normalized)| normalized)
     }
 
     /// One `{id, version, params?}` reference of an allowed kind.
@@ -360,6 +380,37 @@ mod tests {
                 "{style} must be rejected"
             );
         }
+    }
+
+    #[test]
+    fn board_references_must_have_the_requested_kind() {
+        let json = r##"{"schema_version":1,"entries":[
+            {"id":"bg.cork","version":1,"kind":"backdrop","stackable":false,"conflicts_with":[],"params":{}},
+            {"id":"fx.b","version":1,"kind":"filter","stackable":true,"conflicts_with":[],"params":{}}]}"##;
+        let registry = Registry::from_json(json).unwrap();
+        let cork = json!({ "id": "bg.cork", "version": 1 });
+        let normalized = registry.validate_reference(&cork, Kind::Backdrop).unwrap();
+        assert_eq!(
+            normalized,
+            json!({ "id": "bg.cork", "version": 1, "params": {} })
+        );
+        assert!(
+            registry
+                .validate_reference(&cork, Kind::Decoration)
+                .is_err()
+        );
+        let filter = json!({ "id": "fx.b", "version": 1 });
+        assert!(
+            registry
+                .validate_reference(&filter, Kind::Backdrop)
+                .is_err()
+        );
+        // A board backdrop is never accepted inside a card style.
+        assert!(
+            registry
+                .validate_style(&json!({ "effects": [cork] }))
+                .is_err()
+        );
     }
 
     #[test]

@@ -279,6 +279,21 @@ limits:
     requests: 120
     per_secs: 3600
     on_store_failure: open
+  boards.create: # POST /v1/boards (the client id is the idempotency key)
+    scope: user
+    requests: 30
+    per_secs: 3600
+    on_store_failure: open
+  boards.read: # GET /v1/boards/{id}
+    scope: user
+    requests: 120
+    per_secs: 60
+    on_store_failure: open
+  boards.list: # GET /v1/boards
+    scope: user
+    requests: 60
+    per_secs: 60
+    on_store_failure: open
   cards.reactions.read: # GET /v1/cards/{id}/reactions (owner only)
     scope: user
     requests: 60

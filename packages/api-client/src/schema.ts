@@ -237,6 +237,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/boards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Boards I own or collaborate on. Auth: ses. */
+        get: operations["listBoards"];
+        put?: never;
+        /**
+         * Create a board. Auth: ses.
+         * @description The caller becomes its owner (at most 20 live boards, `boards.max_per_owner`). Retrying with
+         *     the same `id` returns the existing board with 200 (the id is the idempotency key); an `id`
+         *     used by another account, or by one of the caller's deleted boards, is 404.
+         */
+        post: operations["createBoard"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/boards/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read one board. Auth: ses. Members only.
+         * @description Anyone who is not a member of the board, and any malformed id, gets the same 404 as a missing
+         *     or deleted board.
+         */
+        get: operations["getBoard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cards": {
         parameters: {
             query?: never;
@@ -1161,6 +1205,32 @@ export interface components {
             blocked_at: string;
             user: components["schemas"]["UserSummaryView"];
         };
+        BoardEnvelope: {
+            board: components["schemas"]["BoardView"];
+        };
+        BoardList: {
+            /** @description Boards the caller owns or collaborates on, most recently changed first. */
+            items: components["schemas"]["BoardView"][];
+        };
+        /** @description A board's metadata as the caller sees it. */
+        BoardView: {
+            /** @description Normalized registry reference, or `null` for the default backdrop. */
+            backdrop?: Record<string, never> | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: uuid */
+            id: string;
+            /** @description The caller's role: `owner` or `collaborator`. */
+            role: string;
+            title: string;
+            /** Format: date-time */
+            updated_at: string;
+            /**
+             * Format: int64
+             * @description Change cursor: bumped on every change to the board or its pins.
+             */
+            version: number;
+        };
         CardEnvelope: {
             card: components["schemas"]["CardView"];
         };
@@ -1235,6 +1305,18 @@ export interface components {
             friends_max: number;
             /** Format: int32 */
             pins_per_board_max: number;
+        };
+        /** @description Body of `POST /v1/boards`. */
+        CreateBoardRequest: {
+            /** @description Registry reference `{id, version, params?}` of kind `backdrop`; `null` = the default. */
+            backdrop?: Record<string, never> | null;
+            /**
+             * Format: uuid
+             * @description Client-generated UUIDv7 (lets the app create boards offline).
+             */
+            id: string;
+            /** @description 1..=60 grapheme clusters after sanitizing; filtered like every user-written name. */
+            title: string;
         };
         /** @description Body of `POST /v1/cards`. */
         CreateCardRequest: {
@@ -2450,6 +2532,208 @@ export interface operations {
                 };
             };
             /** @description NOT_FOUND: the caller has not blocked this id. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    listBoards: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The caller's boards. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BoardList"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    createBoard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateBoardRequest"];
+            };
+        };
+        responses: {
+            /** @description Retry of a create: the caller's existing board with this id. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BoardEnvelope"];
+                };
+            };
+            /** @description Created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BoardEnvelope"];
+                };
+            };
+            /** @description VALIDATION_FAILED: bad id or title, unknown field. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND: the id is not available to the caller. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description BOARD_LIMIT_REACHED (AC-18.2). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description UNKNOWN_REGISTRY_ID: the backdrop is not a known backdrop. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    getBoard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The board id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The board as the caller sees it. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BoardEnvelope"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND: no board of which the caller is a member. */
             404: {
                 headers: {
                     [name: string]: unknown;

@@ -20,7 +20,7 @@
 # "$ADULT_DOB" = a date of birth 30 years ago, "$NONCE" = a fresh raw nonce, "$APPLE_ID_TOKEN" = an
 # Apple ID token for a new subject and that nonce, signed by the mock JWKS key, "$GOOGLE_ID_TOKEN" = the
 # same for Google, "$HANDLE" = a fresh random valid handle, "$EMAIL" = a fresh address,
-# "$CODE_CHALLENGE" = a fresh PKCE S256 challenge.
+# "$CODE_CHALLENGE" = a fresh PKCE S256 challenge, "$UUID_V7" = a fresh UUIDv7 (client-generated ids).
 # `path` (optional) is the concrete path to call when the route has parameters; "$SESSION_ID" = the
 # role's own session id (guest: a random id).
 # `idempotency_key: true` sends a fresh Idempotency-Key with every request (routes that require one).
@@ -320,4 +320,18 @@ routes:
   - route: GET /v1/cards/{id}/reactions
     path: /v1/cards/0192f0c1-7c1e-7a3b-9d2e-123456789abc/reactions
     missing_path: /v1/cards/0192f0c1-7c1e-7a3b-9d2e-000000000000/reactions
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }
+
+  # Boards (T-98). Collisions with another owner's id, the board cap and validation are in
+  # tests/api/boards.rs; a non-member reading a board is the same 404 as a missing one.
+  - route: POST /v1/boards
+    body: { id: $UUID_V7, title: Matrix board }
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 201, suspended: 403 }
+
+  - route: GET /v1/boards
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 200, suspended: 403 }
+
+  - route: GET /v1/boards/{id}
+    path: /v1/boards/0192f0c1-7c1e-7a3b-9d2e-123456789abc
+    missing_path: /v1/boards/0192f0c1-7c1e-7a3b-9d2e-000000000000
     expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }

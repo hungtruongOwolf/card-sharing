@@ -11,6 +11,7 @@ license = "UNLICENSED"
 [workspace.dependencies]
 # internal
 attestation = { path = "crates/attestation" }
+boards = { path = "crates/boards" }
 cards = { path = "crates/cards" }
 identity = { path = "crates/identity" }
 media = { path = "crates/media" }
