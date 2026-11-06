@@ -399,6 +399,9 @@ export const en = {
   'effects.fx.laserEyes.name': 'Laser eyes',
   'effects.fx.laserEyes.description': 'Glowing laser beams from both eyes.',
   'effects.fx.laserEyes.a11y': 'with laser eyes',
+  'effects.fx.fireBreath.name': 'Fire breath',
+  'effects.fx.fireBreath.description': 'A cartoon flame from the mouth.',
+  'effects.fx.fireBreath.a11y': 'breathing fire',
   'effects.prop.crown.name': 'Crown',
   'effects.prop.crown.description': 'A golden crown on the head.',
   'effects.prop.crown.a11y': 'wearing a crown',
@@ -438,6 +441,7 @@ export const en = {
   'effects.param.glow': 'Glow',
   'effects.param.flare': 'Lens flare',
   'effects.param.eyeGap': 'Eye distance',
+  'effects.param.spread': 'Flame width',
   // Curated captions (`overlay.speech`): shown in the picker and drawn on the card, so keep them short and kind.
   'effects.param.caption': 'Caption',
   'effects.param.caption.hello': 'Hello!',

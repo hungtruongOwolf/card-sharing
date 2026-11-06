@@ -1,0 +1,51 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`golden signatures on the dark canvas matches the default and a sideways flame 1`] = `
+{
+  "default": [
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3466ccff 6672d1ff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3c69cdff ffc4e9ff ffffffff ffd4eeff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3767ccff f4c4e8ff ffffffff ffceecff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 4f6ccfff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+  ],
+  "sideways": [
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3f68ceff 3667ccff",
+    "3366ccff 3366ccff 3366ccff 3566ccff a291d9ff ffffffff ffcbecff 8379d5ff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 8b8cd9ff ffffffff ffbae6ff 7474d3ff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3567ccff 3466ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+  ],
+}
+`;
+
+exports[`golden signatures on the light canvas matches the default and a sideways flame 1`] = `
+{
+  "default": [
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3466ccff 6672d1ff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3c69cdff ffc4e9ff ffffffff ffd4eeff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3767ccff f4c4e8ff ffffffff ffceecff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 4f6ccfff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+  ],
+  "sideways": [
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3f68ceff 3667ccff",
+    "3366ccff 3366ccff 3366ccff 3566ccff a291d9ff ffffffff ffcbecff 8379d5ff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 8b8cd9ff ffffffff ffbae6ff 7474d3ff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3567ccff 3466ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+    "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff",
+  ],
+}
+`;

@@ -73,7 +73,7 @@ each `{id, version, params?}`; the id must exist at exactly the exported version
 strict rules as `resolveParams` and missing ones are stored with their defaults. Any violation → 422 `UNKNOWN_REGISTRY_ID` with no
 detail. Shipped entries so far: `cut.none`, `cut.raw`, `cut.diecut`, `cut.torn`, `cut.shape.rounded-square`,
 `cut.shape.circle`, `cut.shape.heart`, `fx.matte`, `fx.glossy`, `fx.holo`, `fx.paper-lift`, `frame.polaroid`,
-`overlay.washi`, `overlay.speech`, `fx.sparkles`, `prop.crown`, `prop.party-hat`, `prop.sunglasses`, `prop.mustache`, `fx.laser-eyes`; the other MVP
+`overlay.washi`, `overlay.speech`, `fx.sparkles`, `prop.crown`, `prop.party-hat`, `prop.sunglasses`, `prop.mustache`, `fx.laser-eyes`, `fx.fire-breath` (all ten MVP effects of §3.3, AC-21.1); the other MVP
 entries land with their tickets.
 
 **Cut style rendering (T-62, `apps/mobile/src/features/cut-styles`):** `drawCutStyle(canvas, entry, params, scene)` draws
@@ -191,6 +191,13 @@ anchors' eye distance on add) place two eyes; each gets a white core inside a bl
 drives a seamless 2 s pulse for a future loop export; the editor, bakes and reduced motion draw time 0 and
 `liveAllowed` is false. The catalog's SkSL beam + ember particles are simplified to vector glow (no ember particles).
 The shared `effects.param.color` label now reads "Colour" (border and beam).
+
+**Fire breath (T-122, `renderers/fireBreath.ts`):** `fx.fire-breath` (kind `overlay`, `particles:fireBreath`, anchor
+`mouth`, requires `faceLandmarks` with fallback `userPoints`), a still on the anchor fallback like laser eyes: a cone
+from hidden `x`/`y` along `angle` (−180..180, default 0 = to the right), `length` 0.2–1.2 × card width, `spread`
+10–45°, drawn as four nested blurred additive layers (red outside, pale yellow core; no gradient shader, which not
+every Skia backend accepts) plus `puffs` seeded flame puffs (hidden, 0–300 per the catalog budget, default 40 = the
+light variant) that drift outwards on a seamless 2 s loop. `liveAllowed` false, `cost.gpu` L; time 0 for stills.
 
 Rules: adding an effect = add entry + shader/asset + tests (golden snapshot); removing = remove entry **and** migrate stored
 references (fallback to `fx.none`) + update this page ([[change-management]]). Device-capability routing hides entries whose

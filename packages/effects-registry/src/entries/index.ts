@@ -8,6 +8,7 @@ import { cutShapeHeart } from './cut.shape.heart';
 import { cutShapeRoundedSquare } from './cut.shape.rounded-square';
 import { cutTorn } from './cut.torn';
 import { framePolaroid } from './frame.polaroid';
+import { fxFireBreath } from './fx.fire-breath';
 import { fxGlossy } from './fx.glossy';
 import { fxHolo } from './fx.holo';
 import { fxLaserEyes } from './fx.laser-eyes';
@@ -40,6 +41,7 @@ export const ENTRIES: readonly EffectEntry[] = [
   fxSparkles,
   ...PROPS,
   fxLaserEyes,
+  fxFireBreath,
   ...BACKDROPS,
   ...DECORATIONS,
 ];
