@@ -10,6 +10,8 @@ import { createBoardsApi } from './boardsApi';
 import { createBoardStore, type BoardStore } from './boardStore';
 import { createSyncedBoardRepository, type SyncedBoardRepository } from './boardSync';
 import { createPinDisclosure, type PinDisclosure } from './pinDisclosure';
+import { createPublicLinkPrefs, type PublicLinkPrefs } from './publicLinkPrefs';
+import { createPublicLinksApi, type PublicLinksApi } from './publicLinksApi';
 import { createTextureCache, type TextureCache } from './textureCache';
 
 /** Downloads a signed card render and scales it to the texture level (the full-size decode is dropped). */
@@ -57,6 +59,17 @@ export function devicePinDisclosure(): PinDisclosure {
   return disclosure;
 }
 
+let linkPrefs: PublicLinkPrefs | null = null;
+
+/** Public links over the signed-in auth client plus the device's link preferences (T-134). */
+export function usePublicLinks(): { api: PublicLinksApi; prefs: PublicLinkPrefs } {
+  const client = useAuthClient();
+  return useMemo(() => {
+    linkPrefs ??= createPublicLinkPrefs();
+    return { api: createPublicLinksApi(client.fetch), prefs: linkPrefs };
+  }, [client]);
+}
+
 /** Members and invitations over the signed-in auth client (T-108). */
 export function useBoardMembersApi(): BoardMembersApi {
   const client = useAuthClient();
@@ -76,4 +89,6 @@ export async function clearDeviceBoards(): Promise<void> {
   repository = null;
   await deviceBoardStore().clear();
   await devicePinDisclosure().clear();
+  linkPrefs ??= createPublicLinkPrefs();
+  await linkPrefs.clear();
 }

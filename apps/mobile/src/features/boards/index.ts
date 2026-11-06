@@ -5,6 +5,7 @@ export {
   devicePinDisclosure,
   useBoardMembersApi,
   useBoardRepository,
+  usePublicLinks,
 } from './appBoards';
 export { BoardCanvas, type BoardCanvasProps } from './BoardCanvas';
 export { BoardLabScreen } from './BoardLabScreen';
