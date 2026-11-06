@@ -277,3 +277,6 @@ The EM accepted all six board defaults (raw/discussions/2026-11-06-sprint-6-deci
 
 ## [2026-11-06] change | CI split into parallel jobs
 PR #303: Rust and JS jobs split with aggregators keeping required check names; full run ~3.6 -> ~3.0 min, JS ~1-2.4 -> ~0.8 min. See [[conventions]].
+
+## [2026-11-06] plan | sprint 7
+Two lanes: backend (T-3 demo stack first, public links, privacy) and mobile (Tier-0 effects, export, link management). See [[sprint-7]].
