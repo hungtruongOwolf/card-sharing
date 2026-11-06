@@ -32,6 +32,12 @@ pub enum AuditAction {
     PublicLinkCreated,
     /// A public link was revoked (owner, moderator, anomaly, board deleted, owner ineligible).
     PublicLinkRevoked,
+    /// The account owner requested deletion (US-29); the grace period starts.
+    DeletionRequested,
+    /// The account owner cancelled a pending deletion within the grace period.
+    DeletionCancelled,
+    /// A deleted account's data was erased after the grace period.
+    AccountErased,
 }
 
 impl AuditAction {
@@ -46,6 +52,9 @@ impl AuditAction {
             Self::AccountSuspended => "account.suspended",
             Self::PublicLinkCreated => "sharing.link_created",
             Self::PublicLinkRevoked => "sharing.link_revoked",
+            Self::DeletionRequested => "privacy.deletion_requested",
+            Self::DeletionCancelled => "privacy.deletion_cancelled",
+            Self::AccountErased => "privacy.account_erased",
         }
     }
 }

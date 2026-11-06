@@ -29,7 +29,7 @@ async fn env() -> Option<TestEnv> {
 }
 
 /// The Apple subject of `user`'s account.
-async fn subject_of(env: &TestEnv, user: &User) -> String {
+pub async fn subject_of(env: &TestEnv, user: &User) -> String {
     sqlx::query_scalar("SELECT subject FROM identity.auth_identities WHERE account_id = $1")
         .bind(user.id)
         .fetch_one(env.identity.pool())
@@ -50,7 +50,7 @@ async fn reauth_with(env: &TestEnv, user: &User, subject: &str, nonce: &str) -> 
 }
 
 /// A re-auth token for `user` (own proof).
-async fn reauth_token(env: &TestEnv, user: &User) -> String {
+pub async fn reauth_token(env: &TestEnv, user: &User) -> String {
     let subject = subject_of(env, user).await;
     let response = reauth_with(env, user, &subject, &random_nonce()).await;
     assert_eq!(response.status(), StatusCode::OK);

@@ -82,6 +82,8 @@ pub struct Config {
     pub boards_config_path: PathBuf,
     /// `API_SHARING_CONFIG_PATH` — default `config/sharing.yaml` (public link URL base).
     pub sharing_config_path: PathBuf,
+    /// `API_PRIVACY_CONFIG_PATH` — default `config/privacy.yaml` (deletion grace period).
+    pub privacy_config_path: PathBuf,
     /// `API_PUSH_SENDER` — `none` (default: pushes are dropped, the activity tab still has every
     /// event) or `fake` (records payloads in memory; refused when `API_ENV=production`). Real
     /// APNs/FCM adapters arrive with their credentials (T-86 follow-up).
@@ -299,6 +301,9 @@ impl Config {
         let sharing_config_path = env
             .optional("API_SHARING_CONFIG_PATH")
             .map_or_else(|| PathBuf::from("config/sharing.yaml"), PathBuf::from);
+        let privacy_config_path = env
+            .optional("API_PRIVACY_CONFIG_PATH")
+            .map_or_else(|| PathBuf::from("config/privacy.yaml"), PathBuf::from);
         let media_storage_dir = env
             .optional("API_MEDIA_STORAGE_DIR")
             .filter(|dir| !dir.trim().is_empty())
@@ -357,6 +362,7 @@ impl Config {
             notifications_config_path,
             boards_config_path,
             sharing_config_path,
+            privacy_config_path,
             push_sender,
             cdn_purger,
             media_storage_dir,

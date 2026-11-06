@@ -10,6 +10,7 @@ pub mod board_ops;
 pub mod board_read;
 pub mod boards;
 pub mod cards;
+pub mod deletion;
 pub mod devices;
 pub mod feed;
 pub mod friend_requests;

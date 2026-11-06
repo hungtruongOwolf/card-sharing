@@ -6,9 +6,9 @@ use utoipa_axum::routes;
 use crate::access::{ApiRouter, Idempotency, RoutePolicy};
 use crate::routes::{
     activity, age_signal, app_config, attestation, auth, blocks, board_invitations, board_members,
-    board_ops, board_read, boards, cards, devices, feed, friend_requests, friends, health, invites,
-    me, media, media_files, notification_preferences, public_boards, public_invites, public_links,
-    sessions, user_search, widget,
+    board_ops, board_read, boards, cards, deletion, devices, feed, friend_requests, friends,
+    health, invites, me, media, media_files, notification_preferences, public_boards,
+    public_invites, public_links, sessions, user_search, widget,
 };
 use crate::state::AppState;
 use platform::problem::ProblemDetails;
@@ -83,7 +83,9 @@ pub fn router() -> ApiRouter<AppState> {
             routes!(app_config::get_config),
         )
         .route(
-            RoutePolicy::onboarding_or_session().limited("me.read"),
+            RoutePolicy::onboarding_or_session()
+                .limited("me.read")
+                .allow_deletion_pending(),
             routes!(me::get_me),
         )
         .route(
@@ -139,7 +141,9 @@ pub fn router() -> ApiRouter<AppState> {
             routes!(auth::refresh),
         )
         .route(
-            RoutePolicy::onboarding_or_session().limited("sessions.current.delete"),
+            RoutePolicy::onboarding_or_session()
+                .limited("sessions.current.delete")
+                .allow_deletion_pending(),
             routes!(auth::delete_current_session),
         )
         .route(
@@ -373,6 +377,22 @@ pub fn router() -> ApiRouter<AppState> {
         .route(
             RoutePolicy::session().limited("boards.invitations.decline"),
             routes!(board_invitations::decline_board_invitation),
+        )
+        .route(
+            RoutePolicy::reauth().limited("privacy.deletion.request"),
+            routes!(deletion::request_deletion),
+        )
+        .route(
+            RoutePolicy::session()
+                .limited("privacy.deletion.read")
+                .allow_deletion_pending(),
+            routes!(deletion::get_deletion),
+        )
+        .route(
+            RoutePolicy::session()
+                .limited("privacy.deletion.cancel")
+                .allow_deletion_pending(),
+            routes!(deletion::cancel_deletion),
         )
         .route(
             RoutePolicy::session()

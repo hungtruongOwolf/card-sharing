@@ -7,6 +7,7 @@ mod age_service;
 pub mod apple;
 mod attestation;
 mod cache;
+mod deletion;
 mod magic_link;
 pub mod mail;
 mod model;

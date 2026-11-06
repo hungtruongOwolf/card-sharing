@@ -52,7 +52,8 @@ pub enum SignInError {
     /// The nonce was already used by an accepted sign-in.
     #[error("nonce replayed")]
     Replayed,
-    /// The account exists but may not sign in (suspended, banned, deletion pending).
+    /// The account exists but may not sign in (suspended, banned). A deletion-pending account may
+    /// sign in during its grace period to cancel the deletion (T-151, AC-29.2).
     #[error("account blocked: {0}")]
     Blocked(AccountStatus),
     /// The provider is not configured, its keys are unreachable, or the nonce store is down
@@ -151,10 +152,7 @@ impl ProviderSignIn {
             .find_or_create_account(&identity, &request.signals)
             .await?;
         let status = self.identity.account_status(account_id).await?;
-        if matches!(
-            status,
-            AccountStatus::Suspended | AccountStatus::Banned | AccountStatus::DeletionPending
-        ) {
+        if matches!(status, AccountStatus::Suspended | AccountStatus::Banned) {
             return Err(SignInError::Blocked(status));
         }
 

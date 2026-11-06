@@ -41,6 +41,7 @@ fn test_config() -> Config {
         notifications_config_path: "unused-in-tests".into(),
         boards_config_path: "unused-in-tests".into(),
         sharing_config_path: "unused-in-tests".into(),
+        privacy_config_path: "unused-in-tests".into(),
         push_sender: api::config::SafetyAdapter::Fake,
         cdn_purger: api::config::SafetyAdapter::Fake,
         media_storage_dir: None,

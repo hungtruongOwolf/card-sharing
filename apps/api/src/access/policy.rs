@@ -110,6 +110,10 @@ pub struct RoutePolicy {
     /// app must still reach (`/v1/config`, probes).
     pub version_gate: bool,
     pub idempotency: Idempotency,
+    /// The route also serves a deletion-pending account's full session (show or cancel the
+    /// deletion, read `/v1/me`, log out; T-151 AC-29.2). Every other route answers 401
+    /// `SESSION_REVOKED` to such a session.
+    pub deletion_pending: bool,
 }
 
 impl RoutePolicy {
@@ -156,7 +160,14 @@ impl RoutePolicy {
             rate_limit: None,
             version_gate: true,
             idempotency: Idempotency::None,
+            deletion_pending: false,
         }
+    }
+
+    /// Also serves deletion-pending accounts (see [`RoutePolicy::deletion_pending`]).
+    pub const fn allow_deletion_pending(mut self) -> Self {
+        self.deletion_pending = true;
+        self
     }
 
     pub const fn without_version_gate(mut self) -> Self {
@@ -232,7 +243,16 @@ pub fn authorize(policy: &RoutePolicy, principal: Option<&Principal>) -> Result<
         return Ok(());
     }
     let principal = principal.ok_or(ApiError::Unauthenticated)?;
-    check_account_status(principal.status)?;
+    // A deletion-pending account's full session reaches only routes that allow it, as if active.
+    let status = if principal.status == AccountStatus::DeletionPending
+        && policy.deletion_pending
+        && principal.scope == SessionScope::Full
+    {
+        AccountStatus::Active
+    } else {
+        principal.status
+    };
+    check_account_status(status)?;
 
     if policy.role != Role::User {
         // Staff roles need the staff session kind, which does not exist yet.
@@ -250,7 +270,7 @@ pub fn authorize(policy: &RoutePolicy, principal: Option<&Principal>) -> Result<
     match policy.auth {
         AuthKind::None => Ok(()),
         AuthKind::Onboarding => {
-            if principal.scope == SessionScope::Onboarding && principal.status.is_onboarding() {
+            if principal.scope == SessionScope::Onboarding && status.is_onboarding() {
                 Ok(())
             } else {
                 Err(ApiError::Forbidden)
@@ -258,7 +278,7 @@ pub fn authorize(policy: &RoutePolicy, principal: Option<&Principal>) -> Result<
         }
         AuthKind::OnboardingOrSession => Ok(()),
         AuthKind::Session | AuthKind::Reauth => {
-            if principal.scope == SessionScope::Full && principal.status == AccountStatus::Active {
+            if principal.scope == SessionScope::Full && status == AccountStatus::Active {
                 Ok(())
             } else {
                 Err(ApiError::OnboardingIncomplete)
@@ -266,7 +286,7 @@ pub fn authorize(policy: &RoutePolicy, principal: Option<&Principal>) -> Result<
         }
         AuthKind::WidgetOrSession => {
             let scope_ok = matches!(principal.scope, SessionScope::Full | SessionScope::Widget);
-            if scope_ok && principal.status == AccountStatus::Active {
+            if scope_ok && status == AccountStatus::Active {
                 Ok(())
             } else {
                 Err(ApiError::OnboardingIncomplete)

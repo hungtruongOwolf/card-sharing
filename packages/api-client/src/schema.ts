@@ -915,6 +915,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/deletion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The caller's pending deletion. Auth: ses (also a deletion-pending account's session). */
+        get: operations["getAccountDeletion"];
+        put?: never;
+        /**
+         * Request deletion of the caller's account. Auth: re (session + fresh `X-Reauth`).
+         * @description Logs out every device (widget and re-auth tokens included), hides the account's content from
+         *     friends, boards and public links at once, deletes the shared boards it owns and removes its
+         *     pins from other boards (AC-29.1, AC-29.3; these stay done if the deletion is cancelled).
+         *     Requesting again while pending returns the same request.
+         */
+        post: operations["requestAccountDeletion"];
+        /**
+         * Cancel the caller's pending deletion within the grace period. Auth: ses (also a
+         *     deletion-pending account's session).
+         */
+        delete: operations["cancelAccountDeletion"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/handle": {
         parameters: {
             query?: never;
@@ -1749,6 +1777,24 @@ export interface components {
              * @example https://share.example/b/3q2-7wAAAAAAAAAAAAAAAA
              */
             url: string;
+        };
+        DeletionEnvelope: {
+            deletion: components["schemas"]["DeletionView"];
+        };
+        /** @description A pending deletion. */
+        DeletionView: {
+            /**
+             * Format: date-time
+             * @description Until then signing in again and `DELETE /v1/me/deletion` cancel it; afterwards it is final.
+             */
+            grace_until: string;
+            /** Format: date-time */
+            requested_at: string;
+            /**
+             * @description Always `pending`.
+             * @example pending
+             */
+            status: string;
         };
         /** @enum {string} */
         DevicePlatform: "ios" | "android";
@@ -5831,6 +5877,166 @@ export interface operations {
             };
             /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    getAccountDeletion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The pending deletion. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeletionEnvelope"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND: no pending deletion. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    requestAccountDeletion: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Re-auth token from POST /v1/auth/reauth (5 minutes). */
+                "X-Reauth": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deletion pending; this session is logged out too. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeletionEnvelope"];
+                };
+            };
+            /** @description REAUTH_REQUIRED (missing, wrong or older than 5 minutes), UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    cancelAccountDeletion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cancelled: the account is active again. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND: no pending deletion, or the grace period is over. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

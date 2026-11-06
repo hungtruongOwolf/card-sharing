@@ -1,14 +1,23 @@
 //! Boards' personal data (T-150): boards the account owns (with their pins), memberships,
 //! invitations, and pins and ops it made on other boards. Erasing deletes owned boards (cascading
 //! members, pins, ops and invitations) and every row the account made elsewhere.
+//!
+//! Hiding (deletion requested, T-151 AC-29.3) deletes the shared boards the account owns and
+//! removes it, with its pins, from other people's boards; members are told through the usual
+//! change notifications. Both are final, also if the deletion is cancelled.
 
-use platform::personal_data::{ExportSection, PersonalData, PersonalDataFuture, query_json};
+use std::sync::Arc;
+
+use platform::personal_data::{
+    ExportSection, PersonalData, PersonalDataError, PersonalDataFuture, query_json,
+};
 use serde_json::json;
-use sqlx::PgPool;
 use uuid::Uuid;
 
+use crate::service::BoardService;
+
 pub struct BoardsPersonalData {
-    pub pool: PgPool,
+    pub boards: Arc<BoardService>,
 }
 
 const OWNED: &str = "SELECT jsonb_agg(jsonb_build_object('id', b.id, 'title', b.title,
@@ -55,25 +64,60 @@ impl PersonalData for BoardsPersonalData {
         Box::pin(async move {
             Ok(ExportSection {
                 data: json!({
-                    "owned": query_json(&self.pool, OWNED, account).await?,
-                    "memberships": query_json(&self.pool, MEMBERSHIPS, account).await?,
-                    "pins_on_other_boards": query_json(&self.pool, PINS_ELSEWHERE, account).await?,
-                    "invitations": query_json(&self.pool, INVITATIONS, account).await?,
+                    "owned": query_json(&self.boards.pool, OWNED, account).await?,
+                    "memberships": query_json(&self.boards.pool, MEMBERSHIPS, account).await?,
+                    "pins_on_other_boards": query_json(&self.boards.pool, PINS_ELSEWHERE, account).await?,
+                    "invitations": query_json(&self.boards.pool, INVITATIONS, account).await?,
                 }),
                 files: Vec::new(),
             })
         })
     }
 
-    fn hide(&self, _account: Uuid) -> PersonalDataFuture<'_, ()> {
-        // Card pins resolve per viewer and require an active card owner; deleting owned shared
-        // boards and removing pins on other boards belong to the deletion request (T-151).
-        Box::pin(async { Ok(()) })
+    fn hide(&self, account: Uuid) -> PersonalDataFuture<'_, ()> {
+        Box::pin(async move {
+            let pool = &self.boards.pool;
+            let shared: Vec<Uuid> = sqlx::query_scalar(
+                "SELECT b.id FROM boards.boards b
+                 WHERE b.owner_id = $1 AND b.deleted_at IS NULL
+                   AND EXISTS (SELECT 1 FROM boards.board_members m
+                               WHERE m.board_id = b.id AND m.user_id <> $1)",
+            )
+            .bind(account)
+            .fetch_all(pool)
+            .await?;
+            for board in shared {
+                self.boards
+                    .delete_board(board, account)
+                    .await
+                    .map_err(|e| PersonalDataError::Other(e.to_string()))?;
+            }
+            let joined: Vec<Uuid> = sqlx::query_scalar(
+                "SELECT board_id FROM boards.board_members
+                 WHERE user_id = $1 AND role = 'collaborator'",
+            )
+            .bind(account)
+            .fetch_all(pool)
+            .await?;
+            for board in joined {
+                let mut tx = pool.begin().await?;
+                crate::membership::remove_collaborator(
+                    &mut tx,
+                    board,
+                    account,
+                    account,
+                    self.boards.clock.now(),
+                )
+                .await?;
+                tx.commit().await?;
+            }
+            Ok(())
+        })
     }
 
     fn erase(&self, account: Uuid) -> PersonalDataFuture<'_, ()> {
         Box::pin(async move {
-            let mut tx = self.pool.begin().await?;
+            let mut tx = self.boards.pool.begin().await?;
             for sql in [
                 // Cascades members, pins, ops and invitations of owned boards.
                 "DELETE FROM boards.boards WHERE owner_id = $1",
