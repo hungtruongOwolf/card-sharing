@@ -20,6 +20,8 @@ export interface FriendsScreenProps {
   onOpenRequests: () => void;
   onOpenInvite: () => void;
   onOpenFind: () => void;
+  /** Report a friend (US-26); absent hides the action. */
+  onReport?: (person: Person) => void;
   onBack: () => void;
 }
 
@@ -34,6 +36,7 @@ export function FriendsScreen({
   onOpenRequests,
   onOpenInvite,
   onOpenFind,
+  onReport,
   onBack,
 }: FriendsScreenProps) {
   const toast = useToast();
@@ -100,6 +103,14 @@ export function FriendsScreen({
                   accessibilityLabel={t('friends.block.a11y', { name: person.displayName })}
                   onPress={() => setPending({ action: 'block', person })}
                 />
+                {onReport ? (
+                  <Button
+                    variant="ghost"
+                    label={t('report.open')}
+                    accessibilityLabel={t('report.open.user', { name: person.displayName })}
+                    onPress={() => onReport(person)}
+                  />
+                ) : null}
               </PersonRow>
             ))
           ) : (

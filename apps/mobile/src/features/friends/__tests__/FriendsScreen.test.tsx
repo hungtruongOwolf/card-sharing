@@ -15,6 +15,8 @@ const seed = (server: FakeSocialServer) => {
   return { mai, ben };
 };
 
+const onReport = jest.fn();
+
 async function setup(scheme: 'light' | 'dark' = 'light', extra?: (s: FakeSocialServer) => void) {
   let people!: ReturnType<typeof seed>;
   const rendered = await renderSocial(
@@ -24,6 +26,7 @@ async function setup(scheme: 'light' | 'dark' = 'light', extra?: (s: FakeSocialS
         onOpenRequests={() => undefined}
         onOpenInvite={() => undefined}
         onOpenFind={() => undefined}
+        onReport={onReport}
         onBack={() => undefined}
       />
     ),
@@ -83,6 +86,13 @@ describe('FriendsScreen', () => {
     await user.press(sheetButton(t('friends.block')));
     await waitFor(() => expect(screen.queryByTestId(`friend-${ben.id}`)).toBeNull());
     expect(server.blocks.has(ben.id)).toBe(true);
+  });
+
+  it('reports a friend from their row (T-141)', async () => {
+    const { user, ben } = await setup();
+    await screen.findByTestId(`friend-${ben.id}`);
+    await user.press(screen.getByRole('button', { name: t('report.open.user', { name: 'Ben' }) }));
+    expect(onReport).toHaveBeenCalledWith(expect.objectContaining({ id: ben.id }));
   });
 
   it('refreshes when the friend is already gone', async () => {

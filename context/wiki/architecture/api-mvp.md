@@ -598,6 +598,10 @@ the same 404 `NOT_FOUND` as a missing id (authz matrix row + `tests/api/reports.
 10). Reports never trigger an automatic action (SR-31). Notes are trimmed, control characters refused. PersonalData: the
 reporter's export lists the reports they filed; erasure clears `reporter_id` and the note but keeps the report; reports about
 an account are kept for the moderation retention period and are not exported to the reported person.
+App (T-141, `features/reports`): "Report" on a friend's card (card viewer), on a friend's row (Friends) and on a board
+the caller collaborates on opens one sheet with the seven reasons; tapping a reason sends it (two taps, AC-26.1) with one
+`Idempotency-Key` per opened sheet; 404 says the thing is gone, 429 the daily limit. No entry on the caller's own card or board.
+The note field and reporting a public link stay unused in the app (links are viewed on the web, T-142).
 | DELETE | /v1/me/deletion | Cancel during 7-day grace | ses (deletion-pending allowed) | user | self, before `grace_until` | 10/day u | yes | US-29 AC-29.2 |
 
 Implemented (T-151, #153): `routes/deletion.rs` → `crates/privacy` (`DeletionService`). `POST /v1/me/deletion` (`re`: bearer +

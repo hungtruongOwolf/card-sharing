@@ -11,6 +11,7 @@ import {
 } from '../../features/boards';
 import { useFriendsApi } from '../../features/friends';
 import { useRemoteConfig } from '../../features/remote-config';
+import { useReportSheet } from '../../features/reports';
 import { useCardsApi } from '../../features/sharing';
 
 /** One board on the canvas (T-103/T-104, US-18). */
@@ -24,20 +25,25 @@ export default function BoardRoute() {
   const friendsApi = useFriendsApi();
   const friends = useCallback(() => friendsApi.listFriends(), [friendsApi]);
   const { id } = useLocalSearchParams<{ id: string }>();
+  const report = useReportSheet();
   // The newest feed page: cards I received and my own sent cards the server lets me see.
   const pinnableCards = useCallback(async () => (await cardsApi.feed()).items, [cardsApi]);
   return (
-    <BoardScreen
-      repository={repository}
-      boardId={typeof id === 'string' ? id : ''}
-      textures={appBoardTextures()}
-      pinnableCards={pinnableCards}
-      members={members}
-      friends={friends}
-      disclosure={devicePinDisclosure()}
-      publicLinks={publicLinks}
-      remoteConfig={remoteConfig?.registry}
-      onClose={() => (router.canGoBack() ? router.back() : router.replace('/boards'))}
-    />
+    <>
+      <BoardScreen
+        repository={repository}
+        boardId={typeof id === 'string' ? id : ''}
+        textures={appBoardTextures()}
+        pinnableCards={pinnableCards}
+        members={members}
+        friends={friends}
+        disclosure={devicePinDisclosure()}
+        publicLinks={publicLinks}
+        remoteConfig={remoteConfig?.registry}
+        onReport={(boardId) => report.open({ kind: 'board', id: boardId })}
+        onClose={() => (router.canGoBack() ? router.back() : router.replace('/boards'))}
+      />
+      {report.sheet}
+    </>
   );
 }

@@ -45,6 +45,7 @@ async function open({
   extra,
   mine = false,
   share,
+  onReport,
 }: {
   scheme?: 'light' | 'dark';
   reducedMotion?: boolean;
@@ -53,6 +54,7 @@ async function open({
   extra?: (server: FakeCardsServer, cardId: string) => void;
   mine?: boolean;
   share?: (png: Uint8Array) => Promise<boolean>;
+  onReport?: (cardId: string) => void;
 } = {}) {
   const onClose = jest.fn();
   let cardId = '';
@@ -65,6 +67,7 @@ async function open({
         now={() => clock() + skewMs}
         loadRender={async () => mockSkImage}
         share={share}
+        onReport={onReport}
         onClose={onClose}
       />
     ),
@@ -106,6 +109,28 @@ describe('CardViewerScreen', () => {
       const png = (share.mock.calls[0] as unknown as [Uint8Array])[0];
       // PNG signature.
       expect(Array.from(png.slice(0, 4))).toEqual([0x89, 0x50, 0x4e, 0x47]);
+    },
+    RENDER_TIMEOUT_MS,
+  );
+
+  it(
+    "offers Report on a friend's card only, never on my own (T-141)",
+    async () => {
+      const onReport = jest.fn();
+      const { cardId } = await open({ onReport });
+      await screen.findByTestId('card-viewer-image');
+      fireEvent.press(screen.getByRole('button', { name: t('report.open.card', { name: 'Mai' }) }));
+      expect(onReport).toHaveBeenCalledWith(cardId);
+    },
+    RENDER_TIMEOUT_MS,
+  );
+
+  it(
+    'never offers Report on my own card (the server would answer 404)',
+    async () => {
+      await open({ mine: true, onReport: jest.fn() });
+      await screen.findByTestId('card-viewer-image');
+      expect(screen.queryByRole('button', { name: t('report.open') })).toBeNull();
     },
     RENDER_TIMEOUT_MS,
   );
