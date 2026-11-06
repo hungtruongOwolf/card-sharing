@@ -132,6 +132,9 @@ Notes:
   `original_url` is never kept).
 - **Feed offline copy** (T-80): metadata only (no signed URL is ever persisted, SR-8), SecureStore
   `WHEN_UNLOCKED_THIS_DEVICE_ONLY`, replaced on every load and cleared on sign-out.
+- **Outbox** (T-78): unsent cards and reactions of the signed-in account, SecureStore `WHEN_UNLOCKED_THIS_DEVICE_ONLY`,
+  parsed as untrusted on read, cleared on sign-out (never sent as the next account); a queued send re-bakes from its
+  draft, so the raw capture still never leaves the device.
 - MVP threat model, abuse cases and SR-1…SR-37 live in [[threat-model-mvp]]; every feature PR checks the SRs it touches.
 - Region-specific rules (age, consent, ads) resolved server-side from config — [[region-policy]].
 - See [[genai-effects]], [[monetization]], [[subject-cutout]], [[ADR-0003-effects-tiers]].

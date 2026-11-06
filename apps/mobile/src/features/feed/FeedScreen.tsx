@@ -12,7 +12,13 @@ import { radius, space } from '@card-sharing/tokens';
 import { t } from '../../i18n';
 import { Button, Screen, Text, useTheme, useToast } from '../../ui';
 import { AuthError } from '../auth';
-import { CardsError, type CardItem, type CardsApi, type FeedPage } from '../sharing/cardsApi';
+import {
+  CardsError,
+  isRetryable,
+  type CardItem,
+  type CardsApi,
+  type FeedPage,
+} from '../sharing/cardsApi';
 import type { CachedFeed, CachedFeedItem, FeedCache } from './feedCache';
 import { REACTION_DISPLAY, shownReactions } from './reactions';
 
@@ -23,6 +29,8 @@ export interface FeedScreenProps {
   cache: FeedCache;
   /** Reaction ids from `/v1/config` (kill switches applied); none are offered without it. */
   reactions?: readonly string[];
+  /** Offline outbox (T-78): a reaction that fails for a retryable reason is queued instead of undone. */
+  queueReaction?: (cardId: string, reaction: string | null) => Promise<boolean>;
   /** Clock seam for tests; must match the server clock that signed the URLs. */
   now?: () => number;
   onCompose: () => void;
@@ -83,6 +91,7 @@ export function FeedScreen({
   api,
   cache,
   reactions,
+  queueReaction,
   now = Date.now,
   onCompose,
   onBack,
@@ -148,7 +157,15 @@ export function FeedScreen({
         withReaction(data, card.id, kind),
       );
     },
-    onError: (error, { card }) => {
+    onError: async (error, { card, kind }) => {
+      if (
+        queueReaction &&
+        isRetryable(error) &&
+        (await queueReaction(card.id, kind).catch(() => false))
+      ) {
+        toast.show({ message: t('feed.reaction.queued') });
+        return;
+      }
       queryClient.setQueryData<FeedData>(FEED_QUERY_KEY, (data) =>
         withReaction(data, card.id, card.myReaction),
       );

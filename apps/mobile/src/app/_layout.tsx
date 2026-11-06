@@ -9,6 +9,7 @@ import { createQueryClient } from '../data/queryClient';
 import { AuthProvider, createAppAuthClient, useAuthClient } from '../features/auth';
 import { FeedbackProvider, securePrefsStorage } from '../features/feedback';
 import { deviceFeedCache } from '../features/feed';
+import { createAppOutbox, deviceOutboxStore, OutboxProvider } from '../features/outbox';
 import {
   createAppOnboardingDeps,
   ErrorScreen,
@@ -31,6 +32,7 @@ const ROUTES: readonly (readonly [Exclude<OnboardingPhase, 'loading' | 'error'>,
   ['home', 'drafts'],
   ['home', 'send'],
   ['home', 'feed'],
+  ['home', 'outbox'],
   ['home', 'cut-lab'],
   ['home', 'settings/sessions'],
   ['home', 'settings/privacy'],
@@ -79,18 +81,29 @@ function PhaseStack() {
 function Onboarding() {
   const authClient = useAuthClient();
   const [deps] = useState(() => createAppOnboardingDeps(authClient));
+  const [outbox] = useState(() => createAppOutbox(authClient));
   return (
     <OnboardingProvider {...deps}>
-      <PhaseStack />
+      <OutboxProvider outbox={outbox}>
+        <PhaseStack />
+      </OutboxProvider>
     </OnboardingProvider>
   );
 }
 
-/** The offline feed holds friends' names and captions: it never outlives the session (T-80). */
-const clearDeviceFeed = () =>
+/**
+ * Device copies of account data never outlive the session: the offline feed holds friends' names and captions
+ * (T-80), and the outbox holds this account's unsent cards and reactions (T-78), which must never go out as the
+ * next account.
+ */
+const clearDeviceData = () => {
   void deviceFeedCache()
     .clear()
     .catch(() => undefined);
+  void deviceOutboxStore()
+    .clear()
+    .catch(() => undefined);
+};
 
 export default function RootLayout() {
   const [queryClient] = useState(createQueryClient);
@@ -100,7 +113,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
-          <AuthProvider client={authClient} onSignedOut={clearDeviceFeed}>
+          <AuthProvider client={authClient} onSignedOut={clearDeviceData}>
             <ThemeProvider>
               <FeedbackProvider storage={prefsStorage}>
                 <ToastProvider>
