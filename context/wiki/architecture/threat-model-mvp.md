@@ -187,6 +187,7 @@ L = likelihood (H/M/L, given free tools). I = impact (Crit/H/M/L). SR = requirem
 | SR-35 | Logs contain no tokens, signed URLs, emails or DOBs; request id + user id only; 4xx/5xx generic | baseline §5 |
 | SR-36 | Data export ZIP: re-auth, 48 h delay with notice to all devices + email (can cancel), single-use 24 h URL | AC-30.1/30.2 |
 | SR-37 | Deep links: verified Universal Links / App Links only; no custom URL scheme carrying tokens | AC-4.2, AC-24 |
+| SR-38 | Development-only sign-in (`/v1/dev/*`, #306): `API_DEV_SIGN_IN` is refused at startup unless `API_ENV` is development or test (and re-checked when the router is built); off, the routes answer the same 404 as an unknown path before any policy check; it reaches only the fixed seed personas (`seed.<key>` subjects), never a real account; audited as `auth.sign_in` provider `dev` | #306 |
 
 ## 7. PRD gaps found (proposed ACs for [[prd-mvp]])
 | Gap | Proposed AC |

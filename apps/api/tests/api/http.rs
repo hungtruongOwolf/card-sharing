@@ -71,6 +71,7 @@ fn test_config() -> Config {
         },
         os_age_signals_enabled: false,
         service_credential: None,
+        dev_sign_in: false,
     }
 }
 

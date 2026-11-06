@@ -30,6 +30,7 @@ mod cards_reactions;
 mod cards_read;
 mod cards_send;
 mod deletion;
+mod dev_sign_in;
 mod erasure;
 mod exports;
 mod feed;

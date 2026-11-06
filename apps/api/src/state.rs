@@ -73,6 +73,9 @@ pub struct AppState {
     pub ip_country_header: Option<HeaderName>,
     /// Apple/Google sign-in. `None` = the sign-in routes answer 503 (offline tests).
     pub sign_in: Option<Arc<ProviderSignIn>>,
+    /// Development-only sign-in for the seed users (#306). Set by [`crate::build`] from
+    /// `API_DEV_SIGN_IN`, and only when `API_ENV` is development or test.
+    pub dev_sign_in: bool,
 }
 
 impl AppState {
@@ -159,6 +162,7 @@ impl AppState {
             profile: Arc::new(profile),
             ip_country_header: None,
             sign_in: None,
+            dev_sign_in: false,
         }
     }
 

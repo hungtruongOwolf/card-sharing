@@ -63,6 +63,34 @@ routes:
     body: { provider: apple, id_token: $APPLE_ID_TOKEN, nonce: $NONCE }
     expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 401, suspended: 403 }
 
+  # Development-only sign-in (#306): the test config leaves API_DEV_SIGN_IN off, so both routes are
+  # absent for every caller (the same 404 as an unknown path). Enabled behaviour, the seed-only rule and
+  # the staging/production refusal are in tests/api/dev_sign_in.rs and config.rs unit tests.
+  - route: GET /v1/dev/seed-users
+    missing_path: /v1/dev/does-not-exist
+    expect:
+      {
+        guest: 404,
+        onboarding_age: 404,
+        onboarding_profile: 404,
+        user: 404,
+        suspended: 404,
+        service: 404,
+      }
+
+  - route: POST /v1/dev/sign-in
+    body: { handle: alice.demo }
+    missing_path: /v1/dev/does-not-exist
+    expect:
+      {
+        guest: 404,
+        onboarding_age: 404,
+        onboarding_profile: 404,
+        user: 404,
+        suspended: 404,
+        service: 404,
+      }
+
   - route: POST /v1/auth/refresh
     body: { refresh_token: $REFRESH_TOKEN }
     expect: { guest: 401, onboarding_age: 200, onboarding_profile: 200, user: 200, suspended: 401 }

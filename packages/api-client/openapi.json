@@ -3224,6 +3224,138 @@
         }
       }
     },
+    "/v1/dev/seed-users": {
+      "get": {
+        "tags": [
+          "dev"
+        ],
+        "summary": "List the seed users. Development and test servers only (`API_DEV_SIGN_IN=true`); elsewhere\nthis route does not exist (404). Auth: none.",
+        "operationId": "listDevSeedUsers",
+        "responses": {
+          "200": {
+            "description": "Seed users that exist in this database.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevSeedUsers"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: the development sign-in is not enabled on this server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "none",
+          "rateLimit": "auth.dev",
+          "role": "guest",
+          "versionGate": true
+        }
+      }
+    },
+    "/v1/dev/sign-in": {
+      "post": {
+        "tags": [
+          "dev"
+        ],
+        "summary": "Sign in as a seed user and get a normal session. Development and test servers only\n(`API_DEV_SIGN_IN=true`); elsewhere this route does not exist (404). Auth: none.",
+        "operationId": "devSignIn",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DevSignInRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Signed in: the same token pair as provider sign-in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenPair"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED (unknown fields are rejected).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ACCOUNT_SUSPENDED: the seed account is suspended or banned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: not enabled on this server, not a seed handle, or the seed has not run.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "none",
+          "rateLimit": "auth.dev",
+          "role": "guest",
+          "versionGate": true
+        }
+      }
+    },
     "/v1/devices/{deviceId}/push-tokens": {
       "put": {
         "tags": [
@@ -8052,6 +8184,73 @@
           }
         }
       },
+      "DevSeedUser": {
+        "type": "object",
+        "description": "One seed user the development sign-in can start a session for.",
+        "required": [
+          "handle",
+          "display_name",
+          "minor"
+        ],
+        "properties": {
+          "display_name": {
+            "type": "string",
+            "example": "Alice (demo)"
+          },
+          "handle": {
+            "type": "string",
+            "example": "alice.demo"
+          },
+          "minor": {
+            "type": "boolean",
+            "description": "Under 18: the app shows the minor experience for this account."
+          }
+        }
+      },
+      "DevSeedUsers": {
+        "type": "object",
+        "description": "The seed users present in this database (`pnpm dev:seed` creates them).",
+        "required": [
+          "users"
+        ],
+        "properties": {
+          "users": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DevSeedUser"
+            },
+            "description": "Empty until the seed has run."
+          }
+        }
+      },
+      "DevSignInRequest": {
+        "type": "object",
+        "description": "Body of `POST /v1/dev/sign-in`.",
+        "required": [
+          "handle"
+        ],
+        "properties": {
+          "device": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/DeviceRequest",
+                "description": "The signing-in device, as for provider sign-in."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "handle": {
+            "type": "string",
+            "description": "A seed user's handle from `GET /v1/dev/seed-users`.",
+            "example": "alice.demo",
+            "maxLength": 32,
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      },
       "DevicePlatform": {
         "type": "string",
         "enum": [
@@ -10172,6 +10371,10 @@
     {
       "name": "public",
       "description": "Server-to-server routes for the web share app (svc, /v1/public/*)"
+    },
+    {
+      "name": "dev",
+      "description": "Development-only sign-in for the seed users (#306); absent (404) unless API_DEV_SIGN_IN=true on a development or test server"
     }
   ]
 }

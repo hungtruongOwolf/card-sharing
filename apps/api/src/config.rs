@@ -118,6 +118,10 @@ pub struct Config {
     /// the secret manager (`openssl rand -base64 32`). Unset (default) = every `svc` route
     /// answers 401.
     pub service_credential: Option<Secret>,
+    /// `API_DEV_SIGN_IN` — `true` serves the development-only sign-in for the seed users
+    /// (`/v1/dev/*`, #306). Default `false`. Refused at startup unless `API_ENV` is `development`
+    /// or `test`; disabled, the routes answer the same 404 as an unknown path.
+    pub dev_sign_in: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -161,6 +165,11 @@ impl AppEnv {
             Self::Staging => "staging",
             Self::Production => "production",
         }
+    }
+
+    /// Whether the development-only sign-in for seed users (#306) may run in this profile.
+    pub fn allows_dev_sign_in(self) -> bool {
+        matches!(self, Self::Development | Self::Test)
     }
 }
 
@@ -340,6 +349,16 @@ impl Config {
         let attestation = attestation_config(env)?;
         let mail = mail_config(env)?;
         let service_credential = service_credential(env)?;
+        let dev_sign_in = env.flag("API_DEV_SIGN_IN", false)?;
+        if dev_sign_in && !content_safety.env.allows_dev_sign_in() {
+            return Err(invalid(
+                "API_DEV_SIGN_IN",
+                format!(
+                    "the development sign-in is refused when API_ENV={} (development or test only)",
+                    content_safety.env.as_str()
+                ),
+            ));
+        }
 
         Ok(Self {
             bind_addr,
@@ -378,6 +397,7 @@ impl Config {
             attestation,
             mail,
             service_credential,
+            dev_sign_in,
         })
     }
 }
@@ -758,6 +778,26 @@ mod tests {
         }
         assert!(load(&[("API_ENV", "prod")]).is_err());
         assert!(load(&[("API_ENV", "development"), ("API_CSAM_MATCHER", "photodna")]).is_err());
+    }
+
+    #[test]
+    fn dev_sign_in_runs_only_in_development_and_test() {
+        assert!(!load(&[]).unwrap().dev_sign_in);
+        for env in ["development", "test"] {
+            let config = load(&[("API_ENV", env), ("API_DEV_SIGN_IN", "true")]).unwrap();
+            assert!(config.dev_sign_in, "{env}");
+        }
+        // Production is also the default when API_ENV is unset.
+        for env in [Some("staging"), Some("production"), None] {
+            let mut vars = vec![("API_DEV_SIGN_IN", "true")];
+            if let Some(env) = env {
+                vars.push(("API_ENV", env));
+            }
+            let err = load(&vars).unwrap_err();
+            assert!(err.to_string().contains("API_DEV_SIGN_IN"), "{err}");
+        }
+        let config = load(&[("API_ENV", "staging"), ("API_DEV_SIGN_IN", "false")]).unwrap();
+        assert!(!config.dev_sign_in);
     }
 
     #[test]

@@ -47,7 +47,7 @@ dotenv tool is needed. Without pnpm: export the variables from `.env` and run `c
 Environment the API needs locally (all in `.env.example`): `DATABASE_URL`, `REDIS_URL`,
 `API_DATA_ENCRYPTION_KEY`, `API_ENV=development` (non-production, so fake adapters are allowed),
 `API_CSAM_MATCHER=fake`, `API_NUDITY_CLASSIFIER=fake`, `API_PUSH_SENDER=fake`, `API_MEDIA_STORAGE_DIR` (or the S3
-variables), `API_MEDIA_SIGNING_KEY` and `API_MEDIA_BASE_URL` (signed media URLs), and optionally `API_SERVICE_CREDENTIAL`.
+variables), `API_MEDIA_SIGNING_KEY` and `API_MEDIA_BASE_URL` (signed media URLs), `API_DEV_SIGN_IN=true` (seed-user sign-in, #306), and optionally `API_SERVICE_CREDENTIAL`.
 
 ## Seed data (`apps/api/src/seed.rs`)
 | User | Handle | Age | Friends | Cards |
@@ -87,8 +87,23 @@ Safety rules:
    needed) in `apps/web/.env.local` (gitignored) or export them before `pnpm dev:web`.
 8. `http://127.0.0.1:8025` shows Mailpit; `http://127.0.0.1:9001` the MinIO console when S3 is used.
 
-The mobile app cannot sign in as a seed user yet: sign-in is Apple/Google only and needs real accounts.
-Follow-up: a development-only sign-in, issue #306 (see [[api-mvp]] when it lands).
+### Sign the app in as a seed user (#306)
+`.env.example` sets `API_DEV_SIGN_IN=true` (allowed only with `API_ENV=development` or `test`; the API refuses to start
+otherwise, and with the flag off `/v1/dev/*` answers 404). Then:
+1. `pnpm infra:up`, `pnpm dev:seed`, `pnpm dev:api`. For a phone on the same Wi-Fi set `API_BIND_ADDR=0.0.0.0:8080` in
+   `.env` and point the app at `http://<your PC's LAN IP>:8080` (simulators can use `http://127.0.0.1:8080`, Android
+   emulator `http://10.0.2.2:8080`).
+2. In a development build of the app, choose "Sign in as demo user" and pick `alice.demo`, `bob.demo` or `mia.demo`
+   (the app calls `GET /v1/dev/seed-users`, then `POST /v1/dev/sign-in {"handle": "..."}`). Release builds have no
+   such entry.
+3. Without the app (PowerShell):
+   ```powershell
+   Invoke-RestMethod http://127.0.0.1:8080/v1/dev/seed-users
+   $pair = Invoke-RestMethod -Method Post http://127.0.0.1:8080/v1/dev/sign-in -ContentType application/json -Body '{"handle":"bob.demo"}'
+   Invoke-RestMethod http://127.0.0.1:8080/v1/feed -Headers @{ Authorization = "Bearer $($pair.access_token)" }
+   ```
+Only the three seed personas can be signed into (by their `seed.<key>` identity, never by handle lookup); every sign-in is
+audited as `auth.sign_in` with provider `dev`. Contract: [[api-mvp]]; threat: SR-38 in [[threat-model-mvp]].
 
 ## Reset
 `docker compose --env-file .env -f infra/docker-compose.yml down -v` wipes all volumes; then start again from

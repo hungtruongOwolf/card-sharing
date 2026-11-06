@@ -95,7 +95,7 @@ pub enum DevicePlatform {
 }
 
 impl DeviceRequest {
-    fn into_info(self) -> Result<DeviceInfo, ApiError> {
+    pub(crate) fn into_info(self) -> Result<DeviceInfo, ApiError> {
         if self.app_version.is_empty()
             || self.app_version.len() > 32
             || !self.app_version.chars().all(|c| c.is_ascii_graphic())

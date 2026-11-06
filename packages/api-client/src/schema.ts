@@ -628,6 +628,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/dev/seed-users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the seed users. Development and test servers only (`API_DEV_SIGN_IN=true`); elsewhere
+         *     this route does not exist (404). Auth: none.
+         */
+        get: operations["listDevSeedUsers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dev/sign-in": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign in as a seed user and get a normal session. Development and test servers only
+         *     (`API_DEV_SIGN_IN=true`); elsewhere this route does not exist (404). Auth: none.
+         */
+        post: operations["devSignIn"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/devices/{deviceId}/push-tokens": {
         parameters: {
             query?: never;
@@ -1856,6 +1896,29 @@ export interface components {
              * @example pending
              */
             status: string;
+        };
+        /** @description One seed user the development sign-in can start a session for. */
+        DevSeedUser: {
+            /** @example Alice (demo) */
+            display_name: string;
+            /** @example alice.demo */
+            handle: string;
+            /** @description Under 18: the app shows the minor experience for this account. */
+            minor: boolean;
+        };
+        /** @description The seed users present in this database (`pnpm dev:seed` creates them). */
+        DevSeedUsers: {
+            /** @description Empty until the seed has run. */
+            users: components["schemas"]["DevSeedUser"][];
+        };
+        /** @description Body of `POST /v1/dev/sign-in`. */
+        DevSignInRequest: {
+            device?: components["schemas"]["DeviceRequest"] | null;
+            /**
+             * @description A seed user's handle from `GET /v1/dev/seed-users`.
+             * @example alice.demo
+             */
+            handle: string;
         };
         /** @enum {string} */
         DevicePlatform: "ios" | "android";
@@ -4994,6 +5057,104 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    listDevSeedUsers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Seed users that exist in this database. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DevSeedUsers"];
+                };
+            };
+            /** @description NOT_FOUND: the development sign-in is not enabled on this server. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    devSignIn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DevSignInRequest"];
+            };
+        };
+        responses: {
+            /** @description Signed in: the same token pair as provider sign-in. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenPair"];
+                };
+            };
+            /** @description VALIDATION_FAILED (unknown fields are rejected). */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ACCOUNT_SUSPENDED: the seed account is suspended or banned. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND: not enabled on this server, not a seed handle, or the seed has not run. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
             };
             /** @description RATE_LIMITED. */
             429: {

@@ -6,9 +6,9 @@ use utoipa_axum::routes;
 use crate::access::{ApiRouter, Idempotency, RoutePolicy};
 use crate::routes::{
     activity, age_signal, app_config, attestation, auth, blocks, board_invitations, board_members,
-    board_ops, board_read, boards, cards, deletion, devices, exports, feed, friend_requests,
-    friends, health, invites, me, media, media_files, notification_preferences, public_boards,
-    public_invites, public_links, sessions, user_search, widget,
+    board_ops, board_read, boards, cards, deletion, dev_auth, devices, exports, feed,
+    friend_requests, friends, health, invites, me, media, media_files, notification_preferences,
+    public_boards, public_invites, public_links, sessions, user_search, widget,
 };
 use crate::state::AppState;
 use platform::problem::ProblemDetails;
@@ -42,7 +42,8 @@ Every operation carries `x-policy` (auth kind, role, attestation) from its deny-
         (name = public_links::TAG, description = "Public board links (US-24)"),
         (name = media::TAG, description = "Image uploads into quarantine and their state (ADR-0005)"),
         (name = app_config::TAG, description = "Public client configuration"),
-        (name = public_invites::TAG, description = "Server-to-server routes for the web share app (svc, /v1/public/*)")
+        (name = public_invites::TAG, description = "Server-to-server routes for the web share app (svc, /v1/public/*)"),
+        (name = dev_auth::TAG, description = "Development-only sign-in for the seed users (#306); absent (404) unless API_DEV_SIGN_IN=true on a development or test server")
     )
 )]
 struct ApiDoc;
@@ -135,6 +136,14 @@ pub fn router() -> ApiRouter<AppState> {
         .route(
             RoutePolicy::session().limited("auth.reauth"),
             routes!(auth::reauthenticate),
+        )
+        .route(
+            RoutePolicy::public().limited("auth.dev"),
+            routes!(dev_auth::list_seed_users),
+        )
+        .route(
+            RoutePolicy::public().limited("auth.dev"),
+            routes!(dev_auth::dev_sign_in),
         )
         .route(
             RoutePolicy::public().limited("auth.refresh"),
