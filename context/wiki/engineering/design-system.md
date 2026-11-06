@@ -2,7 +2,7 @@
 title: Design System (foundation)
 type: guide
 status: draft
-updated: 2026-11-05
+updated: 2026-11-06
 sources: [raw/discussions/2026-11-04-prd-design-qa.md, raw/discussions/2026-11-04-idea-round-1.md, raw/discussions/2026-11-04-idea-round-3.md, raw/research/2026-11-04-frontend-stack.md, raw/research/2026-11-04-subject-cutout.md, raw/research/2026-11-04-zero-download-ai.md, raw/research/2026-11-04-boop-teardown.md]
 related: [[vision]], [[competitors]], [[effects-catalog]], [[ADR-0002-cross-platform-stack]], [[ADR-0003-effects-tiers]], [[subject-cutout]], [[change-management]], [[glossary]]
 ---
@@ -212,7 +212,7 @@ resolved through `apps/mobile/src/ui/theme/fonts.ts`, with the platform font as 
 |---|---|---|---|
 | **Card** (a captured moment) | photo, sticker (cutout), polaroid, ticket | default, pressed (squish), lifted, sending, sent, failed, locked (effect needs unlock), skeleton | Front = media + effect; back (flip) = caption, date, who. Elevation 1→3 on lift |
 | **Sticker** | die-cut, torn, shape, holo | idle, selected (dashed outline + handles), dragging, baking (shimmer), error | Rendered from baked image; holo live only when selected/visible-focused |
-| **Board canvas** | grid paper, kraft, cork (pins), blank | empty, loading (ghost items), ready, editing, read-only (share page), offline (local edits queued), conflict-sync | Skia canvas + invisible a11y layer (§6) |
+| **Board canvas** | grid paper, kraft, cork (pins), blank | empty, loading (ghost items), ready, editing, read-only (share page), offline (local edits queued), conflict-sync | Skia canvas + invisible a11y layer (§6). Implemented (T-103, `apps/mobile/src/features/boards/BoardCanvas.tsx`): one canvas; pins culled to the view + 50% margin (`packages/canvas-engine` `board.ts`) and recorded as pictures of baked textures, re-recorded only when the camera leaves that window; live holo pins are drawn between static runs so z order stays exact, at most `cost.maxLive` per finish (focused pin first, then largest on screen; none under reduced motion or a kill switch); one-finger pan + pinch zoom around the focal point on the UI thread (0.25x-3x); texture cache with LOD (512 px under 30% of the screen, else 1024/2048) and a 200 MB LRU budget; loading = ghost frame; private tile = neutral tile with a lock and no card data; removed = dashed outline; labelled invisible views for pins on screen |
 | **Camera capture button** | photo, booth (multi-shot), disabled | idle, pressed (scale .92), capturing (ring fill), processing (ring spin ≤2 s), no-permission | 76 pt, ring = `color.primary.base` |
 | **Friend avatar row** | horizontal chips with die-cut border | default, selected (tape tick), new-post dot, offline, invite (+) | Multi-select for send; VoiceOver "Alex, selected" |
 | **Reaction picker** | emoji + sticker reactions | closed, open (fan-out arc), hovered item (scale 1.3), chosen (pop + haptic), disabled | Long-press card opens; reduced motion = simple fade grid |
