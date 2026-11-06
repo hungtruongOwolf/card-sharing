@@ -18,6 +18,7 @@ const photo = { uri: 'file:///cache/a.jpg', width: 300, height: 400, origin: 'ca
 const draft = (caption: string) => ({
   cut: styleChoice(registry.get('cut.diecut')!),
   finish: null,
+  effects: [],
   wholePhoto: false,
   caption,
 });

@@ -4,7 +4,8 @@ import { maskToContours, type Mask } from '@card-sharing/canvas-engine';
 import type { Registry } from '@card-sharing/effects-registry';
 
 import { drawCutStyle, subjectPath, type CutScene, type CutSubject } from '../cut-styles';
-import { drawFinish } from './drawFinish';
+import { drawComposed, EFFECT_RENDERERS, layerEffects, type EffectRenderers } from '../effects';
+import { drawFinish, hasFinishRenderer } from './drawFinish';
 import type { CardDraft } from './editorState';
 
 /** Preview size of a card: fits `maxWidth` x `maxHeight` with the photo's aspect ratio. */
@@ -47,24 +48,41 @@ export function downscalePhoto(photo: SkImage, maxSide: number): SkImage {
 }
 
 /**
- * Draws the card a draft describes: the cut style, then the finish over the card's own pixels. Whole-photo
- * drafts draw without the subject even when the scene has one. Unknown ids (an entry removed from the registry)
- * draw nothing rather than crashing the editor.
+ * Draws the card a draft describes, in the catalog's composition order (T-114): the cut style, the finish and any
+ * filter effects over the card's own pixels, then the `under` / `subject` / `over` effects and a frame around it
+ * all. Whole-photo drafts draw without the subject even when the scene has one. Unknown ids (an entry removed from
+ * the registry) draw nothing rather than crashing the editor.
  */
 export function drawCard(
   canvas: SkCanvas,
   registry: Registry,
   draft: CardDraft,
   scene: CutScene,
+  options: { renderers?: EffectRenderers; time?: number } = {},
 ): void {
   const cut = registry.get(draft.cut.id);
   if (!cut) return;
   const effective = draft.wholePhoto ? { ...scene, subject: null } : scene;
-  canvas.saveLayer();
-  drawCutStyle(canvas, cut, draft.cut.params, effective);
-  const finish = draft.finish ? registry.get(draft.finish.id) : undefined;
-  if (finish && draft.finish) {
-    drawFinish(canvas, finish, draft.finish.params, scene.width, scene.height);
-  }
-  canvas.restore();
+  const layers = layerEffects(registry, draft.effects);
+  const drawCardLayer = (layer: SkCanvas) => {
+    layer.saveLayer();
+    drawCutStyle(layer, cut, draft.cut.params, effective);
+    const finish = draft.finish ? registry.get(draft.finish.id) : undefined;
+    if (finish && draft.finish) {
+      drawFinish(layer, finish, draft.finish.params, scene.width, scene.height);
+    }
+    for (const filter of layers.filters) {
+      if (hasFinishRenderer(filter.entry)) {
+        drawFinish(layer, filter.entry, filter.params, scene.width, scene.height);
+      }
+    }
+    layer.restore();
+  };
+  drawComposed(
+    canvas,
+    { ...effective, time: options.time },
+    layers,
+    drawCardLayer,
+    options.renderers ?? EFFECT_RENDERERS,
+  );
 }

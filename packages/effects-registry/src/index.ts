@@ -19,6 +19,13 @@ export {
 } from './availability';
 export { createRegistry, registry, type Registry } from './registry';
 export {
+  EFFECT_SLOT_KINDS,
+  LAYER_ORDER,
+  MAX_EFFECTS,
+  stackConflict,
+  stackingErrors,
+} from './stacking';
+export {
   SERVER_REGISTRY_SCHEMA_VERSION,
   serverRegistryJson,
   toServerRegistry,

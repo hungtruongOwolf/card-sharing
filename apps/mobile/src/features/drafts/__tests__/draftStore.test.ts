@@ -37,6 +37,7 @@ const photo: CapturedPhoto = {
 const draft: CardDraft = {
   cut: styleChoice(entry('cut.diecut')),
   finish: styleChoice(entry('fx.matte')),
+  effects: [],
   wholePhoto: false,
   caption: 'zoomies',
 };
@@ -140,8 +141,22 @@ describe('parseLocalCard', () => {
     ['a broken date', { ...valid, updatedAt: 'yesterday' }],
     ['object params', { ...valid, draft: { ...draft, cut: { ...draft.cut, params: { a: {} } } } }],
     ['a missing caption', { ...valid, draft: { ...draft, caption: undefined } }],
+    ['effects that are not a list', { ...valid, draft: { ...draft, effects: { id: 'fx.holo' } } }],
+    ['a broken effect', { ...valid, draft: { ...draft, effects: [{ id: 'fx.holo' }] } }],
+    [
+      'more effects than a card holds',
+      { ...valid, draft: { ...draft, effects: Array.from({ length: 9 }, () => draft.cut) } },
+    ],
   ])('rejects %s', (_label, value) => {
     expect(parseLocalCard(JSON.stringify(value))).toBeNull();
+  });
+
+  it('keeps stacked effects and reads drafts saved before effects existed (T-114)', () => {
+    const stacked = { ...valid, draft: { ...draft, effects: [draft.cut, draft.cut] } };
+    expect(parseLocalCard(JSON.stringify(stacked))?.draft.effects).toEqual([draft.cut, draft.cut]);
+    // JSON.stringify drops the undefined field, like a record saved by an older build.
+    const older = { ...draft, effects: undefined };
+    expect(parseLocalCard(JSON.stringify({ ...valid, draft: older }))?.draft.effects).toEqual([]);
   });
 
   it('rejects a record stored under another id', () => {

@@ -4,9 +4,10 @@
  */
 import { AlphaType, ColorType, Skia, type SkImage } from '@shopify/react-native-skia';
 
-import { registry, type EffectEntry } from '@card-sharing/effects-registry';
+import { createRegistry, registry, type EffectEntry } from '@card-sharing/effects-registry';
 
 import type { CutScene } from '../../cut-styles';
+import type { EffectRenderers } from '../../effects';
 import { downscalePhoto, drawCard, previewSize, subjectFor } from '../cardScene';
 import { drawFinish } from '../drawFinish';
 import { styleChoice, type CardDraft } from '../editorState';
@@ -44,9 +45,12 @@ function scene(): CutScene {
   };
 }
 
-function render(draft: CardDraft): (x: number, y: number) => number[] {
+function render(
+  draft: CardDraft,
+  options: Parameters<typeof drawCard>[4] & { registry?: typeof registry } = {},
+): (x: number, y: number) => number[] {
   const surface = Skia.Surface.Make(SIZE, SIZE)!;
-  drawCard(surface.getCanvas(), registry, draft, scene());
+  drawCard(surface.getCanvas(), options.registry ?? registry, draft, scene(), options);
   surface.flush();
   const pixels = surface.makeImageSnapshot().readPixels(0, 0, {
     width: SIZE,
@@ -60,6 +64,7 @@ function render(draft: CardDraft): (x: number, y: number) => number[] {
 const draft = (cut: string, finish: string | null = null, wholePhoto = false): CardDraft => ({
   cut: styleChoice(entry(cut)),
   finish: finish ? styleChoice(entry(finish)) : null,
+  effects: [],
   wholePhoto,
   caption: '',
 });
@@ -130,6 +135,94 @@ describe('drawCard', () => {
     expect(() => drawFinish(surface.getCanvas(), entry('cut.none'), {}, 4, 4)).toThrow(
       /no finish renderer/,
     );
+  });
+});
+
+describe('composition order (T-114)', () => {
+  const holo = entry('fx.holo');
+  const effect = (id: string, layer: EffectEntry['layer'], ref: string): EffectEntry => ({
+    ...holo,
+    id,
+    kind: layer === 'frame' ? 'frame' : 'overlay',
+    layer,
+    tags: [],
+    renderer: { type: 'vector', ref },
+  });
+  const testRegistry = createRegistry([
+    ...registry.entries,
+    effect('overlay.under', 'under', 'under'),
+    effect('overlay.over', 'over', 'over'),
+    effect('frame.test', 'frame', 'frame'),
+    { ...holo, id: 'fx.sheen', tags: [] },
+  ]);
+  const fill = (color: string) => {
+    const paint = Skia.Paint();
+    paint.setColor(Skia.Color(color));
+    return paint;
+  };
+  // `under` fills the whole canvas red, `over` paints a green square in the top-left corner; the frame paints
+  // its paper white and puts the card in the central half.
+  const renderers: EffectRenderers = {
+    effects: {
+      under: (canvas, context) =>
+        canvas.drawRect(Skia.XYWHRect(0, 0, context.width, context.height), fill('#FF0000')),
+      over: (canvas) => canvas.drawRect(Skia.XYWHRect(0, 0, 8, 8), fill('#00FF00')),
+    },
+    frames: {
+      frame: {
+        window: (width, height) => ({
+          x: width / 4,
+          y: height / 4,
+          width: width / 2,
+          height: height / 2,
+        }),
+        back: (canvas, context) =>
+          canvas.drawRect(Skia.XYWHRect(0, 0, context.width, context.height), fill('#FFFFFF')),
+      },
+    },
+  };
+  const withEffects = (...ids: string[]): CardDraft => ({
+    ...draft('cut.raw'),
+    effects: ids.map((id) => styleChoice(testRegistry.get(id)!)),
+  });
+  const RED = [255, 0, 0, 255];
+  const GREEN = [0, 255, 0, 255];
+  const inside: [number, number] = [SIZE / 2, Math.round(SIZE * 0.6)];
+
+  it('draws under effects below the card and over effects above it', () => {
+    const at = render(withEffects('overlay.over', 'overlay.under'), {
+      registry: testRegistry,
+      renderers,
+    });
+    expect(at(2, SIZE - 2)).toEqual(RED); // outside the subject: the under layer shows through
+    expect(at(...inside)).toEqual(PHOTO); // the card covers the under layer
+    expect(at(2, 2)).toEqual(GREEN); // over effects sit on top
+  });
+
+  it('wraps the composed card in the frame window', () => {
+    const at = render(withEffects('frame.test', 'overlay.under'), {
+      registry: testRegistry,
+      renderers,
+    });
+    expect(at(2, 2)).toEqual([255, 255, 255, 255]); // frame paper
+    expect(at(SIZE / 4 + 1, SIZE / 4 + 1)).toEqual(RED); // the under layer, clipped to the window
+    expect(at(SIZE / 2, SIZE / 2 + 4)).toEqual(PHOTO);
+  });
+
+  it('paints filter effects over the card pixels only, like a finish', () => {
+    const plain = render(draft('cut.raw'), { registry: testRegistry });
+    const sheen = render(withEffects('fx.sheen'), { registry: testRegistry });
+    expect(sheen(...inside)).not.toEqual(plain(...inside));
+    expect(sheen(2, 2)[3]).toBe(0);
+  });
+
+  it('skips effects without a renderer or unknown to the registry', () => {
+    const at = render(
+      { ...withEffects('overlay.over'), effects: [{ id: 'overlay.gone', version: 1, params: {} }] },
+      { registry: testRegistry, renderers: { effects: {}, frames: {} } },
+    );
+    expect(at(...inside)).toEqual(PHOTO);
+    expect(at(2, 2)[3]).toBe(0);
   });
 });
 

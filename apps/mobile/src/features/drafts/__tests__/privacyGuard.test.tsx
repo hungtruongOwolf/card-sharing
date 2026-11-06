@@ -68,6 +68,7 @@ describe('privacy guard: drafts never upload', () => {
       const draft = {
         cut: styleChoice(registry.get('cut.none')!),
         finish: null,
+        effects: [],
         wholePhoto: true,
         caption: 'offline',
       };

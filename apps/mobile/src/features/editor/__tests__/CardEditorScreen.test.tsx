@@ -110,6 +110,7 @@ describe('CardEditorScreen', () => {
       expect(onNext).toHaveBeenCalledWith({
         cut: { id: 'cut.diecut', version: 1, params: { borderWidthPct: 6, color: '#F7A1C4' } },
         finish: null,
+        effects: [],
         wholePhoto: false,
         caption: 'zoomies \u{1F431}',
       });
@@ -159,6 +160,7 @@ describe('CardEditorScreen', () => {
               params: { roughness: 0.5, seed: 7, paper: 'kraft' },
             },
             finish: { id: holo.id, version: holo.version, params: { intensity: 0.4 } },
+            effects: [],
             wholePhoto: false,
             caption: 'again',
           },
@@ -326,6 +328,85 @@ describe('CardEditorScreen', () => {
       expect(screen.getByRole('button', { name: t('editor.undo') })).toBeDisabled();
       await user.press(screen.getByRole('button', { name: t('effects.cut.none.name') }));
       expect(selected('effects.cut.none.name')).toBe(true);
+    },
+    RENDER_TIMEOUT_MS,
+  );
+
+  it(
+    'stacks effects only on a tap, replaces conflicting ones and removes them (T-114)',
+    async () => {
+      const glossy = registry.get('fx.glossy')!;
+      const matte = registry.get('fx.matte')!;
+      // Effect-slot filters (no `finish` tag) that refuse each other.
+      const sheen = { ...glossy, id: 'fx.sheen', tags: [], conflictsWith: ['fx.grain'] };
+      const grain = { ...matte, id: 'fx.grain', tags: [], stackable: true };
+      const custom = createRegistry([...ENTRIES, sheen, grain]);
+      const onNext = jest.fn();
+      const onDraftChange = jest.fn();
+      await renderEditor({ registry: custom, onNext, onDraftChange });
+      const user = userEvent.setup();
+      // AC-21.4: nothing is applied until the user picks it.
+      expect(onDraftChange).toHaveBeenLastCalledWith(expect.objectContaining({ effects: [] }));
+      await user.press(screen.getByRole('tab', { name: t('editor.tab.effects') }));
+      expect(selected('effects.fx.glossy.name')).toBe(false);
+
+      await user.press(screen.getByRole('button', { name: t('effects.fx.glossy.name') }));
+      expect(selected('effects.fx.glossy.name')).toBe(true);
+      const intensity = screen.getByRole('adjustable', { name: t('effects.param.intensity') });
+      await fireEvent(intensity, 'accessibilityAction', {
+        nativeEvent: { actionName: 'decrement' },
+      });
+      expect(
+        screen.getByLabelText(
+          t('editor.preview.labelWithEffects', {
+            label: t('editor.preview.label', { style: t('effects.cut.diecut.a11y') }),
+            effects: t('effects.fx.glossy.a11y'),
+          }),
+        ),
+      ).toBeTruthy();
+
+      await user.press(screen.getByRole('button', { name: t('effects.fx.matte.name') }));
+      expect(
+        screen.getByText(
+          t('editor.effects.replaced', {
+            name: t('effects.fx.matte.name'),
+            replaced: t('effects.fx.glossy.name'),
+          }),
+        ),
+      ).toBeTruthy();
+      expect(selected('effects.fx.glossy.name')).toBe(false);
+      expect(selected('effects.fx.matte.name')).toBe(true);
+      await user.press(screen.getByRole('button', { name: t('editor.effects.addAnother') }));
+      expect(onDraftChange).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          effects: [
+            { id: 'fx.grain', version: 1, params: { intensity: 0.6 } },
+            { id: 'fx.grain', version: 1, params: { intensity: 0.6 } },
+          ],
+        }),
+      );
+      await user.press(
+        screen.getByRole('button', {
+          name: t('editor.effects.remove', { name: t('effects.fx.matte.name') }),
+        }),
+      );
+      await user.press(screen.getByRole('button', { name: t('editor.undo') }));
+      await user.press(screen.getByRole('button', { name: t('editor.undo') }));
+      await user.press(screen.getByRole('button', { name: t('editor.next') }));
+      expect(onNext).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          effects: [{ id: 'fx.grain', version: 1, params: { intensity: 0.6 } }],
+        }),
+      );
+    },
+    RENDER_TIMEOUT_MS,
+  );
+
+  it(
+    'hides the Effects tab when no effect can be listed',
+    async () => {
+      await renderEditor();
+      expect(screen.queryByRole('tab', { name: t('editor.tab.effects') })).toBeNull();
     },
     RENDER_TIMEOUT_MS,
   );
