@@ -27,9 +27,9 @@ function solid(color: string, width: number, height: number): SkImage {
   return surface.makeImageSnapshot();
 }
 
-function render(items: DrawablePin[]): (x: number, y: number) => number[] {
+function render(items: DrawablePin[], background = '#000000'): (x: number, y: number) => number[] {
   const surface = Skia.Surface.Make(SIZE, SIZE)!;
-  surface.getCanvas().clear(Skia.Color('#000000'));
+  surface.getCanvas().clear(Skia.Color(background));
   drawPins(surface.getCanvas(), items, palette);
   surface.flush();
   const pixels = surface.makeImageSnapshot().readPixels(0, 0, {
@@ -62,6 +62,31 @@ describe('drawPins', () => {
     ]);
     expect(probe(200, 200)).toEqual([51, 102, 204]);
     expect(probe(200 + 70, 200)).toEqual([0, 0, 0]);
+  });
+
+  it('casts a card-shaped resting shadow downwards in board space, whatever the rotation', () => {
+    // 240 x 240 square centred on (200, 200): its bottom edge is at y = 320.
+    const probe = render(
+      [{ pin: pin({ x: 200, y: 200 }), image: solid('#3366CC', 64, 64) }],
+      '#FFFFFF',
+    );
+    const below = probe(200, 323);
+    expect(below.every((v) => v < 250 && v > 120)).toBe(true);
+    expect(probe(200, 335)).toEqual([255, 255, 255]);
+    // Nothing above the card: the light comes from above.
+    expect(probe(200, 78)).toEqual([255, 255, 255]);
+    const rotated = render(
+      [{ pin: pin({ x: 200, y: 200, rotation: 90 }), image: solid('#3366CC', 64, 32) }],
+      '#FFFFFF',
+    );
+    // Rotated a quarter turn the wide card stands tall (120 wide, 240 tall); the shadow is still below it.
+    expect(rotated(200, 323).every((v) => v < 250)).toBe(true);
+    expect(rotated(200 + 64, 200)).toEqual([255, 255, 255]);
+  });
+
+  it('casts no shadow for placeholders and tiles', () => {
+    const probe = render([{ pin: pin({ x: 200, y: 200 }), image: null }], '#FFFFFF');
+    expect(probe(200, 200 + PIN_FRAME.height / 2 + 3)).toEqual([255, 255, 255]);
   });
 
   it('shows a ghost while the texture loads', () => {

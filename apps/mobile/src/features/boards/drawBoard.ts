@@ -1,4 +1,10 @@
-import { PaintStyle, Skia, type SkCanvas, type SkImage } from '@shopify/react-native-skia';
+import {
+  BlendMode,
+  PaintStyle,
+  Skia,
+  type SkCanvas,
+  type SkImage,
+} from '@shopify/react-native-skia';
 
 import type { ColorScheme, SemanticColors } from '@card-sharing/tokens';
 
@@ -146,13 +152,43 @@ export function drawSelection(canvas: SkCanvas, palette: BoardPalette, pin: Boar
   canvas.drawRRect(Skia.RRectXY(rect, CORNER + SELECTION_GAP, CORNER + SELECTION_GAP), paint);
 }
 
-/** Draws pins (already culled and in z order) in board units. */
+/**
+ * Resting shadow of a card pin (sprint 9 board polish, design-system elev.1/elev.2 feel): the card's own shape
+ * (its alpha, so die-cut stickers cast sticker-shaped shadows), tinted dark and drawn twice, a tight contact layer
+ * and a softer, lower ambient one. Offsets are in board space (light from above, whatever the pin's rotation) and no
+ * blur is used, so a board of 150 pins stays cheap to replay while panning.
+ */
+export const PIN_SHADOW = [
+  { dy: 2, alpha: 0.22 },
+  { dy: 7, alpha: 0.1 },
+] as const;
+
+export function drawPinShadow(canvas: SkCanvas, item: DrawablePin): void {
+  const image = item.image;
+  if (item.pin.content.kind !== 'card' || !image) return;
+  const src = Skia.XYWHRect(0, 0, image.width(), image.height());
+  const dest = containRect(image.width(), image.height());
+  for (const layer of PIN_SHADOW) {
+    const paint = Skia.Paint();
+    paint.setColorFilter(
+      Skia.ColorFilter.MakeBlend(Skia.Color(`rgba(0, 0, 0, ${layer.alpha})`), BlendMode.SrcIn),
+    );
+    canvas.save();
+    canvas.translate(0, layer.dy * item.pin.scale);
+    applyPinTransform(canvas, item.pin);
+    canvas.drawImageRect(image, src, dest, paint);
+    canvas.restore();
+  }
+}
+
+/** Draws pins (already culled and in z order) in board units, each over its resting shadow. */
 export function drawPins(
   canvas: SkCanvas,
   pins: readonly DrawablePin[],
   palette: BoardPalette,
 ): void {
   for (const item of pins) {
+    drawPinShadow(canvas, item);
     canvas.save();
     applyPinTransform(canvas, item.pin);
     drawPinContent(canvas, item, palette);
