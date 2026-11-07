@@ -26,7 +26,8 @@ use tokio::net::TcpListener;
 
 /// `api` serves HTTP; `api migrate` applies database migrations and exits (run it from the
 /// deploy pipeline before rolling out a new version); `api worker` runs the job worker
-/// (ADR-0006) until SIGTERM; `api seed` writes local demo data (development and test only);
+/// (ADR-0006) until SIGTERM; `api seed` writes local demo data (development and test only;
+/// `api seed --reset` first empties the local database, development only, src/dev_reset.rs);
 /// `api replay-erasures` re-erases every erased account after a backup restore (T-152).
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -257,8 +258,19 @@ async fn run_staff(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
 
 /// `api seed`: local demo users, friendships, cards and a shared board (src/seed.rs). Refused
 /// unless `API_ENV` is development or test; creates the S3 buckets when S3 storage is configured.
+/// `api seed --reset` first empties the database, Valkey and the filesystem media (development
+/// only, on this machine only: src/dev_reset.rs), so the demo starts from the seed data alone.
 async fn run_seed(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
     use api::config::AppEnv;
+    let reset = match std::env::args().nth(2).as_deref() {
+        None => false,
+        Some("--reset") => true,
+        Some(other) => anyhow::bail!("unknown option {other:?} (usage: api seed [--reset])"),
+    };
+    // Before anything else touches the database or storage.
+    if reset {
+        api::dev_reset::check(config)?;
+    }
     if !matches!(
         config.content_safety.env,
         AppEnv::Development | AppEnv::Test
@@ -266,6 +278,13 @@ async fn run_seed(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
         anyhow::bail!(
             "`api seed` only runs with API_ENV=development or test (now {})",
             config.content_safety.env.as_str()
+        );
+    }
+    if reset {
+        let report = api::dev_reset::reset(config, &pool).await?;
+        println!(
+            "Reset: emptied {} tables, flushed the Valkey database, removed {} media buckets.",
+            report.tables, report.media_buckets
         );
     }
     if let Some(s3) = &config.media_s3 {

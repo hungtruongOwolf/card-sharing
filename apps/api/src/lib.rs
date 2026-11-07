@@ -8,6 +8,7 @@ pub mod access;
 pub mod client_config;
 pub mod config;
 pub mod db;
+pub mod dev_reset;
 pub mod identity_adapter;
 pub mod middleware;
 pub mod openapi;

@@ -10,7 +10,8 @@ related: [[conventions]], [[ADR-0009-app-on-web]], [[ADR-0008-hosting]], [[testi
 **TL;DR:** `pnpm infra:up` starts Postgres, Valkey, MinIO and Mailpit; `pnpm dev:seed` applies the
 production migrations and creates three demo users (two adults, one minor), friendships, three
 delivered cards and a shared board, then prints a session per user. `pnpm dev:api` serves the API on
-`http://127.0.0.1:8080`. CI runs the same seed twice against its Postgres (T-3, #5).
+`http://127.0.0.1:8080`. `pnpm dev:reset` wipes the local demo data and seeds it again. CI runs the same seed twice
+against its Postgres (T-3, #5) and checks the reset (D1).
 
 ## Services (`infra/docker-compose.yml`, local only, all bound to 127.0.0.1)
 | Service | Port | Notes |
@@ -42,6 +43,7 @@ Optional in `.env`:
 |---|---|
 | `pnpm dev:migrate` | `api migrate`: applies `migrations/` |
 | `pnpm dev:seed` | migrate, then `api seed` (idempotent: a second run creates nothing new, only fresh sessions) |
+| `pnpm dev:reset` | migrate, then `api seed --reset`: empties every table, flushes Valkey, removes the filesystem media buckets, then seeds (see "Reset the demo data") |
 | `pnpm dev:api` | the HTTP API on `API_BIND_ADDR` (default `127.0.0.1:8080`) |
 | `pnpm dev:worker` | the job worker (push fakes, activity, board change notices, housekeeping) |
 | `pnpm dev:web` | Next.js preview pages on `http://localhost:3000` |
@@ -67,10 +69,33 @@ accepted through the real routes). Mia is not on the board.
 
 Safety rules:
 - `api seed` refuses to run unless `API_ENV` is `development` or `test` (staging and production are refused).
+- `api seed --reset` is stricter: see "Reset the demo data" below.
 - Seed accounts use the provider subject `seed.<key>`, which no real Apple account can have, so nobody can
   sign in as them through Apple; the only way in is the session the seed prints.
 - Images are generated (gradient plus a round subject), uploaded and processed through the real media
   pipeline and content gates; cards are sent through `POST /v1/cards` and delivered by the real evaluator.
+
+### Reset the demo data (D1)
+Test runs pile up cards, activity and sessions on the seed users (the 2026-11-07 audit found 30 duplicate cards,
+99+ activity rows and 26 sessions). `pnpm dev:reset` (`api seed --reset`, `apps/api/src/dev_reset.rs`) starts over:
+1. Empties every table of the module schemas in one transaction (`TRUNCATE ... RESTART IDENTITY CASCADE` over the tables
+   listed from `pg_tables`, so new tables are covered without an edit). The `public` schema with sqlx's migration
+   history stays, so the database stays migrated; migrations seed no rows, so nothing else needs restoring.
+2. Flushes the Valkey database `REDIS_URL` selects (`FLUSHDB`): it holds caches and rate-limit buckets only, and a cached
+   session of a removed account must not outlive it (up to 10 minutes otherwise).
+3. Removes the filesystem media buckets (`<API_MEDIA_STORAGE_DIR>/quarantine`, `clean`, `legal_hold`; nothing else under
+   that folder). With MinIO the objects stay (nothing references them); `docker compose ... down -v` clears them.
+4. Seeds as usual: new account ids, so signed-in apps fall back to the sign-in screen; sign in as a demo user again.
+
+Guards, both checked before anything is written:
+- `API_ENV` must be exactly `development` (`test`, `staging`, `production` and unset are refused; CI proves the `test`
+  refusal leaves the database untouched).
+- Postgres and Valkey must be on this machine: `DATABASE_URL` and `REDIS_URL` must resolve (as sqlx and the redis client
+  parse them) to `localhost`, a loopback address or a Unix socket, which the compose services are. A hosted database is
+  never reached through loopback, so a wrong `API_ENV` alone cannot wipe it.
+- By construction, the least-privilege role of shared environments (`app_rw`, [[ADR-0008-hosting]]) has no TRUNCATE.
+
+Stop `pnpm dev:worker` during a reset if it is busy (a job that loses its rows just fails), then start it again.
 
 ## Demo steps
 1. `pnpm infra:up`, then `pnpm dev:seed`. Copy the `access_token` lines it prints (valid 10 minutes;
