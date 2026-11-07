@@ -206,6 +206,85 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/ai-effects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** AI effects for the caller: availability, consent, credits, templates. Auth: ses. */
+        get: operations["getAiEffects"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ai-effects/consent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Agree to the current AI consent text. Auth: ses. Accepted for anyone (consent alone never
+         *     enables AI effects; the policy check happens on submit).
+         */
+        put: operations["putAiConsent"];
+        post?: never;
+        /** Withdraw AI consent; later submits answer 403 `CONSENT_REQUIRED`. Auth: ses. */
+        delete: operations["deleteAiConsent"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ai-effects/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run a curated AI effect on one of my clean uploads. Auth: ses. `Idempotency-Key` =
+         *     `client_job_id`.
+         * @description Checks, in order: provider configured (503), region/age policy (403 `POLICY_DISALLOWED`),
+         *     consent (403 `CONSENT_REQUIRED`), template (400), input owned and clean (404), credits
+         *     (402 `INSUFFICIENT_CREDITS`). Answers 202 with the queued job; the cost is reserved now and
+         *     refunded if the job is refused or fails. Replays return the original job.
+         */
+        post: operations["createAiJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ai-effects/jobs/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One of my AI effect jobs. Auth: ses; owner only (anyone else: the same 404 as a missing id). */
+        get: operations["getAiJob"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/attestation/apple-keys": {
         parameters: {
             query?: never;
@@ -1780,6 +1859,40 @@ export interface components {
         AgeSignalSource: "apple_declared_age_range" | "google_play_age_signals";
         /** @enum {string} */
         AgeSignalValue: "minor" | "adult";
+        /** @description Body of `PUT /v1/ai-effects/consent`. */
+        AiConsentRequest: {
+            /**
+             * Format: int32
+             * @description Must equal `consent.required_version` (the text the app showed).
+             */
+            version: number;
+        };
+        AiConsentView: {
+            /** @description Whether the caller agreed to `required_version`. */
+            granted: boolean;
+            /**
+             * Format: int32
+             * @description The consent text version the app must show and send back.
+             */
+            required_version: number;
+        };
+        /** @description `GET /v1/ai-effects`. */
+        AiEffectsOverview: {
+            ai_label: components["schemas"]["AiLabelRules"];
+            /**
+             * @description `false` = hide AI effects: no provider configured, or the region/age policy does not allow
+             *     them for the caller.
+             */
+            available: boolean;
+            consent: components["schemas"]["AiConsentView"];
+            /**
+             * Format: int64
+             * @description Spendable credits (includes the one-time starter grant until it is used).
+             */
+            credits: number;
+            /** @description Empty when not `available`. */
+            templates: components["schemas"]["AiTemplateView"][];
+        };
         AiEffectsView: {
             cloud_allowed: boolean;
             /**
@@ -1788,9 +1901,67 @@ export interface components {
              */
             people_in_photo: string;
         };
+        AiJobEnvelope: {
+            job: components["schemas"]["AiJobView"];
+        };
+        /** @description An effect job as its owner sees it. */
+        AiJobView: {
+            /**
+             * @description Always `true`: anything this route returns is AI-generated and must carry the badge when
+             *     `ai_label.visible_badge` says so.
+             */
+            ai_generated: boolean;
+            /** @description A C2PA manifest is recorded for the output (not yet signed or embedded). */
+            c2pa_recorded: boolean;
+            /** Format: int32 */
+            cost: number;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            input_media_id: string;
+            /**
+             * @description When refused or failed: `input_moderation`, `output_moderation`, `provider_refused`,
+             *     `provider_failed` or `input_unavailable`.
+             */
+            outcome?: string | null;
+            /**
+             * Format: uuid
+             * @description The generated image (a `card_render` upload of the caller; poll `GET /v1/media/{id}` until
+             *     it is clean, then send it like any card render). `null` until succeeded.
+             */
+            output_media_id?: string | null;
+            /** @description The reserved credits came back (refused or failed). */
+            refunded: boolean;
+            /** @description `queued`, `succeeded`, `refused` or `failed`. */
+            status: string;
+            template_id: string;
+            /** Format: int32 */
+            template_version: number;
+        };
+        /** @description How AI output must be labelled (region policy `ai_label`). */
+        AiLabelRules: {
+            /** @description Machine-readable C2PA marking (stub until signing lands). */
+            c2pa: boolean;
+            /** @description Show the visible "AI" badge on generated images. */
+            visible_badge: boolean;
+        };
         AiLabelView: {
             c2pa: boolean;
             visible_badge: boolean;
+        };
+        /** @description One curated template (the prompt stays on the server). */
+        AiTemplateView: {
+            /**
+             * Format: int32
+             * @description Credits one run costs.
+             */
+            cost: number;
+            id: string;
+            title: string;
+            /** Format: int32 */
+            version: number;
         };
         /** @description Body of `GET /v1/config`. */
         AppConfigResponse: {
@@ -2045,6 +2216,22 @@ export interface components {
             friends_max: number;
             /** Format: int32 */
             pins_per_board_max: number;
+        };
+        /** @description Body of `POST /v1/ai-effects/jobs`. */
+        CreateAiJobRequest: {
+            /**
+             * Format: uuid
+             * @description Client-generated id; must equal the `Idempotency-Key` header.
+             */
+            client_job_id: string;
+            /**
+             * Format: uuid
+             * @description A clean `card_render` or `original` upload of the caller.
+             */
+            input_media_id: string;
+            template_id: string;
+            /** Format: int32 */
+            template_version: number;
         };
         /** @description Body of `POST /v1/boards`. */
         CreateBoardRequest: {
@@ -3621,6 +3808,320 @@ export interface operations {
             };
             /** @description FORBIDDEN: not an admin, or IP not allowed. */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    getAiEffects: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description What the caller may do with AI effects. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiEffectsOverview"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    putAiConsent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiConsentRequest"];
+            };
+        };
+        responses: {
+            /** @description Consent recorded. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description VALIDATION_FAILED: not the current consent version. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    deleteAiConsent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No consent remains. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    createAiJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAiJobRequest"];
+            };
+        };
+        responses: {
+            /** @description Queued; credits reserved. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiJobEnvelope"];
+                };
+            };
+            /** @description VALIDATION_FAILED (unknown fields, unknown template, Idempotency-Key not equal to client_job_id). */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description INSUFFICIENT_CREDITS. */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description POLICY_DISALLOWED (region or age), CONSENT_REQUIRED, ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND: the input is not a clean card render or original of the caller. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description IDEMPOTENCY_IN_PROGRESS. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description IDEMPOTENCY_KEY_REUSED. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description TEMPORARILY_UNAVAILABLE: no AI provider configured. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    getAiJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Job id from POST /v1/ai-effects/jobs. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The job. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiJobEnvelope"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND: no job of the caller with this id. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
