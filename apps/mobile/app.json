@@ -2,7 +2,7 @@
   "expo": {
     "name": "card-sharing",
     "slug": "card-sharing",
-    "version": "0.0.0",
+    "version": "0.1.0",
     "scheme": "cardsharing",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
