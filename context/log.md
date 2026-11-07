@@ -328,3 +328,9 @@ memory bucket, AI effects 18+ with 5 starter credits until legal review. See [[s
 #384 (AI badge flag, AI output preview URL), #387 (replies are cards), #388 (SSE `GET /v1/events`) and #389 (app
 events hook, Reply in the story viewer) merged after CI was green on each rebased head commit. Not yet tried on a
 device or in a browser. Five open questions recorded in [[sprint-9]].
+
+## [2026-11-07] decision | sprint 10: complete web MVP
+EM asked for a complete, working web MVP to validate the idea before UI polish. Audit found blockers (editor styles
+hidden on web, no real sign-up, URL routing). EM decisions: magic link then Google on web, not hosted yet (home
+network), invite-code gated testers with fake scanners for now, start the browser E2E gate and bug fixes now.
+Source: raw/discussions/2026-11-07-web-mvp-direction.md. See [[sprint-10]].

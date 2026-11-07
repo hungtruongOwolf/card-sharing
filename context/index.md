@@ -58,6 +58,7 @@ Tip: open `context/` as an Obsidian vault for graph/backlinks; run `python tools
 - [[sprint-7]] — sprint 7 plan: local demo stack, public links, account deletion/export, Tier-0 effects
 - [[sprint-8]] — sprint 8 plan: dev sign-in for demos, public board page, moderation server, privacy and report UI
 - [[sprint-9]] — sprint 9 plan: Stories-style UI redesign, the app on the web at phone size, latency budgets
+- [[sprint-10]] — sprint 10: complete web MVP, browser E2E gate in CI, audit bug list, invite-gated magic-link sign-up
 - backlog.json — wiki/progress/backlog.json — 169 tickets (source for GitHub issues); regenerate with `python tools/planning/gen.py`
 
 ## Raw sources
