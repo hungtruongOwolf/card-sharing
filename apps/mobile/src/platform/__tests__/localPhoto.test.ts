@@ -1,4 +1,4 @@
-import { isLocalPhotoUri } from '../localPhoto.web';
+import { isLocalPhotoUri, readLocalPhotoBlob } from '../localPhoto.web';
 
 const ORIGIN = 'http://localhost:8081';
 
@@ -17,4 +17,12 @@ it('web accepts only blob URLs this origin created', () => {
   expect(isLocalPhotoUri('data:image/png;base64,AAAA', ORIGIN)).toBe(false);
   expect(isLocalPhotoUri(`blob:${ORIGIN}/2f1c-uuid`, 'null')).toBe(false);
   expect(isLocalPhotoUri('file:///photo.jpg', ORIGIN)).toBe(false);
+});
+
+it('web reads bytes only from blob URLs this origin created', async () => {
+  const blob = new Blob([new Uint8Array(3)], { type: 'image/jpeg' });
+  const read = jest.fn(async () => new Response(blob));
+  await expect(readLocalPhotoBlob(`blob:${ORIGIN}/2f1c-uuid`, ORIGIN, read)).resolves.toBeTruthy();
+  await expect(readLocalPhotoBlob('https://example.com/photo.jpg', ORIGIN, read)).rejects.toThrow();
+  expect(read).toHaveBeenCalledTimes(1);
 });
