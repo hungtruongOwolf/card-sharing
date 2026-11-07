@@ -16,7 +16,7 @@ type EmailStartRequest = components['schemas']['EmailStartRequest'];
  * browser tab, which finds the verifier by that id (the store is the device's secure store: `localStorage` on the
  * web) and redeems the link with it. The record also carries the invite code and the link the user started from,
  * so the new tab can use the code and continue there. Records live for the link's 15 minutes (a stale one reports
- * "expired"), are deleted after use or a final refusal, and at most a handful are kept.
+ * "expired"), are deleted after use or a final refusal or after an hour, and at most a handful are kept.
  *
  * The server is the authority: it refuses another device's verifier, a used or expired link and a missing or wrong
  * invite code; this module only maps those answers to what the screens say.
@@ -224,10 +224,8 @@ export function createMagicLinkSignIn({
     if (!UUID.test(requestId)) return { status: 'missing' };
     const link = parseRecord(await store.getItem(magicLinkKey(requestId)).catch(() => null));
     if (!link) return { status: 'missing' };
-    if (now() - link.createdAt >= LINK_TTL_MS) {
-      await remove(requestId);
-      return { status: 'expired' };
-    }
+    // Kept (and still "expired" if the screen asks again); records older than an hour are dropped on the next start.
+    if (now() - link.createdAt >= LINK_TTL_MS) return { status: 'expired' };
     return { status: 'found', link };
   }
 

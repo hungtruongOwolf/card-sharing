@@ -133,8 +133,8 @@ describe('createMagicLinkSignIn', () => {
     const { requestId } = await magicLink.start('cat@example.com');
     server.advance(LINK_TTL_MS);
     expect(await magicLink.lookup(requestId)).toEqual({ status: 'expired' });
-    // The stale record is gone.
-    expect(await magicLink.lookup(requestId)).toEqual({ status: 'missing' });
+    // Asked again (the landing screen remounted), it is still expired, never "another browser".
+    expect(await magicLink.lookup(requestId)).toEqual({ status: 'expired' });
   });
 
   it('redeems with the kept verifier and forgets the record', async () => {
