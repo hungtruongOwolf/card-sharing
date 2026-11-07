@@ -379,3 +379,8 @@ The stacked phase-2 PRs landed through a rebase merge of #411 (CI green on its h
 sign-in with the `/auth/link` landing (#409), magic-link re-auth unblocking delete account / data export (#410),
 Google Sign-In on the web behind config (#411). [[ADR-0012-web-sign-up]] proposed, awaiting the EM. Open: real mail
 provider, an https origin for Google on the LAN, native Universal/App Links (T-49). See [[sprint-10]].
+
+## [2026-11-07] decision | ADR-0012 accepted; invite codes only; Postmark; https deferred
+EM accepted [[ADR-0012-web-sign-up]]; friend invite links do not grant sign-up; real email through Postmark (EM puts
+the token in the local `.env`); https deferred, so testers use email links and Google waits.
+Source: raw/discussions/2026-11-07-sprint-10-em-confirmations.md. See [[sprint-10]].

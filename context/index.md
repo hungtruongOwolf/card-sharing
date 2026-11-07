@@ -26,7 +26,7 @@ Tip: open `context/` as an Obsidian vault for graph/backlinks; run `python tools
 - [[ADR-0009-app-on-web]] — wiki/architecture/decisions/ADR-0009-app-on-web.md — the app also runs on the web at phone size until native builds (accepted)
 - [[ADR-0010-realtime-delivery]] — wiki/architecture/decisions/ADR-0010-realtime-delivery.md — card replies are cards; real-time cards/replies/reactions over SSE with ids only, fan-out by Postgres NOTIFY (accepted; build in sprint 10)
 - [[ADR-0011-invite-links-open-web-app]] — wiki/architecture/decisions/ADR-0011-invite-links-open-web-app.md — invite links open the Expo web app while testers use the web target; link bases from env (accepted, B4)
-- [[ADR-0012-web-sign-up]] — wiki/architecture/decisions/ADR-0012-web-sign-up.md — web sign-up: magic links land in the app (PKCE verifier by request id), invite-code gate, magic-link re-auth, Google web limits (proposed)
+- [[ADR-0012-web-sign-up]] — wiki/architecture/decisions/ADR-0012-web-sign-up.md — web sign-up: magic links land in the app (PKCE verifier by request id), invite-code gate, magic-link re-auth, Google web limits (accepted)
 - [[ADR-0008-hosting]] — wiki/architecture/decisions/ADR-0008-hosting.md — Supabase Postgres (locked-down Data API), Cloudflare R2/CDN, Fly.io, Upstash, Postmark (accepted)
 - [[ADR-0003-effects-tiers]] — wiki/architecture/decisions/ADR-0003-effects-tiers.md — effects tiers: shader engine / style packs / OS AI / cloud (accepted)
 - [[region-policy]] — wiki/architecture/region-policy.md — per-jurisdiction rules (age, consent, ads) as config (proposed)

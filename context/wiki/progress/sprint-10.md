@@ -13,6 +13,7 @@ react, reply, pin it to a board and share a board link — with **no console err
 suite in CI gates every merge that touches the loop.
 
 ## EM decisions (2026-11-07)
+- After phase 2: [[ADR-0012-web-sign-up]] accepted; invite codes only (friend links do not grant sign-up); Postmark for real email (EM sets the token locally); https deferred, so Google waits.
 - Sign-in on web: magic link email first, Google Sign-In second (Apple waits for the paid account).
 - Not hosted yet: testers use the dev PC on the home network; links must point at the LAN web origin, not localhost.
 - Invite-code gated sign-up for known testers; fake CSAM/nudity scanners stay until the test opens wider (risk accepted).
@@ -22,7 +23,7 @@ suite in CI gates every merge that touches the loop.
 |---|---|---|
 | 0. Browser E2E gate | Playwright suite in the repo (two users, full core loop, fails on console errors / HTTP 5xx), CI job against the docker stack + Expo web export ([[testing-strategy]] "Browser E2E") | done (#395); fixme specs enabled as bugs close |
 | 1. Bug fixes | See the bug list below | done in code (2026-11-07); B2 needs a real-browser check |
-| 2. Real sign-up | Magic-link verify (T-23) + email screen + web landing, invite-code gate, magic-link re-auth (unblocks delete account / data export), then Google web client ([[ADR-0012-web-sign-up]], proposed) | done in code (2026-11-07, landed through #411); real mail provider and https origin pending |
+| 2. Real sign-up | Magic-link verify (T-23) + email screen + web landing, invite-code gate, magic-link re-auth (unblocks delete account / data export), then Google web client ([[ADR-0012-web-sign-up]], accepted) | done in code (2026-11-07, landed through #411); real mail provider and https origin pending |
 | 3. Hosting | Deferred by the EM | — |
 | Later | Widget, web push (activity tab covers it), mask refine (US-8), moderation UI, real AI provider, real safety scanners | — |
 

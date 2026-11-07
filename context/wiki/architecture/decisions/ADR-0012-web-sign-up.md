@@ -1,14 +1,15 @@
 ---
 title: ADR-0012 Web sign-up — magic links land in the app, invite-code gate, magic-link re-auth
 type: decision
-status: proposed
+status: accepted
 updated: 2026-11-07
-sources: [raw/discussions/2026-11-07-web-mvp-direction.md]
+sources: [raw/discussions/2026-11-07-web-mvp-direction.md, raw/discussions/2026-11-07-sprint-10-em-confirmations.md]
 related: [[ADR-0004-auth-sessions]], [[ADR-0009-app-on-web]], [[ADR-0011-invite-links-open-web-app]], [[sprint-10]], [[api-mvp]], [[threat-model-mvp]], [[local-dev]]
 ---
 # ADR-0012: Web sign-up — magic links land in the app, invite-code gate, magic-link re-auth
 
-> Proposed with sprint 10 phase 2 (real sign-up on the web target). The EM decided the direction on 2026-11-07
+> **Accepted by the EM on 2026-11-07.** Friend invite links do not grant sign-up (codes only); email goes through
+> Postmark; Google on the LAN waits for an https origin. Written with sprint 10 phase 2 (real sign-up on the web target). The EM decided the direction on 2026-11-07
 > (magic link first, Google second, invite-code gated sign-up for known testers, no hosting yet); this page records
 > the technical choices that follow so they are not taken silently.
 
