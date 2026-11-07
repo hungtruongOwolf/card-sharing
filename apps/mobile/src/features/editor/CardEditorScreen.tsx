@@ -1,5 +1,5 @@
 import { Canvas, createPicture, Picture, Skia, type SkImage } from '@shopify/react-native-skia';
-import { useEffect, useMemo, useReducer, useState } from 'react';
+import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import {
   Image,
@@ -84,7 +84,7 @@ import {
 } from './editorState';
 import { planFinishModes } from './liveFinish';
 import { LiveFinishPreview } from './LiveFinishPreview';
-import type { MaskSource } from './maskSource';
+import type { CutoutProgress, MaskResult, MaskSource } from './maskSource';
 import { ParamControls } from './ParamControls';
 import {
   defaultCut,
@@ -176,7 +176,27 @@ export interface CardEditorScreenProps {
 type Loaded =
   | { status: 'loading' }
   | { status: 'error' }
-  | { status: 'ready'; image: SkImage; mask: Mask | null; native: NativeAnchors | null };
+  | {
+      status: 'ready';
+      image: SkImage;
+      mask: Mask | null;
+      native: NativeAnchors | null;
+      /** The cutout failed (not "no subject"): the editor says so and offers a retry. */
+      cutoutFailed: boolean;
+      /** No mask because the cutout failed or the user chose not to wait: a whole-photo card from the start. */
+      startWholePhoto: boolean;
+    };
+
+/** The mask outcome the editor starts with; `skipped` = "Use whole photo" while the cutout was still running. */
+type MaskOutcome = MaskResult | { readonly status: 'skipped' };
+
+/** What the loading screen says while a slow cutout works (web: model download, then inference). */
+function cutoutLabel(progress: CutoutProgress | null): string {
+  if (!progress) return t('editor.loading');
+  if (progress.stage === 'cutting') return t('editor.cutout.cutting');
+  if (progress.fraction === null) return t('editor.cutout.preparing');
+  return t('editor.cutout.downloading', { percent: Math.round(progress.fraction * 100) });
+}
 
 /**
  * Card editor (T-64, US-10/US-11): from a captured or imported photo to a styled card. Loads the photo and the
@@ -192,23 +212,44 @@ export function CardEditorScreen(props: CardEditorScreenProps) {
     onBack,
   } = props;
   const [loaded, setLoaded] = useState<Loaded>({ status: 'loading' });
+  /** Bumped by "Try again" after a failed cutout. */
+  const [attempt, setAttempt] = useState(0);
+  const [progress, setProgress] = useState<{ attempt: number; value: CutoutProgress } | null>(null);
+  /** Ends the wait for a slow cutout ("Use whole photo"); the cutout keeps running for later photos. */
+  const skipCutout = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    // A failed segmentation is not an error: the card falls back to the whole photo.
-    const mask = maskSource.maskFor(photo).catch(() => null);
+    // A failed segmentation is not an error: the card falls back to the whole photo (and, for a slow segmenter
+    // such as the web cutout, says so with a retry).
+    const result: Promise<MaskOutcome> = (
+      maskSource.cutout
+        ? maskSource.cutout(photo, (value) => {
+            if (!cancelled) setProgress({ attempt, value });
+          })
+        : maskSource
+            .maskFor(photo)
+            .then((mask): MaskResult => (mask ? { status: 'mask', mask } : { status: 'noSubject' }))
+    ).catch((): MaskOutcome => ({ status: 'noSubject' }));
+    const skipped = new Promise<MaskOutcome>((resolve) => {
+      skipCutout.current = () => resolve({ status: 'skipped' });
+    });
+    const mask = Promise.race([result, skipped]);
     // Landmarks and fonts are optional too: effects fall back to the mask heuristic and blank text.
     const native = anchorSource.anchorsFor(photo).catch(() => null);
     void Promise.all([loadImage(photo.uri), mask, native, loadFonts().catch(() => undefined)])
-      .then(([image, subjectMask, nativeAnchors]) => {
+      .then(([image, outcome, nativeAnchors]) => {
         if (cancelled) return;
+        const noMask = outcome.status === 'failed' || outcome.status === 'skipped';
         setLoaded(
           image
             ? {
                 status: 'ready',
                 image: downscalePhoto(image, PREVIEW_PHOTO_MAX_SIDE),
-                mask: subjectMask,
+                mask: outcome.status === 'mask' ? outcome.mask : null,
                 native: nativeAnchors,
+                cutoutFailed: outcome.status === 'failed',
+                startWholePhoto: noMask,
               }
             : { status: 'error' },
         );
@@ -218,13 +259,25 @@ export function CardEditorScreen(props: CardEditorScreenProps) {
       });
     return () => {
       cancelled = true;
+      skipCutout.current = null;
     };
-  }, [photo, maskSource, loadImage, anchorSource, loadFonts]);
+  }, [photo, maskSource, loadImage, anchorSource, loadFonts, attempt]);
 
   if (loaded.status === 'loading') {
+    const current = progress?.attempt === attempt ? progress.value : null;
     return (
       <Screen testID="editor-loading" centered>
-        <Text tone="muted">{t('editor.loading')}</Text>
+        <Text tone="muted" accessibilityLiveRegion="polite">
+          {cutoutLabel(current)}
+        </Text>
+        {current ? (
+          <Button
+            variant="secondary"
+            label={t('editor.cutout.skip')}
+            accessibilityHint={t('editor.cutout.skip.hint')}
+            onPress={() => skipCutout.current?.()}
+          />
+        ) : null}
       </Screen>
     );
   }
@@ -236,13 +289,36 @@ export function CardEditorScreen(props: CardEditorScreenProps) {
       </Screen>
     );
   }
-  return <Editor {...props} image={loaded.image} mask={loaded.mask} native={loaded.native} />;
+  return (
+    <Editor
+      {...props}
+      image={loaded.image}
+      mask={loaded.mask}
+      native={loaded.native}
+      startWholePhoto={loaded.startWholePhoto}
+      onRetryCutout={
+        loaded.cutoutFailed
+          ? () => {
+              setLoaded({ status: 'loading' });
+              setAttempt((n) => n + 1);
+            }
+          : undefined
+      }
+    />
+  );
 }
 
 interface EditorProps extends CardEditorScreenProps {
   image: SkImage;
   mask: Mask | null;
   native: NativeAnchors | null;
+  /**
+   * The card starts as a whole-photo card (the cutout failed or the user did not wait), so sending and exporting do
+   * not run the segmentation again. A re-edited draft keeps its own choice.
+   */
+  startWholePhoto?: boolean;
+  /** Set when the cutout failed: the editor says the card uses the whole photo and offers to try again. */
+  onRetryCutout?: () => void;
 }
 
 /** The selected entry of a tab, falling back to the default when the stored one is no longer listed. */
@@ -272,6 +348,8 @@ function Editor({
   onDraftChange,
   onNext,
   aiEffects,
+  startWholePhoto = false,
+  onRetryCutout,
 }: EditorProps) {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -285,8 +363,10 @@ function Editor({
     if (initialDraft) return { past: [], present: initialDraft, future: [], gestureBase: null };
     const tabs = pickerTabs(registry, deviceContext(appVersion, subject !== null), remoteConfig);
     const cut = defaultCut(tabs[0]?.entries ?? [], subject !== null);
-    return initialHistory(cut ?? registry.byKind('cutStyle')[0]!);
+    const start = initialHistory(cut ?? registry.byKind('cutStyle')[0]!);
+    return startWholePhoto ? { ...start, present: { ...start.present, wholePhoto: true } } : start;
   });
+  const [cutoutNotice, setCutoutNotice] = useState(onRetryCutout !== undefined);
   const [activeTool, setActiveTool] = useState<Tool['key']>('cut');
   const [trayOpen, setTrayOpen] = useState(true);
   const [guides, setGuides] = useState<SnapGuides>(NO_GUIDES);
@@ -610,6 +690,21 @@ function Editor({
           />
         ) : null}
       </View>
+      {cutoutNotice && onRetryCutout ? (
+        <View
+          testID="editor-cutout-failed"
+          style={[styles.notice, { backgroundColor: theme.color.bg.paper }]}
+          accessibilityLiveRegion="polite"
+        >
+          <Text style={styles.shrink}>{t('editor.cutout.failed')}</Text>
+          <Button variant="secondary" label={t('editor.cutout.retry')} onPress={onRetryCutout} />
+          <IconButton
+            icon="close"
+            accessibilityLabel={t('editor.cutout.dismiss')}
+            onPress={() => setCutoutNotice(false)}
+          />
+        </View>
+      ) : null}
       <View style={styles.stage}>
         <Squish style={styles.center} press={press} gestureTestId="editor-squish">
           <GestureDetector gesture={canvasGesture}>
@@ -904,6 +999,14 @@ const styles = StyleSheet.create({
     paddingBottom: space[2],
   },
   title: { flex: 1 },
+  notice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[2],
+    marginHorizontal: space[3],
+    padding: space[3],
+    borderRadius: radius.md,
+  },
   stage: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   center: { alignSelf: 'center' },
   preview: {

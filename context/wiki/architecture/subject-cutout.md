@@ -39,13 +39,27 @@ by **transformers.js 4.3.1** (Apache-2.0) in a module Web Worker (`features/edit
   web bundle cannot bundle the library (it relies on `import.meta.url` and its own WASM/worker files). ONNX Runtime WASM
   comes from jsDelivr, the model (fp16 ~115 MB, fp32 ~224 MB) from the Hugging Face Hub; both are cached by the browser
   afterwards. The photo never leaves the browser.
-- Backend: WebGPU (fp16 when the adapter has `shader-f16`, else fp32), otherwise WASM (fp16, then fp32). On the dev PC's
-  integrated GPU the model loaded on WebGPU but inference failed in an ONNX Runtime WebGPU shader
+- Backend: WebGPU (fp16 when the adapter has `shader-f16`, else fp32), otherwise WASM with the **fp32** weights only
+  (sprint 10 B2: ONNX Runtime's browser CPU kernels have no fp16 path, so the fp16 model ran through inserted casts that
+  keep fp32 copies next to the fp16 weights, and the run died with `std::bad_alloc` in the 32-bit WASM heap after ~46 s).
+  The export's input is static `1 x 3 x 1024 x 1024` (checked in the ONNX graph), so a smaller input resolution is not
+  possible with this model; ONNX Runtime Web already defaults the CPU memory arena and memory pattern to off. On the dev
+  PC's integrated GPU the model loaded on WebGPU but inference failed in an ONNX Runtime WebGPU shader
   (`ShaderHelper::AddVariable`), so a WebGPU run failure switches the worker to WASM for good and retries once.
 - Output: the sigmoid matte resized to the photo's aspect ratio at 512 px on the long side; fewer than 0.5 % subject
-  pixels counts as "no subject" (`null`, whole-photo card). Every failure is `null`. One photo waits at most 45 s, so a
-  slow first download makes that photo a whole-photo card while the model keeps loading for the next. Results are cached
-  per photo URI (4 entries) so editor, export and send reuse one segmentation.
+  pixels counts as "no subject" (a verdict, cached). Results are cached per photo URI (4 entries) so editor, export and
+  send reuse one segmentation; a failure is not cached, so a retry runs again.
+- Time budgets (sprint 10 B2): the worker posts `download` progress (transformers.js `progress_callback`, at most once
+  per percent) and `cutting` when a photo's inference starts. Loading fails only after **90 s of silence** (a slow but
+  moving download never times out); inference has its own **120 s** budget. A time-out or an error reply terminates the
+  worker, freeing its WASM heap (which never shrinks and is spent after `std::bad_alloc`); the next try starts a fresh
+  worker and the browser serves the model from its cache.
+- Honest UI (`MaskSource.cutout`, `CutoutProgress`, `MaskResult`): while the cutout works the editor's loading screen
+  says "Downloading the cutout model… N%", "Getting the cutout ready…" or "Cutting out your subject…" and offers
+  **Use whole photo** (the instant fallback; the cutout keeps running for later photos). A failed cutout opens the editor
+  as a whole-photo card with a notice ("Couldn't cut out the subject, so this card uses the whole photo.") and
+  **Try again**. Cards started without a mask are marked `wholePhoto`, so send and export do not run the segmentation
+  again.
 - Verified so far (2026-11-07, desktop Chrome, standalone page running the same worker source): the SRI-pinned
   library import, model download and WebGPU load work; WebGPU inference failed as above. The WASM fallback, timings and
   the in-app flow are not measured yet (the web build was not installed on the dev PC when this landed).

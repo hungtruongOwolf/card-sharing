@@ -13,7 +13,26 @@ export interface MaskSource {
    * (prd-mvp AC-7.4). The editor then offers only styles that work without a mask (EM 2026-11-05).
    */
   maskFor(photo: CapturedPhoto): Promise<Mask | null>;
+  /**
+   * The same segmentation (shared work and cache) for slow segmenters such as the web cutout, which downloads its
+   * model on first use: reports progress while it works and tells a failure (worth a retry) from a photo without a
+   * subject. Sources without it answer `maskFor` quickly.
+   */
+  cutout?(
+    photo: CapturedPhoto,
+    onProgress?: (progress: CutoutProgress) => void,
+  ): Promise<MaskResult>;
 }
+
+/** Where a slow segmentation is: downloading its model (fraction 0..1 when known), or cutting this photo out. */
+export type CutoutProgress =
+  { readonly stage: 'download'; readonly fraction: number | null } | { readonly stage: 'cutting' };
+
+/** A segmentation's answer: a mask, a photo without a subject (a verdict), or a failure (time-out, crash, memory). */
+export type MaskResult =
+  | { readonly status: 'mask'; readonly mask: Mask }
+  | { readonly status: 'noSubject' }
+  | { readonly status: 'failed' };
 
 /** Devices without on-device cutout: every card is a whole-photo card. */
 export const noMaskSource: MaskSource = { maskFor: () => Promise.resolve(null) };

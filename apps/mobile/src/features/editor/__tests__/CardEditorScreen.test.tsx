@@ -15,7 +15,15 @@ import type { AiOverview } from '../../ai-effects/aiEffectsApi';
 import type { AiEffectsController } from '../../ai-effects/useAiEffects';
 import type { CapturedPhoto } from '../../capture';
 import { CardEditorScreen, type CardEditorScreenProps } from '../CardEditorScreen';
-import { createSyntheticMaskSource, noMaskSource } from '../maskSource';
+import {
+  createSyntheticMaskSource,
+  maskSizeFor,
+  noMaskSource,
+  syntheticMask,
+  type CutoutProgress,
+  type MaskResult,
+  type MaskSource,
+} from '../maskSource';
 import { sliderValue } from '../ParamControls';
 
 jest.mock('@shopify/react-native-skia', () =>
@@ -641,6 +649,86 @@ describe('CardEditorScreen', () => {
     await renderEditor({ maskSource: { maskFor: () => Promise.reject(new Error('boom')) } });
     expect(screen.getByText(t('editor.noSubject'))).toBeTruthy();
   });
+
+  it(
+    'shows a slow cutout working and lets the user start with the whole photo (B2)',
+    async () => {
+      let report: (progress: CutoutProgress) => void = () => undefined;
+      const slow: MaskSource = {
+        maskFor: () => new Promise(() => undefined),
+        cutout: (_photo, onProgress) => {
+          report = onProgress ?? report;
+          return new Promise<MaskResult>(() => undefined);
+        },
+      };
+      const onNext = jest.fn();
+      await renderThemed(
+        <CardEditorScreen
+          photo={photo}
+          maskSource={slow}
+          appVersion="0.1.0"
+          loadImage={loadImage}
+          onBack={jest.fn()}
+          onNext={onNext}
+        />,
+        { gestureRoot: true },
+      );
+      expect(screen.getByText(t('editor.loading'))).toBeTruthy();
+      await act(async () => report({ stage: 'download', fraction: 0.42 }));
+      expect(screen.getByText(t('editor.cutout.downloading', { percent: 42 }))).toBeTruthy();
+      await act(async () => report({ stage: 'cutting' }));
+      expect(screen.getByText(t('editor.cutout.cutting'))).toBeTruthy();
+
+      const user = userEvent.setup();
+      await user.press(screen.getByRole('button', { name: t('editor.cutout.skip') }));
+      await screen.findByTestId('editor');
+      expect(screen.getByText(t('editor.noSubject'))).toBeTruthy();
+      expect(screen.queryByTestId('editor-cutout-failed')).toBeNull();
+      await user.press(screen.getByRole('button', { name: t('editor.next') }));
+      // Sending must not wait for the cutout the user chose not to wait for.
+      expect(onNext).toHaveBeenCalledWith(expect.objectContaining({ wholePhoto: true }));
+    },
+    RENDER_TIMEOUT_MS,
+  );
+
+  it(
+    'says when the cutout failed and tries it again (B2)',
+    async () => {
+      const { width, height } = maskSizeFor(photo);
+      const results: MaskResult[] = [
+        { status: 'failed' },
+        { status: 'mask', mask: syntheticMask(width, height) },
+      ];
+      const cutout = jest.fn(async () => results.shift() ?? { status: 'failed' as const });
+      const flaky: MaskSource = { maskFor: async () => null, cutout };
+      await renderEditor({ maskSource: flaky });
+      expect(screen.getByTestId('editor-cutout-failed')).toBeTruthy();
+      expect(screen.getByText(t('editor.cutout.failed'))).toBeTruthy();
+      expect(screen.getByText(t('editor.noSubject'))).toBeTruthy();
+
+      await userEvent.setup().press(screen.getByRole('button', { name: t('editor.cutout.retry') }));
+      await waitFor(() => expect(selected('effects.cut.diecut.name')).toBe(true));
+      expect(cutout).toHaveBeenCalledTimes(2);
+      expect(screen.queryByTestId('editor-cutout-failed')).toBeNull();
+    },
+    RENDER_TIMEOUT_MS,
+  );
+
+  it(
+    'lets the user dismiss the failed-cutout notice',
+    async () => {
+      const failing: MaskSource = {
+        maskFor: async () => null,
+        cutout: async () => ({ status: 'failed' }),
+      };
+      await renderEditor({ maskSource: failing });
+      await userEvent
+        .setup()
+        .press(screen.getByRole('button', { name: t('editor.cutout.dismiss') }));
+      expect(screen.queryByTestId('editor-cutout-failed')).toBeNull();
+    },
+    RENDER_TIMEOUT_MS,
+  );
 
   it('shows an error with a way back when the photo cannot be decoded', async () => {
     const onBack = jest.fn();
