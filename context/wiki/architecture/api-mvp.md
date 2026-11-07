@@ -982,8 +982,9 @@ on `code`); `requestId` equals the `X-Request-Id` response header. Generic codes
   Mobile outbox (T-78, #80, `apps/mobile/src/features/outbox`): a send or reaction that fails for a retryable reason
   (network, 5xx, 409, 429) is queued with its exact request: a send keeps its `SendJob` (key = `client_card_id`, fixed
   body, media ids once uploaded, so a retry neither re-uploads nor changes the body), a reaction keeps the newest value
-  per card. Attempts run on app start, on return to the foreground and when the backoff is due (5 s doubling to 15 min);
-  no connectivity listener yet (#265). A refusal, or 24 h of failures, stops the entry as "Not sent" with Retry/Delete;
+  per card. Attempts run on app start, on return to the foreground, when the backoff is due (5 s doubling to 15 min)
+  and on reconnect (#265: `@react-native-community/netinfo`, offline → online transitions only, `processNow()` runs
+  every pending entry at once, ignoring its backoff; failed entries stay failed). A refusal, or 24 h of failures, stops the entry as "Not sent" with Retry/Delete;
   pending entries can be cancelled (Home shows "N waiting to send", `/outbox`). Entries live in SecureStore (one value
   each, at most 50; SQLite waits for #244) and are cleared on sign-out so they never go out as another account.
   Implemented (T-14, `platform::idempotency` + `apps/api/src/access/idempotency.rs`): a route opts in with

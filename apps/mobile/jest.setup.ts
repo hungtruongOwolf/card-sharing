@@ -24,3 +24,8 @@ jest.mock('expo-font', () => {
     }),
   };
 });
+
+// NetInfo's native module is absent in Jest; the package ships this mock (online by default).
+jest.mock('@react-native-community/netinfo', () =>
+  require('@react-native-community/netinfo/jest/netinfo-mock'),
+);
