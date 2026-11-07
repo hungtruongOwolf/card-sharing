@@ -309,7 +309,7 @@ Multi-instance: all subjects outlined, tap to toggle (union = one sticker) per [
 ### 5.3 Board manipulation (Gesture Handler simultaneous Pan + Pinch + Rotation, UI-thread shared values)
 | Gesture | Behaviour |
 |---|---|
-| Long-press 250 ms or drag on item | Pick up: `spring.lift` to scale 1.04 + `elev.3`, bring to front |
+| Long-press 250 ms or drag on item | Pick up: `spring.lift` to scale 1.06 (v2, was 1.04) + `elev.3`, bring to front |
 | Pan | Follows finger 1:1; edge auto-scroll; commit to CRDT on end + throttled ~15 Hz mid-drag ([[ADR-0002-cross-platform-stack]]) |
 | Pinch | Scale 0.3×–4× around focal point; min on-screen size 44 pt |
 | Rotate | Free; magnetic detents at 0/±90/180° within ±4° (haptic tick) |
@@ -319,6 +319,12 @@ Multi-instance: all subjects outlined, tap to toggle (union = one sticker) per [
 | Drag to trash zone | Trash lid opens, item shrinks + crumple, undo toast |
 
 Implemented (T-104, `apps/mobile/src/features/boards/BoardCanvas.tsx`): in edit mode a drag, pinch or twist that starts on a pin hit-tests on the UI thread (topmost rotated frame), lifts it (`spring.lift` 1.04, reduced motion = 200 ms timing), brings it to front (one `z_key` write) and moves / scales (0.3x-4x) / rotates it on the UI thread; on release the rotation snaps to the 0/±90/180° detents within ±4° and one `pin.update` op commits. Started on the empty board the same gestures pan and zoom the camera. Tap selects (dashed `color.focus.ring` outline), tap on the empty board deselects, double-tap on the empty board zooms to fit. The selected pin is drawn outside the cached pictures so dragging repaints only it. Remove is a toolbar button with an undo toast (no trash zone yet), and every pin in the accessibility layer offers move up/down/left/right, rotate left/right, bigger/smaller, bring to front, send to back and remove as actions. Not yet: haptic ticks on detents, edge auto-scroll, mid-drag commits (async boards commit on release), double-tap to edit.
+
+Resting shadows (sprint 9): every card pin with a loaded texture casts a card-shaped shadow (`drawPinShadow` in
+`apps/mobile/src/features/boards/drawBoard.ts`): its own alpha tinted black, a contact layer (2 units down, 22%) and an
+ambient layer (7 units down, 10%), offset in board space so the light stays above whatever the pin's rotation. No blur,
+so a 150-pin board replays cheaply while panning; the held pin keeps the deeper blurred paper-lift shadow. Placeholders,
+private tiles and decorations cast none.
 
 Backdrops and decorations (T-111): the board toolbar's Backdrop sheet (radio list, current one selected) and Decorate sheet list the registry `backdrop` / `decoration` entries ([[effects-catalog]]). The backdrop is drawn over the board area only (the desk shows beyond it), aligned to the board origin; pattern marks stop above 160 per axis when zoomed far out. Decorations are ordinary pins (move, scale, rotate, layer, remove, accessibility actions) labelled "Decoration: <name>".
 

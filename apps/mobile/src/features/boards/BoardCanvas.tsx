@@ -72,8 +72,8 @@ import type { TextureCache } from './textureCache';
 // Compiled once per process; null means the SkSL failed to compile (live pins then show their baked image only).
 const holoEffect = Skia.RuntimeEffect.Make(HOLO_SKSL);
 
-/** Pick-up lift (design-system.md §5.3: `spring.lift` to 1.04). */
-const LIFT_SCALE = 1.04;
+/** Pick-up lift (design-system.md §5.3: `spring.lift`; v2 lifts a little higher so the pick-up reads). */
+const LIFT_SCALE = 1.06;
 /** Paper-lift height of a picked-up card (the registry maximum): its shadow deepens while held (T-118). */
 const PICKED_UP_LIFT = 3;
 
