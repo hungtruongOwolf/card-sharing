@@ -4,7 +4,7 @@ type: decision
 status: accepted
 updated: 2026-11-06
 sources: [raw/discussions/2026-11-04-infra-qa.md, raw/discussions/2026-11-04-security-qa.md]
-related: [[overview]], [[data-model]], [[api-mvp]], [[prd-mvp]], [[ADR-0002-cross-platform-stack]], [[glossary]], [[threat-model-mvp]]
+related: [[overview]], [[data-model]], [[api-mvp]], [[prd-mvp]], [[ADR-0002-cross-platform-stack]], [[glossary]], [[threat-model-mvp]], [[ADR-0010-realtime-delivery]]
 ---
 # ADR-0007: Board sync model — async per-pin ops now, Yjs-ready
 
