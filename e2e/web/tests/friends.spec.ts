@@ -21,9 +21,7 @@ test('a friend is found by handle and the invite link is shown', async ({ app })
   await expect(page.getByTestId('qr-code')).toBeVisible();
 });
 
-test.fixme('R1: an invite link opens the invite in the web app for another user', async ({
-  app,
-}) => {
+test('R1: an invite link opens the invite in the web app for another user', async ({ app }) => {
   const alice = await app.signIn('alice');
   await alice.page.getByRole('button', { name: 'Friends', exact: true }).click();
   await alice.page.getByRole('button', { name: 'Invite friends', exact: true }).click();
@@ -31,7 +29,7 @@ test.fixme('R1: an invite link opens the invite in the web app for another user'
   const token = /\/i\/([A-Za-z0-9_-]+)$/.exec(url)?.[1];
   expect(token, url).toBeTruthy();
 
-  // The app's own /i/<token> route (B4 points invite links at the web app); R1 lands it on home instead.
+  // The app's own /i/<token> route (B4 points invite links at the web app); R1 used to land it on home.
   const bob = await app.signIn('bob');
   await bob.page.goto(`/i/${token}`);
   await expect(bob.page.getByTestId('invite-preview')).toBeVisible();

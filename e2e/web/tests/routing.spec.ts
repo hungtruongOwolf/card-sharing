@@ -1,7 +1,7 @@
 import { expect, test } from '../support/app';
 import { feedCard } from '../support/flows';
 
-test.fixme('R1: a deep link and a reload keep the screen', async ({ app }) => {
+test('R1: a deep link and a reload keep the screen', async ({ app }) => {
   const { page } = await app.signIn('alice');
 
   await page.goto('/boards');
@@ -15,7 +15,7 @@ test.fixme('R1: a deep link and a reload keep the screen', async ({ app }) => {
   await expect(page.getByTestId('privacy')).toBeVisible();
 });
 
-test.fixme('R1: a card link opens the card after a reload', async ({ app }) => {
+test('R1: a card link opens the card after a reload', async ({ app }) => {
   const { page } = await app.signIn('alice');
   await feedCard(page, 'Nap time')
     .getByTestId(/^feed-open-/)
