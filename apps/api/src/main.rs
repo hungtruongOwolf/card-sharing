@@ -132,12 +132,14 @@ fn build_state(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<AppState> 
         rules: ProfileRules::from_path(&config.profile_config_path)
             .context("failed to load profile config")?,
     };
-    let social = social::SocialSettings::from_path(&config.social_config_path)
+    let mut social = social::SocialSettings::from_path(&config.social_config_path)
         .context("failed to load social config")?;
     let board_settings = boards::BoardSettings::from_path(&config.boards_config_path)
         .context("failed to load boards config")?;
-    let sharing_settings = sharing::SharingSettings::from_path(&config.sharing_config_path)
+    let mut sharing_settings = sharing::SharingSettings::from_path(&config.sharing_config_path)
         .context("failed to load sharing config")?;
+    // B4: link bases are per deployment, so API_INVITE_URL_BASE / API_PUBLIC_LINK_URL_BASE win.
+    config.link_bases.apply(&mut social, &mut sharing_settings);
     let privacy_settings = privacy::PrivacySettings::from_path(&config.privacy_config_path)
         .context("failed to load privacy config")?;
     let moderation_settings =

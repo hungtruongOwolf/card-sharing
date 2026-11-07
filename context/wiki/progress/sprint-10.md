@@ -33,7 +33,7 @@ suite in CI gates every merge that touches the loop.
 | R1 | blocker | URL routing lands on home (phase `loading` unmounts the Stack; `cameraHandled` not persisted) — breaks deep links, refresh, back, `/i/<token>`, `/card/<id>` | `apps/mobile/src/app/_layout.tsx`, `features/onboarding/phase.ts`, `OnboardingProvider.tsx` |
 | B2 | major | Web cutout OOM (`std::bad_alloc`) on WASM, silent whole-photo fallback, 45 s timeout | `features/editor/web/cutoutWorker.ts`, `birefnetMaskSource.ts` |
 | B3 | major | Public board link: 201 from the API, sheet says "Couldn't update links" | features/boards public-links client |
-| B4 | major | Invite and board links point at `http://localhost:3000` | API public web base URL config |
+| B4 | major | Invite and board links point at `http://localhost:3000` | API public web base URL config; fix: `API_INVITE_URL_BASE` / `API_PUBLIC_LINK_URL_BASE`, invites open the web app (proposed [[ADR-0011-invite-links-open-web-app]], needs lead/EM confirmation) |
 | B5 | major | Two tabs of one user revoke the session family (refresh token reuse) — no cross-tab refresh coordination | `features/auth/authClient.ts`, `platform/secureStore.web.ts` |
 | B6 | minor | Live event refetch races the activity write (activity row written later by the outbox consumer) | `crates/cards/src/reactions.rs`, `crates/notifications/src/activity.rs` |
 | B7 | minor | `me.notification_preferences` 30/h hit by ordinary web reloads; retries on 429 | `config/limits.yaml`, `features/notifications/TimeZoneSync.tsx` |

@@ -5,7 +5,8 @@ version: 1
 
 invites:
   # Personal invite links are `<url_base><token>`. Local web by default; deployments point it at the
-  # share domain (the web landing page /i/<token>, T-48).
+  # share domain (the web landing page /i/<token>, T-48). API_INVITE_URL_BASE overrides it per
+  # deployment (B4; .env.example points local development at the Expo web app, proposed ADR-0011).
   url_base: 'http://localhost:3000/i/'
 
 friends:

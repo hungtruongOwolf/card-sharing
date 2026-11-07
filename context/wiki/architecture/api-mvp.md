@@ -234,7 +234,7 @@ configured (neither `API_S3_ENDPOINT` nor `API_MEDIA_STORAGE_DIR` set) → 503 `
 | GET / DELETE | /v1/blocks, /v1/blocks/{userId} | List / unblock | ses | user | blocker = caller | 30/h u | yes | US-26 |
 
 Implemented (T-37, `crates/social`, tag `social`): `GET /v1/me/invite` (limit `invites.read`) and `POST /v1/me/invite/reset`
-(`invites.reset`, 5/day) → 200 `{url}` = `invites.url_base` from `config/social.yaml` + a 128-bit token (22 base64url chars).
+(`invites.reset`, 5/day) → 200 `{url}` = `invites.url_base` from `config/social.yaml` (overridden by `API_INVITE_URL_BASE`, B4) + a 128-bit token (22 base64url chars).
 Both act on the caller's own invite only (no id in path or body). GET returns the same link until a reset; a reset revokes
 the live invite (its token then resolves as `INVITE_EXPIRED`) and issues a new one.
 Minor invites (T-38, AC-4.4): when the owner is a minor the invite also carries `expires_at` (issue time + region policy
@@ -475,7 +475,7 @@ app re-syncs with `GET /v1/boards/{id}?since_version=` on that push and on open 
 
 Implemented (T-129, #131): `routes/public_links.rs` → `crates/sharing` (`SharingService`, schema `sharing`). Create needs
 `Idempotency-Key` and `{expires_in: "24h"|"7d"|"never"}` (anything else 400); answers 201 `{link: {id, board_id, created_at,
-expires_at|null, url}}` where `url` = `config/sharing.yaml` `links.url_base` + a 22-character base64url token (16 random bytes).
+expires_at|null, url}}` where `url` = `config/sharing.yaml` `links.url_base` (overridden by `API_PUBLIC_LINK_URL_BASE`, B4) + a 22-character base64url token (16 random bytes).
 Only the token's SHA-256 is stored, so the URL is never shown again (lost URL = revoke and create). List answers `{items:
 [{id, board_id, created_at, expires_at}]}`, live links only (not revoked, not expired), newest first, never a token or URL.
 A board the caller does not own (collaborators and strangers included), a deleted board and another owner's link id are the
