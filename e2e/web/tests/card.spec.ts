@@ -50,14 +50,14 @@ test.fixme('B1: a styled card from an imported photo reaches a friend live', asy
   await expect(arrived.getByTestId(/^feed-image-/)).toBeVisible();
 });
 
-test.fixme('E1: the owner can export their card as an image on the web', async ({ app }) => {
+test('E1: the owner can export their card as an image on the web', async ({ app }) => {
   const { page } = await app.signIn('alice');
   // Alice's own seeded card.
   await feedCard(page, 'Breakfast thief')
     .getByTestId(/^feed-open-/)
     .click();
   await expect(page.getByTestId('card-viewer-card')).toBeVisible();
-  // E1: `canShareImages()` is true on iOS only, so the web viewer has no export button.
+  // E1: `canShareImages()` used to be true on iOS only, so the web viewer had no export button.
   await page.getByRole('button', { name: 'Export image', exact: true }).click();
   // How the web hands the PNG over (download or Web Share) is the fix's choice; it must not fail.
   await page.waitForTimeout(3_000);
