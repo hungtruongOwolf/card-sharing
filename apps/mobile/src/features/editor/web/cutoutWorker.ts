@@ -5,6 +5,13 @@ import type { CutoutWorker } from './cutoutProtocol';
  * WebGPU when the browser has it (fp16 when the GPU supports it), otherwise WASM; a GPU that loads the model but
  * cannot run it (seen on an integrated GPU: an ONNX Runtime WebGPU shader limit) switches the worker to WASM.
  *
+ * WASM runs the fp32 weights only (sprint 10 B2): ONNX Runtime's CPU kernels have no fp16 path in the browser, so an
+ * fp16 model runs through inserted casts that keep fp32 copies next to the fp16 weights, and the 1024 x 1024 run hit
+ * `std::bad_alloc` in the 32-bit WASM heap. The model's input is fixed at 1 x 3 x 1024 x 1024 (static dims in the
+ * ONNX graph), so a smaller input resolution is not an option with this export. Progress is posted while the model
+ * downloads (`download`) and when a photo's inference starts (`cutting`), so the app can tell a slow download from a
+ * stuck run.
+ *
  * Why the library is not bundled: transformers.js and ONNX Runtime Web rely on `import.meta.url`, dynamic imports and
  * their own WASM/worker files, which Metro's classic-script web bundle does not support. The worker instead loads the
  * self-contained ES module build from jsDelivr, pinned to an exact version AND to its SHA-384 (fetched with
@@ -37,6 +44,25 @@ let loading = null;
 // Set when WebGPU loaded the model but could not run it (some GPUs lack the shader limits it needs).
 let wasmOnly = false;
 
+// Download progress for every waiting request, at most once per percent (or once a second without a size).
+let lastFraction = null;
+let sawTotal = false;
+let lastPercent = -2;
+let lastPostedAt = 0;
+function onDownload(event) {
+  if (!event || typeof event !== 'object') return;
+  if (event.status === 'progress_total') sawTotal = true;
+  const counts = event.status === 'progress_total'
+    || (!sawTotal && event.status === 'progress' && String(event.file).endsWith('.onnx'));
+  if (counts && event.total > 0) lastFraction = Math.min(1, Math.max(0, event.loaded / event.total));
+  const percent = lastFraction === null ? -1 : Math.floor(lastFraction * 100);
+  const now = Date.now();
+  if (percent === lastPercent && now - lastPostedAt < 1000) return;
+  lastPercent = percent;
+  lastPostedAt = now;
+  self.postMessage({ type: 'progress', stage: 'download', fraction: lastFraction });
+}
+
 async function importLibrary() {
   const response = await fetch(LIBRARY_URL, { integrity: LIBRARY_INTEGRITY, mode: 'cors', credentials: 'omit' });
   if (!response.ok) throw new Error('transformers.js unavailable: ' + response.status);
@@ -56,7 +82,8 @@ async function backend() {
       }
     } catch {}
   }
-  return { device: 'wasm', dtypes: ['fp16', 'fp32'] };
+  // fp32 only: fp16 on the WASM CPU kernels runs through casts and needs more memory, not less.
+  return { device: 'wasm', dtypes: ['fp32'] };
 }
 
 async function load() {
@@ -66,7 +93,7 @@ async function load() {
   let lastError = null;
   for (const dtype of dtypes) {
     try {
-      const model = await lib.AutoModel.from_pretrained(MODEL_ID, { device, dtype });
+      const model = await lib.AutoModel.from_pretrained(MODEL_ID, { device, dtype, progress_callback: onDownload });
       const processor = await lib.AutoProcessor.from_pretrained(MODEL_ID);
       return { lib, model, processor, device };
     } catch (error) {
@@ -81,17 +108,18 @@ function session() {
   return loading;
 }
 
-async function matteOf(image, width, height) {
+async function matteOf(id, image, width, height) {
   const { lib, model, processor } = await session();
+  self.postMessage({ type: 'progress', id, stage: 'cutting' });
   const photo = await lib.RawImage.fromBlob(image);
   const { pixel_values } = await processor(photo);
   const { output_image } = await model({ input_image: pixel_values });
   return lib.RawImage.fromTensor(output_image[0].sigmoid().mul(255).to('uint8')).resize(width, height);
 }
 
-async function segment(image, width, height) {
+async function segment(id, image, width, height) {
   try {
-    return await matteOf(image, width, height);
+    return await matteOf(id, image, width, height);
   } catch (error) {
     const current = await loading?.catch(() => null);
     if (!current || current.device !== 'webgpu') throw error;
@@ -99,7 +127,7 @@ async function segment(image, width, height) {
     wasmOnly = true;
     loading = null;
     try { await current.model.dispose(); } catch {}
-    return matteOf(image, width, height);
+    return matteOf(id, image, width, height);
   }
 }
 
@@ -108,7 +136,7 @@ self.addEventListener('message', async (event) => {
   if (!request || request.type !== 'segment') return;
   const { id, image, width, height } = request;
   try {
-    const matte = await segment(image, width, height);
+    const matte = await segment(id, image, width, height);
     const channels = matte.channels;
     const data = new Uint8Array(width * height);
     for (let i = 0; i < data.length; i++) data[i] = matte.data[i * channels];

@@ -23,3 +23,18 @@ it('is syntactically valid JavaScript', () => {
   // Parses without running: the function is never called.
   expect(() => new Function(CUTOUT_WORKER_SOURCE)).not.toThrow();
 });
+
+it('runs fp32 on WASM (fp16 runs through casts there and ran out of memory, B2)', () => {
+  expect(CUTOUT_WORKER_SOURCE).toContain("return { device: 'wasm', dtypes: ['fp32'] };");
+  expect(CUTOUT_WORKER_SOURCE).not.toMatch(/device: 'wasm', dtypes: \[[^\]]*fp16/);
+});
+
+it('posts download progress and the start of each inference', () => {
+  expect(CUTOUT_WORKER_SOURCE).toContain('progress_callback: onDownload');
+  expect(CUTOUT_WORKER_SOURCE).toContain(
+    "self.postMessage({ type: 'progress', stage: 'download', fraction: lastFraction });",
+  );
+  expect(CUTOUT_WORKER_SOURCE).toContain(
+    "self.postMessage({ type: 'progress', id, stage: 'cutting' });",
+  );
+});
