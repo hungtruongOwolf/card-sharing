@@ -1932,6 +1932,15 @@ export interface components {
              *     it is clean, then send it like any card render). `null` until succeeded.
              */
             output_media_id?: string | null;
+            /**
+             * @description Preview of the generated image for the job's owner only: a signed URL (same signing and
+             *     short TTL as card media, charged to the URL budget) of its `feed_1080` rendition. Absent
+             *     until the job succeeded and the output passed the content gates; refetch the job after
+             *     `output_url_expires_at`.
+             */
+            output_url?: string | null;
+            /** Format: date-time */
+            output_url_expires_at?: string | null;
             /** @description The reserved credits came back (refused or failed). */
             refunded: boolean;
             /** @description `queued`, `succeeded`, `refused` or `failed`. */
@@ -4132,8 +4141,17 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description RATE_LIMITED. */
+            /** @description RATE_LIMITED (requests or the signed-URL budget). */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description TEMPORARILY_UNAVAILABLE: media signing not configured (only once the output is ready). */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

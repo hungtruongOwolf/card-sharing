@@ -599,7 +599,7 @@ Kill switches are not enforced server-side yet.
 | PUT | /v1/ai-effects/consent | `{version}` = current consent text → 204 (older version 400) | ses | user | self | `ai.consent` 20/h u | yes | genai |
 | DELETE | /v1/ai-effects/consent | Withdraw consent → 204 | ses | user | self | `ai.consent` | yes | genai |
 | POST | /v1/ai-effects/jobs | `{client_job_id, template_id, template_version, input_media_id}` → 202 `{job}`; reserves credits | ses | user | input = caller's clean `card_render`/`original` (else 404); region/age policy (403 `POLICY_DISALLOWED`), consent (403 `CONSENT_REQUIRED`), credits (402 `INSUFFICIENT_CREDITS`), no provider (503) | `ai.jobs.create` 20/h + 60/day u | required (= `client_job_id`) | genai |
-| GET | /v1/ai-effects/jobs/{id} | `{job: {id, status, outcome, cost, refunded, output_media_id, ai_generated, c2pa_recorded, ...}}` | ses | user | owner only; anyone else the same 404 as a missing id | `ai.read` | yes | genai |
+| GET | /v1/ai-effects/jobs/{id} | `{job: {id, status, outcome, cost, refunded, output_media_id, output_url?, output_url_expires_at?, ai_generated, c2pa_recorded, ...}}` (`output_url`: owner-only signed `feed_1080` preview, charged to the URL budget, present only once the output is clean) | ses | user | owner only; anyone else the same 404 as a missing id | `ai.read` | yes | genai |
 
 Details and the pipeline: [[genai-effects]] "Implementation on a fake provider". Tests: `tests/api/ai_effects.rs`, authz
 matrix rows.

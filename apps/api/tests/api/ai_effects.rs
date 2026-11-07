@@ -421,17 +421,30 @@ async fn a_card_sent_with_an_ai_output_carries_the_badge_for_every_viewer() {
         .await
         .unwrap();
     assert_eq!(outcome, RunOutcome::Succeeded);
-    let output = Uuid::parse_str(
-        job(&env, &sender, id).await["output_media_id"]
-            .as_str()
-            .unwrap(),
-    )
-    .unwrap();
+    let view = job(&env, &sender, id).await;
+    // No preview while the output waits for the content gates.
+    assert!(view.get("output_url").is_none(), "{view}");
+    let output = Uuid::parse_str(view["output_media_id"].as_str().unwrap()).unwrap();
     env.state
         .media
         .process_one(output, &fake_gates())
         .await
         .unwrap();
+    // Clean: the owner gets a signed preview bound to them.
+    let view = job(&env, &sender, id).await;
+    let url = view["output_url"].as_str().unwrap();
+    assert!(url.contains(&format!("v={}", sender.id.simple())), "{url}");
+    assert!(view["output_url_expires_at"].is_string());
+    // Anyone else: the missing-job 404, so no URL.
+    let response = call(
+        &env,
+        "GET",
+        &format!("/v1/ai-effects/jobs/{id}"),
+        &friend,
+        None,
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
 
     // The client cannot claim (or deny) the badge: the field is not part of the body.
     let mut forged = crate::cards_send::card_body(

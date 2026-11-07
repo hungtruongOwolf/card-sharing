@@ -59,6 +59,9 @@ The whole pipeline runs end to end with **no real provider, no keys and no netwo
   `card_render` upload of the owner**, so the output passes the known-CSAM and nudity gates before anyone can see it;
   the job stores the output media id and the C2PA manifest. The job view always says `ai_generated: true`; `ai_label`
   (visible badge, C2PA) comes from the region policy.
+- **Preview:** `GET /v1/ai-effects/jobs/{id}` adds `output_url` (+ `output_url_expires_at`) for the job's owner once the
+  output passed the content gates: a per-viewer signed URL of its `feed_1080` rendition, same signer and TTL as card media,
+  charged to the URL budget. Absent before that (never a quarantine URL), and nobody else can read the job (uniform 404).
 - **Badge on cards:** `POST /v1/cards` stores `cards.cards.ai_generated = true` when the render is a succeeded job's
   output (server lookup, never a client field); `CardView`, the widget card and public board card pins expose
   `ai_generated`, and the app draws the badge when the viewer's `policy.ai_label.visible_badge` is true.
