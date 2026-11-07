@@ -81,6 +81,7 @@ describe('resolvePhase', () => {
     refused: false,
     displayNameSaved: false,
     cameraHandled: false,
+    cameraGranted: false,
   };
 
   it('follows auth and the server step', () => {
@@ -93,6 +94,15 @@ describe('resolvePhase', () => {
     expect(resolvePhase({ ...base, step: 'profile', displayNameSaved: true })).toBe('handle');
     expect(resolvePhase({ ...base, step: 'done' })).toBe('camera');
     expect(resolvePhase({ ...base, step: 'done', cameraHandled: true })).toBe('home');
+  });
+
+  it('reads the camera permission before the explainer and skips it when granted (R1)', () => {
+    expect(resolvePhase({ ...base, step: 'done', cameraGranted: undefined })).toBe('loading');
+    expect(resolvePhase({ ...base, step: 'done', cameraGranted: true })).toBe('home');
+    expect(resolvePhase({ ...base, step: 'done', cameraGranted: false })).toBe('camera');
+    expect(
+      resolvePhase({ ...base, step: 'done', cameraGranted: undefined, cameraHandled: true }),
+    ).toBe('home');
   });
 
   it('never offers the DOB screen once the server moved past the age step (AC-2.3)', () => {

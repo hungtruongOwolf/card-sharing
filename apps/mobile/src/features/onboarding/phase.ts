@@ -32,6 +32,12 @@ export interface PhaseInput {
   readonly displayNameSaved: boolean;
   /** The camera explainer was handled in this app session (granted, skipped or library chosen). */
   readonly cameraHandled: boolean;
+  /**
+   * The camera permission, read before the explainer would show: true when it is already granted (nothing to
+   * explain; always so on the web), undefined while it is being read. Reading it first keeps the app from
+   * routing through the explainer on every launch, which would replace a deep link with the home screen (R1).
+   */
+  readonly cameraGranted: boolean | undefined;
 }
 
 export function resolvePhase(input: PhaseInput): OnboardingPhase {
@@ -47,6 +53,7 @@ export function resolvePhase(input: PhaseInput): OnboardingPhase {
     case 'profile':
       return input.displayNameSaved ? 'handle' : 'displayName';
     case 'done':
-      return input.cameraHandled ? 'home' : 'camera';
+      if (input.cameraHandled || input.cameraGranted === true) return 'home';
+      return input.cameraGranted === undefined ? 'loading' : 'camera';
   }
 }

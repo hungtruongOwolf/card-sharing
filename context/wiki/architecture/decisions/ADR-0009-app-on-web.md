@@ -38,4 +38,9 @@ only for public pages, and rejected "Expo Router universal" because of SEO, not 
 - Positive: the EM can try every feature in a browser on any phone with no store, account or Expo Go; one codebase.
 - Negative / trade-offs accepted: web fallbacks to maintain; WebGPU is needed for fast cutout (WASM fallback is slow);
   web session tokens live in browser storage (weaker than the keychain): web is a preview target, not a launch target.
+- URLs are part of the web product: a signed-in, onboarded user can open or refresh any signed-in screen by its URL
+  (`/friends`, `/card/<id>`, `/i/<token>`). The onboarding guard reads the camera permission before choosing a phase
+  (the browser always grants it, so the explainer never bounces the URL), and a link opened before sign-in or
+  onboarding is remembered and opened once the account reaches home; onboarding order and the locked DOB (AC-2.3)
+  are unchanged (sprint 10 R1, `features/onboarding/GuardedStack.tsx`).
 - Follow-ups: CI builds the web export; a performance budget for the web bundle (CanvasKit lazy-loaded).

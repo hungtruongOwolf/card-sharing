@@ -80,6 +80,20 @@ describe('CameraPermissionScreen (AC-3.1)', () => {
     await renderAtCamera('granted');
     await screen.findByTestId('home');
   });
+
+  it('never routes an onboarded account with camera access through the explainer (R1)', async () => {
+    const server = new FakeOnboardingServer();
+    server.resetAccount('active');
+    const phases: string[] = [];
+    await renderOnboarding(server, {
+      signedIn: true,
+      camera: fakeCamera('granted'),
+      onPhase: (phase) => phases.push(phase),
+    });
+    await screen.findByTestId('home');
+    // Routing through `camera` would replace the URL the app was opened at with the home screen.
+    expect(phases).toEqual(['loading', 'home']);
+  });
 });
 
 describe('SignInScreen', () => {
