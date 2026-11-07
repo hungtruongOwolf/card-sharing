@@ -365,16 +365,13 @@ pub(crate) async fn card_views(
         .flat_map(|c| std::iter::once(c.render_media_id).chain(c.mask_media_id))
         .collect();
     let originals: Vec<Uuid> = cards.iter().filter_map(|c| c.original_media_id).collect();
-    let feed_keys = state
-        .media
-        .clean_keys(&shown, Some(Variant::Feed1080))
-        .await
-        .map_err(ApiError::internal)?;
-    let original_keys = state
-        .media
-        .clean_keys(&originals, None)
-        .await
-        .map_err(ApiError::internal)?;
+    // Independent lookups run concurrently: each is a round trip, and they used to add up
+    // (performance-budgets.md).
+    let (feed_keys, original_keys) = tokio::try_join!(
+        state.media.clean_keys(&shown, Some(Variant::Feed1080)),
+        state.media.clean_keys(&originals, None),
+    )
+    .map_err(ApiError::internal)?;
     let deliverable = |c: &cards::VisibleCard| {
         c.status == cards::CardStatus::Active
             && feed_keys.contains_key(&c.render_media_id)
@@ -391,22 +388,27 @@ pub(crate) async fn card_views(
                 )
         })
         .sum();
-    state
-        .charge_url_budget(viewer, u32::try_from(urls).unwrap_or(u32::MAX))
-        .await?;
-
     let card_ids: Vec<Uuid> = cards.iter().map(|c| c.id).collect();
-    let mut my_reactions = state
-        .cards
-        .my_reactions(viewer.account_id, &card_ids)
-        .await
-        .map_err(ApiError::internal)?;
     let owners: Vec<Uuid> = cards.iter().map(|c| c.owner_id).collect();
-    let profiles = state
-        .identity
-        .public_profiles(&owners)
-        .await
-        .map_err(ApiError::internal)?;
+    // The URL budget is charged before any URL is signed below; the reads next to it only
+    // fetch data for this viewer and are dropped if the budget refuses.
+    let (_, mut my_reactions, profiles) = tokio::try_join!(
+        state.charge_url_budget(viewer, u32::try_from(urls).unwrap_or(u32::MAX)),
+        async {
+            state
+                .cards
+                .my_reactions(viewer.account_id, &card_ids)
+                .await
+                .map_err(ApiError::internal)
+        },
+        async {
+            state
+                .identity
+                .public_profiles(&owners)
+                .await
+                .map_err(ApiError::internal)
+        },
+    )?;
     let mut views = Vec::with_capacity(cards.len());
     for card in cards {
         let media = if deliverable(&card) {

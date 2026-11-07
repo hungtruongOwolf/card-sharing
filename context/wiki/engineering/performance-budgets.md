@@ -11,7 +11,8 @@ related: [[sprint-9]], [[api-mvp]], [[local-dev]], [[security-baseline]], [[ADR-
 machine short on RAM. On a **release** build against the local stack every main user action answers in **3–21 ms
 p50 / 4–31 ms p95** server side (loopback). The API time is dominated by sequential round trips to Postgres and Valkey
 (about 0.6–2 ms each through Docker Desktop on Windows), not by query plans, so the fixes join independent awaits and
-remove an N+1. Budgets below are per action, p95, release build; `tools/perf/bench.mjs` reproduces them.
+remove an N+1: `GET /v1/me`, the feed and opening a card got about a third faster (p50 5.6 → 3.7, 8.1 → 5.4 and
+8.0 → 5.3 ms), a board read 18 % faster. Budgets below are per action, p95, release build; `tools/perf/bench.mjs` reproduces them.
 
 ## How to measure (reproducible)
 1. Local stack up and seeded ([[local-dev]]): `pnpm infra:up`, `pnpm dev:seed`.
@@ -50,6 +51,27 @@ the app should not chain requests on a screen open), TLS, the signed image downl
 bundle (the demo ran a development bundle; release bundles are minified and skip dev checks). End-to-end targets for the
 app on a mid-range phone on 4G: feed visible ≤ 1 s after open with cached items shown at once, card viewer ≤ 300 ms to
 first frame from cache, send feels instant (optimistic outbox, [[api-mvp]]).
+
+## Fixes (sprint 9) and before/after
+Same machine, same seed data, the two release binaries run back to back (300 samples at c=1, 400 at c=8):
+| Route | Before p50 / p95 (c=1) | After p50 / p95 (c=1) | Before p95 (c=8) | After p95 (c=8) |
+|---|---|---|---|---|
+| `GET /v1/me` | 5.6 / 6.8 ms | 3.7 / 4.6 ms | 9.0 ms | 12.7 ms |
+| `GET /v1/feed` | 8.1 / 9.3 ms | 5.4 / 6.3 ms | 17.0 ms | 18.9 ms |
+| `GET /v1/cards/{id}` | 8.0 / 9.0 ms | 5.3 / 5.9 ms | 13.4 ms | 14.0 ms |
+| `GET /v1/boards/{id}` | 14.8 / 16.3 ms | 12.1 / 16.4 ms | 22.1 ms | 20.3 ms |
+
+- `card_views` (feed, card read, board read, activity): the two media-key lookups run together, then the signed-URL
+  budget charge, my reactions and sender profiles run together (the budget is still charged before any URL is signed).
+- `GET /v1/me`: account, profile and age facts are read concurrently (results checked in the old order, so a missing
+  account is still a 404).
+- Board read minor rule: the viewer's age and the friend set are fetched together, and the age lookups of non-friend
+  members run concurrently instead of one after another (an N+1 that grows with members and pin authors).
+- Under c=8 the gain disappears: with `API_DB_MAX_CONNECTIONS=10` the pool is the bottleneck and a request that uses
+  two connections at once waits for them. Single-request latency is what a user feels; size the pool for concurrency
+  on staging before tuning further.
+- Not done yet: the board read still checks card visibility twice (`card_facts` in `boards`, then `visible_many` in the
+  card views); merging them saves one more round trip.
 
 ## Where the time goes (baseline)
 - Every authenticated request: session lookup (Valkey cache, Postgres on a miss), one or more rate-limit buckets
