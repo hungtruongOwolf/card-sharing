@@ -2,7 +2,7 @@
 title: API contract — MVP (/v1)
 type: spec
 status: proposed
-updated: 2026-11-06
+updated: 2026-11-07
 sources: [raw/discussions/2026-11-04-infra-qa.md, raw/discussions/2026-11-04-prd-design-qa.md, raw/discussions/2026-11-04-security-qa.md]
 related: [[prd-mvp]], [[overview]], [[data-model]], [[security-baseline]], [[ADR-0004-auth-sessions]], [[ADR-0005-media-pipeline]], [[ADR-0006-job-queue]], [[ADR-0007-board-sync]], [[region-policy]], [[threat-model-mvp]], [[effects-catalog]]
 ---
@@ -599,7 +599,7 @@ Kill switches are not enforced server-side yet.
 | PUT | /v1/ai-effects/consent | `{version}` = current consent text → 204 (older version 400) | ses | user | self | `ai.consent` 20/h u | yes | genai |
 | DELETE | /v1/ai-effects/consent | Withdraw consent → 204 | ses | user | self | `ai.consent` | yes | genai |
 | POST | /v1/ai-effects/jobs | `{client_job_id, template_id, template_version, input_media_id}` → 202 `{job}`; reserves credits | ses | user | input = caller's clean `card_render`/`original` (else 404); region/age policy (403 `POLICY_DISALLOWED`), consent (403 `CONSENT_REQUIRED`), credits (402 `INSUFFICIENT_CREDITS`), no provider (503) | `ai.jobs.create` 20/h + 60/day u | required (= `client_job_id`) | genai |
-| GET | /v1/ai-effects/jobs/{id} | `{job: {id, status, outcome, cost, refunded, output_media_id, ai_generated, c2pa_recorded, ...}}` | ses | user | owner only; anyone else the same 404 as a missing id | `ai.read` | yes | genai |
+| GET | /v1/ai-effects/jobs/{id} | `{job: {id, status, outcome, cost, refunded, output_media_id, output_url?, output_url_expires_at?, ai_generated, c2pa_recorded, ...}}` (`output_url`: owner-only signed `feed_1080` preview, charged to the URL budget, present only once the output is clean) | ses | user | owner only; anyone else the same 404 as a missing id | `ai.read` | yes | genai |
 
 Details and the pipeline: [[genai-effects]] "Implementation on a fake provider". Tests: `tests/api/ai_effects.rs`, authz
 matrix rows.
@@ -809,7 +809,9 @@ must have the render's exact size (400). `style` → registry (422 `UNKNOWN_REGI
 `{mode: all}` = every current friend, `{mode: subset, recipient_ids}` = 1..`limits.card_recipients_max` unique ids intersected
 with current friends (non-friends dropped silently, never named). Card (`pending_scan`), recipients (`delivered_at` NULL) and
 the `cards.submitted {card_id, owner_id}` event are written in one transaction; the same `client_card_id` later returns the
-first card (202). Response `{card: {id, status, recipient_count}}`.
+first card (202). Response `{card: {id, status, recipient_count}}`. The "AI" badge is decided here: when the render is the
+output of a succeeded AI effect (`GenAiService::ai_outputs`), `cards.cards.ai_generated` is stored `true` for the card's life;
+the body has no such field (an unknown field is 400), so a client can neither claim nor hide it.
 
 Mobile client (T-77, #79, `apps/mobile/src/features/sharing`): the editor's Next (or Send in the drafts tray) opens
 `/send?draft=<id>`. Audience = all friends by default or a subset (`GET /v1/friends`, at most
@@ -828,7 +830,9 @@ hidden ∧ `social::friends_unblocked_sql!(viewer, owner)` ∧ `identity::accoun
 macros keep those schemas owned by their modules; `cards::recipient_visible_sql!` is the shared recipient half (feed and
 boards reuse it). Anything else, or a malformed id, is the byte-identical 404. `CardView`: `{id, sender {id, display_name,
 avatar_url: null}, caption, alt_text, style, media {render_url, mask_url, original_url (owner only), expires_at} | null,
-sent_at, is_mine, status + hold (owner only)}`. URLs are signed per viewer for delivered cards whose media are `clean`
+sent_at, is_mine, status + hold (owner only), ai_generated}`. `ai_generated` (server-stored, see above) is on every
+`CardView` (card read, feed, boards), on `GET /v1/widget` `card`, and on public board `card` pins; the app shows the badge
+when `GET /v1/me` `policy.ai_label.visible_badge` is true. URLs are signed per viewer for delivered cards whose media are `clean`
 (`feed_1080` derivatives; the original = full re-encode) and charged to the URL budget; a pending or held card has
 `media: null` even for its owner. `my_reaction` joins with T-84.
 
@@ -933,7 +937,7 @@ returned. Visibility is one batched query per read (`CardAccess::visible_to` + f
 // CardView (GET /v1/cards/{id}, feed items, widget)
 { "id": "…", "sender": {"id":"…","display_name":"Mai","avatar_url":"<signed>"}, "caption": "zoomies", "alt_text": "Card from Mai",
   "style": {"finish":{"id":"fx.holo","version":1}}, "media": {"render_url":"<signed>","mask_url":"<signed>","expires_at":"…"},
-  "sent_at": "…", "my_reaction": "react.squish", "is_mine": false }   // "original_url" present only when is_mine (AC-13.6)
+  "sent_at": "…", "my_reaction": "react.squish", "is_mine": false, "ai_generated": false }   // "original_url" present only when is_mine (AC-13.6)
 // GET /v1/boards/{id} pin items: {"id":"…","kind":"card","card":{CardView}} | {"id":"…","kind":"private_tile","x":…} | {"id":"…","kind":"removed"}
 // POST /v1/boards/{id}/invitations {"user_id":"…"} → 201 { "invitation": {"id":"…","status":"pending","expires_at":"…"} }   // also for silent drops
 // POST /v1/boards/{id}/ops

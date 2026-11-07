@@ -1115,7 +1115,17 @@
             }
           },
           "429": {
-            "description": "RATE_LIMITED.",
+            "description": "RATE_LIMITED (requests or the signed-URL budget).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "TEMPORARILY_UNAVAILABLE: media signing not configured (only once the output is ready).",
             "content": {
               "application/json": {
                 "schema": {
@@ -8706,6 +8716,20 @@
             "format": "uuid",
             "description": "The generated image (a `card_render` upload of the caller; poll `GET /v1/media/{id}` until\nit is clean, then send it like any card render). `null` until succeeded."
           },
+          "output_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Preview of the generated image for the job's owner only: a signed URL (same signing and\nshort TTL as card media, charged to the URL budget) of its `feed_1080` rendition. Absent\nuntil the job succeeded and the output passed the content gates; refetch the job after\n`output_url_expires_at`."
+          },
+          "output_url_expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
           "refunded": {
             "type": "boolean",
             "description": "The reserved credits came back (refused or failed)."
@@ -9343,9 +9367,14 @@
           "sender",
           "style",
           "sent_at",
-          "is_mine"
+          "is_mine",
+          "ai_generated"
         ],
         "properties": {
+          "ai_generated": {
+            "type": "boolean",
+            "description": "The render is the output of a cloud AI effect (decided by the server when the card was\nsent). Show the \"AI\" badge when `GET /v1/me` `policy.ai_label.visible_badge` says so."
+          },
           "alt_text": {
             "type": [
               "string",
@@ -11014,6 +11043,13 @@
           "z_key"
         ],
         "properties": {
+          "ai_generated": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "`card` only: the card's render is the output of a cloud AI effect (show the \"AI\" badge)."
+          },
           "decoration": {
             "type": [
               "object",
@@ -12167,9 +12203,14 @@
           "sender_name",
           "image_url",
           "expires_at",
-          "deep_link"
+          "deep_link",
+          "ai_generated"
         ],
         "properties": {
+          "ai_generated": {
+            "type": "boolean",
+            "description": "The render is the output of a cloud AI effect: show the \"AI\" badge (region policy\n`ai_label.visible_badge`)."
+          },
           "deep_link": {
             "type": "string",
             "description": "Opens the card in the app."

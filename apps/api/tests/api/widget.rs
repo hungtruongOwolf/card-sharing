@@ -46,6 +46,7 @@ async fn shows_the_newest_visible_card_and_empties_on_unfriend_block_and_delete(
     let card = &shown["card"];
     assert_eq!(card["id"], json!(from_b));
     assert_eq!(card["sender_name"], json!(b.name));
+    assert_eq!(card["ai_generated"], false);
     assert_eq!(
         card["deep_link"],
         json!(format!("cardsharing://card/{from_b}"))

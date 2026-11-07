@@ -1932,6 +1932,15 @@ export interface components {
              *     it is clean, then send it like any card render). `null` until succeeded.
              */
             output_media_id?: string | null;
+            /**
+             * @description Preview of the generated image for the job's owner only: a signed URL (same signing and
+             *     short TTL as card media, charged to the URL budget) of its `feed_1080` rendition. Absent
+             *     until the job succeeded and the output passed the content gates; refetch the job after
+             *     `output_url_expires_at`.
+             */
+            output_url?: string | null;
+            /** Format: date-time */
+            output_url_expires_at?: string | null;
             /** @description The reserved credits came back (refused or failed). */
             refunded: boolean;
             /** @description `queued`, `succeeded`, `refused` or `failed`. */
@@ -2173,6 +2182,11 @@ export interface components {
         };
         /** @description A card as one viewer may see it (card read, feed items). */
         CardView: {
+            /**
+             * @description The render is the output of a cloud AI effect (decided by the server when the card was
+             *     sent). Show the "AI" badge when `GET /v1/me` `policy.ai_label.visible_badge` says so.
+             */
+            ai_generated: boolean;
             alt_text?: string | null;
             caption?: string | null;
             hold?: components["schemas"]["CardHoldView"] | null;
@@ -2828,6 +2842,8 @@ export interface components {
          *     other card: position only) or `decoration`.
          */
         PublicPinView: {
+            /** @description `card` only: the card's render is the output of a cloud AI effect (show the "AI" badge). */
+            ai_generated?: boolean | null;
             /** @description `decoration` only: its registry reference. */
             decoration?: Record<string, never> | null;
             /** Format: int64 */
@@ -3276,6 +3292,11 @@ export interface components {
             id: string;
         };
         WidgetCard: {
+            /**
+             * @description The render is the output of a cloud AI effect: show the "AI" badge (region policy
+             *     `ai_label.visible_badge`).
+             */
+            ai_generated: boolean;
             /** @description Opens the card in the app. */
             deep_link: string;
             /** Format: date-time */
@@ -4120,8 +4141,17 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description RATE_LIMITED. */
+            /** @description RATE_LIMITED (requests or the signed-URL budget). */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description TEMPORARILY_UNAVAILABLE: media signing not configured (only once the output is ready). */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

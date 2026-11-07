@@ -70,6 +70,7 @@ struct CardRow {
     status: String,
     render_media_id: Uuid,
     mask_media_id: Option<Uuid>,
+    ai_generated: bool,
 }
 
 /// Builds and stores snapshots. Cheap to share (`Arc`).
@@ -144,7 +145,7 @@ impl SnapshotBuilder {
             })
             .collect();
         let cards: Vec<CardRow> = sqlx::query_as(
-            "SELECT id, owner_id, status, render_media_id, mask_media_id FROM cards.cards
+            "SELECT id, owner_id, status, render_media_id, mask_media_id, ai_generated FROM cards.cards
              WHERE id = ANY($1)",
         )
         .bind(&card_ids)
@@ -156,6 +157,11 @@ impl SnapshotBuilder {
             .filter(|card| card.owner_id == owner && card.status == "active")
             .collect();
         let media = self.ensure_public_media(owner, &public).await?;
+        let ai_cards: std::collections::HashSet<Uuid> = public
+            .iter()
+            .filter(|card| card.ai_generated)
+            .map(|card| card.id)
+            .collect();
 
         let mut pins = Vec::with_capacity(read.pins.len());
         for resolved in &read.pins {
@@ -172,6 +178,7 @@ impl SnapshotBuilder {
                     pin["media_key"] = json!(m.key.as_str());
                     pin["width"] = json!(m.width);
                     pin["height"] = json!(m.height);
+                    pin["ai_generated"] = json!(ai_cards.contains(id));
                 }
                 (Resolution::Decoration, PinContent::Decoration(value)) => {
                     pin["kind"] = json!("decoration");

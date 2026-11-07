@@ -70,6 +70,9 @@ pub struct PublicPinView {
     pub width: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub height: Option<i64>,
+    /// `card` only: the card's render is the output of a cloud AI effect (show the "AI" badge).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ai_generated: Option<bool>,
     /// `decoration` only: its registry reference.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[schema(value_type = Option<Object>)]
@@ -251,6 +254,7 @@ pub async fn get_public_board(
             image_expires_at: None,
             width: None,
             height: None,
+            ai_generated: None,
             decoration: None,
         };
         match pin["kind"].as_str() {
@@ -268,6 +272,7 @@ pub async fn get_public_board(
                     view.image_expires_at = Some(signed.expires_at);
                     view.width = pin["width"].as_i64();
                     view.height = pin["height"].as_i64();
+                    view.ai_generated = Some(pin["ai_generated"].as_bool().unwrap_or(false));
                 }
             }
             Some("decoration") => {

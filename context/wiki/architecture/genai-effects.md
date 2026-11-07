@@ -59,10 +59,15 @@ The whole pipeline runs end to end with **no real provider, no keys and no netwo
   `card_render` upload of the owner**, so the output passes the known-CSAM and nudity gates before anyone can see it;
   the job stores the output media id and the C2PA manifest. The job view always says `ai_generated: true`; `ai_label`
   (visible badge, C2PA) comes from the region policy.
+- **Preview:** `GET /v1/ai-effects/jobs/{id}` adds `output_url` (+ `output_url_expires_at`) for the job's owner once the
+  output passed the content gates: a per-viewer signed URL of its `feed_1080` rendition, same signer and TTL as card media,
+  charged to the URL budget. Absent before that (never a quarantine URL), and nobody else can read the job (uniform 404).
+- **Badge on cards:** `POST /v1/cards` stores `cards.cards.ai_generated = true` when the render is a succeeded job's
+  output (server lookup, never a client field); `CardView`, the widget card and public board card pins expose
+  `ai_generated`, and the app draws the badge when the viewer's `policy.ai_label.visible_badge` is true.
 - **Routes** (all `ses`, owner-only job reads with the uniform 404): see [[api-mvp]] "AI effects".
-- **Not yet:** a real provider and real moderation gates (EM decision), C2PA signing and embedding (`c2pa-rs`), the
-  `ai_generated` flag on card views (the backend lane is adding it; the app already reads it), push on completion,
-  credit purchases and rewarded ads, an owner preview URL for the output (see "App" below).
+- **Not yet:** a real provider and real moderation gates (EM decision), C2PA signing and embedding (`c2pa-rs`), push on
+  completion, credit purchases and rewarded ads.
 
 ## App (sprint 9, `apps/mobile/src/features/ai-effects`)
 - **Entry:** an "AI effects" button (sparkle) on the editor tool rail, shown only when `GET /v1/ai-effects` says
@@ -81,8 +86,8 @@ The whole pipeline runs end to end with **no real provider, no keys and no netwo
   fingerprint of cut / finish / effects / whole photo). While the fingerprint matches, Send uses the output media id
   as `render_media_id` with no bake, no mask and no original; an edit sets it aside (undo brings it back), "Remove AI
   look" is one undo step. The caption may change freely.
-- **Preview gap:** `AiJobView` has no URL and `GET /v1/media/{id}` never returns one, so the editor cannot show the
-  result yet: it shows the "AI" badge and says the look appears once sent. The app already reads an optional
-  `output_url` (signed, owner only) on the job view and draws it over the card; the backend needs to add it.
+- **Preview:** the job view's optional `output_url` (signed, owner only, present once the output is clean; see
+  "Preview" above) is drawn over the card in the editor; before it exists the editor shows the "AI" badge and says the
+  look appears once sent.
 - **Badge:** `AiBadge` (gradient pill, "Made with AI" for screen readers) on the editor preview and on feed cards whose
   view says `ai_generated: true`. The story viewer badge waits for the ADR-0010 reply work in the viewer to land.

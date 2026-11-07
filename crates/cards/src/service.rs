@@ -86,6 +86,9 @@ pub struct NewCard {
     pub audience: AudienceMode,
     /// Current friends of the owner only (already intersected), without the owner.
     pub recipients: Vec<Uuid>,
+    /// The render is the output of a succeeded AI effect (decided by the server from
+    /// `genai.effect_jobs`, never by the client): the card shows the "AI" badge.
+    pub ai_generated: bool,
 }
 
 /// The stored card as the sender's 202 shows it.
@@ -132,8 +135,9 @@ impl CardService {
         let inserted: Option<Uuid> = sqlx::query_scalar(
             "INSERT INTO cards.cards
                (id, owner_id, client_card_id, status, render_media_id, mask_media_id,
-                original_media_id, style, caption, alt_text, audience_mode, sent_at, updated_at)
-             VALUES ($1, $2, $3, 'pending_scan', $4, $5, $6, $7, $8, $9, $10, $11, $11)
+                original_media_id, style, caption, alt_text, audience_mode, sent_at, updated_at,
+                ai_generated)
+             VALUES ($1, $2, $3, 'pending_scan', $4, $5, $6, $7, $8, $9, $10, $11, $11, $12)
              ON CONFLICT (owner_id, client_card_id) DO NOTHING
              RETURNING id",
         )
@@ -148,6 +152,7 @@ impl CardService {
         .bind(card.alt_text.as_deref())
         .bind(card.audience.as_str())
         .bind(now)
+        .bind(card.ai_generated)
         .fetch_optional(&mut *tx)
         .await?;
         if inserted.is_none() {

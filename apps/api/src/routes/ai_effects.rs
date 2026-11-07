@@ -111,6 +111,18 @@ pub struct AiJobView {
     /// it is clean, then send it like any card render). `null` until succeeded.
     #[schema(format = "uuid")]
     pub output_media_id: Option<String>,
+    /// Preview of the generated image for the job's owner only: a signed URL (same signing and
+    /// short TTL as card media, charged to the URL budget) of its `feed_1080` rendition. Absent
+    /// until the job succeeded and the output passed the content gates; refetch the job after
+    /// `output_url_expires_at`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub output_url: Option<String>,
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        with = "time::serde::rfc3339::option"
+    )]
+    #[schema(value_type = Option<String>, format = DateTime)]
+    pub output_url_expires_at: Option<OffsetDateTime>,
     /// Always `true`: anything this route returns is AI-generated and must carry the badge when
     /// `ai_label.visible_badge` says so.
     pub ai_generated: bool,
@@ -138,6 +150,8 @@ impl From<EffectJob> for AiJobView {
             cost: job.cost,
             refunded: job.refunded,
             output_media_id: job.output_media_id.map(|id| id.hyphenated().to_string()),
+            output_url: None,
+            output_url_expires_at: None,
             ai_generated: true,
             c2pa_recorded: job.c2pa_manifest.is_some(),
             created_at: job.created_at,
@@ -394,7 +408,8 @@ pub async fn create_ai_job(
         (status = UNAUTHORIZED, description = "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.", body = ProblemDetails),
         (status = FORBIDDEN, description = "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.", body = ProblemDetails),
         (status = NOT_FOUND, description = "NOT_FOUND: no job of the caller with this id.", body = ProblemDetails),
-        (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED.", body = ProblemDetails),
+        (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED (requests or the signed-URL budget).", body = ProblemDetails),
+        (status = SERVICE_UNAVAILABLE, description = "TEMPORARILY_UNAVAILABLE: media signing not configured (only once the output is ready).", body = ProblemDetails),
     )
 )]
 pub async fn get_ai_job(
@@ -409,5 +424,22 @@ pub async fn get_ai_job(
         .await
         .map_err(genai_error)?
         .ok_or(ApiError::NotFound)?;
-    Ok(Json(AiJobEnvelope { job: job.into() }))
+    let output = job.output_media_id;
+    let mut view = AiJobView::from(job);
+    // Owner-only preview (the job lookup above is scoped to the caller): signed only once the
+    // output is clean, so a URL never points at quarantine.
+    if let Some(output) = output {
+        let keys = state
+            .media
+            .clean_keys(&[output], Some(media::Variant::Feed1080))
+            .await
+            .map_err(ApiError::internal)?;
+        if let Some(key) = keys.get(&output) {
+            state.charge_url_budget(&caller.0, 1).await?;
+            let signed = state.sign_media(key, caller.0.account_id)?;
+            view.output_url = Some(signed.url);
+            view.output_url_expires_at = Some(signed.expires_at);
+        }
+    }
+    Ok(Json(AiJobEnvelope { job: view }))
 }
