@@ -3,14 +3,13 @@ import { defineConfig } from '@playwright/test';
 /**
  * Browser E2E suite for the app's web target (sprint 10 phase 0, testing-strategy.md "E2E").
  *
- * It drives the Expo web export against a real API + worker (dev sign-in, fake AI provider, fake scanners). CI starts
- * the stack and sets `E2E_SERVE_EXPORT=1` so this config serves `apps/mobile/dist` (serve.mjs). Locally, point
- * `E2E_BASE_URL` at a running web app (e.g. `pnpm dev:mobile` with web) and `E2E_API_URL` at the API.
+ * It drives the app's web target served by Metro in development mode (`expo start`, as testers run it) against a real
+ * API + worker (dev sign-in, fake AI provider, fake scanners). CI starts all three (.github/workflows/ci.yml, e2e-web);
+ * locally, start them yourself and point `E2E_BASE_URL` at the web target if it is not on http://127.0.0.1:8081.
  *
  * Tests share one seeded database and per-user rate limits, so they run one at a time.
  */
 const baseURL = process.env.E2E_BASE_URL ?? 'http://127.0.0.1:8081';
-const serveExport = process.env.E2E_SERVE_EXPORT === '1';
 const ci = Boolean(process.env.CI);
 
 export default defineConfig({
@@ -41,12 +40,4 @@ export default defineConfig({
     launchOptions: { args: ['--enable-unsafe-swiftshader'] },
   },
   projects: [{ name: 'chromium', use: { browserName: 'chromium' } }],
-  webServer: serveExport
-    ? {
-        command: 'node serve.mjs',
-        url: baseURL,
-        reuseExistingServer: false,
-        timeout: 30_000,
-      }
-    : undefined,
 });
