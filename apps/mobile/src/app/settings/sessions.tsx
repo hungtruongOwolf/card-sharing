@@ -13,6 +13,7 @@ export default function SessionsRoute() {
     <SessionsScreen
       api={api}
       signOutEverywhere={authClient.signOutEverywhere}
+      signOut={authClient.signOut}
       onBack={() => (router.canGoBack() ? router.back() : router.replace('/'))}
     />
   );

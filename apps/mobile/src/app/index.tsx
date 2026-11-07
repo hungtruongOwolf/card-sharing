@@ -6,9 +6,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { space } from '@card-sharing/tokens';
 
 import { ActivityButton, useActivityApi } from '../features/activity';
+import { useAuthClient } from '../features/auth';
 import { deviceFeedCache, deviceSeenStore, FeedScreen, useSeenMarks } from '../features/feed';
 import { useOutbox } from '../features/outbox';
 import { useRemoteConfig } from '../features/remote-config';
+import { SignOutButton } from '../features/sessions';
 import { useCardsApi } from '../features/sharing';
 import { t, type MessageKey } from '../i18n';
 import { Button, IconButton, Sheet, Text } from '../ui';
@@ -46,6 +48,7 @@ export default function HomeScreen() {
   const outbox = useOutbox();
   const waiting = outbox?.entries.length ?? 0;
   const seen = useSeenMarks(deviceSeenStore());
+  const authClient = useAuthClient();
   const [moreOpen, setMoreOpen] = useState(false);
   const go = (href: Href) => {
     setMoreOpen(false);
@@ -121,6 +124,7 @@ export default function HomeScreen() {
               onPress={() => go(href)}
             />
           ))}
+          <SignOutButton block variant="ghost" signOut={authClient.signOut} />
           <Text variant="title.md" accessibilityRole="header">
             {t('home.labs')}
           </Text>

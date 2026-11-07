@@ -56,6 +56,7 @@ async function setup({ scheme = 'light', failNextWrite, offline }: Options = {})
         <SessionsScreen
           api={createSessionsApi(client.fetch)}
           signOutEverywhere={client.signOutEverywhere}
+          signOut={client.signOut}
           onBack={() => undefined}
           now={server.now}
         />
@@ -81,7 +82,9 @@ describe('SessionsScreen', () => {
       const { server } = await setup({ scheme });
       const current = await screen.findByTestId(`session-${server.sessionId(1)}`);
       expect(within(current).getByText(t('sessions.device.current'))).toBeTruthy();
-      expect(within(current).queryByRole('button')).toBeNull();
+      // This device signs out instead of being revoked from the list.
+      expect(within(current).queryByRole('button', { name: /^Sign out$/ })).toBeNull();
+      expect(within(current).getByRole('button', { name: t('sessions.signOutHere') })).toBeTruthy();
       const other = screen.getByTestId(`session-${server.sessionId(2)}`);
       expect(within(other).getByText('android 1.0.0')).toBeTruthy();
       expect(within(other).getByText(/^Signed in from (Vietnam|VN)$/)).toBeTruthy();
@@ -101,6 +104,19 @@ describe('SessionsScreen', () => {
     expect(server.isRevoked(2)).toBe(true);
     expect(server.isRevoked(1)).toBe(false);
     expect(screen.getByText(t('sessions.revoked'))).toBeTruthy();
+  });
+
+  it('signs out of this device only: the server revokes this session and the tokens are cleared (B8)', async () => {
+    const { server, client, store, user } = await setup();
+    const current = await screen.findByTestId(`session-${server.sessionId(1)}`);
+    await user.press(within(current).getByRole('button', { name: t('sessions.signOutHere') }));
+    await waitFor(() =>
+      expect(client.getState()).toEqual({ status: 'signedOut', signOutReason: 'user' }),
+    );
+    expect(server.count('DELETE', '/v1/sessions/current')).toBe(1);
+    expect(server.isRevoked(1)).toBe(true);
+    expect(server.isRevoked(2)).toBe(false);
+    expect(store.current).toBeNull();
   });
 
   it('asks before logging out everywhere; cancel sends nothing', async () => {

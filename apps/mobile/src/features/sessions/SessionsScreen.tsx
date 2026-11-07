@@ -9,6 +9,7 @@ import { Button, Screen, Sheet, Text, useTheme, useToast } from '../../ui';
 import { AuthError } from '../auth';
 import { countryName, lastSeenLabel } from './lastSeen';
 import { SessionsError, type DeviceSession, type SessionsApi } from './sessionsApi';
+import { SignOutButton } from './SignOutButton';
 
 export const SESSIONS_QUERY_KEY = ['sessions'] as const;
 
@@ -16,6 +17,8 @@ export interface SessionsScreenProps {
   api: SessionsApi;
   /** Auth client's `signOutEverywhere`: revokes every session, then clears this device. */
   signOutEverywhere: () => Promise<void>;
+  /** Auth client's `signOut`: revokes this device's session on the server and clears this device (B8). */
+  signOut: () => Promise<void>;
   onBack: () => void;
   now?: () => number;
 }
@@ -35,11 +38,13 @@ function DeviceRow({
   now,
   revoking,
   onRevoke,
+  signOut,
 }: {
   device: DeviceSession;
   now: number;
   revoking: boolean;
   onRevoke: (device: DeviceSession) => void;
+  signOut: () => Promise<void>;
 }) {
   const theme = useTheme();
   const name = device.clientLabel ?? t('sessions.device.unknown');
@@ -65,7 +70,9 @@ function DeviceRow({
         ) : null}
         <Text tone="muted">{lastSeenLabel(device.lastSeenAt, now)}</Text>
       </View>
-      {device.isCurrent ? null : (
+      {device.isCurrent ? (
+        <SignOutButton signOut={signOut} />
+      ) : (
         <Button
           label={t('sessions.revoke')}
           accessibilityLabel={t('sessions.revoke.a11y', { device: name })}
@@ -81,11 +88,13 @@ function DeviceRow({
 /**
  * Settings → signed-in devices (AC-1.4, follow-up of T-24): lists the account's device sessions, revokes one,
  * and logs out everywhere after a confirm. The server decides what is revocable (a foreign or stale id is
- * 404); this screen only hides the revoke button on the current device, which logs out instead.
+ * 404); the current device's row signs this device out instead (B8), through the auth client so the local tokens
+ * and device data go too.
  */
 export function SessionsScreen({
   api,
   signOutEverywhere,
+  signOut,
   onBack,
   now = Date.now,
 }: SessionsScreenProps) {
@@ -143,6 +152,7 @@ export function SessionsScreen({
             now={at}
             revoking={revoke.isPending && revoke.variables.id === device.id}
             onRevoke={(d) => revoke.mutate(d)}
+            signOut={signOut}
           />
         ))}
       </View>
