@@ -5,7 +5,7 @@ import { killedIds, registry } from '@card-sharing/effects-registry';
 
 import { prepareForSend, type LocalCard } from '../features/cards';
 import { deviceDraftStore } from '../features/drafts';
-import { createSyntheticMaskSource, noMaskSource } from '../features/editor';
+import { appMaskSource } from '../features/editor';
 import { useFriendsApi } from '../features/friends';
 import { useOutbox } from '../features/outbox';
 import { useRemoteConfig } from '../features/remote-config';
@@ -27,7 +27,7 @@ export default function SendRoute() {
   const remoteConfig = useRemoteConfig();
   const outbox = useOutbox()?.outbox;
   // The same mask source as the editor, so the sent card matches what the user styled.
-  const maskSource = useMemo(() => (__DEV__ ? createSyntheticMaskSource() : noMaskSource), []);
+  const maskSource = appMaskSource();
   const killed = useMemo(() => killedIds(remoteConfig?.registry), [remoteConfig]);
   const prepare = useCallback(
     (local: LocalCard, keepOriginal: boolean) =>

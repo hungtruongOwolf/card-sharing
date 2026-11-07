@@ -2,9 +2,9 @@
 title: Subject cutout (sticker) pipeline
 type: concept
 status: proposed
-updated: 2026-11-05
+updated: 2026-11-07
 sources: [raw/research/2026-11-04-subject-cutout.md, raw/discussions/2026-11-05-sprint-1-kickoff-qa.md]
-related: [[ADR-0003-effects-tiers]], [[ADR-0002-cross-platform-stack]], [[genai-effects]], [[security-baseline]]
+related: [[ADR-0003-effects-tiers]], [[ADR-0009-app-on-web]], [[ADR-0002-cross-platform-stack]], [[genai-effects]], [[security-baseline]]
 ---
 # Subject cutout pipeline
 **TL;DR:** Segment on-device (free, private) → store an 8-bit **mask** as source of truth → render
@@ -17,7 +17,7 @@ stays a post-MVP option.
 |---|---|---|
 | iOS 17+ | Apple Vision `VNGenerateForegroundInstanceMaskRequest` (multi-instance, any subject) | iOS < 17: whole-photo card |
 | Android | ML Kit Subject Segmentation (beta; needs Play services) | bundled model (AC-7.6); else whole-photo card |
-| Web (WebGPU) | BiRefNet_lite (MIT) via transformers.js in a Web Worker; SlimSAM for tap-to-select | server |
+| Web (WebGPU, WASM fallback) | BiRefNet_lite (MIT) via transformers.js in a Web Worker (implemented, see below); SlimSAM for tap-to-select | whole-photo card |
 | Server | self-hosted BiRefNet (MIT, < $0.001/img on busy GPU); SAM 2.1 for point prompts | paid API (Bria via fal ~$0.018, Photoroom ~$0.02) |
 
 - Custom Expo Module (est. 3–5 dev-days) returning masks + instance map as file URIs; `expo-segmentation` as reference.
@@ -28,6 +28,27 @@ stays a post-MVP option.
 - **Cut styles** from mask: die-cut white border (mask → vector contour → smooth → round-join stroke),
   torn paper (path jitter / noise displacement), shapes (clip paths), drop shadow, shine shaders.
   Rasterize each finished sticker once for board performance.
+
+## Web cutout (implemented, sprint 9, [[ADR-0009-app-on-web]])
+`appMaskSource()` (`apps/mobile/src/features/editor/appMaskSource.ts`) is the one mask source shared by the editor, send
+and the outbox (native: synthetic in development, none in release, until T-54/T-55). The web build resolves
+`appMaskSource.web.ts`: **BiRefNet_lite** (`onnx-community/BiRefNet_lite-ONNX`, MIT, from `ZhengPeng7/BiRefNet_lite`) run
+by **transformers.js 4.3.1** (Apache-2.0) in a module Web Worker (`features/editor/web/`).
+- Nothing loads until the first photo is cut. The worker imports `dist/transformers.min.js` from jsDelivr, pinned to the
+  exact version **and its SHA-384** (fetched with Subresource Integrity, imported from a blob URL); Metro's classic-script
+  web bundle cannot bundle the library (it relies on `import.meta.url` and its own WASM/worker files). ONNX Runtime WASM
+  comes from jsDelivr, the model (fp16 ~115 MB, fp32 ~224 MB) from the Hugging Face Hub; both are cached by the browser
+  afterwards. The photo never leaves the browser.
+- Backend: WebGPU (fp16 when the adapter has `shader-f16`, else fp32), otherwise WASM (fp16, then fp32). On the dev PC's
+  integrated GPU the model loaded on WebGPU but inference failed in an ONNX Runtime WebGPU shader
+  (`ShaderHelper::AddVariable`), so a WebGPU run failure switches the worker to WASM for good and retries once.
+- Output: the sigmoid matte resized to the photo's aspect ratio at 512 px on the long side; fewer than 0.5 % subject
+  pixels counts as "no subject" (`null`, whole-photo card). Every failure is `null`. One photo waits at most 45 s, so a
+  slow first download makes that photo a whole-photo card while the model keeps loading for the next. Results are cached
+  per photo URI (4 entries) so editor, export and send reuse one segmentation.
+- Verified so far (2026-11-07, desktop Chrome, standalone page running the same worker source): the SRI-pinned
+  library import, model download and WebGPU load work; WebGPU inference failed as above. The WASM fallback, timings and
+  the in-app flow are not measured yet (the web build was not installed on the dev PC when this landed).
 
 ## Mask → contour geometry (implemented, T-61)
 `packages/canvas-engine` (pure TS, no Skia): `maskToContours(mask)` runs `pre.edgeCleanup` (erode 1 px with a 3×3 min filter,
