@@ -1,3 +1,4 @@
+import { withDevicePhotos } from './draftPhotos';
 import { createDraftStore, type DraftStore } from './draftStore';
 
 export {
@@ -22,12 +23,18 @@ export {
   unknownStorageInfo,
   type StorageInfo,
 } from './housekeeping';
+export {
+  MAX_DRAFT_PHOTO_BYTES,
+  withPersistentPhotos,
+  type PersistentPhotoDeps,
+  type PhotoBlobStore,
+} from './persistentPhotos';
 export { AUTOSAVE_DELAY_MS, useDraftAutosave, type DraftAutosave } from './useDraftAutosave';
 
 let deviceStore: DraftStore | null = null;
 
-/** The device's drafts (SecureStore-backed), created on first use. */
+/** The device's drafts (SecureStore-backed; on the web, photos kept in IndexedDB), created on first use. */
 export function deviceDraftStore(): DraftStore {
-  deviceStore ??= createDraftStore();
+  deviceStore ??= withDevicePhotos(createDraftStore());
   return deviceStore;
 }

@@ -144,7 +144,10 @@ Notes:
   stores above (session tokens included) fall back to `localStorage` (`apps/mobile/src/platform/secureStore.web.ts`):
   not encrypted at rest and readable by any XSS on the origin. Accepted only because web is a preview target; a web
   launch needs HttpOnly cookie sessions (section 2) first. Captured photos on the web are same-origin `blob:` URLs that
-  die with the tab (`platform/localPhoto.web.ts` refuses any other URL), so a draft reopened after a reload has no photo.
+  die with the tab (`platform/localPhoto.web.ts` refuses any other URL); drafts keep the photo bytes in IndexedDB
+  (`features/drafts/draftPhotos.web.ts`, database `cs-draft-photos`, keyed by draft id, at most 12 MB per photo, image
+  types only, deleted with the draft, never uploaded) and restore a fresh object URL after a reload. Same exception:
+  not encrypted at rest.
 - **Rate limiter failure mode** (sprint 9, after the first device demo): when Valkey is slow or down, a limit with
   `on_store_failure: closed` refuses the request with 503 `SERVER_BUSY` + `Retry-After: 2`, every other limit falls back
   to a per-instance memory bucket (still limited per instance, never unlimited). Fail closed is reserved for: sign-in and
