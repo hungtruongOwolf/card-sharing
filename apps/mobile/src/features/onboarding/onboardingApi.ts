@@ -1,6 +1,7 @@
 import type { components } from '@card-sharing/api-client';
 
 import { problemCode } from '../../data/problemCode';
+import { SERVER_BUSY } from '../../data/serverBusy';
 import type { AuthClient } from '../auth';
 
 export type OnboardingStep = components['schemas']['OnboardingStep'];
@@ -37,6 +38,8 @@ export type OnboardingErrorKind =
   | 'taken'
   /** 429 (`RATE_LIMITED`, `HANDLE_CHANGE_COOLDOWN`). */
   | 'rate_limited'
+  /** 503 `SERVER_BUSY`: the server is overloaded, not down; retry after `Retry-After`. */
+  | 'busy'
   /** Network, 5xx, unexpected status or body; retry later. */
   | 'unavailable';
 
@@ -98,6 +101,7 @@ async function failure(response: Response): Promise<OnboardingError> {
   if (code === 'HANDLE_TAKEN' || status === 409) return new OnboardingError('taken', status);
   if (status === 429) return new OnboardingError('rate_limited', status);
   if (status === 400) return new OnboardingError('invalid', status);
+  if (status === 503 && code === SERVER_BUSY) return new OnboardingError('busy', status);
   return new OnboardingError('unavailable', status);
 }
 

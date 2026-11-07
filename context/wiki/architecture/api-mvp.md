@@ -33,8 +33,12 @@ Rate limits are config (`limits.*`); `u`=per user, `d`=per device, `ip`=per IP. 
 Implemented (T-13): limits live in `config/limits.yaml`, one named limit per route policy (`RoutePolicy::limited("auth.signin")`,
 published as `x-policy.rateLimit`); startup fails if a route names a missing limit. Token buckets in Redis/Valkey (Lua, atomic);
 scope `user` keys by account, falling back to device then client IP; `new_account_requests` applies for accounts younger than
-`new_account.days` (7); optional `global` bucket = circuit breaker. Redis down: `on_store_failure: closed` limits (auth, search)
-return 503 `TEMPORARILY_UNAVAILABLE` + `Retry-After`; `open` limits fall back to a per-instance memory bucket. Client IP = TCP peer,
+`new_account.days` (7); optional `global` bucket = circuit breaker. Redis slow or down: `on_store_failure: closed` limits (auth,
+search, guessable tokens, staff; the reviewed list is in [[security-baseline]] "Rate limiter failure mode") return 503
+**`SERVER_BUSY`** + `Retry-After: 2` (the app says "server busy, try again", not "can't reach the server"); `open` limits
+fall back to a per-instance memory bucket. A failed store call (300 ms timeout) skips the store for 2 s on that instance, so
+a slow Valkey costs one timeout per window instead of one per request. `TEMPORARILY_UNAVAILABLE` stays for dependencies
+that are down or not configured (provider, signing key, storage, nonce store). Client IP = TCP peer,
 or the header named by `API_CLIENT_IP_HEADER` (e.g. `fly-client-ip`) when a trusted proxy sets it.
 
 Service credential (#234, `svc`): `RoutePolicy::service()` (role guest) on `/v1/public/*` routes only. The web server sends

@@ -91,4 +91,31 @@ describe('development sign-in (#306)', () => {
     });
     await expect(dev.listSeedUsers()).rejects.toEqual(new DevSignInError('disabled'));
   });
+
+  it('tells a busy server (503 SERVER_BUSY) from an unreachable one', async () => {
+    const answer = (status: number, code: string) =>
+      createDevSignIn({
+        baseUrl: () => 'http://api.test',
+        authClient: { signInAsSeedUser: jest.fn() },
+        fetch: () =>
+          Promise.resolve(
+            new Response(JSON.stringify({ status, code }), {
+              status,
+              headers: { 'Content-Type': 'application/problem+json', 'Retry-After': '2' },
+            }),
+          ),
+      });
+    await expect(answer(503, 'SERVER_BUSY').listSeedUsers()).rejects.toEqual(
+      new DevSignInError('busy'),
+    );
+    await expect(answer(503, 'TEMPORARILY_UNAVAILABLE').listSeedUsers()).rejects.toEqual(
+      new DevSignInError('unavailable'),
+    );
+    const offline = createDevSignIn({
+      baseUrl: () => 'http://api.test',
+      authClient: { signInAsSeedUser: jest.fn() },
+      fetch: () => Promise.reject(new TypeError('Network request failed')),
+    });
+    await expect(offline.listSeedUsers()).rejects.toEqual(new DevSignInError('unavailable'));
+  });
 });

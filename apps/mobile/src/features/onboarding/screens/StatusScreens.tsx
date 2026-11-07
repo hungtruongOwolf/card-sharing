@@ -17,12 +17,14 @@ export function LoadingScreen() {
   );
 }
 
-/** `/v1/me` failed (offline, 5xx): always offer a next step. */
+/** `/v1/me` failed (offline, 5xx): always offer a next step; "busy" when the server said so (503 `SERVER_BUSY`). */
 export function ErrorScreen() {
-  const { retry } = useOnboarding();
+  const { retry, serverBusy } = useOnboarding();
   return (
     <Screen title={t('onboarding.error.title')} centered>
-      <Text tone="muted">{t('onboarding.error.body')}</Text>
+      <Text tone="muted" testID="onboarding-error-body">
+        {t(serverBusy ? 'error.serverBusy' : 'onboarding.error.body')}
+      </Text>
       <Button label={t('onboarding.error.retry')} onPress={retry} />
     </Screen>
   );

@@ -104,17 +104,61 @@ async fn eleventh_signin_per_minute_from_one_ip_is_429_with_retry_after() {
     );
 }
 
+/// Fail-closed limits refuse every request while the store is slow or down, so each one is a
+/// reviewed security decision (sprint 9, security-baseline "Rate limiter failure mode"). Only
+/// these kinds of routes may fail closed: sign-in and credential steps (brute force, token
+/// stuffing), guessable tokens (invites, public links, export downloads), enumeration (handle
+/// check, search), staff routes, and abuse-prone or irreversible writes (friend requests, guest
+/// reports, deletion and export requests, the age gate). Everything else fails open to the
+/// per-instance memory bucket. Adding a limit here needs a security review.
+#[test]
+fn fail_closed_limits_are_the_reviewed_set() {
+    let reviewed = [
+        "admin.actions",
+        "admin.auth.login",
+        "admin.auth.mfa",
+        "admin.read",
+        "attestation.challenge",
+        "attestation.register",
+        "auth.dev",
+        "auth.email.start",
+        "auth.email.start.email",
+        "auth.reauth",
+        "auth.refresh",
+        "auth.signin",
+        "friend_requests.create",
+        "invites.preview",
+        "me.age",
+        "me.handle.check",
+        "me.handle.claim",
+        "privacy.deletion.cancel",
+        "privacy.deletion.request",
+        "privacy.exports.download",
+        "privacy.exports.request",
+        "public.boards.read",
+        "public.invites.read",
+        "public.reports.create",
+        "users.search",
+        "users.search.device",
+        "users.search.ip",
+    ];
+    assert_eq!(limits_config().fail_closed_limits(), reviewed);
+}
+
 #[tokio::test]
 async fn redis_down_fails_closed_for_auth_and_open_for_others() {
     let router = app(redis_down_limiter());
     let response = send(&router, signin_from("203.0.113.9")).await;
-    assert!(response.headers().get("retry-after").is_some());
-    assert_problem(
-        response,
-        StatusCode::SERVICE_UNAVAILABLE,
-        "TEMPORARILY_UNAVAILABLE",
-    )
-    .await;
+    assert_eq!(
+        response
+            .headers()
+            .get("retry-after")
+            .and_then(|v| v.to_str().ok()),
+        Some("2"),
+        "Retry-After is one breaker window"
+    );
+    // A distinct code, so the app says "server busy" instead of "can't reach the server".
+    assert_problem(response, StatusCode::SERVICE_UNAVAILABLE, "SERVER_BUSY").await;
 
     let response = send(&router, get_request("/test/config", None)).await;
     assert_eq!(

@@ -79,6 +79,8 @@ it('maps profile and handle failures', async () => {
   expect(await kindOf(api.claimHandle('mai'))).toBe('rate_limited');
   server.overrides.set('/v1/me/profile', problem(503, 'TEMPORARILY_UNAVAILABLE'));
   expect(await kindOf(api.saveDisplayName('Mai'))).toBe('unavailable');
+  server.overrides.set('/v1/me/profile', problem(503, 'SERVER_BUSY'));
+  expect(await kindOf(api.saveDisplayName('Mai'))).toBe('busy');
   await api.saveDisplayName('Mai');
   await api.claimHandle('mai');
   expect(await api.getMe()).toEqual({

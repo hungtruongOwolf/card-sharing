@@ -3811,7 +3811,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description TEMPORARILY_UNAVAILABLE: provider not configured or unreachable, or a fail-closed store is down. */
+            /** @description TEMPORARILY_UNAVAILABLE: provider not configured or unreachable, or the nonce store is down. SERVER_BUSY: the rate-limit store is slow or down (fails closed); retry after Retry-After. */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -3860,7 +3860,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description TEMPORARILY_UNAVAILABLE (rate-limit store down; fails closed). */
+            /** @description SERVER_BUSY (rate-limit store slow or down; fails closed; retry after Retry-After). */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -3929,7 +3929,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description TEMPORARILY_UNAVAILABLE: provider not configured or unreachable, or a fail-closed store is down. */
+            /** @description TEMPORARILY_UNAVAILABLE: provider not configured or unreachable, or the nonce store is down. SERVER_BUSY: the rate-limit store is slow or down (fails closed); retry after Retry-After. */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -4058,7 +4058,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description TEMPORARILY_UNAVAILABLE (rate-limit store down; auth fails closed). */
+            /** @description SERVER_BUSY (rate-limit store slow or down; auth fails closed; retry after Retry-After). */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -6758,7 +6758,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description TEMPORARILY_UNAVAILABLE (rate limit store down; fails closed). */
+            /** @description SERVER_BUSY (rate-limit store slow or down; fails closed; retry after Retry-After). */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -6865,7 +6865,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description TEMPORARILY_UNAVAILABLE (fails closed). */
+            /** @description SERVER_BUSY (rate-limit store slow or down; fails closed) or TEMPORARILY_UNAVAILABLE (cooldown store down). */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -7386,7 +7386,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description TEMPORARILY_UNAVAILABLE (rate limit store down; fails closed). */
+            /** @description SERVER_BUSY (rate-limit store slow or down; fails closed; retry after Retry-After). */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -7455,7 +7455,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description TEMPORARILY_UNAVAILABLE (rate limit store down; fails closed). */
+            /** @description SERVER_BUSY (rate-limit store slow or down; fails closed; retry after Retry-After). */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -8176,7 +8176,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description TEMPORARILY_UNAVAILABLE (rate limit store down or media signing not configured). */
+            /** @description SERVER_BUSY (rate-limit store slow or down; fails closed) or TEMPORARILY_UNAVAILABLE (media signing not configured). */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -8247,7 +8247,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description TEMPORARILY_UNAVAILABLE (rate limit store down or media signing not configured). */
+            /** @description SERVER_BUSY (rate-limit store slow or down; fails closed) or TEMPORARILY_UNAVAILABLE (media signing not configured). */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -8318,7 +8318,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description TEMPORARILY_UNAVAILABLE (rate limit store down; fails closed). */
+            /** @description SERVER_BUSY (rate-limit store slow or down; fails closed; retry after Retry-After). */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -8387,7 +8387,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description TEMPORARILY_UNAVAILABLE: captcha provider not configured or unreachable, or the rate-limit store is down. */
+            /** @description TEMPORARILY_UNAVAILABLE: captcha provider not configured or unreachable. SERVER_BUSY: the rate-limit store is slow or down (fails closed). */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -8701,7 +8701,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description TEMPORARILY_UNAVAILABLE (rate limit store down; fails closed). */
+            /** @description SERVER_BUSY (rate-limit store slow or down; fails closed; retry after Retry-After). */
             503: {
                 headers: {
                     [name: string]: unknown;

@@ -143,9 +143,13 @@ pub enum ApiError {
     /// The caller exhausted a rate limit.
     #[error("rate limited")]
     RateLimited { retry_after_secs: u64 },
-    /// A dependency is down and the route fails closed.
+    /// A dependency is down or not configured and the route fails closed.
     #[error("temporarily unavailable")]
     Unavailable { retry_after_secs: u64 },
+    /// The server is overloaded (the rate-limit store is slow or down and the route's limit fails
+    /// closed): the client should say "busy, try again shortly", not "unreachable".
+    #[error("server busy")]
+    ServerBusy { retry_after_secs: u64 },
     #[error("internal error: {0}")]
     Internal(#[source] Box<dyn std::error::Error + Send + Sync>),
 }
@@ -191,7 +195,7 @@ impl ApiError {
             Self::RequestTimeout => StatusCode::REQUEST_TIMEOUT,
             Self::UpgradeRequired => StatusCode::UPGRADE_REQUIRED,
             Self::RateLimited { .. } => StatusCode::TOO_MANY_REQUESTS,
-            Self::Unavailable { .. } => StatusCode::SERVICE_UNAVAILABLE,
+            Self::Unavailable { .. } | Self::ServerBusy { .. } => StatusCode::SERVICE_UNAVAILABLE,
             Self::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
@@ -234,6 +238,7 @@ impl ApiError {
             Self::UpgradeRequired => "UPGRADE_REQUIRED",
             Self::RateLimited { .. } => "RATE_LIMITED",
             Self::Unavailable { .. } => "TEMPORARILY_UNAVAILABLE",
+            Self::ServerBusy { .. } => "SERVER_BUSY",
             Self::Internal(_) => "INTERNAL",
         }
     }
@@ -242,6 +247,7 @@ impl ApiError {
         match self {
             Self::RateLimited { retry_after_secs }
             | Self::Unavailable { retry_after_secs }
+            | Self::ServerBusy { retry_after_secs }
             | Self::HandleChangeCooldown { retry_after_secs }
             | Self::ReinviteCooldown { retry_after_secs }
             | Self::ExportCooldown { retry_after_secs } => Some(*retry_after_secs),
@@ -328,6 +334,9 @@ mod tests {
             ApiError::Unavailable {
                 retry_after_secs: 1,
             },
+            ApiError::ServerBusy {
+                retry_after_secs: 1,
+            },
             ApiError::RateLimited {
                 retry_after_secs: 1,
             },
@@ -381,6 +390,20 @@ mod tests {
         assert_eq!(
             response.headers().get(header::RETRY_AFTER),
             Some(&HeaderValue::from(7u64))
+        );
+    }
+
+    #[test]
+    fn server_busy_is_a_distinct_503_with_retry_after() {
+        let err = ApiError::ServerBusy {
+            retry_after_secs: 2,
+        };
+        assert_eq!(err.code(), "SERVER_BUSY");
+        let response = err.into_response();
+        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(
+            response.headers().get(header::RETRY_AFTER),
+            Some(&HeaderValue::from(2u64))
         );
     }
 

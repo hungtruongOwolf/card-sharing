@@ -100,6 +100,17 @@ describe('onboarding flow', () => {
     await screen.findByTestId('onboarding-birth-date');
   });
 
+  it('says the server is busy (not unreachable) on 503 SERVER_BUSY', async () => {
+    const server = new FakeOnboardingServer();
+    server.overrides.set('/v1/me', problem(503, 'SERVER_BUSY'));
+    const user = userEvent.setup();
+    await renderOnboarding(server, { signedIn: true });
+    expect(await screen.findByText(t('error.serverBusy'))).toBeTruthy();
+    expect(screen.queryByText(t('onboarding.error.body'))).toBeNull();
+    await user.press(screen.getByRole('button', { name: t('onboarding.error.retry') }));
+    await screen.findByTestId('onboarding-birth-date');
+  });
+
   it('asks for the name again when the handle claim leaves the profile step open', async () => {
     const server = new FakeOnboardingServer();
     server.resetAccount('pending_profile');

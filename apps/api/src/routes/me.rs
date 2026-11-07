@@ -358,7 +358,7 @@ fn parse_country(field: &str, value: Option<&str>) -> Result<Option<CountryCode>
         (status = UNAUTHORIZED, description = "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.", body = ProblemDetails),
         (status = FORBIDDEN, description = "AGE_GATE_REFUSED (neutral; account removed), AGE_ALREADY_SUBMITTED (DOB is locked) or FORBIDDEN (not an onboarding session).", body = ProblemDetails),
         (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED.", body = ProblemDetails),
-        (status = SERVICE_UNAVAILABLE, description = "TEMPORARILY_UNAVAILABLE (fails closed).", body = ProblemDetails),
+        (status = SERVICE_UNAVAILABLE, description = "SERVER_BUSY (rate-limit store slow or down; fails closed) or TEMPORARILY_UNAVAILABLE (cooldown store down).", body = ProblemDetails),
     )
 )]
 pub async fn submit_age(
@@ -536,7 +536,7 @@ pub struct HandleCheckResponse {
         (status = UNAUTHORIZED, description = "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.", body = ProblemDetails),
         (status = FORBIDDEN, description = "ONBOARDING_INCOMPLETE (age gate not passed) or ACCOUNT_SUSPENDED.", body = ProblemDetails),
         (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED.", body = ProblemDetails),
-        (status = SERVICE_UNAVAILABLE, description = "TEMPORARILY_UNAVAILABLE (rate limit store down; fails closed).", body = ProblemDetails),
+        (status = SERVICE_UNAVAILABLE, description = "SERVER_BUSY (rate-limit store slow or down; fails closed; retry after Retry-After).", body = ProblemDetails),
     )
 )]
 pub async fn check_handle(
@@ -576,7 +576,7 @@ pub async fn check_handle(
         (status = FORBIDDEN, description = "ONBOARDING_INCOMPLETE (age gate not passed) or ACCOUNT_SUSPENDED.", body = ProblemDetails),
         (status = CONFLICT, description = "HANDLE_TAKEN (taken or reserved; no detail).", body = ProblemDetails),
         (status = TOO_MANY_REQUESTS, description = "HANDLE_CHANGE_COOLDOWN (with Retry-After) or RATE_LIMITED.", body = ProblemDetails),
-        (status = SERVICE_UNAVAILABLE, description = "TEMPORARILY_UNAVAILABLE (rate limit store down; fails closed).", body = ProblemDetails),
+        (status = SERVICE_UNAVAILABLE, description = "SERVER_BUSY (rate-limit store slow or down; fails closed; retry after Retry-After).", body = ProblemDetails),
     )
 )]
 pub async fn claim_handle(

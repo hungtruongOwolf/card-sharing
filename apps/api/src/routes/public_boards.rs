@@ -19,7 +19,7 @@ use boards::Role;
 use identity::AccountStatus;
 use media::ObjectKey;
 use platform::problem::{ApiError, ProblemDetails};
-use platform::rate_limit::{AccountSubject, Decision, Subject};
+use platform::rate_limit::{AccountSubject, Decision, STORE_RETRY_AFTER_SECS, Subject};
 use policy::PolicyContext;
 use serde::Serialize;
 use serde_json::Value;
@@ -133,8 +133,8 @@ async fn resolve(state: &AppState, token: &str) -> Result<(LiveLink, StoredSnaps
             return Err(ApiError::NotFound);
         }
         Ok(Decision::Unavailable) => {
-            return Err(ApiError::Unavailable {
-                retry_after_secs: 5,
+            return Err(ApiError::ServerBusy {
+                retry_after_secs: STORE_RETRY_AFTER_SECS,
             });
         }
         Err(err) => return Err(ApiError::internal(err)),
@@ -212,7 +212,7 @@ fn number(pin: &Value, field: &str) -> f64 {
         (status = UNAUTHORIZED, description = "UNAUTHENTICATED (service credential missing or wrong).", body = ProblemDetails),
         (status = NOT_FOUND, description = "NOT_FOUND for every unusable token.", body = ProblemDetails),
         (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED (per visitor IP).", body = ProblemDetails),
-        (status = SERVICE_UNAVAILABLE, description = "TEMPORARILY_UNAVAILABLE (rate limit store down or media signing not configured).", body = ProblemDetails),
+        (status = SERVICE_UNAVAILABLE, description = "SERVER_BUSY (rate-limit store slow or down; fails closed) or TEMPORARILY_UNAVAILABLE (media signing not configured).", body = ProblemDetails),
     )
 )]
 pub async fn get_public_board(
@@ -321,7 +321,7 @@ pub async fn get_public_board(
         (status = UNAUTHORIZED, description = "UNAUTHENTICATED (service credential missing or wrong).", body = ProblemDetails),
         (status = NOT_FOUND, description = "NOT_FOUND for every unusable token.", body = ProblemDetails),
         (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED (per visitor IP).", body = ProblemDetails),
-        (status = SERVICE_UNAVAILABLE, description = "TEMPORARILY_UNAVAILABLE (rate limit store down or media signing not configured).", body = ProblemDetails),
+        (status = SERVICE_UNAVAILABLE, description = "SERVER_BUSY (rate-limit store slow or down; fails closed) or TEMPORARILY_UNAVAILABLE (media signing not configured).", body = ProblemDetails),
     )
 )]
 pub async fn get_public_board_og(

@@ -7,7 +7,7 @@ use platform::crypto::FieldCipher;
 use platform::idempotency::{IdempotencySettings, IdempotencyStore};
 use platform::problem::ApiError;
 use platform::rate_limit::RateLimiter;
-use platform::rate_limit::{AccountSubject, Decision, Subject};
+use platform::rate_limit::{AccountSubject, Decision, STORE_RETRY_AFTER_SECS, Subject};
 use platform::text::TextFilter;
 use policy::{CountryCode, PolicyService};
 use registry::Registry;
@@ -261,8 +261,8 @@ impl AppState {
                 );
                 Err(ApiError::RateLimited { retry_after_secs })
             }
-            Ok(Decision::Unavailable) => Err(ApiError::Unavailable {
-                retry_after_secs: 5,
+            Ok(Decision::Unavailable) => Err(ApiError::ServerBusy {
+                retry_after_secs: STORE_RETRY_AFTER_SECS,
             }),
             Err(err) => Err(ApiError::internal(err)),
         }

@@ -11,7 +11,9 @@ use identity::{AttestationService, IdentityService};
 use platform::crypto::SecretDigest;
 use platform::idempotency::IdempotencyStore;
 use platform::problem::ApiError;
-use platform::rate_limit::{AccountSubject, Decision, RateLimiter, Subject};
+use platform::rate_limit::{
+    AccountSubject, Decision, RateLimiter, STORE_RETRY_AFTER_SECS, Subject,
+};
 
 use super::attest;
 use super::caller::SessionResolver;
@@ -285,8 +287,8 @@ pub(super) async fn rate_limit(
         Ok(Decision::Limited { retry_after_secs }) => {
             Err(ApiError::RateLimited { retry_after_secs })
         }
-        Ok(Decision::Unavailable) => Err(ApiError::Unavailable {
-            retry_after_secs: 5,
+        Ok(Decision::Unavailable) => Err(ApiError::ServerBusy {
+            retry_after_secs: STORE_RETRY_AFTER_SECS,
         }),
         // Startup validates every name, so this is a bug: fail closed.
         Err(err) => Err(ApiError::internal(err)),

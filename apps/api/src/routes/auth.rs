@@ -9,7 +9,7 @@ use identity::{
     RevokeReason, SignInError, SignInRequest,
 };
 use platform::problem::{ApiError, ProblemDetails};
-use platform::rate_limit::{AccountSubject, Decision, Subject};
+use platform::rate_limit::{AccountSubject, Decision, STORE_RETRY_AFTER_SECS, Subject};
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use utoipa::ToSchema;
@@ -145,7 +145,7 @@ fn check_token_and_nonce(id_token: &str, nonce: &str) -> Result<(), ApiError> {
         (status = UNAUTHORIZED, description = "UNAUTHENTICATED: invalid, expired, forged or misaddressed ID token, nonce mismatch, or a replayed nonce.", body = ProblemDetails),
         (status = FORBIDDEN, description = "ACCOUNT_SUSPENDED: the account may not sign in (suspended, banned or deletion pending).", body = ProblemDetails),
         (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED.", body = ProblemDetails),
-        (status = SERVICE_UNAVAILABLE, description = "TEMPORARILY_UNAVAILABLE: provider not configured or unreachable, or a fail-closed store is down.", body = ProblemDetails),
+        (status = SERVICE_UNAVAILABLE, description = "TEMPORARILY_UNAVAILABLE: provider not configured or unreachable, or the nonce store is down. SERVER_BUSY: the rate-limit store is slow or down (fails closed); retry after Retry-After.", body = ProblemDetails),
     )
 )]
 pub async fn sign_in_apple(
@@ -207,7 +207,7 @@ pub struct GoogleSignInRequest {
         (status = UNAUTHORIZED, description = "UNAUTHENTICATED: invalid, expired, forged or misaddressed ID token (including a token for another client id), nonce mismatch, or a replayed nonce.", body = ProblemDetails),
         (status = FORBIDDEN, description = "ACCOUNT_SUSPENDED: the account may not sign in (suspended, banned or deletion pending).", body = ProblemDetails),
         (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED.", body = ProblemDetails),
-        (status = SERVICE_UNAVAILABLE, description = "TEMPORARILY_UNAVAILABLE: provider not configured or unreachable, or a fail-closed store is down.", body = ProblemDetails),
+        (status = SERVICE_UNAVAILABLE, description = "TEMPORARILY_UNAVAILABLE: provider not configured or unreachable, or the nonce store is down. SERVER_BUSY: the rate-limit store is slow or down (fails closed); retry after Retry-After.", body = ProblemDetails),
     )
 )]
 pub async fn sign_in_google(
@@ -293,7 +293,7 @@ pub struct EmailStartRequest {
         (status = ACCEPTED, description = "If the address can receive email, a sign-in link is on its way."),
         (status = BAD_REQUEST, description = "VALIDATION_FAILED (malformed email or challenge, unknown fields).", body = ProblemDetails),
         (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED: more than 5 requests in 15 minutes from this IP or for this email (same body either way).", body = ProblemDetails),
-        (status = SERVICE_UNAVAILABLE, description = "TEMPORARILY_UNAVAILABLE (rate-limit store down; fails closed).", body = ProblemDetails),
+        (status = SERVICE_UNAVAILABLE, description = "SERVER_BUSY (rate-limit store slow or down; fails closed; retry after Retry-After).", body = ProblemDetails),
     )
 )]
 pub async fn start_email_sign_in(
@@ -330,8 +330,8 @@ pub async fn start_email_sign_in(
             return Err(ApiError::RateLimited { retry_after_secs });
         }
         Ok(Decision::Unavailable) => {
-            return Err(ApiError::Unavailable {
-                retry_after_secs: 5,
+            return Err(ApiError::ServerBusy {
+                retry_after_secs: STORE_RETRY_AFTER_SECS,
             });
         }
         Err(err) => return Err(ApiError::internal(err)),
@@ -365,7 +365,7 @@ pub const EMAIL_LIMIT: &str = "auth.email.start.email";
         (status = BAD_REQUEST, description = "VALIDATION_FAILED (unknown fields are rejected).", body = ProblemDetails),
         (status = UNAUTHORIZED, description = "UNAUTHENTICATED (unknown token) or SESSION_REVOKED (reused, revoked or ended session: sign in again).", body = ProblemDetails),
         (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED.", body = ProblemDetails),
-        (status = SERVICE_UNAVAILABLE, description = "TEMPORARILY_UNAVAILABLE (rate-limit store down; auth fails closed).", body = ProblemDetails),
+        (status = SERVICE_UNAVAILABLE, description = "SERVER_BUSY (rate-limit store slow or down; auth fails closed; retry after Retry-After).", body = ProblemDetails),
     )
 )]
 pub async fn refresh(

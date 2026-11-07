@@ -53,7 +53,7 @@ impl From<PublicInvitePreview> for PublicInviteResponse {
         (status = UNAUTHORIZED, description = "UNAUTHENTICATED (service credential missing or wrong).", body = ProblemDetails),
         (status = NOT_FOUND, description = "NOT_FOUND for every unusable token.", body = ProblemDetails),
         (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED (per visitor IP).", body = ProblemDetails),
-        (status = SERVICE_UNAVAILABLE, description = "TEMPORARILY_UNAVAILABLE (rate limit store down; fails closed).", body = ProblemDetails),
+        (status = SERVICE_UNAVAILABLE, description = "SERVER_BUSY (rate-limit store slow or down; fails closed; retry after Retry-After).", body = ProblemDetails),
     )
 )]
 pub async fn get_public_invite(
