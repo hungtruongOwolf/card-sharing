@@ -5,21 +5,16 @@ import { useEffect, useMemo, useState } from 'react';
 import type { LocalCard } from '../features/cards';
 import type { CapturedPhoto } from '../features/capture';
 import { deviceDraftStore, useDraftAutosave } from '../features/drafts';
-import {
-  CardEditorScreen,
-  createSyntheticMaskSource,
-  noMaskSource,
-  parseEditorPhoto,
-} from '../features/editor';
+import { appMaskSource, CardEditorScreen, parseEditorPhoto } from '../features/editor';
 import { useRemoteConfig } from '../features/remote-config';
 import { t } from '../i18n';
 import { Screen, Text, useToast } from '../ui';
 
 /**
  * Card editor (T-64). A new photo arrives as route params from capture; `?draft=<id>` reopens a draft from the
- * drafts tray (T-68). Every change auto-saves to the drafts tray. Until the real segmenters land (T-54/T-55),
- * development builds use a synthetic subject mask and release builds make whole-photo cards. Next saves the draft
- * and opens the send screen (T-77).
+ * drafts tray (T-68). Every change auto-saves to the drafts tray. Subject masks come from `appMaskSource()` (web:
+ * BiRefNet_lite; native until T-54/T-55: synthetic in development, whole-photo cards in release). Next saves the
+ * draft and opens the send screen (T-77).
  */
 export default function EditorRoute() {
   const params = useLocalSearchParams();
@@ -58,7 +53,7 @@ export default function EditorRoute() {
 
 function Editor({ photo, existing }: { photo: CapturedPhoto; existing: LocalCard | null }) {
   const router = useRouter();
-  const maskSource = useMemo(() => (__DEV__ ? createSyntheticMaskSource() : noMaskSource), []);
+  const maskSource = appMaskSource();
   const remoteConfig = useRemoteConfig();
   const toast = useToast();
   const { onDraftChange, saveNow } = useDraftAutosave(deviceDraftStore(), photo, existing);

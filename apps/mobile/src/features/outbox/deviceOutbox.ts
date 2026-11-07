@@ -4,7 +4,7 @@ import type { AuthClient } from '../auth';
 import { BakeError } from '../cards/bakeError';
 import { prepareForSend } from '../cards/prepare';
 import { deviceDraftStore } from '../drafts';
-import { createSyntheticMaskSource, noMaskSource } from '../editor/maskSource';
+import { appMaskSource } from '../editor/appMaskSource';
 import { createCardsApi } from '../sharing/cardsApi';
 import { createOutbox, type Outbox } from './outbox';
 import { createOutboxStore, type OutboxStore } from './outboxStore';
@@ -22,7 +22,7 @@ export function deviceOutboxStore(): OutboxStore {
  * same mask source as the editor (the bake is byte-stable, so uploads dedupe on the server).
  */
 export function createAppOutbox(authClient: AuthClient): Outbox {
-  const maskSource = __DEV__ ? createSyntheticMaskSource() : noMaskSource;
+  const maskSource = appMaskSource();
   const drafts = deviceDraftStore();
   return createOutbox({
     store: deviceOutboxStore(),

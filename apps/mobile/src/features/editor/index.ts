@@ -5,6 +5,7 @@ export {
   type LoadImage,
 } from './CardEditorScreen';
 export type { CardDraft, StyleChoice } from './editorState';
+export { appMaskSource } from './appMaskSource';
 export {
   createSyntheticMaskSource,
   noMaskSource,
