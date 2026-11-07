@@ -39,7 +39,7 @@ test('a new user signs up by magic link with an invite code, onboards and adds a
   // The landing route is a lazy bundle in Metro's development mode: the first visit compiles it.
   await expect(tab.getByTestId('magic-link-confirm')).toBeVisible({ timeout: 60_000 });
   // The token is read once and removed from the address bar.
-  expect(tab.url()).not.toContain('token=');
+  await expect.poll(() => tab.url()).not.toContain('token=');
 
   // A new account needs an invite code: none sent yet, then a wrong one (both deliberate 403s), then the real one.
   app.expectHttp({ method: 'POST', path: /^\/v1\/auth\/email\/verify$/, status: 403 });
