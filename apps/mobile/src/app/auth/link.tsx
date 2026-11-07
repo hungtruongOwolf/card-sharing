@@ -20,10 +20,14 @@ export default function MagicLinkRoute() {
   const { magicLink } = useOnboarding();
   const pendingLink = usePendingLink();
   const link = useMagicLinkFragment();
+  // Expo Router keeps the URL's hash (with the token) in its state and writes it back: on the web the route first
+  // replaces itself without it, and only then shows the screen, so the screen's lookup runs once (a stale request is
+  // reported as expired, then forgotten).
+  const hashInUrl = Platform.OS === 'web' && launchLinkInUrl();
   useEffect(() => {
-    // The router keeps the URL's hash (with the token) in its state: drop it by replacing the route (web).
-    if (Platform.OS === 'web' && launchLinkInUrl()) router.replace('/auth/link');
-  }, [router]);
+    if (hashInUrl) router.replace('/auth/link');
+  }, [hashInUrl, router]);
+  if (hashInUrl) return null;
   return (
     <MagicLinkScreen
       link={link}
