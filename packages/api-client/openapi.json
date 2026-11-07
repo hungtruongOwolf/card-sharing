@@ -1274,17 +1274,7 @@
             }
           },
           "429": {
-            "description": "RATE_LIMITED.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "SERVER_BUSY (rate-limit store slow or down; auth fails closed; retry after Retry-After).",
+            "description": "RATE_LIMITED (per device; while the rate-limit store is down, per instance).",
             "content": {
               "application/json": {
                 "schema": {

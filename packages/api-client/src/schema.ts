@@ -4049,17 +4049,8 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description RATE_LIMITED. */
+            /** @description RATE_LIMITED (per device; while the rate-limit store is down, per instance). */
             429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDetails"];
-                };
-            };
-            /** @description SERVER_BUSY (rate-limit store slow or down; auth fails closed; retry after Retry-After). */
-            503: {
                 headers: {
                     [name: string]: unknown;
                 };

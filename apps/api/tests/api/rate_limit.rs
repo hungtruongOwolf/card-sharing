@@ -22,6 +22,12 @@ async fn signin_route() -> &'static str {
     "ok"
 }
 
+/// Public route under `auth.refresh` (30/h per device, falling back to IP; fails open).
+#[utoipa::path(post, path = "/test/refresh", responses((status = OK, description = "ok")))]
+async fn refresh_route() -> &'static str {
+    "ok"
+}
+
 /// Public route under the fail-open `config.read` limit.
 #[utoipa::path(get, path = "/test/config", responses((status = OK, description = "ok")))]
 async fn config_route() -> &'static str {
@@ -37,6 +43,10 @@ fn routes() -> ApiRouter<AppState> {
         .route(
             RoutePolicy::public().limited("config.read"),
             routes!(config_route),
+        )
+        .route(
+            RoutePolicy::public().limited("auth.refresh"),
+            routes!(refresh_route),
         )
 }
 
@@ -124,7 +134,6 @@ fn fail_closed_limits_are_the_reviewed_set() {
         "auth.email.start",
         "auth.email.start.email",
         "auth.reauth",
-        "auth.refresh",
         "auth.signin",
         "friend_requests.create",
         "invites.preview",
@@ -165,6 +174,32 @@ async fn redis_down_fails_closed_for_auth_and_open_for_others() {
         response.status(),
         StatusCode::OK,
         "fail-open limit falls back to memory"
+    );
+}
+
+/// EM decision 2026-11-07: token refresh keeps working while the store is down, still limited by
+/// the per-instance memory bucket (30 per hour per device/IP), never unlimited.
+#[tokio::test]
+async fn refresh_fails_open_to_the_memory_bucket_when_the_store_is_down() {
+    let router = app(redis_down_limiter());
+    let refresh_from = |ip: &str| {
+        Request::post("/test/refresh")
+            .header("x-test-client-ip", ip)
+            .body(Body::empty())
+            .unwrap()
+    };
+    for _ in 0..30 {
+        assert_eq!(
+            send(&router, refresh_from("203.0.113.20")).await.status(),
+            StatusCode::OK
+        );
+    }
+    let limited = send(&router, refresh_from("203.0.113.20")).await;
+    assert!(limited.headers().contains_key("retry-after"));
+    assert_problem(limited, StatusCode::TOO_MANY_REQUESTS, "RATE_LIMITED").await;
+    assert_eq!(
+        send(&router, refresh_from("203.0.113.21")).await.status(),
+        StatusCode::OK
     );
 }
 
