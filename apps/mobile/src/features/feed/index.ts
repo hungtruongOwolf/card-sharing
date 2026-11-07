@@ -6,7 +6,17 @@ export {
   type CachedFeedItem,
   type FeedCache,
 } from './feedCache';
-export { FEED_QUERY_KEY, FeedScreen, type FeedScreenProps } from './FeedScreen';
+export { FEED_QUERY_KEY, FeedScreen, sentLabel, type FeedScreenProps } from './FeedScreen';
+export { ReactionBar, type ReactionBarProps } from './ReactionBar';
+export {
+  createSeenStore,
+  deviceSeenStore,
+  isUnseen,
+  type SeenMarks,
+  type SeenStore,
+} from './seenCards';
+export { storyRings, storySequence, type StoryRing } from './stories';
+export { useSeenMarks } from './useSeenMarks';
 export { REACTION_DISPLAY, shownReactions } from './reactions';
 export {
   CARD_RECHECK_MS,

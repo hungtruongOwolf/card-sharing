@@ -11,7 +11,7 @@ import { createQueryClient } from '../data/queryClient';
 import { AuthProvider, createAppAuthClient, useAuthClient } from '../features/auth';
 import { FeedbackProvider, securePrefsStorage } from '../features/feedback';
 import { clearDeviceBoards } from '../features/boards';
-import { deviceFeedCache, PurgeSync } from '../features/feed';
+import { deviceFeedCache, deviceSeenStore, PurgeSync } from '../features/feed';
 import { TimeZoneSync, useNotificationsApi } from '../features/notifications';
 import { createAppOutbox, deviceOutboxStore, OutboxProvider } from '../features/outbox';
 import {
@@ -140,7 +140,7 @@ function Onboarding() {
  * Device copies of account data never outlive the session: the offline feed holds friends' names and captions
  * (T-80), the outbox holds this account's unsent cards and reactions (T-78), which must never go out as the
  * next account, the widget token (T-91) must leave the widget empty (AC-16.2), and board copies (T-105) hold
- * friends' cards and names. The remembered data export (T-155) belongs to the account too.
+ * friends' cards and names. The remembered data export (T-155) and the seen marks of story rings belong to the account too.
  */
 const clearDeviceData = () => {
   void deviceFeedCache()
@@ -154,6 +154,10 @@ const clearDeviceData = () => {
     .catch(() => undefined);
   void clearDeviceBoards().catch(() => undefined);
   void deviceExportStore()
+    .clear()
+    .catch(() => undefined);
+  // Which friends' cards were opened (story rings, sprint 9).
+  void deviceSeenStore()
     .clear()
     .catch(() => undefined);
 };

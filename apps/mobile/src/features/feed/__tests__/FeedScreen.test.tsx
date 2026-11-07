@@ -7,6 +7,7 @@ import { FakeCardsServer } from '../../../test/fakeCardsServer';
 import { SCHEMES } from '../../../test/render';
 import { memoryKeyValueStore } from '../../drafts/draftStore';
 import { createFeedCache, type FeedCache } from '../feedCache';
+import type { SeenMarks } from '../seenCards';
 import { FeedScreen } from '../FeedScreen';
 
 const REACTIONS = ['react.heart', 'react.paw', 'react.unknown'];
@@ -28,6 +29,7 @@ async function setup({
   onOpen,
   skewMs = 0,
   extra,
+  seenFor,
 }: {
   scheme?: 'light' | 'dark';
   cache?: FeedCache;
@@ -36,6 +38,8 @@ async function setup({
   /** How far the device clock runs ahead of the server's. */
   skewMs?: number;
   extra?: (server: FakeCardsServer, people: ReturnType<typeof seed>) => void;
+  /** Story-ring seen marks, from the seeded people. */
+  seenFor?: (people: ReturnType<typeof seed>) => SeenMarks;
 } = {}) {
   let people!: ReturnType<typeof seed>;
   const onCompose = jest.fn();
@@ -49,6 +53,7 @@ async function setup({
         queueReaction={queueReaction}
         now={() => clock() + skewMs}
         onOpen={onOpen}
+        seen={seenFor?.(people)}
         onCompose={onCompose}
         onBack={() => undefined}
       />
@@ -240,6 +245,40 @@ describe('FeedScreen', () => {
     expect(queueReaction).toHaveBeenCalledWith(newest.id, 'react.heart');
     expect(heart().props.accessibilityState).toMatchObject({ selected: true });
     expect(server.reactions.has(newest.id)).toBe(false);
+  });
+
+  it('shows a story ring per friend with new cards and opens their oldest new card', async () => {
+    const onOpen = jest.fn();
+    const { user, newest } = await setup({ onOpen });
+    await screen.findByText('zoomies');
+    expect(
+      screen.getByRole('button', { name: t('feed.ring.a11y.new', { name: 'Ben', count: 1 }) }),
+    ).toBeTruthy();
+    await user.press(
+      screen.getByRole('button', { name: t('feed.ring.a11y.new', { name: 'Mai', count: 1 }) }),
+    );
+    expect(onOpen).toHaveBeenCalledWith(newest.id);
+    // Ring names are decorative (the ring button carries them): the card shows the sender once.
+    expect(screen.getAllByText('Mai')).toHaveLength(1);
+  });
+
+  it('draws a seen ring, after the new ones, for a friend whose cards were all opened', async () => {
+    await setup({
+      onOpen: jest.fn(),
+      seenFor: ({ mai, newest }) => ({ [mai.id]: newest.sentAt }),
+    });
+    await screen.findByText('zoomies');
+    const rings = screen.getAllByRole('button', { name: /, (new cards, )?1 card$/ });
+    expect(rings.map((ring) => ring.props.accessibilityLabel)).toEqual([
+      t('feed.ring.a11y.new', { name: 'Ben', count: 1 }),
+      t('feed.ring.a11y', { name: 'Mai', count: 1 }),
+    ]);
+  });
+
+  it('shows no story rings without a way to open cards', async () => {
+    await setup();
+    await screen.findByText('zoomies');
+    expect(screen.queryByTestId('story-rings')).toBeNull();
   });
 
   it('opens a card full screen from its picture', async () => {
