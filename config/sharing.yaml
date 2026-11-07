@@ -5,5 +5,5 @@ version: 1
 
 links:
   # Public board links are `<url_base><token>`. Local web by default; deployments point it at the
-  # share domain (the web page /b/<token>).
+  # share domain (the web page /b/<token>). API_PUBLIC_LINK_URL_BASE overrides it per deployment (B4).
   url_base: 'http://localhost:3000/b/'

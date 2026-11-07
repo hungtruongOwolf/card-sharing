@@ -82,6 +82,8 @@ pub struct Config {
     pub boards_config_path: PathBuf,
     /// `API_SHARING_CONFIG_PATH` — default `config/sharing.yaml` (public link URL base).
     pub sharing_config_path: PathBuf,
+    /// Per-deployment overrides of the invite and public board link bases (B4).
+    pub link_bases: LinkBaseOverrides,
     /// `API_PRIVACY_CONFIG_PATH` — default `config/privacy.yaml` (deletion grace period).
     pub privacy_config_path: PathBuf,
     /// `API_MODERATION_CONFIG_PATH` — default `config/moderation.yaml` (report priorities).
@@ -165,6 +167,36 @@ pub struct MailConfig {
     /// `API_MAGIC_LINK_URL` — Universal/App Link base for magic links, default
     /// `http://localhost:3000/auth/link` (local web). The token is appended as `#token=...`.
     pub magic_link_url: String,
+}
+
+/// Where invite and public board links point (B4). Link bases depend on the deployment (a local
+/// origin, the dev PC's address on a home network, the share domain), so env overrides the
+/// committed yaml; unset = the yaml value. Each base is an http(s) URL ending with `/`, without
+/// query or fragment; plain http is refused when `API_ENV=production`.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct LinkBaseOverrides {
+    /// `API_INVITE_URL_BASE` — overrides `invites.url_base` in `config/social.yaml`: personal
+    /// invite links are this base followed by the token (`.../i/<token>`).
+    pub invite_url_base: Option<String>,
+    /// `API_PUBLIC_LINK_URL_BASE` — overrides `links.url_base` in `config/sharing.yaml`: public
+    /// board links are this base followed by the token (`.../b/<token>`).
+    pub public_link_url_base: Option<String>,
+}
+
+impl LinkBaseOverrides {
+    /// Applies the overrides to the settings loaded from the yaml files.
+    pub fn apply(
+        &self,
+        social_settings: &mut social::SocialSettings,
+        sharing_settings: &mut sharing::SharingSettings,
+    ) {
+        if let Some(base) = &self.invite_url_base {
+            social_settings.invite_url_base.clone_from(base);
+        }
+        if let Some(base) = &self.public_link_url_base {
+            sharing_settings.link_url_base.clone_from(base);
+        }
+    }
 }
 
 /// `API_ENV` — the deployment profile. Defaults to `production` (the safest assumption):
@@ -341,6 +373,14 @@ impl Config {
             .filter(|dir| !dir.trim().is_empty())
             .map(PathBuf::from);
         let content_safety = content_safety_config(env)?;
+        let link_bases = LinkBaseOverrides {
+            invite_url_base: link_url_base(env, "API_INVITE_URL_BASE", content_safety.env)?,
+            public_link_url_base: link_url_base(
+                env,
+                "API_PUBLIC_LINK_URL_BASE",
+                content_safety.env,
+            )?,
+        };
         let media_s3 = media_s3_config(env, content_safety.env)?;
         let push_sender = safety_adapter(env, "API_PUSH_SENDER", content_safety.env)?;
         let cdn_purger = safety_adapter(env, "API_CDN_PURGER", content_safety.env)?;
@@ -430,6 +470,7 @@ impl Config {
             notifications_config_path,
             boards_config_path,
             sharing_config_path,
+            link_bases,
             privacy_config_path,
             moderation_config_path,
             push_sender,
@@ -561,6 +602,39 @@ fn mail_config<F: Fn(&str) -> Option<String>>(env: &Env<F>) -> Result<MailConfig
         from,
         magic_link_url,
     })
+}
+
+/// One link base override (B4): `None` when unset; otherwise an http(s) URL with a host, ending
+/// with `/`, without whitespace, query or fragment, and https when `API_ENV=production`.
+fn link_url_base<F: Fn(&str) -> Option<String>>(
+    env: &Env<F>,
+    key: &'static str,
+    app_env: AppEnv,
+) -> Result<Option<String>, ConfigError> {
+    let Some(base) = env.optional(key) else {
+        return Ok(None);
+    };
+    let Some((scheme, rest)) = base.split_once("://") else {
+        return Err(invalid(key, "must be an http(s) URL"));
+    };
+    if scheme != "https" && scheme != "http" {
+        return Err(invalid(key, "must be an http(s) URL"));
+    }
+    if rest.is_empty()
+        || rest.starts_with('/')
+        || !base.ends_with('/')
+        || base.contains(char::is_whitespace)
+        || base.contains(['?', '#'])
+    {
+        return Err(invalid(
+            key,
+            "must be an http(s) URL with a host, ending with '/', without query or fragment",
+        ));
+    }
+    if scheme == "http" && app_env == AppEnv::Production {
+        return Err(invalid(key, "must use https when API_ENV=production"));
+    }
+    Ok(Some(base))
 }
 
 /// S3-compatible media storage from `API_S3_*`; `None` when `API_S3_ENDPOINT` is unset.
@@ -798,6 +872,53 @@ mod tests {
         let mut bad = s3.to_vec();
         bad.push(("API_S3_BUCKET_CLEAN", "Bad_Bucket"));
         assert!(load(&bad).is_err());
+    }
+
+    #[test]
+    fn link_base_overrides_are_validated_and_applied() {
+        // Unset: the yaml values stay.
+        let config = load(&[]).unwrap();
+        assert_eq!(config.link_bases, LinkBaseOverrides::default());
+        let mut invites = social::SocialSettings::default();
+        let mut links = sharing::SharingSettings::default();
+        config.link_bases.apply(&mut invites, &mut links);
+        assert_eq!(invites, social::SocialSettings::default());
+        assert_eq!(links, sharing::SharingSettings::default());
+
+        // A home-network origin in development overrides both.
+        let lan = [
+            ("API_ENV", "development"),
+            ("API_INVITE_URL_BASE", "http://192.168.1.20:8081/i/"),
+            ("API_PUBLIC_LINK_URL_BASE", " http://192.168.1.20:3000/b/ "),
+        ];
+        let config = load(&lan).unwrap();
+        config.link_bases.apply(&mut invites, &mut links);
+        assert_eq!(invites.invite_url_base, "http://192.168.1.20:8081/i/");
+        assert_eq!(links.link_url_base, "http://192.168.1.20:3000/b/");
+
+        // Production accepts https only.
+        let https = [
+            ("API_INVITE_URL_BASE", "https://share.example.com/i/"),
+            ("API_PUBLIC_LINK_URL_BASE", "https://share.example.com/b/"),
+        ];
+        assert!(load(&https).is_ok());
+        for key in ["API_INVITE_URL_BASE", "API_PUBLIC_LINK_URL_BASE"] {
+            let err = load(&[(key, "http://share.example.com/i/")]).unwrap_err();
+            assert!(err.to_string().contains(key), "{err}");
+            for bad in [
+                "ftp://share.example.com/i/",
+                "share.example.com/i/",
+                "https:///i/",
+                "https://",
+                "https://share.example.com/i",
+                "https://share.example.com/i/?a=b/",
+                "https://share.example.com/i/#x/",
+                "https://share example.com/i/",
+            ] {
+                let err = load(&[("API_ENV", "development"), (key, bad)]).unwrap_err();
+                assert!(err.to_string().contains(key), "{bad}: {err}");
+            }
+        }
     }
 
     #[test]

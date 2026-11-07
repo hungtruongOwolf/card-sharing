@@ -339,3 +339,9 @@ Source: raw/discussions/2026-11-07-web-mvp-direction.md. See [[sprint-10]].
 - [[ADR-0010-realtime-delivery]] implementation notes and [[api-mvp]] fan-out: `card.delivered`, `card.reply` and a set
   `card.reaction` are now notified from the activity job's transaction instead of the delivery / reaction transaction.
 - Why: the app refetched activity on the event before the outbox consumer wrote the row (sprint 10 audit bug B6).
+## [2026-11-07] decision | B4 link bases from env; invites open the web app (proposed)
+- `API_INVITE_URL_BASE` / `API_PUBLIC_LINK_URL_BASE` override the yaml link bases; `.env.example` points invites at the
+  Expo web app and board links at Next.js. Proposed [[ADR-0011-invite-links-open-web-app]] (needs lead/EM confirmation);
+  [[local-dev]] gains "Testing from a phone on the home network"; [[sprint-10]], [[api-mvp]], [[ADR-0009-app-on-web]] link it.
+- Why: testers use the dev PC on the home network; localhost links were dead, and the Next.js invite landing has no
+  way to send a request from a browser.

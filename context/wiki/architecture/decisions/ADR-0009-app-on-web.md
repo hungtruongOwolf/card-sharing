@@ -4,7 +4,7 @@ type: decision
 status: accepted
 updated: 2026-11-07
 sources: [raw/discussions/2026-11-07-sprint-9-direction.md, raw/discussions/2026-11-07-first-device-demo-feedback.md]
-related: [[ADR-0002-cross-platform-stack]], [[subject-cutout]], [[genai-effects]], [[design-system]], [[sprint-9]]
+related: [[ADR-0002-cross-platform-stack]], [[ADR-0011-invite-links-open-web-app]], [[subject-cutout]], [[genai-effects]], [[design-system]], [[sprint-9]]
 ---
 # ADR-0009: The app also runs on the web at phone size until native builds
 
@@ -25,6 +25,7 @@ only for public pages, and rejected "Expo Router universal" because of SEO, not 
 ## Decision
 - `apps/mobile` gets an Expo **web target**: the same screens, rendered in a phone-size frame (about 430 x 932) on
   desktop and full screen on a phone browser. Next.js stays the home of public share pages (SEO, OG); nothing moves.
+  (Proposed for the sprint-10 web test: invite links open the web app instead, [[ADR-0011-invite-links-open-web-app]].)
 - Native-only capabilities sit behind the existing seams with a web implementation: capture (`CaptureSource`: file
   input / getUserMedia), mask (`MaskSource`: **BiRefNet_lite via transformers.js in a Web Worker**, MIT, per
   [[subject-cutout]]), secure storage, haptics (no-op), drafts storage, notifications (none).

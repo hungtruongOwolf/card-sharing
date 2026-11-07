@@ -4,7 +4,7 @@ type: guide
 status: accepted
 updated: 2026-11-07
 sources: []
-related: [[conventions]], [[ADR-0009-app-on-web]], [[ADR-0008-hosting]], [[testing-strategy]], [[data-model]], [[api-mvp]], [[performance-budgets]]
+related: [[conventions]], [[ADR-0009-app-on-web]], [[ADR-0011-invite-links-open-web-app]], [[sprint-10]], [[ADR-0008-hosting]], [[testing-strategy]], [[data-model]], [[api-mvp]], [[performance-budgets]]
 ---
 # Local dev stack and demo runbook
 **TL;DR:** `pnpm infra:up` starts Postgres, Valkey, MinIO and Mailpit; `pnpm dev:seed` applies the
@@ -145,6 +145,26 @@ The Expo app also runs in a browser at phone size; web is a preview target, not 
    the same URL, `src/platform/web/phoneFrame.ts`); on a phone browser, or a narrow window, it runs full screen.
 3. `pnpm --filter @card-sharing/mobile build:web` writes a static single-page export to `apps/mobile/dist/` (CI job
    "JS mobile web export" runs it on every PR). Any static host works if unknown paths fall back to `index.html`.
+
+### Testing from a phone on the home network (web target, sprint 10)
+Testers open the web app served by the dev PC (not hosted yet, [[sprint-10]]). Everything a phone loads must use the
+PC's LAN address (`<pc-lan-ip>`, from `ipconfig`) instead of `localhost` / `127.0.0.1`; the firewall and safety notes
+of "From a phone on the same Wi-Fi" above apply (private networks only; the dev sign-in is reachable by anyone on the
+network).
+| Value | Where | LAN value | Why |
+|---|---|---|---|
+| `API_BIND_ADDR` | `.env` | `0.0.0.0:8080` | the API must listen on the LAN interface |
+| `EXPO_PUBLIC_API_URL` | `apps/mobile/.env` | `http://<pc-lan-ip>:8080` | the app calls the API from the phone (restart Metro with `--clear`) |
+| `API_CORS_ALLOWED_ORIGINS` | `.env` | add `http://<pc-lan-ip>:8081` (and `:3000`) | exact origins, deny by default |
+| `API_MEDIA_BASE_URL` | `.env` | `http://<pc-lan-ip>:8080/v1/media-files` | signed image URLs must load on the phone |
+| `API_INVITE_URL_BASE` | `.env` | `http://<pc-lan-ip>:8081/i/` | invite links open the Expo web app's invite screen (proposed [[ADR-0011-invite-links-open-web-app]]) |
+| `API_PUBLIC_LINK_URL_BASE` | `.env` | `http://<pc-lan-ip>:3000/b/` | public board links open the Next.js page |
+| `SITE_URL`, `API_URL`, `API_SERVICE_CREDENTIAL` | `apps/web/.env.local` | `http://<pc-lan-ip>:3000`, `http://<pc-lan-ip>:8080`, same secret as the API | only when board links are tested (`pnpm dev:web`) |
+
+The two link bases override `url_base` in `config/social.yaml` / `config/sharing.yaml` (unset = the yaml value,
+`http://localhost:3000/...`); the API validates them at startup (http(s), ending with `/`, https only in production).
+Restart `pnpm dev:api` after a change: links already shown keep the old base. `API_MAGIC_LINK_URL` (magic links,
+phase 2) still points at `http://localhost:3000/auth/link` and needs the same treatment when magic links ship.
 
 ## Staff (moderation) sign-in, server only (T-144)
 There is no admin console yet. To try the staff API locally: sign a seed user in (above), note its id, then
