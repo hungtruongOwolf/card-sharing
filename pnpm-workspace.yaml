@@ -2,6 +2,8 @@ packages:
   - apps/mobile
   - apps/web
   - packages/*
+  # Browser E2E suite for the app's web target (sprint 10, testing-strategy.md); not part of any app bundle.
+  - e2e/web
 
 # Symlink-free install layout. Works on filesystems without symlinks/hard links (e.g. exFAT external
 # drives) and is the layout Expo recommends for pnpm with React Native / Metro.
