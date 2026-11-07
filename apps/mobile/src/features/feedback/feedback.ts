@@ -28,16 +28,16 @@ export const MIN_HAPTIC_GAP_MS = 50;
 export const MIN_SOUND_GAP_MS = 80;
 
 /**
- * Haptics engine seam. The planned adapter is expo-haptics, whose native calls follow the OS haptics setting
- * (iOS System Haptics, Android touch feedback); it is not a dependency yet, so the app ships the no-op adapter.
+ * Haptics engine seam. The device adapter is expo-haptics (`hapticsAdapter.ts`, #246), whose native calls follow the
+ * OS haptics setting (iOS System Haptics, Android touch feedback); the web and tests use the no-op adapter.
  */
 export interface HapticsPort {
   play(kind: HapticKind): void;
 }
 
 /**
- * Sound seam. The planned adapter is expo-audio with "play in silent mode" off, so the ring/silent switch mutes it.
- * Not a dependency yet: the app ships the no-op adapter.
+ * Sound seam. The device adapter is expo-audio (`soundAdapter.ts`, #246) with "play in silent mode" off, so the
+ * ring/silent switch mutes it; the web and tests use the no-op adapter.
  */
 export interface SoundPort {
   play(sound: SoundId): void;

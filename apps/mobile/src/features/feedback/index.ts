@@ -16,6 +16,19 @@ export {
   type SoundId,
   type SoundPort,
 } from './feedback';
+export { deviceFeedback } from './deviceFeedback';
+export {
+  ANDROID_HAPTICS,
+  createExpoHaptics,
+  IOS_HAPTICS,
+  type HapticsEngine,
+} from './hapticsAdapter';
+export {
+  createExpoSound,
+  FEEDBACK_AUDIO_MODE,
+  SOUND_ASSETS,
+  type SoundPlayer,
+} from './soundAdapter';
 export { FeedbackProvider, useFeedback, type FeedbackProviderProps } from './FeedbackProvider';
 export { FeedbackSettingsScreen } from './FeedbackSettingsScreen';
 export { Squish, squishDepth, SQUISH_MIN_SCALE_Y, SQUISH_SHAPE, type SquishProps } from './Squish';

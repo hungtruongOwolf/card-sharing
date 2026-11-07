@@ -9,7 +9,7 @@ import { DEFAULT_SCHEME, themes } from '@card-sharing/tokens';
 
 import { createQueryClient } from '../data/queryClient';
 import { AuthProvider, createAppAuthClient, useAuthClient } from '../features/auth';
-import { FeedbackProvider, securePrefsStorage } from '../features/feedback';
+import { deviceFeedback, FeedbackProvider, securePrefsStorage } from '../features/feedback';
 import { clearDeviceBoards } from '../features/boards';
 import { deviceFeedCache, deviceSeenStore, PurgeSync } from '../features/feed';
 import { TimeZoneSync, useNotificationsApi } from '../features/notifications';
@@ -166,6 +166,7 @@ export default function RootLayout() {
   const [queryClient] = useState(createQueryClient);
   const [authClient] = useState(createAppAuthClient);
   const [prefsStorage] = useState(securePrefsStorage);
+  const [engines] = useState(deviceFeedback);
   // Hold the first frame (at most BRAND_FONTS_TIMEOUT_MS) so screens open in the display face, not a font swap.
   const fontsReady = useBrandFonts();
   if (!fontsReady) return <View style={[styles.root, styles.boot]} />;
@@ -175,7 +176,11 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <AuthProvider client={authClient} onSignedOut={clearDeviceData}>
             <ThemeProvider>
-              <FeedbackProvider storage={prefsStorage}>
+              <FeedbackProvider
+                storage={prefsStorage}
+                haptics={engines.haptics}
+                sound={engines.sound}
+              >
                 <ToastProvider>
                   <Onboarding />
                 </ToastProvider>
