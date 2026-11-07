@@ -43,9 +43,12 @@ test('B3: the owner creates a public board link and sees its URL', async ({ app 
   await page.getByRole('button', { name: 'Share link', exact: true }).first().click();
   const sheet = page.getByTestId('public-links');
   await expect(sheet).toBeVisible();
+  // The one-time explanation shows first unless already seen; the expiry choices are radios.
   const gotIt = sheet.getByRole('button', { name: 'Got it', exact: true });
+  const day = sheet.getByRole('radio', { name: '24 hours', exact: true });
+  await expect(gotIt.or(day)).toBeVisible();
   if (await gotIt.isVisible()) await gotIt.click();
-  await sheet.getByRole('button', { name: '24 hours', exact: true }).click();
+  await day.click();
   await sheet.getByRole('button', { name: 'Create link', exact: true }).click();
   // B3: the API answered 201 with a plain-http local URL and the sheet said it could not update the links.
   const created = sheet.getByTestId('public-links-created');
