@@ -300,6 +300,126 @@ jobs:
           exit 1
       - run: echo "JS jobs passed"
 
+  # Sprint 10 phase 0, the browser E2E gate (e2e/web, testing-strategy.md): the app's web target served by Metro in
+  # development mode, as testers run it (dev sign-in, plain-http API), against the real API and job worker on Postgres
+  # and Valkey, with the fake AI provider, fake content scanners and filesystem media, driven by Playwright (Chromium,
+  # two users at a time).
+  e2e-web:
+    name: Web E2E (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17.11-alpine
+        env:
+          POSTGRES_USER: cardsharing
+          POSTGRES_PASSWORD: ci-only-not-a-secret
+          POSTGRES_DB: cardsharing
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U cardsharing -d cardsharing"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      valkey:
+        image: valkey/valkey:8.1.11-alpine3.24
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "valkey-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    # CI-only values (the zero keys match .env.example); never used outside this job. No RUST* or CARGO* names here:
+    # rust-cache hashes those into its key, and this job reuses the rust-test cache.
+    env:
+      EXPO_NO_TELEMETRY: 1
+      API_ENV: development
+      API_BIND_ADDR: 127.0.0.1:8080
+      API_CORS_ALLOWED_ORIGINS: http://127.0.0.1:8081
+      DATABASE_URL: postgres://cardsharing:ci-only-not-a-secret@127.0.0.1:5432/cardsharing
+      REDIS_URL: redis://127.0.0.1:6379/0
+      API_DATA_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      API_MEDIA_SIGNING_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      API_MEDIA_BASE_URL: http://127.0.0.1:8080/v1/media-files
+      API_MEDIA_STORAGE_DIR: .data/e2e-media
+      API_CSAM_MATCHER: fake
+      API_NUDITY_CLASSIFIER: fake
+      API_AI_EFFECT_PROVIDER: fake
+      API_PUSH_SENDER: fake
+      API_CAPTCHA_VERIFIER: fake
+      API_MAIL_TRANSPORT: none
+      API_DEV_SIGN_IN: 'true'
+      API_LOG_FORMAT: json
+      EXPO_PUBLIC_API_URL: http://127.0.0.1:8080
+      E2E_BASE_URL: http://127.0.0.1:8081
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch
+        with:
+          toolchain: stable
+      # The integration-test cache already holds the api binary's build (integration tests build the crate's bins);
+      # read it only, so this job never replaces what the rust-api jobs saved.
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          shared-key: rust-test
+          save-if: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1 (version from packageManager)
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build the api binary
+        run: cargo build -p api --bin api --locked
+      # The seed prints development sessions: keep them out of the log (first line only), like the rust-api seed step.
+      - name: Migrate and seed the database
+        run: |
+          target/debug/api migrate
+          target/debug/api seed > seed.txt
+          head -n 1 seed.txt
+          rm seed.txt
+      - name: Start the API and the job worker
+        env:
+          RUST_LOG: info,api=debug,tower_http=info
+        run: |
+          mkdir -p e2e-logs
+          nohup target/debug/api > e2e-logs/api.log 2>&1 &
+          nohup target/debug/api worker > e2e-logs/worker.log 2>&1 &
+          for _ in $(seq 1 60); do
+            curl -sf http://127.0.0.1:8080/readyz > /dev/null && exit 0
+            sleep 1
+          done
+          tail -n 100 e2e-logs/api.log
+          exit 1
+      # Metro in development mode, like `pnpm dev:mobile` on a tester's PC: `__DEV__` keeps the dev sign-in and allows
+      # the plain-http API on loopback, and routes load as Metro's lazy bundles. (A static `expo export --dev` names
+      # every route chunk with the same empty-content hash, so `card/[id]` and `board/[id]` overwrite each other.)
+      - name: Start the app's web target (Metro, development)
+        run: |
+          node apps/mobile/scripts/copy-canvaskit.mjs
+          nohup pnpm --filter @card-sharing/mobile run start --port 8081 > e2e-logs/metro.log 2>&1 &
+          for _ in $(seq 1 90); do
+            curl -sf -H 'Accept: text/html' http://127.0.0.1:8081/ -o e2e-logs/index.html && break
+            sleep 1
+          done
+          bundle=$(grep -o 'src="/[^"]*\.bundle[^"]*"' e2e-logs/index.html | head -n 1 | cut -d'"' -f2 | sed 's/&amp;/\&/g')
+          test -n "$bundle" || { tail -n 100 e2e-logs/metro.log; exit 1; }
+          # Build the web bundle now (about 25 s) while Chromium installs.
+          nohup curl -sf "http://127.0.0.1:8081${bundle}" -o /dev/null > /dev/null 2>&1 &
+      - name: Install Chromium (headless shell) for Playwright
+        run: pnpm --filter @card-sharing/e2e-web run install-browser
+      - name: Run the browser E2E suite
+        run: pnpm --filter @card-sharing/e2e-web run e2e
+      - name: API, worker and Metro logs
+        if: failure()
+        run: tail -n 200 e2e-logs/api.log e2e-logs/worker.log e2e-logs/metro.log
+      - name: Upload the Playwright report, traces and server logs
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-web-report
+          path: |
+            e2e/web/playwright-report
+            e2e/web/test-results
+            e2e-logs
+          retention-days: 7
+
   contract:
     name: API contract (OpenAPI → TS client drift)
     runs-on: ubuntu-latest

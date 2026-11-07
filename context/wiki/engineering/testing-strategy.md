@@ -2,8 +2,8 @@
 title: Testing Strategy
 type: guide
 status: draft
-updated: 2026-11-06
-related: [[conventions]], [[security-baseline]]
+updated: 2026-11-07
+related: [[conventions]], [[security-baseline]], [[sprint-10]], [[ADR-0009-app-on-web]], [[ADR-0010-realtime-delivery]]
 ---
 # Testing Strategy
 **TL;DR:** Many fast unit tests on pure logic, solid integration tests on real DB for every
@@ -14,7 +14,7 @@ endpoint (including authz-negative cases), a few E2E tests for critical user jou
 | Unit | pure functions, domain rules | `cargo test`, seeded property tests (see below) | Vitest |
 | Integration | handler + DB + auth | `cargo test` + testcontainers Postgres, `sqlx::test` | Vitest + MSW, Testing Library |
 | Contract | API matches OpenAPI | schemathesis / generated client types | generated types |
-| E2E | critical journeys | — | Playwright |
+| E2E | critical journeys | — | Playwright (`e2e/web`, web target, CI job Web E2E) |
 | Security | authz matrix, fuzzing | negative tests per role, `cargo fuzz` on parsers | Playwright for auth flows |
 | Performance | latency/throughput | k6 / oha | Lighthouse CI, Web Vitals |
 
@@ -47,6 +47,28 @@ Backend practice (implemented, sprint 1):
   cards with random recipients, op sequences by members and non-members, then unfriends and blocks) and asserts every op result
   and that no card id, caption or media URL reaches a viewer the model does not entitle. Failures print the seed; reproduce with
   `BOARD_PROPERTY_SEED=<seed>` (and `BOARD_PROPERTY_WORLDS=<n>` for more worlds).
+
+Browser E2E (implemented, sprint 10 phase 0, [[sprint-10]]):
+- `e2e/web/` (workspace package `@card-sharing/e2e-web`, Playwright, Chromium only, 390x844) drives the app's web
+  target ([[ADR-0009-app-on-web]]) with real users from the seed: sign-in, feed and story viewer, a reaction seen live
+  by the owner and a card arriving live (event stream, [[ADR-0010-realtime-delivery]]), a card from an imported photo
+  sent to a friend, a reply with a card, pinning to the shared board, find by handle and the invite screen, every
+  settings screen, and the minor's editor without AI. Two users means two browser contexts in one test.
+- Every test fails on a page error, a console error, an HTTP 5xx or an unexpected 4xx (`support/guard.ts`); a test that
+  causes a 4xx on purpose declares it (`app.expectHttp`). Ignored console noise is a short, commented list (only
+  Chromium's "Failed to load resource" line, which repeats a response the HTTP check already judged).
+- CI job **Web E2E (Playwright)** (`.github/workflows/ci.yml`, `e2e-web`): Postgres + Valkey services, the api binary
+  from the `rust-test` cache (read-only), `api migrate` + `api seed`, `api` and `api worker` in the background (dev
+  sign-in, fake AI provider, fake scanners, filesystem media), and the web target served by Metro in development mode
+  (`expo start`, as testers run it; `EXPO_PUBLIC_API_URL` on loopback; dev sign-in and plain-http API need `__DEV__`).
+  A static `expo export --dev` does not work: its route chunks all get the empty-content hash, so same-named routes
+  (`card/[id]`, `board/[id]`) overwrite each other. Traces, screenshots and API/worker/Metro logs are uploaded on failure. Tests run one at a time (shared seed data and per-user rate limits); one retry in CI,
+  and a test that needed it is reported flaky and fixed within the sprint.
+- The web cutout segmenter downloads a ~115 MB model, so CI swaps that one module worker for a stand-in speaking the
+  same protocol (`support/cutout.ts`, an ellipse matte); the rest of the cutout pipeline runs unchanged.
+- A test blocked by a known bug is `test.fixme` with the bug id first in its title (e.g. `B1: ...`); the fix's PR
+  enables it. Run locally against a running stack and web app: `E2E_BASE_URL=http://127.0.0.1:8081 pnpm --filter
+  @card-sharing/e2e-web run e2e` (install the browser once with `run install-browser`).
 
 Rules:
 - Test behavior through public interfaces, not internals.

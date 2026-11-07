@@ -20,7 +20,7 @@ suite in CI gates every merge that touches the loop.
 ## Phases
 | Phase | Work | Status |
 |---|---|---|
-| 0. Browser E2E gate | Playwright suite in the repo (two users, full core loop, fails on console errors / HTTP 5xx), CI job against the docker stack + Expo web export | planned |
+| 0. Browser E2E gate | Playwright suite in the repo (two users, full core loop, fails on console errors / HTTP 5xx), CI job against the docker stack + Expo web export ([[testing-strategy]] "Browser E2E") | in review |
 | 1. Bug fixes | See the bug list below | planned |
 | 2. Real sign-up | Magic-link verify (T-23) + email screen + web landing, invite-code gate, magic-link re-auth (unblocks delete account / data export), then Google web client | planned |
 | 3. Hosting | Deferred by the EM | — |
@@ -41,3 +41,5 @@ suite in CI gates every merge that touches the loop.
 | B9 | minor | Reaction buttons lack selected state for assistive tech | `features/feed/ReactionBar.tsx` |
 | E1 | major | Image export hidden on web (`canShareImages = platform === 'ios'`) | `features/export/cardExport.ts` |
 | D1 | minor | Demo seed clutter (30 duplicate cards, 99+ activity, 26 sessions) | seed / reset script |
+| V1 | major | Story viewer shows an empty card frame on the web: the picture is an `Image` with `flex: 1` inside the frame (`alignItems: 'center'`), so it gets no width (found by the E2E suite) | `features/feed/CardViewerScreen.tsx` |
+| W1 | minor | The web mints a widget token after every sign-in although it has no widget; web sessions have no device id, so device-scoped limits (`widget.token` 20/day, `auth.refresh` 30/h) fall back to the client IP: the E2E run (one IP) gets 429 past 20 sign-ins, and so would testers behind one NAT once hosted | `app/_layout.tsx` (WidgetToken), `config/limits.yaml` |
