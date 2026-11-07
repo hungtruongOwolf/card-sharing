@@ -46,6 +46,8 @@ async function open({
   mine = false,
   share,
   onReport,
+  onReply,
+  card: cardOptions,
 }: {
   scheme?: 'light' | 'dark';
   reducedMotion?: boolean;
@@ -55,6 +57,8 @@ async function open({
   mine?: boolean;
   share?: (png: Uint8Array) => Promise<boolean>;
   onReport?: (cardId: string) => void;
+  onReply?: (card: { id: string; sender: { id: string } }) => void;
+  card?: { aiGenerated?: boolean; replyTo?: string };
 } = {}) {
   const onClose = jest.fn();
   let cardId = '';
@@ -68,6 +72,7 @@ async function open({
         loadRender={async () => mockSkImage}
         share={share}
         onReport={onReport}
+        onReply={onReply}
         onClose={onClose}
       />
     ),
@@ -85,8 +90,13 @@ async function open({
         };
         cardId = (
           mine
-            ? server.addIncomingCard(ME, { caption: 'zoomies', style, recipients: [mai.id] })
-            : server.addIncomingCard(mai.id, { caption: 'zoomies', style })
+            ? server.addIncomingCard(ME, {
+                caption: 'zoomies',
+                style,
+                recipients: [mai.id],
+                ...cardOptions,
+              })
+            : server.addIncomingCard(mai.id, { caption: 'zoomies', style, ...cardOptions })
         ).id;
         extra?.(server, cardId);
       },
@@ -121,6 +131,48 @@ describe('CardViewerScreen', () => {
       await screen.findByTestId('card-viewer-image');
       fireEvent.press(screen.getByRole('button', { name: t('report.open.card', { name: 'Mai' }) }));
       expect(onReport).toHaveBeenCalledWith(cardId);
+    },
+    RENDER_TIMEOUT_MS,
+  );
+
+  it(
+    "offers Reply on a friend's card and hands over the card and its sender (ADR-0010)",
+    async () => {
+      const onReply = jest.fn();
+      const { cardId } = await open({ onReply });
+      await screen.findByTestId('card-viewer-image');
+      fireEvent.press(
+        screen.getByRole('button', { name: t('card.reply.action', { name: 'Mai' }) }),
+      );
+      expect(onReply).toHaveBeenCalledTimes(1);
+      const card = (
+        onReply.mock.calls[0] as unknown as [{ id: string; sender: { id: string } }]
+      )[0];
+      expect(card.id).toBe(cardId);
+      expect(typeof card.sender.id).toBe('string');
+    },
+    RENDER_TIMEOUT_MS,
+  );
+
+  it(
+    'never offers Reply on my own card',
+    async () => {
+      await open({ mine: true, onReply: jest.fn() });
+      await screen.findByTestId('card-viewer-image');
+      expect(screen.queryByTestId('card-viewer-reply')).toBeNull();
+    },
+    RENDER_TIMEOUT_MS,
+  );
+
+  it(
+    'shows the AI badge and "replied to your card" from the server flags',
+    async () => {
+      await open({
+        card: { aiGenerated: true, replyTo: 'c0000000-0000-4000-8000-0000000000ab' },
+      });
+      await screen.findByTestId('card-viewer-image');
+      expect(screen.getByTestId('card-viewer-ai')).toBeTruthy();
+      expect(screen.getByText(/^Replied to your card/)).toBeTruthy();
     },
     RENDER_TIMEOUT_MS,
   );

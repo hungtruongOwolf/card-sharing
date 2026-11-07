@@ -201,6 +201,9 @@ export const en = {
   'drafts.send.a11y': 'Send draft {title}',
 
   'send.title': 'Send your card',
+  'send.reply.title': 'Reply with your card',
+  'send.reply.to': 'Replying to {name}: only they get it',
+  'send.reply.unavailable': 'You can no longer reply to this card.',
   'send.intro':
     'Only the friends you choose get this card. Nothing is uploaded until you tap Send.',
   'send.friends.loading': 'Getting your friends…',
@@ -266,6 +269,9 @@ export const en = {
   'card.viewer.hint': 'Tap the sides to move between cards, hold to pause, swipe down to close',
   'card.removed': 'This card was removed.',
   'card.export': 'Export image',
+  'card.reply.action': 'Reply to {name} with a card',
+  'card.reply.hint': 'Take or pick a photo, then send it back to them only',
+  'card.reply.label': 'Replied to your card · {when}',
   'card.export.hint': 'Shares a picture of your card with the app mark',
   'card.export.failed': 'Couldn’t export this card. Try again.',
   'card.error.load': 'We couldn’t open this card. Check your connection and try again.',

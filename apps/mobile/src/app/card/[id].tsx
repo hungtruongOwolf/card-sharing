@@ -4,7 +4,7 @@ import { CardViewerScreen, deviceSeenStore } from '../../features/feed';
 import { useOutbox } from '../../features/outbox';
 import { useRemoteConfig } from '../../features/remote-config';
 import { useReportSheet } from '../../features/reports';
-import { useCardsApi } from '../../features/sharing';
+import { replyParams, useCardsApi } from '../../features/sharing';
 
 /** Friends' cards as a story, opened at one card (T-81, US-15); opened from the feed or a story ring. */
 export default function CardRoute() {
@@ -27,6 +27,12 @@ export default function CardRoute() {
         }}
         paused={report.isOpen}
         onReport={(cardId) => report.open({ kind: 'card', id: cardId })}
+        onReply={(card) =>
+          router.push({
+            pathname: '/capture',
+            params: replyParams({ cardId: card.id, senderId: card.sender.id }),
+          })
+        }
         onClose={() => (router.canGoBack() ? router.back() : router.replace('/'))}
       />
       {report.sheet}

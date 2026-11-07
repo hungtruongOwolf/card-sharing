@@ -21,6 +21,8 @@ export interface SendJob {
   readonly caption: string | null;
   /** Media ids once every upload of this job succeeded; null until then. */
   readonly media: SendMedia | null;
+  /** ADR-0010: a reply to this card (the audience is then exactly its sender). */
+  readonly replyToCardId?: string;
 }
 
 export interface SendMedia {
@@ -50,6 +52,7 @@ export function newSendJob(
   registry: Registry,
   audience: Audience,
   keepOriginal: boolean,
+  replyToCardId?: string,
 ): SendJob {
   const style = styleBlock(registry, card.draft);
   if (!style.ok) throw new SendError('stale_style');
@@ -63,6 +66,7 @@ export function newSendJob(
     style: style.style,
     caption: caption.length > 0 ? caption : null,
     media: ai ? { render: ai.outputMediaId, mask: null, original: null } : null,
+    ...(replyToCardId ? { replyToCardId } : {}),
   };
 }
 
@@ -118,6 +122,7 @@ export async function runSend(
     style: current.style,
     caption: current.caption,
     audience: current.audience,
+    ...(current.replyToCardId ? { replyToCardId: current.replyToCardId } : {}),
   });
   return { job: current, sent };
 }

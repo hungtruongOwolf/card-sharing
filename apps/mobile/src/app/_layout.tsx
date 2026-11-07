@@ -23,6 +23,7 @@ import {
   type OnboardingPhase,
 } from '../features/onboarding';
 import { deviceExportStore } from '../features/privacy';
+import { RealtimeEvents } from '../features/realtime';
 import { useCardsApi } from '../features/sharing';
 import { createWidgetTokenApi, deviceWidgetTokenStore, WidgetTokenSync } from '../features/widget';
 import { ThemeProvider, ToastProvider, useBrandFonts, useTheme } from '../ui';
@@ -102,6 +103,7 @@ function PhaseStack() {
       {phase === 'home' ? (
         <>
           <CardPurges />
+          <RealtimeEvents />
           <DeviceTimeZone />
           <WidgetToken />
         </>

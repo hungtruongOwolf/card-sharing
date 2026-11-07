@@ -841,6 +841,18 @@ Fan-out: the delivery transaction (`CardService::deliver`) and the reaction writ
 revoked session or an expired access token (10 min TTL: the client refreshes and reconnects). The browser `EventSource`
 cannot send `Authorization`, so clients read the stream with a streaming `fetch`; CORS is unchanged (a GET with the already
 allowed `Authorization` header). Responses carry `Cache-Control: no-store` and `X-Accel-Buffering: no`.
+Mobile client (ADR-0010, `apps/mobile/src/features/realtime`, `features/sharing/replyTarget.ts`): `RealtimeEvents` (mounted
+on the home phase) opens `GET /v1/events` through `AuthClient.fetchStream`, which uses `expo/fetch` (streams on iOS, Android
+and the web; part of the `expo` package, so it runs in Expo Go with no new native module). Frames only invalidate queries:
+`ready`/`resync`/`card.delivered` → feed + activity, `card.reply` → feed + activity + `['card-replies', reply_to]`,
+`card.reaction` → activity + the card. Errors back off 1 s → 30 s with jitter (`Retry-After` on 429/503), `reconnect`
+reconnects after 0.5 s, the stream closes in the background and reopens in the foreground; an ended session stops it. If a
+runtime returns no readable body it polls feed + activity every 30 s instead. The story viewer offers **Reply** on a
+friend's card: capture → editor → send carry `replyTo`/`replyToSender` route params (ids only); the send screen fixes the
+audience to the original sender ("Replying to Mai: only they get it"), sends `reply_to_card_id`, and the outbox keeps it on
+retries. A reply opened from the drafts tray later is a normal card (the target is not stored in the draft). Cards with
+`reply_to` show "Replied to your card" in the feed row and the viewer header; the viewer also shows the `AiBadge` when
+`ai_generated` is true.
 
 Mobile client (T-77, #79, `apps/mobile/src/features/sharing`): the editor's Next (or Send in the drafts tray) opens
 `/send?draft=<id>`. Audience = all friends by default or a subset (`GET /v1/friends`, at most

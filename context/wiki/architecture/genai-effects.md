@@ -90,4 +90,4 @@ The whole pipeline runs end to end with **no real provider, no keys and no netwo
   "Preview" above) is drawn over the card in the editor; before it exists the editor shows the "AI" badge and says the
   look appears once sent.
 - **Badge:** `AiBadge` (gradient pill, "Made with AI" for screen readers) on the editor preview and on feed cards whose
-  view says `ai_generated: true`. The story viewer badge waits for the ADR-0010 reply work in the viewer to land.
+  view says `ai_generated: true`, and in the story viewer header (with the ADR-0010 reply action).

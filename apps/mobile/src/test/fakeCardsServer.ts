@@ -42,6 +42,8 @@ export interface FakeCard {
   appeal?: 'none' | 'pending' | 'released' | 'upheld';
   /** The render came from an AI effect (`CardView.ai_generated`, being added by the backend lane). */
   aiGenerated?: boolean;
+  /** ADR-0010: the card this one replies to (`CardView.reply_to`). */
+  replyTo?: string;
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -353,6 +355,7 @@ export class FakeCardsServer extends FakeSocialServer {
       is_mine: mine,
       my_reaction: mine ? null : (this.reactions.get(card.id) ?? null),
       ...(card.aiGenerated ? { ai_generated: true } : {}),
+      reply_to: card.replyTo ? { card_id: card.replyTo } : null,
       ...(mine
         ? {
             status: card.status,

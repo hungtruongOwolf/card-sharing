@@ -16,6 +16,7 @@ import { useFeedback } from '../feedback';
 import type { FriendsApi, Person } from '../friends/friendsApi';
 import { FRIENDS_QUERY_KEY } from '../friends/shared';
 import { CardsError, isRetryable, type CardsApi, type CardStatus, type SentCard } from './cardsApi';
+import type { ReplyTarget } from './replyTarget';
 import { newSendJob, runSend, SendError, withNewCardId, type SendJob } from './sendCard';
 
 export interface SendScreenProps {
@@ -36,6 +37,11 @@ export interface SendScreenProps {
   queue?: (job: SendJob) => Promise<boolean>;
   /** How often the owner view of a just-sent card is refreshed while its content checks run. */
   statusPollMs?: number;
+  /**
+   * ADR-0010: this card replies to a friend's card. The audience is fixed to that card's sender (no picker); the
+   * server refuses anything else and answers 404 when the original is no longer visible.
+   */
+  reply?: ReplyTarget | null;
   onEdit: () => void;
   onOpenFriends: () => void;
   onDone: () => void;
@@ -98,6 +104,7 @@ export function SendScreen({
   recipientsMax = DEFAULT_RECIPIENTS_MAX,
   statusPollMs = DEFAULT_STATUS_POLL_MS,
   queue,
+  reply = null,
   onEdit,
   onOpenFriends,
   onDone,
@@ -120,12 +127,20 @@ export function SendScreen({
     let job = start;
     setPhase({ step: 'sending', job });
     try {
-      job ??= newSendJob(
-        card,
-        registry,
-        mode === 'all' ? { mode: 'all' } : { mode: 'subset', recipientIds: picked },
-        keepOriginal,
-      );
+      job ??= reply
+        ? newSendJob(
+            card,
+            registry,
+            { mode: 'subset', recipientIds: [reply.senderId] },
+            keepOriginal,
+            reply.cardId,
+          )
+        : newSendJob(
+            card,
+            registry,
+            mode === 'all' ? { mode: 'all' } : { mode: 'subset', recipientIds: picked },
+            keepOriginal,
+          );
       const result = await runSend(job, {
         api: cardsApi,
         prepare: (keep) => prepare(card, keep),
@@ -170,7 +185,11 @@ export function SendScreen({
   const locked = retrying;
   const list = friends.data ?? [];
   const tooMany = mode === 'subset' && picked.length > recipientsMax;
-  const canSend = !busy && list.length > 0 && (mode === 'all' || (picked.length > 0 && !tooMany));
+  // A reply goes to the original sender only, who must still be my friend.
+  const replyTo = reply ? (list.find((person) => person.id === reply.senderId) ?? null) : null;
+  const canSend = reply
+    ? !busy && replyTo !== null
+    : !busy && list.length > 0 && (mode === 'all' || (picked.length > 0 && !tooMany));
   const toggle = (person: Person) =>
     setPicked((current) =>
       current.includes(person.id)
@@ -179,9 +198,17 @@ export function SendScreen({
     );
 
   return (
-    <Screen title={t('send.title')} testID="send">
+    <Screen title={reply ? t('send.reply.title') : t('send.title')} testID="send">
       <Text tone="muted">{t('send.intro')}</Text>
-      {friends.isPending ? (
+      {reply && !friends.isPending && !friends.isError ? (
+        <View style={styles.block} testID="send-reply">
+          <Text variant="label.md">
+            {replyTo
+              ? t('send.reply.to', { name: replyTo.displayName })
+              : t('send.reply.unavailable')}
+          </Text>
+        </View>
+      ) : friends.isPending ? (
         <Text tone="muted">{t('send.friends.loading')}</Text>
       ) : friends.isError ? (
         <View style={styles.block}>
