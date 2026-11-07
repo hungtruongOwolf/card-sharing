@@ -7,6 +7,7 @@ import {
   nextToSend,
   openEditorTool,
   sendAndWaitDelivered,
+  setReaction,
   uniqueCaption,
 } from '../support/flows';
 
@@ -51,15 +52,23 @@ test.fixme('B1: a styled card from an imported photo reaches a friend live', asy
 });
 
 test('E1: the owner can export their card as an image on the web', async ({ app }) => {
-  const { page } = await app.signIn('alice');
-  // Alice's own seeded card.
-  await feedCard(page, 'Breakfast thief')
-    .getByTestId(/^feed-open-/)
-    .click();
-  await expect(page.getByTestId('card-viewer-card')).toBeVisible();
+  const alice = await app.signIn('alice');
+  const bob = await app.signIn('bob');
+  // The feed lists cards delivered to me, never my own, so Bob reaches his own card ("Nap time") from his activity
+  // once Alice reacts to it.
+  await setReaction(alice.page, feedCard(alice.page, 'Nap time'), 'Heart');
+  await bob.page.getByRole('button', { name: /^Activity/ }).click();
+  await expect(bob.page.getByTestId('activity')).toBeVisible();
+  const reacted = bob.page
+    .getByTestId(/^activity-[0-9a-f]{8}-/)
+    .filter({ hasText: `${NAMES.alice} reacted to your card` })
+    .first();
+  await expect(reacted).toBeVisible({ timeout: LIVE_TIMEOUT });
+  await reacted.click();
+  await expect(bob.page.getByTestId('card-viewer-card')).toBeVisible();
   // E1: `canShareImages()` used to be true on iOS only, so the web viewer had no export button.
-  await page.getByRole('button', { name: 'Export image', exact: true }).click();
+  await bob.page.getByRole('button', { name: 'Export image', exact: true }).click();
   // How the web hands the PNG over (download or Web Share) is the fix's choice; it must not fail.
-  await page.waitForTimeout(3_000);
-  await expect(page.getByText('Couldn’t export this card. Try again.')).toHaveCount(0);
+  await bob.page.waitForTimeout(3_000);
+  await expect(bob.page.getByText('Couldn’t export this card. Try again.')).toHaveCount(0);
 });
