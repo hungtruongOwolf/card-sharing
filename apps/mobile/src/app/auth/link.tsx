@@ -1,6 +1,9 @@
 import { useRouter } from 'expo-router';
+import { useEffect } from 'react';
+import { Platform } from 'react-native';
 
 import {
+  launchLinkInUrl,
   MagicLinkScreen,
   useMagicLinkFragment,
   useOnboarding,
@@ -17,6 +20,10 @@ export default function MagicLinkRoute() {
   const { magicLink } = useOnboarding();
   const pendingLink = usePendingLink();
   const link = useMagicLinkFragment();
+  useEffect(() => {
+    // The router keeps the URL's hash (with the token) in its state: drop it by replacing the route (web).
+    if (Platform.OS === 'web' && launchLinkInUrl()) router.replace('/auth/link');
+  }, [router]);
   return (
     <MagicLinkScreen
       link={link}

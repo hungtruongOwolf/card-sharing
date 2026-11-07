@@ -43,21 +43,13 @@ export function captureLaunchLink(
 }
 
 /**
- * Web: removes a magic link's fragment from the address bar again. The router may write the URL it started with back
- * after the start-up capture, so the landing screen calls this once it is mounted.
+ * Web: whether the address bar still shows a magic link's token. Expo Router keeps a URL's hash as its `#` route param
+ * and writes it back on every URL sync, so the landing route replaces itself without it (`router.replace`).
  */
-export function stripLaunchLinkFragment(
+export function launchLinkInUrl(
   location: LocationLike | undefined = (globalThis as { location?: LocationLike }).location,
-  history: HistoryLike | undefined = (globalThis as { history?: HistoryLike }).history,
-): void {
-  if (!location || !MAGIC_LINK_PATH.test(location.pathname) || !location.hash.includes('token=')) {
-    return;
-  }
-  try {
-    history?.replaceState(history.state, '', `${location.pathname}${location.search}`);
-  } catch {
-    // The token stays in the address bar; the link is single use anyway.
-  }
+): boolean {
+  return !!location && MAGIC_LINK_PATH.test(location.pathname) && location.hash.includes('token=');
 }
 
 /** The magic link the app was started with on the web, if any. */
@@ -85,11 +77,7 @@ export function useMagicLinkFragment(): LinkFragment | null | undefined {
     Platform.OS === 'web' ? capturedLaunchLink() : undefined,
   );
   useEffect(() => {
-    if (Platform.OS === 'web') {
-      // After the router's first URL sync, which may have written the fragment back.
-      const timer = setTimeout(() => stripLaunchLinkFragment(), 0);
-      return () => clearTimeout(timer);
-    }
+    if (Platform.OS === 'web') return;
     let cancelled = false;
     void Linking.getInitialURL()
       .then((url) => {

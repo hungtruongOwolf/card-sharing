@@ -28,7 +28,12 @@ export {
   trackIntendedLink,
   type RoutedPhase,
 } from './phaseRoutes';
-export { captureLaunchLink, useMagicLinkFragment, useMagicLinkLanding } from './launchLink';
+export {
+  captureLaunchLink,
+  launchLinkInUrl,
+  useMagicLinkFragment,
+  useMagicLinkLanding,
+} from './launchLink';
 export {
   createMagicLinkSignIn,
   parseLinkFragment,

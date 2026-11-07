@@ -6,7 +6,7 @@ import {
   captureLaunchLink,
   capturedLaunchLink,
   resetLaunchLinkForTests,
-  stripLaunchLinkFragment,
+  launchLinkInUrl,
 } from '../launchLink';
 import {
   createMagicLinkSignIn,
@@ -225,16 +225,13 @@ describe('captureLaunchLink', () => {
     expect(history.replaceState).toHaveBeenCalledWith({ router: 1 }, '', '/auth/link');
   });
 
-  it('strips the fragment again once the landing screen is up', () => {
-    const history = { state: 1, replaceState: jest.fn() };
-    stripLaunchLinkFragment(
-      { pathname: '/auth/link', search: '?a=1', hash: `#token=${TOKEN}` },
-      history,
+  it('tells when the address bar still shows a token', () => {
+    expect(launchLinkInUrl({ pathname: '/auth/link', search: '', hash: `#token=${TOKEN}` })).toBe(
+      true,
     );
-    expect(history.replaceState).toHaveBeenCalledWith(1, '', '/auth/link?a=1');
-    stripLaunchLinkFragment({ pathname: '/auth/link', search: '', hash: '' }, history);
-    stripLaunchLinkFragment({ pathname: '/', search: '', hash: `#token=${TOKEN}` }, history);
-    expect(history.replaceState).toHaveBeenCalledTimes(1);
+    expect(launchLinkInUrl({ pathname: '/auth/link', search: '', hash: '' })).toBe(false);
+    expect(launchLinkInUrl({ pathname: '/', search: '', hash: `#token=${TOKEN}` })).toBe(false);
+    expect(launchLinkInUrl(undefined)).toBe(false);
   });
 
   it('ignores other routes and malformed fragments', () => {
