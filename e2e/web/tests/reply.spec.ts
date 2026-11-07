@@ -30,13 +30,13 @@ test('a reply with a card starts from the friend’s card', async ({ app }) => {
   await openEditorTool(bob.page, 'Shape');
 });
 
-test.fixme('B1: a reply with a card goes to the original sender only, live', async ({ app }) => {
+test('B1: a reply with a card goes to the original sender only, live', async ({ app }) => {
   const alice = await app.signIn('alice');
   const bob = await app.signIn('bob');
   const caption = uniqueCaption('E2E reply');
 
   await startReply(bob.page);
-  // B1: no usable style on the web, so the editor has no card and no Next.
+  // B1: the editor needs a usable style on the web to have a card and a Next button.
   await addCaption(bob.page, caption);
   await nextToSend(bob.page);
   // A reply has no audience picker: it goes to the sender of the card only.
