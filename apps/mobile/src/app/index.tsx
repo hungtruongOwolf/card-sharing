@@ -1,133 +1,142 @@
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, useWindowDimensions, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { space } from '@card-sharing/tokens';
 
 import { ActivityButton, useActivityApi } from '../features/activity';
-import { CAPTION_MAX_GRAPHEMES as CAPTION_MAX, checkCaption } from '../features/captions';
-import { HoloCard } from '../features/holo-card';
+import { deviceFeedCache, deviceSeenStore, FeedScreen, useSeenMarks } from '../features/feed';
 import { useOutbox } from '../features/outbox';
-import { t } from '../i18n';
-import { Button, Screen, Sheet, Text, TextField, useToast } from '../ui';
+import { useRemoteConfig } from '../features/remote-config';
+import { useCardsApi } from '../features/sharing';
+import { t, type MessageKey } from '../i18n';
+import { Button, IconButton, Sheet, Text } from '../ui';
 
-const CARD_ASPECT = 1.4;
-const MAX_CARD_WIDTH = 340;
-const DEMO_FRIEND_COUNT = 3;
+const CAPTURE_SIZE = 72;
 
-/** Toolchain proof (Skia + Reanimated + Gesture Handler) and a live sample of the T-33 UI kit. */
+/** Everything that is not the feed, one tap away in the More sheet. */
+const MORE_LINKS: readonly (readonly [MessageKey, Href])[] = [
+  ['boards.open', '/boards'],
+  ['drafts.open.home', '/drafts'],
+  ['friends.open', '/friends'],
+  ['privacy.open', '/settings/privacy'],
+  ['notifications.open', '/settings/notifications'],
+  ['feedback.open', '/settings/feedback'],
+  ['sessions.open', '/settings/sessions'],
+  ['dataExport.open', '/settings/data-export'],
+  ['deleteAccount.open', '/settings/delete-account'],
+];
+const LAB_LINKS: readonly (readonly [MessageKey, Href])[] = [
+  ['holo.lab.open', '/holo-lab'],
+  ['cutLab.open', '/cut-lab'],
+  ['effectsLab.open', '/effects-lab'],
+];
+
+/**
+ * Home (sprint 9, Stories style): the feed with friends' story rings, a top bar (activity, friends, more) and one
+ * big gradient button to make a card, always under the thumb.
+ */
 export default function HomeScreen() {
-  const { width } = useWindowDimensions();
-  const toast = useToast();
   const router = useRouter();
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const insets = useSafeAreaInsets();
+  const api = useCardsApi();
   const activityApi = useActivityApi();
-  const waiting = useOutbox()?.entries.length ?? 0;
-  const [caption, setCaption] = useState('');
-  const cardWidth = Math.min(width - space[8] * 2, MAX_CARD_WIDTH);
-  // Graphemes, not UTF-16 code units: an emoji counts as one character (T-69).
-  const over = checkCaption(caption).length - CAPTION_MAX;
+  const remoteConfig = useRemoteConfig();
+  const outbox = useOutbox();
+  const waiting = outbox?.entries.length ?? 0;
+  const seen = useSeenMarks(deviceSeenStore());
+  const [moreOpen, setMoreOpen] = useState(false);
+  const go = (href: Href) => {
+    setMoreOpen(false);
+    router.push(href);
+  };
+
+  const header = (
+    <View style={styles.header}>
+      <Text variant="display.md" accessibilityRole="header" style={styles.title}>
+        {t('app.name')}
+      </Text>
+      <ActivityButton compact api={activityApi} onPress={() => router.push('/activity')} />
+      <IconButton
+        icon="people"
+        variant="surface"
+        accessibilityLabel={t('friends.open')}
+        onPress={() => router.push('/friends')}
+      />
+      <IconButton
+        icon="more"
+        variant="surface"
+        accessibilityLabel={t('home.more')}
+        accessibilityHint={t('home.more.hint')}
+        onPress={() => setMoreOpen(true)}
+      />
+    </View>
+  );
 
   return (
-    <Screen title={t('app.name')} centered>
-      <HoloCard width={cardWidth} height={cardWidth * CARD_ASPECT} />
-      <Text tone="muted">{t('home.hint')}</Text>
-      <Button label={t('home.capture')} onPress={() => router.push('/capture')} />
-      <Button label={t('feed.open')} variant="secondary" onPress={() => router.push('/feed')} />
-      <Button label={t('boards.open')} variant="secondary" onPress={() => router.push('/boards')} />
-      <ActivityButton api={activityApi} onPress={() => router.push('/activity')} />
-      {waiting > 0 ? (
-        <Button
-          label={t('outbox.open', { count: waiting })}
-          variant="secondary"
-          onPress={() => router.push('/outbox')}
-        />
-      ) : null}
-      <Button
-        label={t('drafts.open.home')}
-        variant="secondary"
-        onPress={() => router.push('/drafts')}
+    <View style={styles.root}>
+      <FeedScreen
+        api={api}
+        cache={deviceFeedCache()}
+        reactions={remoteConfig?.reactions}
+        queueReaction={
+          outbox ? (cardId, kind) => outbox.outbox.enqueueReaction(cardId, kind) : undefined
+        }
+        seen={seen}
+        header={header}
+        bottomInset={CAPTURE_SIZE + space[6]}
+        onOpen={(cardId) => router.push({ pathname: '/card/[id]', params: { id: cardId } })}
+        onCompose={() => router.push('/capture')}
       />
-      <Button label={t('holo.lab.open')} variant="ghost" onPress={() => router.push('/holo-lab')} />
-      <Button label={t('cutLab.open')} variant="ghost" onPress={() => router.push('/cut-lab')} />
-      <Button
-        label={t('effectsLab.open')}
-        variant="ghost"
-        onPress={() => router.push('/effects-lab')}
-      />
-      <Button label={t('friends.open')} variant="ghost" onPress={() => router.push('/friends')} />
-      <Button
-        label={t('privacy.open')}
-        variant="ghost"
-        onPress={() => router.push('/settings/privacy')}
-      />
-      <Button
-        label={t('feedback.open')}
-        variant="ghost"
-        onPress={() => router.push('/settings/feedback')}
-      />
-      <Button
-        label={t('notifications.open')}
-        variant="ghost"
-        onPress={() => router.push('/settings/notifications')}
-      />
-      <Button
-        label={t('sessions.open')}
-        variant="ghost"
-        onPress={() => router.push('/settings/sessions')}
-      />
-      <Button
-        label={t('dataExport.open')}
-        variant="ghost"
-        onPress={() => router.push('/settings/data-export')}
-      />
-      <Button
-        label={t('deleteAccount.open')}
-        variant="ghost"
-        onPress={() => router.push('/settings/delete-account')}
-      />
-      <View style={styles.actions}>
-        <Button
-          label={t('home.editCaption')}
-          variant="secondary"
-          onPress={() => setSheetOpen(true)}
-        />
-        <Button
-          label={t('home.send')}
-          onPress={() =>
-            toast.show({
-              message: t('home.sent', { count: DEMO_FRIEND_COUNT }),
-              variant: 'success',
-            })
-          }
+      <View
+        pointerEvents="box-none"
+        style={[styles.dock, { paddingBottom: Math.max(insets.bottom, space[4]) }]}
+      >
+        <IconButton
+          icon="camera"
+          variant="gradient"
+          size={CAPTURE_SIZE}
+          accessibilityLabel={t('home.capture')}
+          onPress={() => router.push('/capture')}
+          testID="home-capture"
         />
       </View>
-      <Sheet visible={sheetOpen} onClose={() => setSheetOpen(false)} title={t('home.editCaption')}>
-        <TextField
-          label={t('home.caption.label')}
-          placeholder={t('home.caption.placeholder')}
-          value={caption}
-          onChangeText={setCaption}
-          hint={t('home.caption.hint', { max: CAPTION_MAX })}
-          error={over > 0 ? t('home.caption.tooLong', { over }) : undefined}
-        />
-        <Button
-          block
-          label={t('home.caption.save')}
-          disabled={over > 0}
-          onPress={() => {
-            setSheetOpen(false);
-            toast.show({
-              message: t('home.caption.saved'),
-              action: { label: t('common.undo'), onPress: () => setCaption('') },
-            });
-          }}
-        />
+      <Sheet visible={moreOpen} onClose={() => setMoreOpen(false)} title={t('home.more')}>
+        <ScrollView contentContainerStyle={styles.links}>
+          {waiting > 0 ? (
+            <Button
+              block
+              variant="secondary"
+              label={t('outbox.open', { count: waiting })}
+              onPress={() => go('/outbox')}
+            />
+          ) : null}
+          {MORE_LINKS.map(([label, href]) => (
+            <Button
+              key={label}
+              block
+              variant="secondary"
+              label={t(label)}
+              onPress={() => go(href)}
+            />
+          ))}
+          <Text variant="title.md" accessibilityRole="header">
+            {t('home.labs')}
+          </Text>
+          {LAB_LINKS.map(([label, href]) => (
+            <Button key={label} block variant="ghost" label={t(label)} onPress={() => go(href)} />
+          ))}
+        </ScrollView>
       </Sheet>
-    </Screen>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  actions: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: space[3] },
+  root: { flex: 1 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
+  title: { flex: 1 },
+  dock: { position: 'absolute', bottom: 0, start: 0, end: 0, alignItems: 'center' },
+  links: { gap: space[2], paddingBottom: space[4] },
 });

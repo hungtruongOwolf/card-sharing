@@ -839,7 +839,12 @@ feed picture opens it; `GET /v1/cards/{id}` gives fresh URLs (the feed's copy sh
 (prd-mvp edge case). The shown URL is kept until 30 s before it expires (re-reads sign new URLs and would re-download
 the picture) and never rendered past `expires_at`. The finish comes from `style.finish`: drawn live over the render
 when the registry allows it (`planFinishModes`, holo `maxLive`, not killed, reduced motion off), else the baked static
-render; the card is wrapped in `Squish` and labelled with its alt text ("Card from <name>").
+render; the card is labelled with its alt text ("Card from <name>"). Since sprint 9 the view is a Stories-style
+player (see [[design-system]] section 4): friends' cards play in `storySequence` order (each friend oldest first), tap
+sides to page, hold to pause (the hold also squishes a live holo), swipe down to close, reactions at the bottom through
+the same optimistic `useCardReaction` as the feed (feed and `['card', id]` caches both updated); each card keeps its own
+read, re-read and URL rules above. Opening a card records a per-sender "seen up to" mark on the device
+(`cs.feed.seen.v1`, ids and times only, cleared on sign-out) that drives the feed's unseen story rings.
 Implemented (T-82, `crates/cards/src/delete.rs`, `DELETE /v1/cards/{id}`, limit `cards.delete` 60/h): owner only (anyone
 else, a missing or an already deleted card → the same 404). One transaction sets `status = deleted`, hides every recipient row
 and publishes `cards.deleted {card_id, owner_id, recipient_ids}`; every read path filters on it, so the card is gone from card

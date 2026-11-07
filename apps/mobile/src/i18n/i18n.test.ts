@@ -71,8 +71,8 @@ describe('English catalog', () => {
   });
 
   it('renders plural copy without string concatenation', () => {
-    expect(t('home.sent', { count: 0 })).toBe('Sent to nobody yet');
-    expect(t('home.sent', { count: 1 })).toBe('Sent to 1 friend');
-    expect(t('home.sent', { count: 3 })).toBe('Sent to 3 friends');
+    expect(t('feed.sent.minutes', { count: 1 })).toBe('1 minute ago');
+    expect(t('feed.sent.minutes', { count: 3 })).toBe('3 minutes ago');
+    expect(t('feed.ring.a11y', { name: 'Mai', count: 2 })).toBe('Mai, 2 cards');
   });
 });
