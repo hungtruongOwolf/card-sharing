@@ -14,7 +14,8 @@ export const overlayWashi: EffectEntry = {
   description: 'effects.overlay.washi.description',
   a11yLabel: 'effects.overlay.washi.a11y',
   kind: 'overlay',
-  tags: [],
+  // Listed by the editor's Stickers tool too (sprint 9).
+  tags: ['sticker'],
   tier: '0',
   inputs: ['touch'],
   anchor: 'none',

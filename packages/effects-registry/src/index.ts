@@ -34,3 +34,4 @@ export { ENTRIES } from './entries';
 export { migrateId, RETIRED, SHIPPED_IDS } from './ledger';
 export { BACKDROPS, DECORATIONS, TAPE_COLORS } from './entries/board';
 export { SPEECH_CAPTIONS } from './entries/overlay.speech';
+export { TEXT_FONTS, TEXT_PHRASES, TEXT_STYLES } from './entries/overlay.text';

@@ -6,6 +6,7 @@ import { polaroid } from './renderers/polaroid';
 import { PROP_RENDERERS } from './renderers/props';
 import { sparklesRenderer } from './renderers/sparkles';
 import { speech } from './renderers/speech';
+import { textSticker } from './renderers/textSticker';
 import { washi } from './renderers/washi';
 
 /**
@@ -17,6 +18,7 @@ export const EFFECT_RENDERERS: EffectRenderers = {
     'shadow:paperLift': paperLift,
     'tape:washi': washi,
     'text:speech': speech,
+    'text:sticker': textSticker,
     'particles:sparkles': sparklesRenderer,
     ...PROP_RENDERERS,
     'beam:laserEyes': laserEyes,

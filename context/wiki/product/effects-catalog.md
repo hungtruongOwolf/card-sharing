@@ -2,9 +2,9 @@
 title: Effects Catalog (Tier 0) & Effect Registry
 type: spec
 status: draft
-updated: 2026-11-06
-sources: [raw/discussions/2026-11-05-sprint-1-kickoff-qa.md, raw/discussions/2026-11-04-prd-design-qa.md, raw/research/2026-11-04-zero-download-ai.md, raw/research/2026-11-04-subject-cutout.md, raw/research/2026-11-04-on-device-genai.md, raw/research/2026-11-04-frontend-stack.md, raw/discussions/2026-11-04-idea-round-1.md, raw/discussions/2026-11-04-idea-round-5.md]
-related: [[ADR-0003-effects-tiers]], [[subject-cutout]], [[design-system]], [[change-management]], [[monetization]], [[region-policy]], [[vision]], [[genai-effects]]
+updated: 2026-11-07
+sources: [raw/discussions/2026-11-07-sprint-9-direction.md, raw/discussions/2026-11-05-sprint-1-kickoff-qa.md, raw/discussions/2026-11-04-prd-design-qa.md, raw/research/2026-11-04-zero-download-ai.md, raw/research/2026-11-04-subject-cutout.md, raw/research/2026-11-04-on-device-genai.md, raw/research/2026-11-04-frontend-stack.md, raw/discussions/2026-11-04-idea-round-1.md, raw/discussions/2026-11-04-idea-round-5.md]
+related: [[sprint-9]], [[ADR-0003-effects-tiers]], [[subject-cutout]], [[design-system]], [[change-management]], [[monetization]], [[region-policy]], [[vision]], [[genai-effects]]
 ---
 # Effects Catalog (Tier 0) & Effect Registry
 **TL;DR:** Every effect, cut style, prop and frame is one **registry entry** (`packages/effects-registry`, data + renderer
@@ -181,6 +181,18 @@ twinkle holds 30 fps on a low-end phone (the still is the low-end / reduced-moti
 share of the card, 0.08–1), `angle` (−45..45) and hidden `x`/`y`. Each requires `faceLandmarks` with fallback
 `userPoints`, so today they are placed by the mask heuristic and dragged by hand; auto-placement scales `size` to the
 head (`default × headWidth / 0.4`). Not stackable (one of each).
+
+**Sprint 9 stickers and text (EM: "more effects, stickers, fonts, easier editing"):** four more vector props, all
+`new`-tagged: `prop.halo`, `prop.bow`, `prop.cat-ears` (anchor `top`) and `prop.heart-glasses` (anchor `eyes`). Head-top
+props conflict pairwise (crown, party hat, halo, bow, cat ears: one thing on top of the head) and heart glasses conflict
+with sunglasses. `overlay.text` (`text:sticker`, kind `overlay`, stackable, anchor `none`, `ALL_DEVICES`) is a text
+sticker: `phrase` from a curated library (`TEXT_PHRASES`, 14 phrases, copy `effects.param.phrase.<value>`; like the
+speech captions, no free text is baked into the image in the MVP), `font` (`display`, `hand`, `meme`, `mono`, `body`:
+the brand faces, loaded into Skia from Metro assets by `loadEffectFonts`), `textStyle` (`plain` with a soft shadow,
+`pill` with black or white ink picked for contrast, `outline`, `neon` glow), `color`, `size` 0.5-2.5, `angle` -45..45
+and hidden `x`/`y`; the text shrinks to 86% of the card width and its centre is clamped so it never leaves the card.
+Tags drive the editor tools without naming ids: `sticker` (all props, `overlay.washi`) and `text` (`overlay.speech`,
+`overlay.text`). Tags are not part of the server export, so adding them changed no stored version.
 
 **Laser eyes (T-121, `renderers/laserEyes.ts`, shared `renderers/glow.ts`):** `fx.laser-eyes` (kind `overlay`,
 `beam:laserEyes`, anchor `eyes`, requires `faceLandmarks` with fallback `userPoints`) ships as a still that works on

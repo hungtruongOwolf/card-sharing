@@ -109,11 +109,73 @@ function mustache(canvas: SkCanvas): void {
   canvas.drawPath(half(-1), fill('#3B2A20'));
 }
 
+function halo(canvas: SkCanvas): void {
+  // A golden ring floating above the head, seen slightly from above.
+  const ring = Skia.XYWHRect(-0.5, -0.42, 1, 0.26);
+  canvas.drawOval(ring, outline('#F2B705', 0.1));
+  canvas.drawOval(ring, outline('#FFE38A', 0.035));
+}
+
+function bow(canvas: SkCanvas): void {
+  const loop = (side: 1 | -1) =>
+    Skia.PathBuilder.Make()
+      .moveTo(0, -0.18)
+      .cubicTo(side * 0.2, -0.5, side * 0.5, -0.42, side * 0.48, -0.2)
+      .cubicTo(side * 0.46, 0.02, side * 0.2, 0.02, 0, -0.18)
+      .close()
+      .build();
+  for (const side of [1, -1] as const) {
+    canvas.drawPath(loop(side), fill('#F7A1C4'));
+    canvas.drawPath(loop(side), outline(INK, LINE));
+  }
+  canvas.drawCircle(0, -0.18, 0.09, fill('#E8487B'));
+  canvas.drawCircle(0, -0.18, 0.09, outline(INK, LINE));
+}
+
+function catEars(canvas: SkCanvas): void {
+  for (const side of [1, -1] as const) {
+    const ear = polygon([
+      [side * 0.18, 0],
+      [side * 0.36, -0.5],
+      [side * 0.5, 0],
+    ]);
+    const inner = polygon([
+      [side * 0.25, -0.04],
+      [side * 0.36, -0.36],
+      [side * 0.44, -0.04],
+    ]);
+    canvas.drawPath(ear, fill('#3B2A20'));
+    canvas.drawPath(inner, fill('#F7A1C4'));
+    canvas.drawPath(ear, outline(INK, LINE));
+  }
+}
+
+function heartGlasses(canvas: SkCanvas): void {
+  const heart = (cx: number) =>
+    Skia.PathBuilder.Make()
+      .moveTo(cx, 0.14)
+      .cubicTo(cx - 0.3, -0.04, cx - 0.2, -0.24, cx, -0.1)
+      .cubicTo(cx + 0.2, -0.24, cx + 0.3, -0.04, cx, 0.14)
+      .close()
+      .build();
+  canvas.drawLine(-0.08, -0.06, 0.08, -0.06, outline(INK, 0.05));
+  canvas.drawLine(-0.5, -0.1, -0.44, -0.07, outline(INK, 0.05));
+  canvas.drawLine(0.5, -0.1, 0.44, -0.07, outline(INK, 0.05));
+  for (const x of [-0.27, 0.27]) {
+    canvas.drawPath(heart(x), fill('#E8487B'));
+    canvas.drawPath(heart(x), outline(INK, LINE));
+  }
+}
+
 const DRAWINGS: Readonly<Record<string, (canvas: SkCanvas) => void>> = {
   crown,
   'party-hat': partyHat,
   sunglasses,
   mustache,
+  halo,
+  bow,
+  'cat-ears': catEars,
+  'heart-glasses': heartGlasses,
 };
 
 /** A renderer for one prop drawing. */
