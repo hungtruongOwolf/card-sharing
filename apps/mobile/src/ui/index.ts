@@ -3,6 +3,7 @@ export { Button, type ButtonProps, type ButtonVariant } from './Button';
 export { forceLtrProps } from './forceLtr';
 export { Icon, ICONS, type IconName, type IconProps } from './Icon';
 export { IconButton, type IconButtonProps, type IconButtonVariant } from './IconButton';
+export { pressedStateProps } from './pressedState';
 export { Screen, type ScreenProps } from './Screen';
 export { Sheet, type SheetProps } from './Sheet';
 export { Text, type AppTextProps, type TextTone } from './Text';
