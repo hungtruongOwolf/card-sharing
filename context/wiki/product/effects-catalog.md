@@ -310,7 +310,10 @@ Export rules:
   (`exportRenderPng`); a friend's card shows no export action, and the server only returns `original_url` to the
   owner (the app does not keep it; backend tests `cards_read.rs`, `feed.rs`). iOS shares a `data:image/png` URI through
   React Native `Share`; Android has no image share without `expo-sharing` (installed since the SDK 58 upgrade; the
-  Android share path is follow-up #326), so the action is hidden there for now.
+  Android share path is follow-up #326), so the action is hidden there for now. The web target ([[ADR-0009-app-on-web]],
+  sprint 10 E1) shares the PNG as a file through the Web Share API when `navigator.canShare({ files })` allows it
+  (mostly phones), otherwise downloads it (`card-sharing-card.png`) through an object URL and an `<a download>` click; a
+  cancelled share sheet is not an error, a refused share (expired user activation) falls back to the download.
 - **Loop clip (procedural only, not AI video):** render N frames with the `time` uniform offscreen → encode MP4/animated WebP via a native encoder module (AVAssetWriter / MediaCodec); Skia video export is beta → Phase 2. EM confirmed 2026-11-04: procedural loops are allowed (not AI video) — **Phase 2**.
 - Web share pages show the baked still (`webPreview: 'baked'`). On enlarge, the holo runs as a small WebGL2 port of the
   same shader (`packages/shaders` uniforms), not CanvasKit: the T-126 spike measured CanvasKit at 2.9 MB gz, 15-17 s cold on

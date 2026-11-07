@@ -272,7 +272,7 @@ export const en = {
   'card.reply.action': 'Reply to {name} with a card',
   'card.reply.hint': 'Take or pick a photo, then send it back to them only',
   'card.reply.label': 'Replied to your card · {when}',
-  'card.export.hint': 'Shares a picture of your card with the app mark',
+  'card.export.hint': 'Shares or saves a picture of your card with the app mark',
   'card.export.failed': 'Couldn’t export this card. Try again.',
   'card.error.load': 'We couldn’t open this card. Check your connection and try again.',
   'feed.sent.now': 'Just now',
