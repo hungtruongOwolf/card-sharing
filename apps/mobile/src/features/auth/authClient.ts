@@ -2,6 +2,7 @@ import type { components } from '@card-sharing/api-client';
 
 import { problemCode } from '../../data/problemCode';
 import { sessionFromTokenPair, type Session } from './session';
+import type { SessionSync } from './sessionSync';
 import type { TokenStore } from './tokenStore';
 
 type RefreshRequest = components['schemas']['RefreshRequest'];
@@ -21,6 +22,11 @@ type DevSignInRequest = components['schemas']['DevSignInRequest'];
  *
  * The server enforces all of this; the client only avoids tripping reuse detection by accident.
  * Tokens never reach logs, errors, AsyncStorage or the query cache.
+ *
+ * On the web several tabs share one stored session (ADR-0009). With a {@link SessionSync} the single flight spans
+ * every tab: a refresh runs under a cross-tab lock and first re-reads the store, adopting a pair another tab already
+ * rotated to instead of replaying a consumed token (sprint 10 B5); a tab also adopts rotations, sign-ins and
+ * sign-outs of other tabs as they happen.
  */
 
 export type AuthStatus = 'loading' | 'signedOut' | 'signedIn';
@@ -74,6 +80,8 @@ export interface AuthClientOptions {
   refreshSkewMs?: number;
   /** Upper bound for the best-effort `DELETE /v1/sessions/current` during logout. */
   logoutTimeoutMs?: number;
+  /** Coordinates with other app instances sharing `store` (browser tabs, ADR-0009); none on native. */
+  sync?: SessionSync;
 }
 
 export interface AuthClient {
@@ -151,6 +159,7 @@ export function createAuthClient(options: AuthClientOptions): AuthClient {
     appVersion,
     refreshSkewMs = DEFAULT_REFRESH_SKEW_MS,
     logoutTimeoutMs = DEFAULT_LOGOUT_TIMEOUT_MS,
+    sync,
   } = options;
   const fetchFn = options.fetch ?? ((input, init) => fetch(input, init));
   const streamFetchFn = options.streamFetch ?? fetchFn;
@@ -236,13 +245,61 @@ export function createAuthClient(options: AuthClientOptions): AuthClient {
     return next;
   }
 
+  /**
+   * One rotation across every instance sharing the store. Under the lock the store is read again: a pair another
+   * instance rotated to meanwhile is adopted (and only rotated itself when it is due too); a cleared store means
+   * another instance signed out. Without a sync this is a plain {@link rotate}.
+   */
+  function rotateShared(observed: Session, startedEpoch: number): Promise<Session> {
+    if (!sync) return rotate(observed, startedEpoch);
+    return sync.withRefreshLock(async () => {
+      const stored = await store.load().catch(() => undefined);
+      if (epoch !== startedEpoch) throw new AuthError('signed_out');
+      if (stored === null) {
+        await endSession('user');
+        throw new AuthError('signed_out');
+      }
+      if (stored === undefined || stored.refreshToken === observed.refreshToken) {
+        return rotate(observed, startedEpoch);
+      }
+      session = stored;
+      if (stored.accessExpiresAt - now() > refreshSkewMs) return stored;
+      return rotate(stored, startedEpoch);
+    });
+  }
+
+  /**
+   * Another instance changed the stored session (sync only): adopt its rotation or sign-in, follow its sign-out.
+   * Before {@link init} there is nothing to reconcile; init reads the store itself.
+   */
+  async function adoptExternalChange(): Promise<void> {
+    if (!ready) return;
+    await ready;
+    const startedEpoch = epoch;
+    const stored = await store.load().catch(() => undefined);
+    if (stored === undefined || epoch !== startedEpoch) return;
+    if (stored === null) {
+      if (session) await endSession('user');
+      return;
+    }
+    if (session?.refreshToken === stored.refreshToken) return;
+    const wasSignedOut = session === null;
+    if (wasSignedOut) {
+      epoch += 1;
+      refreshing = null;
+    }
+    session = stored;
+    if (wasSignedOut) emit({ status: 'signedIn' });
+  }
+  sync?.subscribe(() => void adoptExternalChange());
+
   /** Single flight: concurrent callers share one refresh; a caller holding an old session gets the new one. */
   function refreshFrom(observed: Session): Promise<Session> {
     if (session !== observed) {
       return session ? Promise.resolve(session) : Promise.reject(new AuthError('signed_out'));
     }
     if (!refreshing) {
-      const flight = rotate(observed, epoch);
+      const flight = rotateShared(observed, epoch);
       refreshing = flight;
       const settle = () => {
         if (refreshing === flight) refreshing = null;

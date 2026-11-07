@@ -59,6 +59,10 @@ We will build **thin in-house auth** in the `identity` crate with **opaque serve
 - Negative / trade-offs accepted: we own auth security (JWKS caching/rotation, nonce replay, timing-safe compares) → mandatory
   security review + negative tests; one Redis/Postgres lookup per request (sub-ms, acceptable); clients must handle refresh races
   (single in-flight refresh per device, otherwise a legit retry looks like reuse — allow a 30 s grace for the immediately previous token).
+  On the app's web target ([[ADR-0009-app-on-web]]) a "device" is a browser profile whose tabs share one stored session: the
+  single flight spans tabs — refresh under a Web Lock (`navigator.locks`) that first re-reads the store and adopts a pair another
+  tab already rotated to, and `storage` events make every tab adopt rotations, sign-ins and sign-outs (sprint 10 B5,
+  `apps/mobile/src/features/auth/sessionSync.ts`). Native is unchanged.
 - Follow-ups: passkeys for users (Phase 2); device attestation (`att`) rollout plan; Apple private-relay email handling; threat
   model entries in [[threat-model-mvp]].
 

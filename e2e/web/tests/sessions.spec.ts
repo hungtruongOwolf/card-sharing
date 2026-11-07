@@ -15,9 +15,7 @@ async function openActivityAndBack(page: Page): Promise<void> {
   await expect(page.getByTestId('home-capture')).toBeVisible();
 }
 
-test.fixme('B5: two tabs of one user stay signed in past the access-token lifetime', async ({
-  app,
-}) => {
+test('B5: two tabs of one user stay signed in past the access-token lifetime', async ({ app }) => {
   const alice = await app.signIn('alice', { clock: true });
   const tab1 = alice.page;
   const tab2 = await alice.newTab();
@@ -27,8 +25,8 @@ test.fixme('B5: two tabs of one user stay signed in past the access-token lifeti
   await tab1.clock.fastForward(PAST_ACCESS_TTL);
   await openActivityAndBack(tab1);
 
-  // Tab 2 still holds the old pair in memory; past the reuse grace, refreshing with it revokes the whole session
-  // family (B5) unless the tabs coordinate.
+  // Tab 2 loaded the old pair; past the reuse grace, refreshing with it would revoke the whole session family (B5)
+  // unless the tabs coordinate (Web Lock + re-read of the shared store + storage events).
   await tab2.waitForTimeout(PAST_REUSE_GRACE_MS);
   await tab2.clock.fastForward(PAST_ACCESS_TTL);
   await openActivityAndBack(tab2);
