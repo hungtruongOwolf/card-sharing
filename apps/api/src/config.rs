@@ -138,6 +138,10 @@ pub struct Config {
     /// `API_STAFF_IP_ALLOWLIST` — comma-separated IP addresses allowed to call `/v1/admin/*`
     /// (T-144). Empty (default) = any IP (the staff session and MFA still apply).
     pub staff_ip_allowlist: Vec<std::net::IpAddr>,
+    /// Real-time streams (`GET /v1/events`, ADR-0010): `API_EVENTS_MAX_PER_ACCOUNT` (default 5,
+    /// 1..=20) open streams per account and `API_EVENTS_MAX_PER_INSTANCE` (default 2000,
+    /// 1..=100000) per API instance.
+    pub realtime: crate::realtime::RealtimeSettings,
 }
 
 #[derive(Debug, Clone)]
@@ -374,6 +378,11 @@ impl Config {
         let mail = mail_config(env)?;
         let service_credential = service_credential(env)?;
         let dev_sign_in = env.flag("API_DEV_SIGN_IN", false)?;
+        let realtime = crate::realtime::RealtimeSettings {
+            per_account_max: env.in_range("API_EVENTS_MAX_PER_ACCOUNT", 5, 1..=20)?,
+            instance_max: env.in_range("API_EVENTS_MAX_PER_INSTANCE", 2000, 1..=100_000)?,
+            ..crate::realtime::RealtimeSettings::default()
+        };
         let staff_ip_allowlist = match env.optional("API_STAFF_IP_ALLOWLIST") {
             None => Vec::new(),
             Some(raw) => raw
@@ -443,6 +452,7 @@ impl Config {
             service_credential,
             dev_sign_in,
             staff_ip_allowlist,
+            realtime,
         })
     }
 }
@@ -844,6 +854,17 @@ mod tests {
         }
         assert!(load(&[("API_ENV", "prod")]).is_err());
         assert!(load(&[("API_ENV", "development"), ("API_CSAM_MATCHER", "photodna")]).is_err());
+    }
+
+    #[test]
+    fn realtime_limits_have_defaults_and_bounds() {
+        let config = load(&[]).unwrap();
+        assert_eq!(config.realtime.per_account_max, 5);
+        assert_eq!(config.realtime.instance_max, 2000);
+        let config = load(&[("API_EVENTS_MAX_PER_ACCOUNT", "2")]).unwrap();
+        assert_eq!(config.realtime.per_account_max, 2);
+        assert!(load(&[("API_EVENTS_MAX_PER_ACCOUNT", "0")]).is_err());
+        assert!(load(&[("API_EVENTS_MAX_PER_INSTANCE", "x")]).is_err());
     }
 
     #[test]

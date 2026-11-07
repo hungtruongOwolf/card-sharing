@@ -28,5 +28,6 @@ pub mod outbox;
 pub mod personal_data;
 pub mod problem;
 pub mod rate_limit;
+pub mod realtime;
 pub mod request_id;
 pub mod text;

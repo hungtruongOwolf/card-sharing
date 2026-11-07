@@ -72,6 +72,8 @@ pub struct AppState {
     /// Whether a provider adapter runs in the worker (`API_AI_EFFECT_PROVIDER`). `false` = AI
     /// effects are offered to nobody and submits answer 503 (deny by default).
     pub genai_available: bool,
+    /// Real-time streams of this instance (ADR-0010): `GET /v1/events` and the NOTIFY listener.
+    pub realtime: Arc<crate::realtime::RealtimeHub>,
     /// Signs media URLs (T-74). `None` = no key configured: media URLs answer 503.
     pub media_signer: Option<Arc<UrlSigner>>,
     /// Resolves bearer tokens for the access-policy gate (identity sessions by default).
@@ -183,6 +185,9 @@ impl AppState {
                 Arc::new(genai::GenAiSettings::shipped()),
             )),
             genai_available: false,
+            realtime: crate::realtime::RealtimeHub::new(
+                crate::realtime::RealtimeSettings::default(),
+            ),
             policy,
             sessions: Arc::new(IdentitySessions(Arc::clone(&identity))),
             idempotency: Arc::new(IdempotencyStore::new(
@@ -199,6 +204,12 @@ impl AppState {
             sign_in: None,
             dev_sign_in: false,
         }
+    }
+
+    /// Installs the real-time stream limits (`API_EVENTS_MAX_PER_ACCOUNT`, `API_EVENTS_MAX_PER_INSTANCE`).
+    pub fn with_realtime(mut self, settings: crate::realtime::RealtimeSettings) -> Self {
+        self.realtime = crate::realtime::RealtimeHub::new(settings);
+        self
     }
 
     /// Installs the AI effect rules (`config/ai_effects.yaml`) and whether a provider adapter is

@@ -7,7 +7,7 @@ use crate::access::{ApiRouter, Idempotency, RoutePolicy};
 use crate::routes::{
     activity, admin_auth, admin_reports, age_signal, ai_effects, app_config, appeals, attestation,
     auth, blocks, board_invitations, board_members, board_ops, board_read, boards, cards, deletion,
-    dev_auth, devices, exports, feed, friend_requests, friends, health, invites, me, media,
+    dev_auth, devices, events, exports, feed, friend_requests, friends, health, invites, me, media,
     media_files, notification_preferences, public_boards, public_invites, public_links,
     public_reports, reports, sessions, user_search, widget,
 };
@@ -36,6 +36,7 @@ Every operation carries `x-policy` (auth kind, role, attestation) from its deny-
         (name = attestation::TAG, description = "Device attestation challenges and keys (SR-13)"),
         (name = sessions::TAG, description = "The caller's device sessions (AC-1.4)"),
         (name = activity::TAG, description = "The caller's activity tab (US-31)"),
+        (name = events::TAG, description = "Real-time events of the caller: Server-Sent Events, ids only (ADR-0010)"),
         (name = widget::TAG, description = "Home-screen widget token and card (US-16)"),
         (name = devices::TAG, description = "Push tokens of the caller's device (US-31, US-16)"),
         (name = me::TAG, description = "The caller's own account and onboarding"),
@@ -344,6 +345,10 @@ pub fn router() -> ApiRouter<AppState> {
         .route(
             RoutePolicy::session().limited("cards.replies.read"),
             routes!(cards::list_replies),
+        )
+        .route(
+            RoutePolicy::session().limited("events.connect"),
+            routes!(events::stream_events),
         )
         .route(
             RoutePolicy::session().limited("ai.read"),

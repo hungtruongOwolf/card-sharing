@@ -70,6 +70,8 @@ sha2 = "0.11.1"
 sqlx = { version = "0.9.0", default-features = false, features = ["postgres", "runtime-tokio", "tls-rustls-ring-native-roots", "uuid", "time", "json", "migrate", "macros"] }
 thiserror = "2.0.21"
 time = { version = "0.3.55", features = ["serde", "macros", "formatting", "parsing"] }
+# Stream combinators for the SSE route (`GET /v1/events`, ADR-0010); already in the tree via sqlx and axum.
+futures-util = { version = "0.3.34", default-features = false, features = ["std"] }
 tokio = { version = "1.54.1", features = ["macros", "rt-multi-thread", "net", "signal", "time"] }
 tower = { version = "0.5.3", features = ["timeout", "util"] }
 tower-http = { version = "0.7.1", features = ["cors", "trace", "set-header", "limit", "catch-panic"] }

@@ -82,3 +82,17 @@ Fan-out between the worker (which delivers) and the API instance holding the con
   replies for the original sender; the reply reaches her as an ordinary `card.new` activity item and push, and the app shows
   "replied to your card" from `CardView.reply_to`. The seed's "Nap time" card is a reply to Alice's first card. Tests:
   `apps/api/tests/api/cards_replies.rs`.
+- **Events (decisions 2-4)**: `GET /v1/events` as decided, plus two frames: `ready` (first frame, so the client refetches
+  once per connection) and `resync` (the per-account buffer of 32 overflowed, or the instance listener reconnected) and
+  `reconnect {reason}` before a server-side close. The reaction event is named `card.reaction` and fires on set, change and
+  removal. Session revocation is detected by re-resolving the stream's bearer token every 30 s (identity cache evicted on
+  revoke), which also ends a stream when its 10-minute access token expires; a session-store outage keeps streams open
+  (ids only, every read still checks). Graceful shutdown ends every stream (`reconnect: shutdown`). Limits from config:
+  `API_EVENTS_MAX_PER_ACCOUNT` (5), `API_EVENTS_MAX_PER_INSTANCE` (2000), `events.connect` 30/min. Tests:
+  `apps/api/tests/api/events.rs` (per-account isolation, ids-only payloads, reply and reaction events, the stream cap,
+  revocation), unit tests in `apps/api/src/realtime.rs` and `crates/platform/src/realtime.rs`.
+- **Security review (events)**: payloads are `{card_id, reply_to?}` only, addressed by account on the server; the
+  addressee is always someone the normal read already allows (recipient, original sender, card owner), and a frame never
+  shows anything by itself: the client refetches through routes with the full predicate (so an unfriend or block between the
+  NOTIFY and the refetch is still enforced). No CORS widening, no token in the URL, no new crate (futures-util was already in
+  the tree).

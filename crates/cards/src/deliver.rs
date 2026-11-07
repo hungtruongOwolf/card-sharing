@@ -14,6 +14,7 @@ use std::sync::Arc;
 use media::{GateState, MEDIA_SETTLED, MediaService, MediaState};
 use platform::jobs::{ClaimedJob, JobError, JobFuture, JobHandler, Lane, NewJob};
 use platform::outbox::{self, Event, StoredEvent, Subscriber};
+use platform::realtime::{self, EventKind, RealtimeEvent};
 use serde_json::json;
 use time::Duration;
 use uuid::Uuid;
@@ -46,6 +47,7 @@ pub enum Evaluation {
 struct PendingCard {
     owner_id: Uuid,
     status: String,
+    reply_to_card_id: Option<Uuid>,
     render_media_id: Uuid,
     mask_media_id: Option<Uuid>,
     original_media_id: Option<Uuid>,
@@ -125,7 +127,8 @@ impl CardService {
         card_id: Uuid,
     ) -> Result<Evaluation, CardError> {
         let card: Option<PendingCard> = sqlx::query_as(
-            "SELECT owner_id, status, render_media_id, mask_media_id, original_media_id
+            "SELECT owner_id, status, reply_to_card_id, render_media_id, mask_media_id,
+                    original_media_id
              FROM cards.cards WHERE id = $1",
         )
         .bind(card_id)
@@ -229,6 +232,21 @@ impl CardService {
             }),
         };
         outbox::publish(&mut *tx, &event, now).await?;
+        // ADR-0010: ids only, to each recipient; sent by Postgres on commit, never on rollback.
+        let (kind, reply_to) = match card.reply_to_card_id {
+            Some(original) => (EventKind::CardReply, Some(original)),
+            None => (EventKind::CardDelivered, None),
+        };
+        let announced: Vec<RealtimeEvent> = recipients
+            .iter()
+            .map(|to| RealtimeEvent {
+                to: *to,
+                kind,
+                card_id,
+                reply_to,
+            })
+            .collect();
+        realtime::notify(&mut *tx, &announced).await?;
         tx.commit().await?;
         tracing::info!(event = "card.delivered", card_id = %card_id, recipients = recipients.len());
         Ok(Evaluation::Delivered)

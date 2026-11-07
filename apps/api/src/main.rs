@@ -73,7 +73,10 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
-    let state = build_state(&config, pool)?;
+    let state = build_state(&config, pool.clone())?;
+    // ADR-0010: one NOTIFY listener per instance feeds the open `GET /v1/events` streams.
+    let realtime = Arc::clone(&state.realtime);
+    tokio::spawn(api::realtime::listen(pool, Arc::clone(&realtime)));
     let app = api::app(state, &config).into_make_service_with_connect_info::<SocketAddr>();
     let listener = TcpListener::bind(config.bind_addr)
         .await
@@ -81,7 +84,11 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!(addr = %config.bind_addr, "listening");
 
     axum::serve(listener, app)
-        .with_graceful_shutdown(shutdown_signal())
+        .with_graceful_shutdown(async move {
+            shutdown_signal().await;
+            // Open streams would hold the graceful shutdown: end them (clients reconnect elsewhere).
+            realtime.close_all();
+        })
         .await
         .context("server error")?;
 
@@ -174,7 +181,9 @@ fn build_state(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<AppState> 
         }
     };
     let sign_in = sign_in_service(config, identity, Arc::clone(&state.field_cipher), clock)?;
-    let state = state.with_sign_in(Arc::new(sign_in));
+    let state = state
+        .with_sign_in(Arc::new(sign_in))
+        .with_realtime(config.realtime);
 
     Ok(state)
 }
