@@ -4618,6 +4618,80 @@
         }
       }
     },
+    "/v1/events": {
+      "get": {
+        "tags": [
+          "events"
+        ],
+        "summary": "My real-time events. Auth: ses.",
+        "description": "A `text/event-stream` of ids only (see the frame list in the module docs); refetch through\nthe normal read routes on every frame, and on `ready` after each (re)connect, since events\nare not replayed. Send the bearer token in `Authorization` (a streaming fetch; the browser\n`EventSource` cannot send it).",
+        "operationId": "streamEvents",
+        "responses": {
+          "200": {
+            "description": "Server-Sent Events: ready, card.delivered, card.reply, card.reaction, resync, reconnect; data is JSON with ids only.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED (connection rate, or 5 open streams for this account).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVER_BUSY: this instance holds its maximum of streams or is shutting down (Retry-After).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "events.connect",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
     "/v1/exports/{id}/download": {
       "get": {
         "tags": [
@@ -12453,6 +12527,10 @@
     {
       "name": "activity",
       "description": "The caller's activity tab (US-31)"
+    },
+    {
+      "name": "events",
+      "description": "Real-time events of the caller: Server-Sent Events, ids only (ADR-0010)"
     },
     {
       "name": "widget",

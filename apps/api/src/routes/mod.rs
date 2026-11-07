@@ -17,6 +17,7 @@ pub mod cards;
 pub mod deletion;
 pub mod dev_auth;
 pub mod devices;
+pub mod events;
 pub mod exports;
 pub mod feed;
 pub mod friend_requests;

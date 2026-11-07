@@ -92,6 +92,7 @@ pub fn test_config() -> Config {
         service_credential: Some(Secret::new(TEST_SERVICE_CREDENTIAL)),
         dev_sign_in: false,
         staff_ip_allowlist: Vec::new(),
+        realtime: api::realtime::RealtimeSettings::default(),
     }
 }
 
@@ -214,7 +215,19 @@ impl TestEnv {
         Self::with_routes(api::openapi::router()).await
     }
 
+    /// A test env whose real-time hub uses `settings` (ADR-0010 stream tests).
+    pub async fn with_realtime(settings: api::realtime::RealtimeSettings) -> Option<Self> {
+        Self::build(api::openapi::router(), settings).await
+    }
+
     pub async fn with_routes(routes: api::access::ApiRouter<AppState>) -> Option<Self> {
+        Self::build(routes, api::realtime::RealtimeSettings::default()).await
+    }
+
+    async fn build(
+        routes: api::access::ApiRouter<AppState>,
+        realtime: api::realtime::RealtimeSettings,
+    ) -> Option<Self> {
         install_always_interested_global_subscriber();
         let database_url = service_url("TEST_DATABASE_URL")?;
         let redis_url = service_url("TEST_REDIS_URL")?;
@@ -245,7 +258,8 @@ impl TestEnv {
         .with_os_age_signals(test_config().os_age_signals_enabled)
         .with_social_settings(social_settings())
         .with_captcha(Arc::new(moderation::FakeCaptcha))
-        .with_genai(genai::GenAiSettings::shipped(), true);
+        .with_genai(genai::GenAiSettings::shipped(), true)
+        .with_realtime(realtime);
         let media_store = Arc::new(media::MemoryObjectStore::default());
         let state = state
             .with_media_store(media_store.clone())

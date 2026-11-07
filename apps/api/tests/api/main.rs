@@ -36,6 +36,7 @@ mod deletion;
 mod dev_sign_in;
 mod enforcement;
 mod erasure;
+mod events;
 mod exports;
 mod feed;
 mod feed_purges;

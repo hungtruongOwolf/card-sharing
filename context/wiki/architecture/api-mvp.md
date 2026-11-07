@@ -349,6 +349,7 @@ request goes out with the opaque `ref`, a silent drop looks like a sent request)
 | GET | /v1/cards/{id}/reactions | Reactions on my card | ses | user | card owner only | 60/min u | yes | US-17 AC-17.1 |
 | GET | /v1/cards/{id}/replies | Replies to my card (cards with `reply_to` = it), newest first, ≤ 50 (ADR-0010) | ses | user | card owner only; each reply under the card-read predicate | 60/min u (`cards.replies.read`) | yes | ADR-0010 |
 | GET | /v1/activity | Activity tab (cursor) | ses | user | `user_id` = caller | 60/min u | yes | US-31 AC-31.3 |
+| GET | /v1/events | Real-time SSE stream of ids (`ready`, `card.delivered`, `card.reply`, `card.reaction`, `resync`, `reconnect`), ADR-0010 | ses | user | only events addressed to the caller's account; ids the read routes authorize again | 30/min u (`events.connect`) + 5 open streams per account + per-instance cap | n/a | ADR-0010 |
 | POST | /v1/activity/read | Mark read up to cursor | ses | user | self | 60/min u | yes | US-31 |
 
 ### Boards
@@ -826,6 +827,20 @@ when the viewer may no longer read the original (deleted, unfriended, blocked), 
 original sender gets the reply as a normal delivered card: feed item and `card.new` activity/push (no new activity kind; the
 app reads `reply_to` to say "replied to your card"). `GET /v1/cards/{id}/replies` (owner only, uniform 404) lists the replies
 she may read, newest delivery first, at most 50, signed and budgeted like the feed.
+
+Implemented (real-time, [[ADR-0010-realtime-delivery]], `apps/api/src/routes/events.rs`, `apps/api/src/realtime.rs`,
+`platform::realtime`): `GET /v1/events` (ses, limit `events.connect` 30/min per user, fail-open) answers `text/event-stream`.
+Frames (`event:` + JSON `data:` with ids only): `ready` `{}` (first frame: refetch, nothing is replayed), `card.delivered
+{card_id}` (to each recipient), `card.reply {card_id, reply_to}` (to the original sender), `card.reaction {card_id}` (to the
+card owner on set, change or removal), `resync` `{}` (events may have been missed: the stream lagged or the instance listener
+reconnected), `reconnect {reason: max_age|session|shutdown}` (the server is closing the stream). A `: hb` comment every 25 s.
+Fan-out: the delivery transaction (`CardService::deliver`) and the reaction writes run `pg_notify('rt_events', …)` with
+`{to, type, card_id, reply_to?}` (sent on commit only); each instance holds one `PgListener` and forwards to the streams of
+`to` only. Limits: 5 open streams per account (`API_EVENTS_MAX_PER_ACCOUNT`, 429 `RATE_LIMITED`), 2000 per instance
+(`API_EVENTS_MAX_PER_INSTANCE`, 503 `SERVER_BUSY` + `Retry-After: 5`), streams close after 30 min, and within 30 s of a
+revoked session or an expired access token (10 min TTL: the client refreshes and reconnects). The browser `EventSource`
+cannot send `Authorization`, so clients read the stream with a streaming `fetch`; CORS is unchanged (a GET with the already
+allowed `Authorization` header). Responses carry `Cache-Control: no-store` and `X-Accel-Buffering: no`.
 
 Mobile client (T-77, #79, `apps/mobile/src/features/sharing`): the editor's Next (or Send in the drafts tray) opens
 `/send?draft=<id>`. Audience = all friends by default or a subset (`GET /v1/friends`, at most

@@ -84,6 +84,13 @@ Same machine, same seed data, the two release binaries run back to back (300 sam
 - Query plans are not the bottleneck at this size; the feed and pin queries use their indexes (`card_recipients_feed`,
   `pins_board_live`). Re-check with `EXPLAIN (ANALYZE, BUFFERS)` once a staging dataset exists.
 
+## Real-time streams (ADR-0010)
+- One open `GET /v1/events` per foreground app: a tokio task, a broadcast receiver (32 events buffered per account) and an
+  HTTP connection; no database connection is held per stream (one shared `PgListener` per instance). Heartbeat 25 s.
+- Caps: 5 streams per account, 2000 per instance (`API_EVENTS_MAX_PER_INSTANCE`; size it from instance memory once
+  measured). Every stream reconnects at least every 10 minutes (access token TTL), and each connect refetches the first
+  feed page and the activity page: budget about one feed read per user per 10 minutes on top of normal use.
+
 ## Follow-ups
 - Run the bench in CI on a release build as a smoke check (fail when a budget is exceeded by 2×) once CI has a stable
   runner; today the shared runners are too noisy for a hard gate.

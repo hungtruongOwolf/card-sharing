@@ -5,6 +5,7 @@
 use std::collections::HashMap;
 
 use platform::outbox::{self, Event};
+use platform::realtime::{self, EventKind, RealtimeEvent};
 use serde_json::json;
 use time::OffsetDateTime;
 use uuid::Uuid;
@@ -20,6 +21,16 @@ pub struct Reaction {
     pub reactor_id: Uuid,
     pub kind: String,
     pub updated_at: OffsetDateTime,
+}
+
+/// ADR-0010 `card.reaction` to the card's owner (ids only).
+fn reaction_changed(owner: Uuid, card_id: Uuid) -> RealtimeEvent {
+    RealtimeEvent {
+        to: owner,
+        kind: EventKind::CardReaction,
+        card_id,
+        reply_to: None,
+    }
 }
 
 impl CardService {
@@ -53,6 +64,8 @@ impl CardService {
             payload: json!({ "card_id": card_id, "owner_id": owner, "reactor_id": viewer }),
         };
         outbox::publish(&mut *tx, &event, now).await?;
+        // ADR-0010: the owner's open app refetches the reactions (ids only).
+        realtime::notify(&mut *tx, &[reaction_changed(owner, card_id)]).await?;
         tx.commit().await?;
         Ok(true)
     }
@@ -60,25 +73,31 @@ impl CardService {
     /// Removes the viewer's reaction. `false` = the card is not visible to them (404); removing
     /// a reaction that does not exist on a visible card succeeds.
     pub async fn unreact(&self, viewer: Uuid, card_id: Uuid) -> Result<bool, CardError> {
-        let visible: bool = sqlx::query_scalar(concat!(
-            "SELECT EXISTS (SELECT 1 FROM cards.cards c
+        let owner: Option<Uuid> = sqlx::query_scalar(concat!(
+            "SELECT c.owner_id FROM cards.cards c
                 JOIN cards.card_recipients r ON r.card_id = c.id AND r.recipient_id = $2
                 WHERE c.id = $1 AND c.owner_id <> $2 AND ",
-            crate::recipient_visible_sql!(),
-            ")"
+            crate::recipient_visible_sql!()
         ))
         .bind(card_id)
         .bind(viewer)
-        .fetch_one(&self.pool)
+        .fetch_optional(&self.pool)
         .await?;
-        if !visible {
+        let Some(owner) = owner else {
             return Ok(false);
+        };
+        let mut tx = self.pool.begin().await?;
+        let removed =
+            sqlx::query("DELETE FROM cards.reactions WHERE card_id = $1 AND reactor_id = $2")
+                .bind(card_id)
+                .bind(viewer)
+                .execute(&mut *tx)
+                .await?
+                .rows_affected();
+        if removed > 0 {
+            realtime::notify(&mut *tx, &[reaction_changed(owner, card_id)]).await?;
         }
-        sqlx::query("DELETE FROM cards.reactions WHERE card_id = $1 AND reactor_id = $2")
-            .bind(card_id)
-            .bind(viewer)
-            .execute(&self.pool)
-            .await?;
+        tx.commit().await?;
         Ok(true)
     }
 

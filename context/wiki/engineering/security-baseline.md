@@ -95,6 +95,10 @@ Notes:
   (empty = closed), allows only the request headers clients send (`Authorization`, `Content-Type`, `X-Request-Id`,
   `Idempotency-Key`, `X-App-Version`, `X-Reauth`), exposes only the ones they read, and never allows credentials
   (`apps/api/src/middleware.rs`, tests in `tests/api/http.rs`).
+- **Real-time stream** (`GET /v1/events`, [[ADR-0010-realtime-delivery]]): bearer token in the `Authorization` header (never
+  in the URL), events addressed per account on the server and carrying ids only (the client refetches through the normal,
+  fully authorized routes), at most 5 open streams per account and a per-instance cap, `events.connect` rate limit, the
+  token re-checked every 30 s so a revoked session (or an expired access token) ends the stream; CORS unchanged.
 - Rate limiting per IP + per user on all public endpoints; stricter on auth & expensive endpoints.
 - File uploads: size limits, content-type sniffing (magic bytes), re-encode images, store outside web root,
   virus scan if user-to-user sharing.

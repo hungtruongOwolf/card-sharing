@@ -77,6 +77,7 @@ fn test_config() -> Config {
         service_credential: None,
         dev_sign_in: false,
         staff_ip_allowlist: Vec::new(),
+        realtime: api::realtime::RealtimeSettings::default(),
     }
 }
 

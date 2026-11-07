@@ -941,6 +941,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My real-time events. Auth: ses.
+         * @description A `text/event-stream` of ids only (see the frame list in the module docs); refetch through
+         *     the normal read routes on every frame, and on `ready` after each (re)connect, since events
+         *     are not replayed. Send the bearer token in `Authorization` (a streaming fetch; the browser
+         *     `EventSource` cannot send it).
+         */
+        get: operations["streamEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/exports/{id}/download": {
         parameters: {
             query?: never;
@@ -6718,6 +6741,62 @@ export interface operations {
             };
             /** @description RATE_LIMITED. */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    streamEvents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Server-Sent Events: ready, card.delivered, card.reply, card.reaction, resync, reconnect; data is JSON with ids only. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": string;
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED (connection rate, or 5 open streams for this account). */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description SERVER_BUSY: this instance holds its maximum of streams or is shutting down (Retry-After). */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

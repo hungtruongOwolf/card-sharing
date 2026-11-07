@@ -462,6 +462,11 @@ routes:
     missing_path: /v1/cards/0192f0c1-7c1e-7a3b-9d2e-000000000000/reactions
     expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }
 
+  # Real-time events (ADR-0010): an SSE stream of the caller's own ids. Per-account isolation, the
+  # stream cap, revocation and frames are in tests/api/events.rs.
+  - route: GET /v1/events
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 200, suspended: 403 }
+
   # Replies (ADR-0010). Owner only: the reply's sender, other recipients and strangers get the
   # same 404 as a missing card; reply send rules are in tests/api/cards_replies.rs.
   - route: GET /v1/cards/{id}/replies

@@ -71,6 +71,7 @@ dependencies = [
  "boards",
  "bytes",
  "cards",
+ "futures-util",
  "genai",
  "http",
  "http-body-util",
