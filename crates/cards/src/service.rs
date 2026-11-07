@@ -89,6 +89,9 @@ pub struct NewCard {
     /// The render is the output of a succeeded AI effect (decided by the server from
     /// `genai.effect_jobs`, never by the client): the card shows the "AI" badge.
     pub ai_generated: bool,
+    /// ADR-0010: the card this one replies to. The route has checked that the caller may read it
+    /// and that the recipients are exactly its sender.
+    pub reply_to: Option<Uuid>,
 }
 
 /// The stored card as the sender's 202 shows it.
@@ -136,8 +139,8 @@ impl CardService {
             "INSERT INTO cards.cards
                (id, owner_id, client_card_id, status, render_media_id, mask_media_id,
                 original_media_id, style, caption, alt_text, audience_mode, sent_at, updated_at,
-                ai_generated)
-             VALUES ($1, $2, $3, 'pending_scan', $4, $5, $6, $7, $8, $9, $10, $11, $11, $12)
+                ai_generated, reply_to_card_id)
+             VALUES ($1, $2, $3, 'pending_scan', $4, $5, $6, $7, $8, $9, $10, $11, $11, $12, $13)
              ON CONFLICT (owner_id, client_card_id) DO NOTHING
              RETURNING id",
         )
@@ -153,6 +156,7 @@ impl CardService {
         .bind(card.audience.as_str())
         .bind(now)
         .bind(card.ai_generated)
+        .bind(card.reply_to)
         .fetch_optional(&mut *tx)
         .await?;
         if inserted.is_none() {

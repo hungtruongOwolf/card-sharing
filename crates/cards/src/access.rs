@@ -65,7 +65,7 @@ macro_rules! recipient_card_visible_sql {
 macro_rules! card_columns {
     () => {
         "c.id, c.owner_id, c.status, c.render_media_id, c.mask_media_id, c.original_media_id,
-         c.style, c.caption, c.alt_text, c.sent_at, c.ai_generated,
+         c.style, c.caption, c.alt_text, c.sent_at, c.ai_generated, c.reply_to_card_id,
          r.delivered_at AS delivered_to_viewer_at"
     };
 }
@@ -89,6 +89,9 @@ pub struct VisibleCard {
     pub is_mine: bool,
     /// The render came from an AI effect (server-decided at send time): show the "AI" badge.
     pub ai_generated: bool,
+    /// The card this one replies to (ADR-0010), unresolved: readers show it only when the viewer
+    /// may read that card too.
+    pub reply_to_card_id: Option<Uuid>,
 }
 
 #[derive(sqlx::FromRow)]
@@ -104,6 +107,7 @@ pub(crate) struct CardRow {
     alt_text: Option<String>,
     sent_at: OffsetDateTime,
     ai_generated: bool,
+    reply_to_card_id: Option<Uuid>,
     delivered_to_viewer_at: Option<OffsetDateTime>,
 }
 
@@ -129,6 +133,7 @@ impl CardRow {
             delivered_at: self.delivered_to_viewer_at,
             is_mine,
             ai_generated: self.ai_generated,
+            reply_to_card_id: self.reply_to_card_id,
         })
     }
 }
@@ -274,6 +279,47 @@ impl CardService {
         .fetch_optional(&self.pool)
         .await?;
         row.map(|row| row.into_visible(viewer)).transpose()
+    }
+
+    /// Replies to `owner`'s card `card_id` (ADR-0010) that `owner` may read (the card-read
+    /// predicate, as their recipient), newest delivery first, at most `limit`. `None` when the
+    /// card is not the owner's (or deleted): the caller answers the missing 404.
+    pub async fn replies(
+        &self,
+        owner: Uuid,
+        card_id: Uuid,
+        limit: i64,
+    ) -> Result<Option<Vec<VisibleCard>>, CardError> {
+        let mine: bool = sqlx::query_scalar(
+            "SELECT EXISTS (SELECT 1 FROM cards.cards
+                            WHERE id = $1 AND owner_id = $2 AND status <> 'deleted')",
+        )
+        .bind(card_id)
+        .bind(owner)
+        .fetch_one(&self.pool)
+        .await?;
+        if !mine {
+            return Ok(None);
+        }
+        let rows: Vec<CardRow> = sqlx::query_as(concat!(
+            "SELECT ",
+            card_columns!(),
+            " FROM cards.card_recipients r
+              JOIN cards.cards c ON c.id = r.card_id
+              WHERE r.recipient_id = $2 AND c.reply_to_card_id = $1 AND ",
+            recipient_visible_sql!(),
+            " ORDER BY r.delivered_at DESC, r.card_id DESC
+              LIMIT $3"
+        ))
+        .bind(card_id)
+        .bind(owner)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+        rows.into_iter()
+            .map(|row| row.into_visible(owner))
+            .collect::<Result<Vec<_>, _>>()
+            .map(Some)
     }
 
     /// Purge instructions for a client's cached cards (T-83, SR-9): the ids in `card_ids` the

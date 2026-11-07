@@ -3512,7 +3512,7 @@
           "cards"
         ],
         "summary": "Create and send a card. Auth: ses + att. `Idempotency-Key` = `client_card_id`.",
-        "description": "Answers 202 with status `pending_scan`: the card reaches its recipients only after the\nknown-CSAM hash gate and the nudity classifier pass (it may end `held_review`). Recipients are\nthe caller's current friends (all, or the requested subset); others are dropped silently and\nnever named. Replaying the same key or `client_card_id` returns the original 202.",
+        "description": "Answers 202 with status `pending_scan`: the card reaches its recipients only after the\nknown-CSAM hash gate and the nudity classifier pass (it may end `held_review`). Recipients are\nthe caller's current friends (all, or the requested subset); others are dropped silently and\nnever named. Replaying the same key or `client_card_id` returns the original 202.\n\nA reply (`reply_to_card_id`, ADR-0010) goes to the original card's sender only, and only when\nthe caller may read that card right now; it runs through the same gates, limits and delivery.",
         "operationId": "createCard",
         "requestBody": {
           "content": {
@@ -3536,7 +3536,7 @@
             }
           },
           "400": {
-            "description": "VALIDATION_FAILED (unknown fields such as owner_id or status, caption, audience, mask size).",
+            "description": "VALIDATION_FAILED (unknown fields such as owner_id or status, caption, audience, mask size; a reply to my own card or to anyone but the original sender).",
             "content": {
               "application/json": {
                 "schema": {
@@ -3566,7 +3566,7 @@
             }
           },
           "404": {
-            "description": "NOT_FOUND: a media id that is not the caller's (or not of that kind).",
+            "description": "NOT_FOUND: a media id that is not the caller's (or not of that kind), or a reply_to_card_id the caller may not read.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4164,6 +4164,102 @@
           "attestation": false,
           "auth": "ses",
           "rateLimit": "cards.reactions.read",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
+    "/v1/cards/{id}/replies": {
+      "get": {
+        "tags": [
+          "cards"
+        ],
+        "summary": "Replies to my card (ADR-0010). Auth: ses. Owner only: anyone else gets the same 404 as a\nmissing card.",
+        "description": "Each reply is a card sent to me by a recipient of the original; it is listed only while I may\nread it (still friends, no block, reply active, its sender active), with per-viewer signed URLs\ncharged to my URL budget like the feed.",
+        "operationId": "listCardReplies",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The original card id.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Replies to my card.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplyList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: no card of mine with this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED (requests or the signed-URL budget).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "TEMPORARILY_UNAVAILABLE: media signing not configured.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "cards.replies.read",
           "role": "user",
           "versionGate": true
         }
@@ -9423,6 +9519,17 @@
             ],
             "description": "The caller's own reaction (recipients; the owner sees all reactions via\n`GET /v1/cards/{id}/reactions`)."
           },
+          "reply_to": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ReplyToView",
+                "description": "ADR-0010: the card this one replies to, or `null` (not a reply, or the viewer may no\nlonger read the original: then the reply shows without the quote)."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "sender": {
             "$ref": "#/components/schemas/CardSenderView"
           },
@@ -9569,8 +9676,7 @@
         "required": [
           "client_card_id",
           "render_media_id",
-          "style",
-          "audience"
+          "style"
         ],
         "properties": {
           "alt_text": {
@@ -9580,7 +9686,15 @@
             ]
           },
           "audience": {
-            "$ref": "#/components/schemas/AudienceRequest"
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AudienceRequest",
+                "description": "Who receives the card. Required, except on a reply, where it may be omitted (the reply goes\nto the original sender only) or must be exactly `{mode: subset, recipient_ids: [<sender>]}`."
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "caption": {
             "type": [
@@ -9611,6 +9725,14 @@
           "render_media_id": {
             "type": "string",
             "format": "uuid"
+          },
+          "reply_to_card_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "ADR-0010: reply with this card to a card delivered to me. The original must be one I may\nread right now (else the same 404 as a missing card) and not my own (400)."
           },
           "style": {
             "type": "object",
@@ -11537,6 +11659,34 @@
           }
         },
         "additionalProperties": false
+      },
+      "ReplyList": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CardView"
+            },
+            "description": "Replies to my card that I may still read, newest delivery first (at most 50)."
+          }
+        }
+      },
+      "ReplyToView": {
+        "type": "object",
+        "description": "The card a reply answers, as one viewer may see it.",
+        "required": [
+          "card_id"
+        ],
+        "properties": {
+          "card_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
       },
       "ReportEnvelope": {
         "type": "object",

@@ -60,7 +60,20 @@ pub struct CreateCardRequest {
     pub style: serde_json::Value,
     pub caption: Option<String>,
     pub alt_text: Option<String>,
-    pub audience: AudienceRequest,
+    /// Who receives the card. Required, except on a reply, where it may be omitted (the reply goes
+    /// to the original sender only) or must be exactly `{mode: subset, recipient_ids: [<sender>]}`.
+    pub audience: Option<AudienceRequest>,
+    /// ADR-0010: reply with this card to a card delivered to me. The original must be one I may
+    /// read right now (else the same 404 as a missing card) and not my own (400).
+    #[schema(value_type = Option<String>, format = "uuid")]
+    pub reply_to_card_id: Option<String>,
+}
+
+/// The card a reply answers, as one viewer may see it.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct ReplyToView {
+    #[schema(format = "uuid")]
+    pub card_id: String,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -198,12 +211,60 @@ async fn recipients(
     Ok((mode, chosen))
 }
 
+/// ADR-0010: the original of a reply and the reply's fixed audience (its sender only).
+///
+/// The original must be readable by the caller under the card-read predicate (recipient, still
+/// friends, no block, card active, sender active); anything else, and a malformed id, is the
+/// same 404 as a missing card. Replying to my own card is 400. An audience other than the
+/// original sender is 400. Friendship (and so every minor and block rule of sending) is checked
+/// again by the normal recipient intersection.
+async fn reply_audience(
+    state: &AppState,
+    caller: Uuid,
+    raw: &str,
+    audience: Option<&AudienceRequest>,
+) -> Result<(Option<Uuid>, AudienceRequest), ApiError> {
+    let id = Uuid::try_parse(raw).map_err(|_| ApiError::NotFound)?;
+    let original = state
+        .cards
+        .visible(caller, id)
+        .await
+        .map_err(ApiError::internal)?
+        .ok_or(ApiError::NotFound)?;
+    if original.is_mine {
+        return Err(ApiError::Validation(
+            "reply_to_card_id cannot be one of my own cards".to_owned(),
+        ));
+    }
+    if let Some(audience) = audience {
+        let exact = audience.mode == "subset"
+            && audience.recipient_ids.len() == 1
+            && Uuid::try_parse(&audience.recipient_ids[0]).ok() == Some(original.owner_id);
+        if !exact {
+            return Err(ApiError::Validation(
+                "a reply goes to the original sender only: omit audience or send subset [sender]"
+                    .to_owned(),
+            ));
+        }
+    }
+    Ok((
+        Some(original.id),
+        AudienceRequest {
+            mode: "subset".to_owned(),
+            recipient_ids: vec![original.owner_id.hyphenated().to_string()],
+        },
+    ))
+}
+
 /// Create and send a card. Auth: ses + att. `Idempotency-Key` = `client_card_id`.
 ///
 /// Answers 202 with status `pending_scan`: the card reaches its recipients only after the
 /// known-CSAM hash gate and the nudity classifier pass (it may end `held_review`). Recipients are
 /// the caller's current friends (all, or the requested subset); others are dropped silently and
 /// never named. Replaying the same key or `client_card_id` returns the original 202.
+///
+/// A reply (`reply_to_card_id`, ADR-0010) goes to the original card's sender only, and only when
+/// the caller may read that card right now; it runs through the same gates, limits and delivery.
 #[utoipa::path(
     post,
     path = "/v1/cards",
@@ -213,10 +274,10 @@ async fn recipients(
     request_body = CreateCardRequest,
     responses(
         (status = ACCEPTED, description = "Accepted; waiting for the content gates.", body = SentCardEnvelope),
-        (status = BAD_REQUEST, description = "VALIDATION_FAILED (unknown fields such as owner_id or status, caption, audience, mask size).", body = ProblemDetails),
+        (status = BAD_REQUEST, description = "VALIDATION_FAILED (unknown fields such as owner_id or status, caption, audience, mask size; a reply to my own card or to anyone but the original sender).", body = ProblemDetails),
         (status = UNAUTHORIZED, description = "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.", body = ProblemDetails),
         (status = FORBIDDEN, description = "ONBOARDING_INCOMPLETE, ACCOUNT_SUSPENDED or ATTESTATION_FAILED.", body = ProblemDetails),
-        (status = NOT_FOUND, description = "NOT_FOUND: a media id that is not the caller's (or not of that kind).", body = ProblemDetails),
+        (status = NOT_FOUND, description = "NOT_FOUND: a media id that is not the caller's (or not of that kind), or a reply_to_card_id the caller may not read.", body = ProblemDetails),
         (status = CONFLICT, description = "IDEMPOTENCY_IN_PROGRESS.", body = ProblemDetails),
         (status = UNPROCESSABLE_ENTITY, description = "UNKNOWN_REGISTRY_ID or IDEMPOTENCY_KEY_REUSED.", body = ProblemDetails),
         (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED (100 sends per day).", body = ProblemDetails),
@@ -261,7 +322,16 @@ pub async fn create_card(
     let caption_max = usize::try_from(state.client.response.limits.caption_max_chars).unwrap_or(80);
     let caption = text_field(&state, "caption", body.caption.as_deref(), caption_max)?;
     let alt_text = text_field(&state, "alt_text", body.alt_text.as_deref(), ALT_TEXT_MAX)?;
-    let (audience, recipients) = recipients(&state, owner, &body.audience).await?;
+    let (reply_to, audience_request) = match &body.reply_to_card_id {
+        Some(raw) => reply_audience(&state, owner, raw, body.audience.as_ref()).await?,
+        None => (
+            None,
+            body.audience.ok_or_else(|| {
+                ApiError::Validation("audience is required unless replying".to_owned())
+            })?,
+        ),
+    };
+    let (audience, recipients) = recipients(&state, owner, &audience_request).await?;
     // The "AI" badge is decided here from the render's origin, never by the client.
     let ai_generated = state
         .genai
@@ -284,11 +354,17 @@ pub async fn create_card(
             audience,
             recipients,
             ai_generated,
+            reply_to,
         })
         .await
         .map_err(ApiError::internal)?;
     if sent.created {
-        tracing::info!(event = "card.sent", card_id = %sent.id, recipients = sent.recipient_count);
+        tracing::info!(
+            event = "card.sent",
+            card_id = %sent.id,
+            recipients = sent.recipient_count,
+            reply = reply_to.is_some()
+        );
     }
     Ok((StatusCode::ACCEPTED, Json(SentCardEnvelope::from(sent))).into_response())
 }
@@ -356,6 +432,9 @@ pub struct CardView {
     /// The render is the output of a cloud AI effect (decided by the server when the card was
     /// sent). Show the "AI" badge when `GET /v1/me` `policy.ai_label.visible_badge` says so.
     pub ai_generated: bool,
+    /// ADR-0010: the card this one replies to, or `null` (not a reply, or the viewer may no
+    /// longer read the original: then the reply shows without the quote).
+    pub reply_to: Option<ReplyToView>,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -401,9 +480,12 @@ pub(crate) async fn card_views(
         .sum();
     let card_ids: Vec<Uuid> = cards.iter().map(|c| c.id).collect();
     let owners: Vec<Uuid> = cards.iter().map(|c| c.owner_id).collect();
+    let mut asked_originals: Vec<Uuid> = cards.iter().filter_map(|c| c.reply_to_card_id).collect();
+    asked_originals.sort_unstable();
+    asked_originals.dedup();
     // The URL budget is charged before any URL is signed below; the reads next to it only
     // fetch data for this viewer and are dropped if the budget refuses.
-    let (_, mut my_reactions, profiles) = tokio::try_join!(
+    let (_, mut my_reactions, profiles, readable_originals) = tokio::try_join!(
         state.charge_url_budget(viewer, u32::try_from(urls).unwrap_or(u32::MAX)),
         async {
             state
@@ -417,6 +499,18 @@ pub(crate) async fn card_views(
                 .identity
                 .public_profiles(&owners)
                 .await
+                .map_err(ApiError::internal)
+        },
+        // Reply references are resolved per viewer with the card-read predicate.
+        async {
+            if asked_originals.is_empty() {
+                return Ok(HashSet::new());
+            }
+            state
+                .cards
+                .visible_many(viewer.account_id, &asked_originals)
+                .await
+                .map(|found| found.into_iter().map(|c| c.id).collect::<HashSet<Uuid>>())
                 .map_err(ApiError::internal)
         },
     )?;
@@ -479,6 +573,12 @@ pub(crate) async fn card_views(
             status: card.is_mine.then(|| card.status.as_str()),
             hold,
             ai_generated: card.ai_generated,
+            reply_to: card
+                .reply_to_card_id
+                .filter(|id| readable_originals.contains(id))
+                .map(|id| ReplyToView {
+                    card_id: id.hyphenated().to_string(),
+                }),
         });
     }
     Ok(views)
@@ -716,4 +816,51 @@ pub async fn list_reactions(
             })
             .collect(),
     }))
+}
+
+/// Most replies one `GET /v1/cards/{id}/replies` returns (newest first).
+pub const REPLIES_PAGE_MAX: i64 = 50;
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ReplyList {
+    /// Replies to my card that I may still read, newest delivery first (at most 50).
+    pub items: Vec<CardView>,
+}
+
+/// Replies to my card (ADR-0010). Auth: ses. Owner only: anyone else gets the same 404 as a
+/// missing card.
+///
+/// Each reply is a card sent to me by a recipient of the original; it is listed only while I may
+/// read it (still friends, no block, reply active, its sender active), with per-viewer signed URLs
+/// charged to my URL budget like the feed.
+#[utoipa::path(
+    get,
+    path = "/v1/cards/{id}/replies",
+    tag = TAG,
+    operation_id = "listCardReplies",
+    security(("bearer" = [])),
+    params(("id" = String, Path, format = "uuid", description = "The original card id.")),
+    responses(
+        (status = OK, description = "Replies to my card.", body = ReplyList),
+        (status = UNAUTHORIZED, description = "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.", body = ProblemDetails),
+        (status = FORBIDDEN, description = "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.", body = ProblemDetails),
+        (status = NOT_FOUND, description = "NOT_FOUND: no card of mine with this id.", body = ProblemDetails),
+        (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED (requests or the signed-URL budget).", body = ProblemDetails),
+        (status = SERVICE_UNAVAILABLE, description = "TEMPORARILY_UNAVAILABLE: media signing not configured.", body = ProblemDetails),
+    )
+)]
+pub async fn list_replies(
+    State(state): State<AppState>,
+    caller: Caller,
+    axum::extract::Path(id): axum::extract::Path<String>,
+) -> Result<Json<ReplyList>, ApiError> {
+    let id = card_id(&id)?;
+    let replies = state
+        .cards
+        .replies(caller.0.account_id, id, REPLIES_PAGE_MAX)
+        .await
+        .map_err(ApiError::internal)?
+        .ok_or(ApiError::NotFound)?;
+    let items = card_views(&state, &caller.0, replies).await?;
+    Ok(Json(ReplyList { items }))
 }
