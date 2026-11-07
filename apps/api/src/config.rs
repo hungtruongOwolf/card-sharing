@@ -164,8 +164,11 @@ pub struct MailConfig {
     pub transport: MailTransport,
     /// `API_MAIL_FROM` — sender address, default `no-reply@cardsharing.local`.
     pub from: String,
-    /// `API_MAGIC_LINK_URL` — Universal/App Link base for magic links, default
-    /// `http://localhost:3000/auth/link` (local web). The token is appended as `#token=...`.
+    /// `API_MAGIC_LINK_URL` — the app's magic-link landing route, default
+    /// `http://localhost:8081/auth/link` (the Expo web app, ADR-0012; on the home network
+    /// `http://<pc-lan-ip>:8081/auth/link`, later the Universal/App Link). The request id and the
+    /// token are appended as `#rid=...&token=...`. https, `http://localhost`, or any http host
+    /// when `API_ENV` is not production; no query or fragment.
     pub magic_link_url: String,
 }
 
@@ -415,7 +418,7 @@ impl Config {
         let apple_signing = apple_signing(env)?;
         let os_age_signals_enabled = env.flag("API_OS_AGE_SIGNALS_ENABLED", false)?;
         let attestation = attestation_config(env)?;
-        let mail = mail_config(env)?;
+        let mail = mail_config(env, content_safety.env)?;
         let service_credential = service_credential(env)?;
         let dev_sign_in = env.flag("API_DEV_SIGN_IN", false)?;
         let realtime = crate::realtime::RealtimeSettings {
@@ -558,7 +561,10 @@ fn apple_signing<F: Fn(&str) -> Option<String>>(
     }
 }
 
-fn mail_config<F: Fn(&str) -> Option<String>>(env: &Env<F>) -> Result<MailConfig, ConfigError> {
+fn mail_config<F: Fn(&str) -> Option<String>>(
+    env: &Env<F>,
+    app_env: AppEnv,
+) -> Result<MailConfig, ConfigError> {
     let transport = match env.optional("API_MAIL_TRANSPORT").as_deref() {
         None | Some("none") => MailTransport::None,
         Some("smtp") => MailTransport::Smtp {
@@ -588,13 +594,24 @@ fn mail_config<F: Fn(&str) -> Option<String>>(env: &Env<F>) -> Result<MailConfig
     }
     let magic_link_url = env
         .optional("API_MAGIC_LINK_URL")
-        .unwrap_or_else(|| "http://localhost:3000/auth/link".to_owned());
-    if !(magic_link_url.starts_with("https://") || magic_link_url.starts_with("http://localhost"))
-        || magic_link_url.contains(['#', '?', ' '])
+        .unwrap_or_else(|| "http://localhost:8081/auth/link".to_owned());
+    let host = magic_link_url
+        .strip_prefix("https://")
+        .or_else(|| magic_link_url.strip_prefix("http://"))
+        .unwrap_or_default();
+    // Plain http only for local machines, or for the home-network test (sprint 10, ADR-0012).
+    let http_ok = magic_link_url.starts_with("http://localhost") || app_env != AppEnv::Production;
+    let scheme_ok = magic_link_url.starts_with("https://")
+        || (magic_link_url.starts_with("http://") && http_ok);
+    if !scheme_ok
+        || host.is_empty()
+        || host.starts_with('/')
+        || magic_link_url.contains(['#', '?'])
+        || magic_link_url.contains(char::is_whitespace)
     {
         return Err(invalid(
             "API_MAGIC_LINK_URL",
-            "must be an https URL (or http://localhost) without query or fragment",
+            "must be an https URL (http://localhost, or any http URL outside production) without query or fragment",
         ));
     }
     Ok(MailConfig {
@@ -1105,6 +1122,23 @@ mod tests {
             "token required"
         );
         assert!(load(&[("API_MAGIC_LINK_URL", "http://evil.example/x")]).is_err());
+        assert_eq!(
+            load(&[]).unwrap().mail.magic_link_url,
+            "http://localhost:8081/auth/link"
+        );
+        assert!(load(&[("API_MAGIC_LINK_URL", "https://cardsharing.app/auth/link#x")]).is_err());
+        assert!(load(&[("API_MAGIC_LINK_URL", "https:///auth/link")]).is_err());
+        // The home-network test (ADR-0012): plain http to the PC's LAN address, outside production.
+        assert_eq!(
+            load(&[
+                ("API_ENV", "development"),
+                ("API_MAGIC_LINK_URL", "http://192.168.1.20:8081/auth/link"),
+            ])
+            .unwrap()
+            .mail
+            .magic_link_url,
+            "http://192.168.1.20:8081/auth/link"
+        );
         assert!(
             load(&[(
                 "API_MAIL_FROM",

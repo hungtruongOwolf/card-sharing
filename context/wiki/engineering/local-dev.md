@@ -184,12 +184,14 @@ network).
 | `API_MEDIA_BASE_URL` | `.env` | `http://<pc-lan-ip>:8080/v1/media-files` | signed image URLs must load on the phone |
 | `API_INVITE_URL_BASE` | `.env` | `http://<pc-lan-ip>:8081/i/` | invite links open the Expo web app's invite screen (proposed [[ADR-0011-invite-links-open-web-app]]) |
 | `API_PUBLIC_LINK_URL_BASE` | `.env` | `http://<pc-lan-ip>:3000/b/` | public board links open the Next.js page |
+| `API_MAGIC_LINK_URL` | `.env` | `http://<pc-lan-ip>:8081/auth/link` | sign-in links open the Expo web app's landing screen ([[ADR-0012-web-sign-up]]); open them in the browser that asked |
 | `SITE_URL`, `API_URL`, `API_SERVICE_CREDENTIAL` | `apps/web/.env.local` | `http://<pc-lan-ip>:3000`, `http://<pc-lan-ip>:8080`, same secret as the API | only when board links are tested (`pnpm dev:web`) |
 
 The two link bases override `url_base` in `config/social.yaml` / `config/sharing.yaml` (unset = the yaml value,
 `http://localhost:3000/...`); the API validates them at startup (http(s), ending with `/`, https only in production).
-Restart `pnpm dev:api` after a change: links already shown keep the old base. `API_MAGIC_LINK_URL` (magic links,
-phase 2) still points at `http://localhost:3000/auth/link` and needs the same treatment when magic links ship.
+Restart `pnpm dev:api` after a change: links already shown keep the old base. `API_MAGIC_LINK_URL` defaults to
+`http://localhost:8081/auth/link` (the Expo web app); plain http to a LAN address is accepted outside production. Sign-in
+emails land in Mailpit (`http://127.0.0.1:8025`) while `API_MAIL_TRANSPORT=smtp`.
 
 ## Staff (moderation) sign-in, server only (T-144)
 There is no admin console yet. To try the staff API locally: sign a seed user in (above), note its id, then

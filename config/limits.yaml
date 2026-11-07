@@ -30,6 +30,12 @@ limits:
     per_secs: 900
     on_store_failure: closed
     global: { requests: 2000, per_secs: 60 }
+  auth.email.verify: # POST /v1/auth/email/verify (T-23; 10/min per IP; the 256-bit token and verifier are the real guard)
+    scope: ip
+    requests: 10
+    per_secs: 60
+    on_store_failure: closed
+    global: { requests: 3000, per_secs: 60 }
   auth.reauth: # POST /v1/auth/reauth (5 per 15 minutes per user, SR-2)
     scope: user
     requests: 5

@@ -1,14 +1,19 @@
-//! Email magic links, start and delivery (T-22, US-1, SR-1, ADR-0004 AC-1.2/1.3). Verification
-//! (the in-app confirm with the PKCE verifier) is T-23.
+//! Email magic links: start and delivery (T-22), verification (T-23); US-1, SR-1, ADR-0004
+//! AC-1.2/1.3, ADR-0012.
 //!
 //! - `start` never looks up whether the email belongs to an account: every well-formed request
-//!   does the same work (one row, one job) and gets the same 202, so existing and unknown emails
-//!   cannot be told apart by response or latency. The email is sent by a worker job, so the mail
-//!   provider's latency never reaches the response either.
+//!   does the same work (one row, one job) and gets the same 202 with a fresh request id, so
+//!   existing and unknown emails cannot be told apart by response or latency. The email is sent by
+//!   a worker job, so the mail provider's latency never reaches the response either.
 //! - The 256-bit token is stored only as SHA-256. Until delivery, the address and the raw token
 //!   are kept AEAD-encrypted (bound to the link id) and cleared once the email is sent. Neither
 //!   ever appears in logs, job payloads or outbox events.
-//! - 15-minute lifetime, single use, bound to the device's PKCE S256 challenge.
+//! - The link is `<link base>#rid=<request id>&token=<token>`: everything after `#` stays in the
+//!   browser (never sent to the web host). The app keeps the PKCE verifier under the request id.
+//! - Verify needs the token and the verifier of the device that asked (S256, compared in constant
+//!   time), within 15 minutes, once. An unknown token and a wrong verifier get the same answer;
+//!   "expired" and "used" are told only to the holder of the verifier. A wrong verifier does not
+//!   burn the link, so a forwarded copy cannot spoil the real one.
 
 use std::sync::Arc;
 
@@ -21,8 +26,16 @@ use serde_json::json;
 use time::Duration;
 use uuid::Uuid;
 
+use platform::audit::{self, Actor, AuditAction, AuditEntry};
+use sha2::{Digest, Sha256};
+use time::OffsetDateTime;
+
 use crate::mail::{Email, MailError, Mailer, valid_address};
-use crate::service::{IdentityService, StoreError};
+use crate::model::{AccountStatus, RegionSignals};
+use crate::service::{
+    DeviceInfo, IdentityService, Provider, StoreError, VerifiedIdentity, insert_account,
+};
+use crate::sign_in::SignedIn;
 use crate::token::{SecretToken, TokenHash};
 
 /// Job kind that sends a magic-link email (payload: `{"magic_link_id": <uuid>}`).
@@ -57,9 +70,97 @@ struct Delivery {
 /// Where links point and what the email says.
 #[derive(Debug, Clone)]
 pub struct MagicLinkTemplate {
-    /// Universal/App Link base, e.g. `https://cardsharing.app/auth/link`. The token goes in the
-    /// fragment, so it is never sent to the web server that hosts the fallback page.
+    /// The app's landing route, e.g. `https://cardsharing.app/auth/link` (Universal/App Link) or,
+    /// while testers use the web target, `http://<pc-lan-ip>:8081/auth/link` (ADR-0012). The
+    /// request id and the token go in the fragment, so they never reach the web host.
     pub link_url: String,
+}
+
+impl MagicLinkTemplate {
+    /// The link of one request: `<link_url>#rid=<request id>&token=<token>`.
+    pub fn link(&self, request_id: Uuid, token: &str) -> String {
+        format!("{}#rid={request_id}&token={token}", self.link_url)
+    }
+}
+
+/// Why a sign-in link did not sign anyone in.
+#[derive(Debug, thiserror::Error)]
+pub enum LinkSignInError {
+    /// Unknown token, or a verifier that does not match it (forwarded link, other browser or
+    /// device). The caller cannot tell which.
+    #[error("unknown link or verifier mismatch")]
+    Invalid,
+    /// Past its lifetime (only reported after the verifier matched).
+    #[error("link expired")]
+    Expired,
+    /// Already used (only reported after the verifier matched).
+    #[error("link already used")]
+    Used,
+    /// The account may not sign in (suspended or banned). The link is used up.
+    #[error("account blocked: {0}")]
+    Blocked(AccountStatus),
+    #[error(transparent)]
+    Store(#[from] StoreError),
+}
+
+impl From<sqlx::Error> for LinkSignInError {
+    fn from(err: sqlx::Error) -> Self {
+        Self::Store(StoreError::Database(err))
+    }
+}
+
+/// A PKCE code verifier (RFC 7636 section 4.1): 43 to 128 characters of `A-Z a-z 0-9 - . _ ~`.
+pub fn valid_code_verifier(verifier: &str) -> bool {
+    (43..=128).contains(&verifier.len())
+        && verifier
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'.' | b'_' | b'~'))
+}
+
+/// A link token as sent in the email: 43 base64url characters (256 bits).
+pub fn valid_link_token(token: &str) -> bool {
+    token.len() == 43
+        && token
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+}
+
+/// Whether `SHA-256(verifier)` equals the stored S256 challenge, compared in constant time.
+fn verifier_matches(challenge: &[u8], verifier: &str) -> bool {
+    let digest: [u8; 32] = Sha256::digest(verifier.as_bytes()).into();
+    if challenge.len() != digest.len() {
+        return false;
+    }
+    let diff = challenge
+        .iter()
+        .zip(digest.iter())
+        .fold(0u8, |acc, (a, b)| acc | (a ^ b));
+    std::hint::black_box(diff) == 0
+}
+
+/// The identity subject of an email account: lowercase hex of the email hash (accounts are keyed
+/// by provider + subject; the address itself is not stored).
+fn email_subject(email_hash: &[u8]) -> Result<String, StoreError> {
+    let bytes: [u8; 32] = email_hash
+        .try_into()
+        .map_err(|_| StoreError::Corrupt("magic link email hash is not 32 bytes".to_owned()))?;
+    Ok(TokenHash(bytes).to_hex())
+}
+
+#[derive(sqlx::FromRow)]
+struct LinkRow {
+    id: Uuid,
+    email_hash: Vec<u8>,
+    pkce_challenge: Vec<u8>,
+    expires_at: OffsetDateTime,
+    used_at: Option<OffsetDateTime>,
+}
+
+/// A redeemed link: the account it belongs to, and whether redeeming it created that account.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Redeemed {
+    account_id: Uuid,
+    created: bool,
 }
 
 /// Lowercased, trimmed email, or `None` when it is not a plausible address.
@@ -82,13 +183,15 @@ fn decode_challenge(challenge: &str) -> Option<[u8; 32]> {
 }
 
 impl IdentityService {
-    /// Records a magic link for `email` and enqueues its delivery, in one transaction.
+    /// Records a magic link for `email` and enqueues its delivery, in one transaction. Returns the
+    /// request id (the link's id): the app keeps its PKCE verifier under it, and the emailed link
+    /// carries it back.
     pub async fn start_magic_link(
         &self,
         email: &str,
         code_challenge: &str,
         cipher: &FieldCipher,
-    ) -> Result<(), MagicLinkError> {
+    ) -> Result<Uuid, MagicLinkError> {
         let email = normalize_email(email).ok_or(MagicLinkError::InvalidEmail)?;
         let challenge = decode_challenge(code_challenge).ok_or(MagicLinkError::InvalidChallenge)?;
         let token = SecretToken::generate().map_err(StoreError::from)?;
@@ -126,7 +229,7 @@ impl IdentityService {
         enqueue(&mut *tx, &job, now).await?;
         tx.commit().await?;
         tracing::info!(event = "auth.magic_link.started", magic_link_id = %id);
-        Ok(())
+        Ok(id)
     }
 
     /// Sends the email of a magic link and clears its encrypted delivery data. Idempotent: an
@@ -162,9 +265,9 @@ impl IdentityService {
             to: delivery.email,
             subject: "Your sign-in link".to_owned(),
             text: format!(
-                "Tap this link on the phone where you asked to sign in:\n\n{}#token={}\n\n\
+                "Open this link on the device and in the browser where you asked to sign in:\n\n{}\n\n\
                  It works once and expires in 15 minutes. If you did not ask for it, ignore this email.\n",
-                template.link_url, delivery.token
+                template.link(id, &delivery.token)
             ),
         };
         mailer.send(&email).await.map_err(|err| match err {
@@ -186,6 +289,147 @@ impl IdentityService {
         .await
         .map_err(|err| DeliveryError::Temporary(err.to_string()))?;
         Ok(())
+    }
+
+    /// Signs in with a magic link (T-23): redeems the link with the verifier of the device that
+    /// asked for it, finds the email account or creates it (`pending_age`, AC-1.1; never linked to
+    /// an Apple/Google account with the same address, AC-1.3) and starts a session, exactly as a
+    /// provider sign-in does (onboarding or full scope, audit `auth.sign_in`).
+    pub async fn sign_in_with_magic_link(
+        &self,
+        token: &str,
+        verifier: &str,
+        device: Option<&DeviceInfo>,
+        signals: &RegionSignals,
+    ) -> Result<SignedIn, LinkSignInError> {
+        if !valid_link_token(token) || !valid_code_verifier(verifier) {
+            return Err(LinkSignInError::Invalid);
+        }
+        let token_hash = TokenHash::of(token);
+        // A concurrent first sign-in with another link for the same email can win the account
+        // insert; the second pass then finds that account.
+        let mut redeemed = None;
+        for _ in 0..2 {
+            redeemed = self
+                .redeem_sign_in_link(&token_hash, verifier, signals)
+                .await?;
+            if redeemed.is_some() {
+                break;
+            }
+        }
+        let Redeemed {
+            account_id,
+            created,
+        } = redeemed.ok_or_else(|| {
+            StoreError::Corrupt("email account insert lost the race twice".to_owned())
+        })?;
+        let status = self.account_status(account_id).await?;
+        if matches!(status, AccountStatus::Suspended | AccountStatus::Banned) {
+            tracing::info!(event = "auth.magic_link.blocked", account_id = %account_id, %status);
+            return Err(LinkSignInError::Blocked(status));
+        }
+        let session = self.start_session(account_id, device).await?;
+        let entry = AuditEntry::new(Actor::User(account_id), AuditAction::SignIn)
+            .target("session", session.session_id)
+            .detail("provider", Provider::Email.as_str())
+            .detail("new_account", created);
+        audit::record_or_log(&self.pool, &entry, self.clock.now()).await;
+        tracing::info!(
+            event = "auth.sign_in",
+            provider = Provider::Email.as_str(),
+            account_id = %account_id,
+            created,
+            "signed in"
+        );
+        Ok(SignedIn { session, created })
+    }
+
+    /// One attempt at redeeming a sign-in link, in one transaction that locks the link row: checks
+    /// the verifier first, then single use and lifetime, then finds or creates the account and
+    /// marks the link used. `Ok(None)` = the account insert lost a race (nothing changed; retry).
+    async fn redeem_sign_in_link(
+        &self,
+        token_hash: &TokenHash,
+        verifier: &str,
+        signals: &RegionSignals,
+    ) -> Result<Option<Redeemed>, LinkSignInError> {
+        let now = self.clock.now();
+        let mut tx = self.pool.begin().await?;
+        let link: Option<LinkRow> = sqlx::query_as(
+            "SELECT id, email_hash, pkce_challenge, expires_at, used_at
+             FROM identity.magic_links WHERE token_hash = $1 FOR UPDATE",
+        )
+        .bind(token_hash.as_bytes())
+        .fetch_optional(&mut *tx)
+        .await?;
+        let Some(link) = link else {
+            tracing::info!(event = "auth.magic_link.rejected", reason = "unknown");
+            return Err(LinkSignInError::Invalid);
+        };
+        if !verifier_matches(&link.pkce_challenge, verifier) {
+            tracing::warn!(
+                event = "auth.magic_link.rejected",
+                reason = "verifier",
+                magic_link_id = %link.id
+            );
+            return Err(LinkSignInError::Invalid);
+        }
+        if link.used_at.is_some() {
+            tracing::info!(
+                event = "auth.magic_link.rejected",
+                reason = "used",
+                magic_link_id = %link.id
+            );
+            return Err(LinkSignInError::Used);
+        }
+        if now >= link.expires_at {
+            tracing::info!(
+                event = "auth.magic_link.rejected",
+                reason = "expired",
+                magic_link_id = %link.id
+            );
+            return Err(LinkSignInError::Expired);
+        }
+        let identity = VerifiedIdentity {
+            provider: Provider::Email,
+            subject: email_subject(&link.email_hash)?,
+            email: None,
+        };
+        let existing: Option<Uuid> = sqlx::query_scalar(
+            "SELECT account_id FROM identity.auth_identities WHERE provider = $1 AND subject = $2",
+        )
+        .bind(identity.provider.as_str())
+        .bind(&identity.subject)
+        .fetch_optional(&mut *tx)
+        .await?;
+        let redeemed = match existing {
+            Some(account_id) => Redeemed {
+                account_id,
+                created: false,
+            },
+            None => match insert_account(&mut tx, &identity, signals, now).await? {
+                Some(account_id) => Redeemed {
+                    account_id,
+                    created: true,
+                },
+                None => {
+                    tx.rollback().await?;
+                    return Ok(None);
+                }
+            },
+        };
+        sqlx::query("UPDATE identity.magic_links SET used_at = $2 WHERE id = $1")
+            .bind(link.id)
+            .bind(now)
+            .execute(&mut *tx)
+            .await?;
+        tx.commit().await?;
+        tracing::info!(
+            event = "auth.magic_link.redeemed",
+            magic_link_id = %link.id,
+            created = redeemed.created
+        );
+        Ok(Some(redeemed))
     }
 
     /// Deletes magic links older than 24 hours; returns how many.
@@ -252,6 +496,44 @@ mod tests {
         );
         assert!(normalize_email("not an email").is_none());
         assert!(normalize_email("a@b.c\r\nBcc: x@y.z").is_none());
+    }
+
+    #[test]
+    fn verifiers_follow_rfc_7636() {
+        assert!(valid_code_verifier(&"a".repeat(43)));
+        assert!(valid_code_verifier(&"Az09-._~".repeat(16)));
+        assert!(!valid_code_verifier(&"a".repeat(42)));
+        assert!(!valid_code_verifier(&"a".repeat(129)));
+        assert!(!valid_code_verifier(&format!("{}+", "a".repeat(42))));
+    }
+
+    #[test]
+    fn tokens_are_43_char_base64url() {
+        let token = SecretToken::generate().unwrap();
+        assert!(valid_link_token(token.expose()));
+        assert!(!valid_link_token(&"a".repeat(42)));
+        assert!(!valid_link_token(&format!("{}=", "a".repeat(42))));
+    }
+
+    #[test]
+    fn the_verifier_must_hash_to_the_challenge() {
+        // RFC 7636 appendix B.
+        let verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
+        let challenge = decode_challenge("E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM").unwrap();
+        assert!(verifier_matches(&challenge, verifier));
+        assert!(!verifier_matches(&challenge, &verifier.replace('d', "e")));
+        assert!(!verifier_matches(&challenge[..31], verifier));
+    }
+
+    #[test]
+    fn links_carry_the_request_id_and_token_in_the_fragment() {
+        let template = MagicLinkTemplate {
+            link_url: "http://192.168.1.20:8081/auth/link".to_owned(),
+        };
+        assert_eq!(
+            template.link(Uuid::nil(), "tok"),
+            "http://192.168.1.20:8081/auth/link#rid=00000000-0000-0000-0000-000000000000&token=tok"
+        );
     }
 
     #[test]
