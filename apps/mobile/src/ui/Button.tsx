@@ -1,7 +1,7 @@
 import { ActivityIndicator, Pressable, StyleSheet, View, type PressableProps } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 
-import { radius, space } from '@card-sharing/tokens';
+import { linearGradient, radius, size, space } from '@card-sharing/tokens';
 
 import { Text, type TextTone } from './Text';
 import { animateTo } from './theme/motion';
@@ -23,6 +23,8 @@ const PRESSED_SCALE = 0.96;
 
 interface ButtonColors {
   bg: string;
+  /** A gradient over `bg` (primary); `bg` stays as the fallback where gradients are not drawn. */
+  image?: string;
   border: string;
   fg: string;
   tone: TextTone;
@@ -34,9 +36,10 @@ function colors(theme: Theme, variant: ButtonVariant): ButtonColors {
     case 'primary':
       return {
         bg: c.primary.base,
-        border: c.primary.base,
-        fg: c.primary.onBase,
-        tone: 'onPrimary',
+        image: linearGradient('primary'),
+        border: 'transparent',
+        fg: c.primary.onGradient,
+        tone: 'onGradient',
       };
     case 'danger':
       return { bg: c.danger.base, border: c.danger.base, fg: c.danger.onBase, tone: 'onDanger' };
@@ -48,6 +51,7 @@ function colors(theme: Theme, variant: ButtonVariant): ButtonColors {
 }
 
 /**
+ * Pill button (v2): the primary one is a gradient (`gradient.primary`, label `primary.onGradient`), 52 pt tall.
  * Pressable with a design-system "squish" (spring.snappy) on press. Reduced motion swaps the scale
  * for an opacity dip. Minimum size is the platform touch target; the label wraps at large font sizes
  * instead of truncating.
@@ -65,7 +69,7 @@ export function Button({
   ...rest
 }: ButtonProps) {
   const theme = useTheme();
-  const { bg, border, fg, tone } = colors(theme, variant);
+  const { bg, image, border, fg, tone } = colors(theme, variant);
   const pressed = useSharedValue(0);
   const inactive = Boolean(disabled) || loading;
   const reduced = theme.reducedMotion;
@@ -98,9 +102,10 @@ export function Button({
         style={[
           styles.surface,
           {
-            minHeight: theme.touchMin,
+            minHeight: variant === 'ghost' ? theme.touchMin : size.button,
             minWidth: theme.touchMin,
             backgroundColor: bg,
+            backgroundImage: image,
             borderColor: border,
           },
           animatedStyle,
@@ -108,7 +113,7 @@ export function Button({
       >
         {/* The label stays laid out while loading so the button keeps its size. */}
         <View style={loading ? styles.hidden : undefined}>
-          <Text variant="label.md" tone={tone} style={styles.label}>
+          <Text variant="label.lg" tone={tone} style={styles.label}>
             {label}
           </Text>
         </View>
@@ -128,7 +133,7 @@ const styles = StyleSheet.create({
   surface: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: space[4],
+    paddingHorizontal: space[5],
     paddingVertical: space[2],
     borderRadius: radius.full,
     borderWidth: StyleSheet.hairlineWidth,

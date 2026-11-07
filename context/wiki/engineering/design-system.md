@@ -3,14 +3,34 @@ title: Design System (foundation)
 type: guide
 status: draft
 updated: 2026-11-07
-sources: [raw/discussions/2026-11-04-prd-design-qa.md, raw/discussions/2026-11-04-idea-round-1.md, raw/discussions/2026-11-04-idea-round-3.md, raw/research/2026-11-04-frontend-stack.md, raw/research/2026-11-04-subject-cutout.md, raw/research/2026-11-04-zero-download-ai.md, raw/research/2026-11-04-boop-teardown.md]
-related: [[vision]], [[competitors]], [[effects-catalog]], [[ADR-0002-cross-platform-stack]], [[ADR-0003-effects-tiers]], [[subject-cutout]], [[change-management]], [[glossary]]
+sources: [raw/discussions/2026-11-07-first-device-demo-feedback.md, raw/discussions/2026-11-07-sprint-9-direction.md, raw/discussions/2026-11-04-prd-design-qa.md, raw/discussions/2026-11-04-idea-round-1.md, raw/discussions/2026-11-04-idea-round-3.md, raw/research/2026-11-04-frontend-stack.md, raw/research/2026-11-04-subject-cutout.md, raw/research/2026-11-04-zero-download-ai.md, raw/research/2026-11-04-boop-teardown.md]
+related: [[sprint-9]], [[vision]], [[competitors]], [[effects-catalog]], [[ADR-0002-cross-platform-stack]], [[ADR-0003-effects-tiers]], [[subject-cutout]], [[change-management]], [[glossary]]
 ---
 # Design System (foundation)
-**TL;DR:** "Your desk scrapbook, alive." Everything is a physical object (paper, tape, pins, die-cut
-stickers) that responds with springs, shadows and haptics. Tokens live in `packages/tokens` and are generated
+**TL;DR:** v2 (sprint 9, after the first device demo): **"Stories, alive"**: dark-first night surfaces, vivid
+accent gradients, bold display type and springy motion, closest to Instagram Stories (EM direction 2026-11-07).
+Cards, stickers and boards stay physical objects (paper, tape, pins, die-cut stickers) that respond with springs,
+shadows and haptics. Tokens live in `packages/tokens` and are generated
 as TS constants (mobile, Skia) and CSS vars (Next.js share pages). The board is a Skia canvas: baked stickers
 plus a few live shaders, 60 fps on mid-range Android and 120 fps on ProMotion. Effects are listed in [[effects-catalog]].
+
+## 0. v2 direction (sprint 9)
+The EM rated the first device demo 3-4/10 ("the UI needs to improve; right now it is far too bad") and asked for the
+feel of Instagram Stories: polished and lively, lots of effects and stickers, smooth motion. v2 keeps the token
+structure (`category.role.variant`) and every role name, changes the values and adds what Stories needs:
+
+| Change | v1 | v2 |
+|---|---|---|
+| Default scheme | follows the OS | **dark first**: `DEFAULT_SCHEME = 'dark'`, `app.json` `userInterfaceStyle: dark`; light stays (tests, share pages) |
+| Surfaces | cream paper / warm charcoal | violet-tinted near-black night (`#0D0A12`), pink-tinted white day |
+| Primary | tomato | hot pink, and a **primary gradient** (tangerine, pink, violet) on primary buttons |
+| Accents | flat colours only | `gradient.*` tokens (story ring, primary, photo scrims) + `onMedia.*` colours for chrome over photos |
+| Type | as below | + `display.xl` 48/52, `label.lg` 16/20 (buttons, sender name); brand faces also load at runtime (Expo Go, web) |
+| Motion | springs + durations | + `spring.pop/swipe/sheet`, story timing, `gesture.*` thresholds (dismiss, back zone, snapping) |
+| Kit | Button, Text, Sheet... | + `Avatar` (story ring), `IconButton` (glass / surface / gradient), `Icon` (glyphs, no icon dependency) |
+
+P3 below is superseded where it says "never neon-on-black": v2 surfaces are night, not warm charcoal, and accents are
+vivid. P1, P2 and P4-P7 still hold.
 
 ## 1. Principles
 | # | Principle | Means in practice | Anti-pattern |
@@ -45,32 +65,46 @@ tokens only; `palette.*` primitives are referenced by semantic tokens, never by 
 `packages/tokens/src/contrast.test.ts` checks every pair in `contrastPairs` (both schemes) against WCAG 2.2 AA on the generated
 table `tokenTable()`; a component that renders a new foreground/background combination adds a pair there (T-33).
 
-### 3.1 Semantic colours
-| Token | Light | Dark | Use / contrast note |
+### 3.1 Semantic colours (v2)
+| Token | Light | Dark (default) | Use / contrast note |
 |---|---|---|---|
-| `color.bg.canvas` | `#F6EFE3` (desk cream) | `#1A1512` (night desk) | App background |
-| `color.bg.paper` | `#FFFBF3` | `#2A231D` | Cards, sheets |
-| `color.bg.paperAlt` | `#EFE4D2` (kraft-light) | `#3A3028` | Secondary surfaces, board kraft |
-| `color.surface.raised` | `#FFFFFF` | `#332B24` | Bottom sheet, toasts |
-| `color.fg.ink` | `#2B2320` | `#F5EDE0` | Body text (~14:1 light / ~14:1 dark) |
-| `color.fg.muted` | `#6B5E57` | `#B9AA9A` | Secondary text (~5.8:1 / ~7:1) |
-| `color.fg.subtle` | `#9A8B80` | `#857668` | Placeholder, disabled (decorative only, not for essential text) |
-| `color.primary.base` | `#C8412B` (tomato) | `#FF7A5C` | Primary buttons, shutter ring |
-| `color.primary.onBase` | `#FFFFFF` (~4.9:1) | `#1A1512` (~6.9:1) | Text/icon on primary |
-| `color.primary.soft` | `#FBE1DA` | `#4A2A22` | Selected chip bg |
-| `color.accent.mustard` | `#F2C14E` | `#E8B43C` | Highlights, badges (text in `accent.onMustard` only) |
-| `color.accent.onMustard` | `#2B2320` | `#1A1512` | Text on mustard (~9:1 / ~9.5:1); dark-mode cream ink fails (1.6:1) |
-| `color.accent.sky` | `#336C91` | `#7FB8DA` | Links, info (light darkened from `#3E7FA8`, which was 3.5–4.4:1, to ≥4.5:1 on every surface) |
-| `color.accent.mint` | `#4F9A6E` | `#8CC7A1` | Success |
-| `color.danger.base` | `#B3261E` | `#FF8A80` | Errors, destructive |
-| `color.danger.onBase` | `#FFFFFF` (~6.5:1) | `#1A1512` (~7.9:1) | Label on destructive buttons |
-| `color.warning.base` | `#B26A00` | `#FFB74D` | Warnings |
-| `color.border.hairline` | `rgba(43,35,32,0.12)` | `rgba(245,237,224,0.14)` | Dividers |
-| `color.focus.ring` | `#336C91` | `#7FB8DA` | Focus outline 2 px (web, keyboard, switch control) |
-| `color.overlay.scrim` | `rgba(43,35,32,0.4)` | `rgba(0,0,0,0.56)` | Backdrop behind sheets/modals (warm in light) |
-| `color.sticker.border` | `#FFFFFF` | `#FFFFFF` | Die-cut border default (stays white in dark) |
-| `color.shadow.ink` | `rgba(60,40,25,α)` | `rgba(0,0,0,α)` | Warm shadow base; α from elevation |
+| `color.bg.canvas` | `#FFF7F3` (day) | `#0D0A12` (night) | App background |
+| `color.bg.paper` | `#FFFFFF` | `#17121F` | Cards, sheets |
+| `color.bg.paperAlt` | `#F6EBF2` | `#221B2C` | Secondary surfaces, inputs |
+| `color.surface.raised` | `#FFFFFF` | `#2A2235` | Bottom sheet, toasts |
+| `color.fg.ink` | `#1B1222` | `#FFF6F0` | Body text (~17:1 / ~18:1) |
+| `color.fg.muted` | `#5E5068` | `#C4B9CF` | Secondary text (>= 6.4:1 / >= 8.1:1 on every surface) |
+| `color.fg.subtle` | `#9C90A6` | `#8A7F96` | Placeholder, disabled (decorative only) |
+| `color.primary.base` | `#D61F69` | `#FF4F8B` | Solid primary (focus border, selected marks, gradient fallback) |
+| `color.primary.onBase` | `#FFFFFF` (4.9:1) | `#0D0A12` (6.3:1) | Text on solid primary |
+| `color.primary.onGradient` | `#1B1222` | `#0D0A12` | Label on `gradient.primary` (>= 5.8:1 on every stop) |
+| `color.primary.soft` | `#FFE0EC` | `#3D1A2C` | Selected chip bg |
+| `color.accent.mustard` | `#FFC93C` | `#FFC93C` | Highlights, badges (text in `accent.onMustard` only) |
+| `color.accent.onMustard` | `#1B1222` | `#0D0A12` | Text on mustard |
+| `color.accent.sky` | `#1F6FB2` | `#6CC4FF` | Links, info (>= 4.5:1 on every surface) |
+| `color.accent.mint` | `#1E8A5C` | `#4FE0A5` | Success |
+| `color.danger.base` | `#C62828` | `#FF6B6B` | Errors, destructive |
+| `color.danger.onBase` | `#FFFFFF` (5.6:1) | `#0D0A12` (7.1:1) | Label on destructive buttons |
+| `color.warning.base` | `#A85F00` | `#FFB648` | Warnings |
+| `color.border.hairline` | `rgba(27,18,34,0.12)` | `rgba(255,246,240,0.12)` | Dividers, seen story ring |
+| `color.focus.ring` | `#1F6FB2` | `#6CC4FF` | Focus outline 2 px |
+| `color.overlay.scrim` | `rgba(27,18,34,0.45)` | `rgba(5,3,8,0.64)` | Backdrop behind sheets/modals |
+| `color.sticker.border` | `#FFFFFF` | `#FFFFFF` | Die-cut border default |
+| `color.shadow.ink` | `rgba(40,16,50,a)` | `rgba(0,0,0,a)` | Shadow base; alpha from elevation |
 | `deco.tape.{mustard,pink,mint,sky,lilac,kraft}` | `#F2C14E #F4A6B7 #A8D8B9 #A9CBE8 #C9B8EC #CDB48E` @85% | same @75% | Washi tape, never carries text |
+
+**Gradients** (`gradient.*`, same in both schemes). `linearGradient(name)` returns a CSS string that React Native's
+`backgroundImage` style also accepts on the New Architecture; components keep a solid `backgroundColor` underneath as
+the fallback.
+
+| Token | Angle / stops | Use |
+|---|---|---|
+| `gradient.story` | 45deg `#FFC93C`, `#FF6A3D`, `#FF4F8B`, `#8B5CFF` | Unseen story ring; decorative only, never under text |
+| `gradient.primary` | 120deg `#FF8A5B`, `#FF4F8B`, `#B57BFF` | Primary buttons, send; text = `primary.onGradient`, checked against every stop (`gradientTextPairs`) |
+| `gradient.scrimTop` / `scrimBottom` | black 55% to 0 / 0 to 60% | Keeps white chrome readable over any photo (viewer, editor) |
+
+**On media** (`onMedia.*`): chrome drawn over photos is white whatever the scheme: `ink #FFFFFF`, `muted` 78% white,
+`glass` / `glassStrong` translucent night discs for icon buttons, `track` 35% white for progress tracks.
 
 ### 3.2 Typography (all SIL OFL 1.1 via Google Fonts → commercial-safe, embeddable, bundle via `expo-font`)
 | Role | Font | Why |
@@ -83,13 +117,15 @@ table `tokenTable()`; a component that renders a new foreground/background combi
 
 | Token | Size / line (pt) | Weight | Font | Use |
 |---|---|---|---|---|
+| `type.display.xl` | 48 / 52 | 700 | Bricolage | v2: story-sized hero, empty states |
 | `type.display.lg` | 40 / 44 | 700 | Bricolage | Onboarding, big moments |
 | `type.display.md` | 32 / 36 | 700 | Bricolage | Screen hero |
 | `type.title.lg` | 24 / 30 | 600 | Bricolage | Screen titles |
 | `type.title.md` | 20 / 26 | 600 | Bricolage | Sheet titles, section heads |
 | `type.body.lg` | 17 / 24 | 400 | DM Sans | Primary body (iOS default size) |
 | `type.body.md` | 15 / 22 | 400 | DM Sans | Secondary body |
-| `type.label.md` | 14 / 18 | 600 | DM Sans | Buttons, chips |
+| `type.label.lg` | 16 / 20 | 600 | DM Sans | v2: primary buttons, story sender name |
+| `type.label.md` | 14 / 18 | 600 | DM Sans | Chips, small buttons |
 | `type.label.sm` | 12 / 16 | 600 | DM Sans | Badges, metadata (minimum UI size) |
 | `type.hand.md` | 22 / 26 | 500 | Caveat | Card captions |
 | `type.meme.lg` | 36 / 38 | 400, uppercase, 2 px ink stroke | Anton | Meme captions (canvas, scales with item) |
@@ -117,6 +153,11 @@ opsz 36, DM Sans opsz 14). Anton and DM Mono are static upstream and copied unch
 - **Web target** ([[ADR-0009-app-on-web]]): there is no config plugin in a browser, so the web entry downloads the same
   files with `expo-font` `loadAsync` (`apps/mobile/src/platform/web/brandFonts.ts`) before the app renders; a test
   keeps that list equal to `BRAND_FACES` and `app.json`. A failed download falls back to the platform font.
+- **Expo Go (v2):** Expo Go cannot use the config plugin either, so the first device demo showed the platform font.
+  `loadBrandFonts()` in `apps/mobile/src/ui/theme/fonts.ts` registers the same `BRAND_FONT_FILES` with `loadAsync` on
+  every platform (a no-op for faces a build already embeds or the web entry already loaded) and refreshes the cached
+  face list; the root layout holds the first frame on `useBrandFonts()` for at most `BRAND_FONTS_TIMEOUT_MS` (1.5 s),
+  and late faces still swap in (`kitV2.test.tsx`).
 
 ### 3.3 Spacing (4 pt grid)
 | Token | `space.0` | `.1` | `.2` | `.3` | `.4` | `.5` | `.6` | `.8` | `.10` | `.12` | `.16` |
@@ -130,7 +171,8 @@ Screen gutter = `space.4`; card inner padding = `space.3`; list row min height 5
 | `radius.xs` | 4 | Tickets, tags, tape ends (squared feel) |
 | `radius.sm` | 8 | Chips, inputs |
 | `radius.md` | 14 | Cards, photos (polaroid inner = 2) |
-| `radius.lg` | 24 | Bottom sheet top corners, widgets (system clips anyway) |
+| `radius.lg` | 24 | Toasts, widgets (system clips anyway) |
+| `radius.xl` | 32 | v2: bottom sheet and tray top corners, full-screen card corners |
 | `radius.full` | 9999 | Avatars, shutter, pills |
 
 ### 3.5 Elevation — "paper stacks"
@@ -169,6 +211,15 @@ Reanimated `withSpring` configs (starting values, tune in the week-1 spike; alwa
 | `spring.drop` | 14 | 200 | 1.2 | Release onto board (heavier, slight settle) |
 | `spring.gentle` | 20 | 120 | 1 | Sheets, layout shifts |
 | `spring.flutter` | 6 | 180 | 0.5 | Tape end flutter, sticker peel wobble |
+| `spring.pop` | 12 | 420 | 0.6 | v2: reaction pop, sticker drop-in, icon-button press, ring tap |
+| `spring.swipe` | 28 | 260 | 1 | v2: swipe-to-close and page settles (critically damped) |
+| `spring.sheet` | 26 | 300 | 0.9 | v2: bottom trays (stickers, effects, text), no bounce at the top |
+
+v2 timing and gesture tokens: `motion.story.segmentMs` 5000 (one card in the story viewer), `motion.story.holdMs` 200
+(a press longer than this pauses instead of tapping), `motion.stagger` 40 ms (rings and tray tiles entering together);
+`gesture.dismissDistance` 120 pt / `gesture.dismissVelocity` 900 pt/s (swipe down to close), `gesture.backZone` 0.33
+(a tap on the start third goes back, mirrored in RTL), `gesture.snapDistance` 8 pt / `gesture.snapAngle` 4 degrees
+(editor snapping guides and rotation detents).
 
 ### 3.7 Haptics map (`expo-haptics`; Android constants = `HapticFeedbackConstants`, verify the wrapper's enum names in the pinned Expo SDK before use)
 | Event | iOS | Android (API level → fallback) | Sound (optional, off when silent) |
@@ -201,12 +252,17 @@ the real adapters are follow-up #246.
 | `size.grabber` | 36 × 4 (sheet grabber) |
 | `size.listRowMin` | 56 |
 | `size.avatar` | xs 24, sm 32, md 44, lg 64 |
+| `size.button` | 52 (v2 primary pill height) |
+| `size.ring` | stroke 3, gap 2 (story ring around an avatar) |
+| `size.progress` | 3 (story progress segment height) |
 | `size.shutter` | 76 outer / 64 inner |
 | `opacity.tape` | 0.85 light / 0.75 dark |
 
 ## 4. Core components (`packages/ui` native + web share-page subset)
-**Built so far (T-33):** the base kit lives in `apps/mobile/src/ui` (`Screen`, `Text`, `Button`, `TextField`, `Sheet`, `Toast`,
-`ThemeProvider`) and moves to `packages/ui` when a second consumer appears. Copy comes from the ICU message catalog
+**Built so far (T-33, v2 in sprint 9):** the base kit lives in `apps/mobile/src/ui` (`Screen`, `Text`, `Button`, `TextField`,
+`Sheet`, `Toast`, `ThemeProvider`; v2 adds `Avatar` with an unseen/seen story ring and a colour picked from the friend's id,
+`IconButton` (glass over photos, surface, gradient; `spring.pop` press; label required) and `Icon` (glyph icons, so no
+icon font or SVG dependency in Expo Go or on the web), plus `Text` tones `onGradient`, `onMedia`, `onMediaMuted`) and moves to `packages/ui` when a second consumer appears. Copy comes from the ICU message catalog
 `apps/mobile/src/i18n/messages/en.ts` via `t()` (dependency-free formatter: plural, select, number; plural fallback for Hermes,
 which lacks guaranteed `Intl.PluralRules`). ESLint rules `card-sharing/no-hardcoded-strings` and `card-sharing/rtl-safe-styles`
 (local plugin `apps/mobile/eslint/`) reject literal UI strings and left/right styles. Brand fonts are bundled (§3.2) and
@@ -311,7 +367,8 @@ Images pre-resized server-side to widget sizes; no shaders in widgets (baked out
 | Share page | LCP < 2.5 s (measured 1.5-2.1 s, T-126); initial JS <= 200 KB gz (measured ~140 KB); LCP still <= 100 KB WebP/AVIF ~600 px (EM-accepted); holo on enlarge via ~5 KB WebGL2 shader port, no CanvasKit on share pages |
 
 ## Open questions
-- **Decided (EM 2026-11-04):** brand vibe "warm scrapbook zine" — Bricolage Grotesque + DM Sans + Caveat + Anton + DM Mono, primary tomato `#C8412B`. Card-touch sounds ship in MVP (toggle, respect mute).
+- **Decided (EM 2026-11-07, sprint 9):** v2 "Stories, alive" (section 0) replaces the warm cream/tomato palette; the faces stay.
+- **Superseded by v2:** brand vibe "warm scrapbook zine" — Bricolage Grotesque + DM Sans + Caveat + Anton + DM Mono, primary tomato `#C8412B`. Card-touch sounds ship in MVP (toggle, respect mute).
 - App name / logo not yet decided — tokens are brand-agnostic until then.
 - Sound design: ship optional sounds in MVP or later?
 - Validate spring/haptic values on device during the week-1 spike; Android haptic quality varies by OEM.

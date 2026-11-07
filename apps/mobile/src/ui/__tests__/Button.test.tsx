@@ -1,6 +1,6 @@
 import { screen, userEvent } from '@testing-library/react-native';
 
-import { size, themes } from '@card-sharing/tokens';
+import { linearGradient, size, themes } from '@card-sharing/tokens';
 
 import { renderThemed, SCHEMES } from '../../test/render';
 import { Button } from '../Button';
@@ -19,15 +19,16 @@ describe.each(SCHEMES)('Button (%s)', (scheme) => {
     expect(screen.toJSON()).toMatchSnapshot();
   });
 
-  it('uses the scheme colours and a 44 pt minimum touch target', async () => {
+  it('fills the primary button with the gradient over a solid fallback, at the v2 height', async () => {
     await renderThemed(<Button label="Go" />, { scheme });
     const surface = screen.getByTestId('button-surface');
     expect(surface).toHaveStyle({
       backgroundColor: themes[scheme].primary.base,
-      minHeight: size.touch.ios,
+      backgroundImage: linearGradient('primary'),
+      minHeight: size.button,
       minWidth: size.touch.ios,
     });
-    expect(screen.getByText('Go')).toHaveStyle({ color: themes[scheme].primary.onBase });
+    expect(screen.getByText('Go')).toHaveStyle({ color: themes[scheme].primary.onGradient });
   });
 });
 

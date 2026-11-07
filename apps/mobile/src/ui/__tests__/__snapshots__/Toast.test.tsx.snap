@@ -68,13 +68,14 @@ exports[`Toast (dark) matches the snapshot with an action 1`] = `
             "borderRadius": 9999,
             "borderWidth": 0.5,
             "justifyContent": "center",
-            "paddingHorizontal": 16,
+            "paddingHorizontal": 20,
             "paddingVertical": 8,
           },
           {
-            "backgroundColor": "#FF7A5C",
-            "borderColor": "#FF7A5C",
-            "minHeight": 44,
+            "backgroundColor": "#FF4F8B",
+            "backgroundImage": "linear-gradient(120deg, #FF8A5B 0%, #FF4F8B 50%, #B57BFF 100%)",
+            "borderColor": "transparent",
+            "minHeight": 52,
             "minWidth": 44,
           },
         ]
@@ -86,13 +87,14 @@ exports[`Toast (dark) matches the snapshot with an action 1`] = `
             "borderRadius": 9999,
             "borderWidth": 0.5,
             "justifyContent": "center",
-            "paddingHorizontal": 16,
+            "paddingHorizontal": 20,
             "paddingVertical": 8,
           },
           {
-            "backgroundColor": "#FF7A5C",
-            "borderColor": "#FF7A5C",
-            "minHeight": 44,
+            "backgroundColor": "#FF4F8B",
+            "backgroundImage": "linear-gradient(120deg, #FF8A5B 0%, #FF4F8B 50%, #B57BFF 100%)",
+            "borderColor": "transparent",
+            "minHeight": 52,
             "minWidth": 44,
           },
           {
@@ -112,10 +114,10 @@ exports[`Toast (dark) matches the snapshot with an action 1`] = `
           style={
             [
               {
-                "color": "#1A1512",
+                "color": "#0D0A12",
                 "fontFamily": "DMSans-SemiBold",
-                "fontSize": 14,
-                "lineHeight": 18,
+                "fontSize": 16,
+                "lineHeight": 20,
                 "textAlign": "auto",
                 "textTransform": "none",
                 "writingDirection": "auto",
@@ -183,13 +185,14 @@ exports[`Toast (dark) matches the snapshot with an action 1`] = `
         [
           {
             "alignItems": "center",
-            "borderRadius": 14,
+            "borderRadius": 24,
             "flexDirection": "row",
             "gap": 8,
+            "overflow": "hidden",
             "paddingEnd": 8,
           },
           {
-            "backgroundColor": "#332B24",
+            "backgroundColor": "#2A2235",
             "boxShadow": "0px 4px 4px rgba(0, 0, 0, 0.144), 0px 14px 24px rgba(0, 0, 0, 0.288)",
           },
         ]
@@ -198,13 +201,14 @@ exports[`Toast (dark) matches the snapshot with an action 1`] = `
         [
           {
             "alignItems": "center",
-            "borderRadius": 14,
+            "borderRadius": 24,
             "flexDirection": "row",
             "gap": 8,
+            "overflow": "hidden",
             "paddingEnd": 8,
           },
           {
-            "backgroundColor": "#332B24",
+            "backgroundColor": "#2A2235",
             "boxShadow": "0px 4px 4px rgba(0, 0, 0, 0.144), 0px 14px 24px rgba(0, 0, 0, 0.288)",
           },
         ]
@@ -216,12 +220,10 @@ exports[`Toast (dark) matches the snapshot with an action 1`] = `
           [
             {
               "alignSelf": "stretch",
-              "borderBottomStartRadius": 14,
-              "borderTopStartRadius": 14,
               "width": 4,
             },
             {
-              "backgroundColor": "#7FB8DA",
+              "backgroundColor": "#6CC4FF",
             },
           ]
         }
@@ -278,7 +280,7 @@ exports[`Toast (dark) matches the snapshot with an action 1`] = `
           style={
             [
               {
-                "color": "#F5EDE0",
+                "color": "#FFF6F0",
                 "fontFamily": "DMSans-Regular",
                 "fontSize": 15,
                 "lineHeight": 22,
@@ -359,11 +361,12 @@ exports[`Toast (dark) matches the snapshot with an action 1`] = `
                 "borderRadius": 9999,
                 "borderWidth": 0.5,
                 "justifyContent": "center",
-                "paddingHorizontal": 16,
+                "paddingHorizontal": 20,
                 "paddingVertical": 8,
               },
               {
                 "backgroundColor": "transparent",
+                "backgroundImage": undefined,
                 "borderColor": "transparent",
                 "minHeight": 44,
                 "minWidth": 44,
@@ -377,11 +380,12 @@ exports[`Toast (dark) matches the snapshot with an action 1`] = `
                 "borderRadius": 9999,
                 "borderWidth": 0.5,
                 "justifyContent": "center",
-                "paddingHorizontal": 16,
+                "paddingHorizontal": 20,
                 "paddingVertical": 8,
               },
               {
                 "backgroundColor": "transparent",
+                "backgroundImage": undefined,
                 "borderColor": "transparent",
                 "minHeight": 44,
                 "minWidth": 44,
@@ -403,10 +407,10 @@ exports[`Toast (dark) matches the snapshot with an action 1`] = `
               style={
                 [
                   {
-                    "color": "#F5EDE0",
+                    "color": "#FFF6F0",
                     "fontFamily": "DMSans-SemiBold",
-                    "fontSize": 14,
-                    "lineHeight": 18,
+                    "fontSize": 16,
+                    "lineHeight": 20,
                     "textAlign": "auto",
                     "textTransform": "none",
                     "writingDirection": "auto",
@@ -495,13 +499,14 @@ exports[`Toast (light) matches the snapshot with an action 1`] = `
             "borderRadius": 9999,
             "borderWidth": 0.5,
             "justifyContent": "center",
-            "paddingHorizontal": 16,
+            "paddingHorizontal": 20,
             "paddingVertical": 8,
           },
           {
-            "backgroundColor": "#C8412B",
-            "borderColor": "#C8412B",
-            "minHeight": 44,
+            "backgroundColor": "#D61F69",
+            "backgroundImage": "linear-gradient(120deg, #FF8A5B 0%, #FF4F8B 50%, #B57BFF 100%)",
+            "borderColor": "transparent",
+            "minHeight": 52,
             "minWidth": 44,
           },
         ]
@@ -513,13 +518,14 @@ exports[`Toast (light) matches the snapshot with an action 1`] = `
             "borderRadius": 9999,
             "borderWidth": 0.5,
             "justifyContent": "center",
-            "paddingHorizontal": 16,
+            "paddingHorizontal": 20,
             "paddingVertical": 8,
           },
           {
-            "backgroundColor": "#C8412B",
-            "borderColor": "#C8412B",
-            "minHeight": 44,
+            "backgroundColor": "#D61F69",
+            "backgroundImage": "linear-gradient(120deg, #FF8A5B 0%, #FF4F8B 50%, #B57BFF 100%)",
+            "borderColor": "transparent",
+            "minHeight": 52,
             "minWidth": 44,
           },
           {
@@ -539,10 +545,10 @@ exports[`Toast (light) matches the snapshot with an action 1`] = `
           style={
             [
               {
-                "color": "#FFFFFF",
+                "color": "#1B1222",
                 "fontFamily": "DMSans-SemiBold",
-                "fontSize": 14,
-                "lineHeight": 18,
+                "fontSize": 16,
+                "lineHeight": 20,
                 "textAlign": "auto",
                 "textTransform": "none",
                 "writingDirection": "auto",
@@ -610,14 +616,15 @@ exports[`Toast (light) matches the snapshot with an action 1`] = `
         [
           {
             "alignItems": "center",
-            "borderRadius": 14,
+            "borderRadius": 24,
             "flexDirection": "row",
             "gap": 8,
+            "overflow": "hidden",
             "paddingEnd": 8,
           },
           {
             "backgroundColor": "#FFFFFF",
-            "boxShadow": "0px 4px 4px rgba(60, 40, 25, 0.12), 0px 14px 24px rgba(60, 40, 25, 0.18)",
+            "boxShadow": "0px 4px 4px rgba(40, 16, 50, 0.12), 0px 14px 24px rgba(40, 16, 50, 0.18)",
           },
         ]
       }
@@ -625,14 +632,15 @@ exports[`Toast (light) matches the snapshot with an action 1`] = `
         [
           {
             "alignItems": "center",
-            "borderRadius": 14,
+            "borderRadius": 24,
             "flexDirection": "row",
             "gap": 8,
+            "overflow": "hidden",
             "paddingEnd": 8,
           },
           {
             "backgroundColor": "#FFFFFF",
-            "boxShadow": "0px 4px 4px rgba(60, 40, 25, 0.12), 0px 14px 24px rgba(60, 40, 25, 0.18)",
+            "boxShadow": "0px 4px 4px rgba(40, 16, 50, 0.12), 0px 14px 24px rgba(40, 16, 50, 0.18)",
           },
         ]
       }
@@ -643,12 +651,10 @@ exports[`Toast (light) matches the snapshot with an action 1`] = `
           [
             {
               "alignSelf": "stretch",
-              "borderBottomStartRadius": 14,
-              "borderTopStartRadius": 14,
               "width": 4,
             },
             {
-              "backgroundColor": "#336C91",
+              "backgroundColor": "#1F6FB2",
             },
           ]
         }
@@ -705,7 +711,7 @@ exports[`Toast (light) matches the snapshot with an action 1`] = `
           style={
             [
               {
-                "color": "#2B2320",
+                "color": "#1B1222",
                 "fontFamily": "DMSans-Regular",
                 "fontSize": 15,
                 "lineHeight": 22,
@@ -786,11 +792,12 @@ exports[`Toast (light) matches the snapshot with an action 1`] = `
                 "borderRadius": 9999,
                 "borderWidth": 0.5,
                 "justifyContent": "center",
-                "paddingHorizontal": 16,
+                "paddingHorizontal": 20,
                 "paddingVertical": 8,
               },
               {
                 "backgroundColor": "transparent",
+                "backgroundImage": undefined,
                 "borderColor": "transparent",
                 "minHeight": 44,
                 "minWidth": 44,
@@ -804,11 +811,12 @@ exports[`Toast (light) matches the snapshot with an action 1`] = `
                 "borderRadius": 9999,
                 "borderWidth": 0.5,
                 "justifyContent": "center",
-                "paddingHorizontal": 16,
+                "paddingHorizontal": 20,
                 "paddingVertical": 8,
               },
               {
                 "backgroundColor": "transparent",
+                "backgroundImage": undefined,
                 "borderColor": "transparent",
                 "minHeight": 44,
                 "minWidth": 44,
@@ -830,10 +838,10 @@ exports[`Toast (light) matches the snapshot with an action 1`] = `
               style={
                 [
                   {
-                    "color": "#2B2320",
+                    "color": "#1B1222",
                     "fontFamily": "DMSans-SemiBold",
-                    "fontSize": 14,
-                    "lineHeight": 18,
+                    "fontSize": 16,
+                    "lineHeight": 20,
                     "textAlign": "auto",
                     "textTransform": "none",
                     "writingDirection": "auto",

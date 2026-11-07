@@ -20,7 +20,7 @@ export interface SheetProps {
 }
 
 /**
- * Modal bottom sheet on paper (`bg.paper`, `elev.4`, `radius.lg` top corners, 36×4 grabber).
+ * Modal bottom sheet on paper (`bg.paper`, `elev.4`, `radius.xl` top corners, 36×4 grabber).
  * Focus is trapped while open (`accessibilityViewIsModal`); there is always a visible close button so
  * screen-reader and switch users never depend on the backdrop. Slides in, or fades with reduced motion.
  * Drag-to-dismiss and peek/half/full detents come with the gesture work (design-system.md §4).
@@ -83,8 +83,8 @@ export function Sheet({ visible, onClose, title, children, testID }: SheetProps)
 const styles = StyleSheet.create({
   root: { flex: 1, justifyContent: 'flex-end' },
   sheet: {
-    borderTopStartRadius: radius.lg,
-    borderTopEndRadius: radius.lg,
+    borderTopStartRadius: radius.xl,
+    borderTopEndRadius: radius.xl,
     paddingHorizontal: space[4],
     paddingTop: space[2],
     gap: space[3],

@@ -3,7 +3,12 @@ import { describe, expect, it } from 'vitest';
 import {
   boxShadow,
   cssVariables,
+  DEFAULT_SCHEME,
   elevation,
+  gesture,
+  linearGradient,
+  motion,
+  spring,
   space,
   themes,
   tokenTable,
@@ -31,10 +36,32 @@ describe('tokens', () => {
     }
   });
 
-  it('matches the design-system anchors (desk cream, tomato primary)', () => {
-    expect(themes.light.bg.canvas).toBe('#F6EFE3');
-    expect(themes.dark.bg.canvas).toBe('#1A1512');
-    expect(themes.light.primary.base).toBe('#C8412B');
+  it('matches the design-system v2 anchors (night canvas, pink primary, dark first)', () => {
+    expect(themes.light.bg.canvas).toBe('#FFF7F3');
+    expect(themes.dark.bg.canvas).toBe('#0D0A12');
+    expect(themes.light.primary.base).toBe('#D61F69');
+    expect(themes.dark.primary.base).toBe('#FF4F8B');
+    expect(DEFAULT_SCHEME).toBe('dark');
+  });
+
+  it('builds CSS / React Native linear gradients with evenly spaced stops', () => {
+    expect(linearGradient('primary')).toBe(
+      'linear-gradient(120deg, #FF8A5B 0%, #FF4F8B 50%, #B57BFF 100%)',
+    );
+    expect(linearGradient('scrimTop')).toBe(
+      'linear-gradient(180deg, rgba(0, 0, 0, 0.55) 0%, rgba(0, 0, 0, 0) 100%)',
+    );
+  });
+
+  it('keeps springs physical and the story timing sane', () => {
+    for (const config of Object.values(spring)) {
+      expect(config.damping).toBeGreaterThan(0);
+      expect(config.stiffness).toBeGreaterThan(0);
+      expect(config.mass).toBeGreaterThan(0);
+    }
+    expect(motion.story.holdMs).toBeLessThan(motion.story.segmentMs);
+    expect(gesture.backZone).toBeGreaterThan(0);
+    expect(gesture.backZone).toBeLessThan(0.5);
   });
 
   it('keeps the space scale on the 4 pt grid and strictly increasing', () => {
@@ -55,10 +82,10 @@ describe('tokens', () => {
     }
   });
 
-  it('builds warm two-layer shadows that are stronger in dark mode', () => {
+  it('builds two-layer shadows that are stronger in dark mode', () => {
     expect(boxShadow(0, 'light')).toBeUndefined();
     expect(boxShadow(1, 'light')).toBe(
-      '0px 1px 1px rgba(60, 40, 25, 0.14), 0px 2px 4px rgba(60, 40, 25, 0.08)',
+      '0px 1px 1px rgba(40, 16, 50, 0.14), 0px 2px 4px rgba(40, 16, 50, 0.08)',
     );
     expect(boxShadow(4, 'dark')).toBe(
       '0px 8px 8px rgba(0, 0, 0, 0.12), 0px 24px 48px rgba(0, 0, 0, 0.352)',
@@ -68,7 +95,7 @@ describe('tokens', () => {
 
   it('generates kebab-case CSS variables for web', () => {
     const vars = cssVariables('dark');
-    expect(vars['--color-bg-paper-alt']).toBe('#3A3028');
-    expect(vars['--color-border-hairline']).toBe('rgba(245, 237, 224, 0.14)');
+    expect(vars['--color-bg-paper-alt']).toBe('#221B2C');
+    expect(vars['--color-border-hairline']).toBe('rgba(255, 246, 240, 0.12)');
   });
 });

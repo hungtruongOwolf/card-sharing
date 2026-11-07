@@ -16,7 +16,7 @@ exports[`Screen (dark) matches the snapshot 1`] = `
         "flex": 1,
       },
       {
-        "backgroundColor": "#1A1512",
+        "backgroundColor": "#0D0A12",
       },
     ]
   }
@@ -44,7 +44,7 @@ exports[`Screen (dark) matches the snapshot 1`] = `
         style={
           [
             {
-              "color": "#F5EDE0",
+              "color": "#FFF6F0",
               "fontFamily": "BricolageGrotesque-SemiBold",
               "fontSize": 24,
               "lineHeight": 30,
@@ -63,7 +63,7 @@ exports[`Screen (dark) matches the snapshot 1`] = `
         style={
           [
             {
-              "color": "#F5EDE0",
+              "color": "#FFF6F0",
               "fontFamily": "DMSans-Regular",
               "fontSize": 15,
               "lineHeight": 22,
@@ -98,7 +98,7 @@ exports[`Screen (light) matches the snapshot 1`] = `
         "flex": 1,
       },
       {
-        "backgroundColor": "#F6EFE3",
+        "backgroundColor": "#FFF7F3",
       },
     ]
   }
@@ -126,7 +126,7 @@ exports[`Screen (light) matches the snapshot 1`] = `
         style={
           [
             {
-              "color": "#2B2320",
+              "color": "#1B1222",
               "fontFamily": "BricolageGrotesque-SemiBold",
               "fontSize": 24,
               "lineHeight": 30,
@@ -145,7 +145,7 @@ exports[`Screen (light) matches the snapshot 1`] = `
         style={
           [
             {
-              "color": "#2B2320",
+              "color": "#1B1222",
               "fontFamily": "DMSans-Regular",
               "fontSize": 15,
               "lineHeight": 22,

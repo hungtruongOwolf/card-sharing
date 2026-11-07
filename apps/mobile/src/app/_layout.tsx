@@ -1,9 +1,11 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+
+import { DEFAULT_SCHEME, themes } from '@card-sharing/tokens';
 
 import { createQueryClient } from '../data/queryClient';
 import { AuthProvider, createAppAuthClient, useAuthClient } from '../features/auth';
@@ -23,7 +25,7 @@ import {
 import { deviceExportStore } from '../features/privacy';
 import { useCardsApi } from '../features/sharing';
 import { createWidgetTokenApi, deviceWidgetTokenStore, WidgetTokenSync } from '../features/widget';
-import { ThemeProvider, ToastProvider, useTheme } from '../ui';
+import { ThemeProvider, ToastProvider, useBrandFonts, useTheme } from '../ui';
 
 /**
  * Routes of each phase. Only the current phase's routes are reachable (src/features/onboarding/phase.ts);
@@ -160,6 +162,9 @@ export default function RootLayout() {
   const [queryClient] = useState(createQueryClient);
   const [authClient] = useState(createAppAuthClient);
   const [prefsStorage] = useState(securePrefsStorage);
+  // Hold the first frame (at most BRAND_FONTS_TIMEOUT_MS) so screens open in the display face, not a font swap.
+  const fontsReady = useBrandFonts();
+  if (!fontsReady) return <View style={[styles.root, styles.boot]} />;
   return (
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
@@ -181,4 +186,5 @@ export default function RootLayout() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  boot: { backgroundColor: themes[DEFAULT_SCHEME].bg.canvas },
 });

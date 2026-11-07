@@ -1,6 +1,6 @@
 import { screen, userEvent } from '@testing-library/react-native';
 
-import { themes } from '@card-sharing/tokens';
+import { size, themes } from '@card-sharing/tokens';
 
 import { renderThemed, SCHEMES } from '../../test/render';
 import { TextField } from '../TextField';
@@ -21,7 +21,7 @@ describe.each(SCHEMES)('TextField (%s)', (scheme) => {
     await renderThemed(<TextField label="Name" error="Too long" />, { scheme });
     expect(screen.getByLabelText('Name')).toHaveStyle({
       color: themes[scheme].fg.ink,
-      backgroundColor: themes[scheme].surface.raised,
+      backgroundColor: themes[scheme].bg.paperAlt,
       borderColor: themes[scheme].danger.base,
     });
     expect(screen.getByText('Too long')).toHaveStyle({ color: themes[scheme].danger.base });
@@ -48,7 +48,7 @@ describe('TextField behaviour', () => {
   it('meets the touch target and scales text to 200 %', async () => {
     await renderThemed(<TextField label="Caption" />);
     const input = screen.getByLabelText('Caption');
-    expect(input).toHaveStyle({ minHeight: 48 });
+    expect(input).toHaveStyle({ minHeight: size.button });
     expect(input.props.maxFontSizeMultiplier).toBe(2);
   });
 
