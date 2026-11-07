@@ -363,6 +363,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/auth/email/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign in with an email magic link (T-23). Auth: none (the link token plus this device's PKCE
+         *     verifier are the credential). Called by the app's landing screen after the user confirms; the
+         *     link itself (a GET) never signs anyone in.
+         * @description Creates the account on first sign-in (status `pending_age`, onboarding session) and is
+         *     otherwise identical to provider sign-in. The account is keyed by the email (hashed) only and is
+         *     never linked to an Apple or Google account with the same address (AC-1.3). An unknown token
+         *     and a verifier from another browser or device get the same 401; a wrong verifier does not use
+         *     the link up.
+         */
+        post: operations["verifyEmailSignIn"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/auth/google": {
         parameters: {
             query?: never;
@@ -2444,6 +2470,27 @@ export interface components {
             /** @example cat@example.com */
             email: string;
         };
+        /** @description Answer of `POST /v1/auth/email/start`: the same shape for every well-formed request. */
+        EmailStartResponse: {
+            /**
+             * Format: uuid
+             * @description Id of this request (a fresh UUID every time, whether or not the email has an account). The
+             *     app keeps its PKCE verifier under it; the emailed link carries it back as
+             *     `#rid=<request_id>&token=<token>`.
+             */
+            request_id: string;
+        };
+        /** @description Body of `POST /v1/auth/email/verify`. */
+        EmailVerifyRequest: {
+            /**
+             * @description The PKCE verifier this device kept when it asked for the link (RFC 7636: 43 to 128
+             *     characters of `A-Z a-z 0-9 - . _ ~`). Its SHA-256 must equal the challenge sent to start.
+             */
+            code_verifier: string;
+            device?: components["schemas"]["DeviceRequest"] | null;
+            /** @description The link's token, from its fragment (`#rid=...&token=<token>`): 43 base64url characters. */
+            token: string;
+        };
         ExportEnvelope: {
             export: components["schemas"]["ExportView"];
         };
@@ -4436,7 +4483,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["EmailStartResponse"];
+                };
             };
             /** @description VALIDATION_FAILED (malformed email or challenge, unknown fields). */
             400: {
@@ -4457,6 +4506,84 @@ export interface operations {
                 };
             };
             /** @description SERVER_BUSY (rate-limit store slow or down; fails closed; retry after Retry-After). */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    verifyEmailSignIn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailVerifyRequest"];
+            };
+        };
+        responses: {
+            /** @description Signed in: an onboarding session for a new or unfinished account, a full session otherwise. Call GET /v1/me for the onboarding step. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenPair"];
+                };
+            };
+            /** @description VALIDATION_FAILED (malformed token or verifier, unknown fields). */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description MAGIC_LINK_INVALID: unknown link, or the verifier is not the one of the device that asked for it. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ACCOUNT_SUSPENDED: the account may not sign in (suspended or banned). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description MAGIC_LINK_EXPIRED (older than 15 minutes) or MAGIC_LINK_USED (single use): ask for a new link. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description SERVER_BUSY (rate-limit store slow or down; fails closed). */
             503: {
                 headers: {
                     [name: string]: unknown;

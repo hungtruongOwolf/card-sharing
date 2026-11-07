@@ -1,12 +1,12 @@
-//! Sign-in and session endpoints (ADR-0004): Apple (T-19) and Google (T-20) sign-in,
-//! refresh-token rotation and logout (T-18).
+//! Sign-in and session endpoints (ADR-0004): Apple (T-19) and Google (T-20) sign-in, email magic
+//! links (T-22 start, T-23 verify, ADR-0012), refresh-token rotation and logout (T-18).
 
 use axum::Json;
 use axum::extract::State;
 use http::{HeaderMap, StatusCode};
 use identity::{
-    DeviceInfo, IssuedSession, MagicLinkError, Platform, Provider, RefreshError, RegionSignals,
-    RevokeReason, SignInError, SignInRequest,
+    DeviceInfo, IssuedSession, LinkSignInError, MagicLinkError, Platform, Provider, RefreshError,
+    RegionSignals, RevokeReason, SignInError, SignInRequest,
 };
 use platform::problem::{ApiError, ProblemDetails};
 use platform::rate_limit::{AccountSubject, Decision, STORE_RETRY_AFTER_SECS, Subject};
@@ -279,6 +279,16 @@ pub struct EmailStartRequest {
     pub code_challenge_method: Option<String>,
 }
 
+/// Answer of `POST /v1/auth/email/start`: the same shape for every well-formed request.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct EmailStartResponse {
+    /// Id of this request (a fresh UUID every time, whether or not the email has an account). The
+    /// app keeps its PKCE verifier under it; the emailed link carries it back as
+    /// `#rid=<request_id>&token=<token>`.
+    #[schema(value_type = String, format = "uuid")]
+    pub request_id: Uuid,
+}
+
 /// Request an email magic link. Auth: none. Always 202 for a well-formed request, whether or not
 /// the email has an account (no enumeration, AC-1.2); the email is sent asynchronously. The link
 /// works once, for 15 minutes, and only together with this device's PKCE verifier.
@@ -290,7 +300,7 @@ pub struct EmailStartRequest {
     security(()),
     request_body = EmailStartRequest,
     responses(
-        (status = ACCEPTED, description = "If the address can receive email, a sign-in link is on its way."),
+        (status = ACCEPTED, description = "If the address can receive email, a sign-in link is on its way.", body = EmailStartResponse),
         (status = BAD_REQUEST, description = "VALIDATION_FAILED (malformed email or challenge, unknown fields).", body = ProblemDetails),
         (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED: more than 5 requests in 15 minutes from this IP or for this email (same body either way).", body = ProblemDetails),
         (status = SERVICE_UNAVAILABLE, description = "SERVER_BUSY (rate-limit store slow or down; fails closed; retry after Retry-After).", body = ProblemDetails),
@@ -299,7 +309,7 @@ pub struct EmailStartRequest {
 pub async fn start_email_sign_in(
     State(state): State<AppState>,
     body: ValidJson<EmailStartRequest>,
-) -> Result<StatusCode, ApiError> {
+) -> Result<(StatusCode, Json<EmailStartResponse>), ApiError> {
     let body = body.0;
     if body
         .code_challenge_method
@@ -336,7 +346,7 @@ pub async fn start_email_sign_in(
         }
         Err(err) => return Err(ApiError::internal(err)),
     }
-    state
+    let request_id = state
         .identity
         .start_magic_link(&email, &body.code_challenge, &state.field_cipher)
         .await
@@ -346,11 +356,89 @@ pub async fn start_email_sign_in(
             }
             other => ApiError::internal(other),
         })?;
-    Ok(StatusCode::ACCEPTED)
+    Ok((
+        StatusCode::ACCEPTED,
+        Json(EmailStartResponse { request_id }),
+    ))
 }
 
 /// Per-email window of `POST /v1/auth/email/start` (config/limits.yaml).
 pub const EMAIL_LIMIT: &str = "auth.email.start.email";
+
+/// Body of `POST /v1/auth/email/verify`.
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct EmailVerifyRequest {
+    /// The link's token, from its fragment (`#rid=...&token=<token>`): 43 base64url characters.
+    #[schema(min_length = 43, max_length = 43)]
+    pub token: String,
+    /// The PKCE verifier this device kept when it asked for the link (RFC 7636: 43 to 128
+    /// characters of `A-Z a-z 0-9 - . _ ~`). Its SHA-256 must equal the challenge sent to start.
+    #[schema(min_length = 43, max_length = 128)]
+    pub code_verifier: String,
+    /// The signing-in device. Recommended on phones (device-scoped limits use it); the web sends
+    /// none.
+    #[serde(default)]
+    pub device: Option<DeviceRequest>,
+}
+
+/// Sign in with an email magic link (T-23). Auth: none (the link token plus this device's PKCE
+/// verifier are the credential). Called by the app's landing screen after the user confirms; the
+/// link itself (a GET) never signs anyone in.
+///
+/// Creates the account on first sign-in (status `pending_age`, onboarding session) and is
+/// otherwise identical to provider sign-in. The account is keyed by the email (hashed) only and is
+/// never linked to an Apple or Google account with the same address (AC-1.3). An unknown token
+/// and a verifier from another browser or device get the same 401; a wrong verifier does not use
+/// the link up.
+#[utoipa::path(
+    post,
+    path = "/v1/auth/email/verify",
+    tag = TAG,
+    operation_id = "verifyEmailSignIn",
+    security(()),
+    request_body = EmailVerifyRequest,
+    responses(
+        (status = OK, description = "Signed in: an onboarding session for a new or unfinished account, a full session otherwise. Call GET /v1/me for the onboarding step.", body = TokenPair),
+        (status = BAD_REQUEST, description = "VALIDATION_FAILED (malformed token or verifier, unknown fields).", body = ProblemDetails),
+        (status = UNAUTHORIZED, description = "MAGIC_LINK_INVALID: unknown link, or the verifier is not the one of the device that asked for it.", body = ProblemDetails),
+        (status = FORBIDDEN, description = "ACCOUNT_SUSPENDED: the account may not sign in (suspended or banned).", body = ProblemDetails),
+        (status = GONE, description = "MAGIC_LINK_EXPIRED (older than 15 minutes) or MAGIC_LINK_USED (single use): ask for a new link.", body = ProblemDetails),
+        (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED.", body = ProblemDetails),
+        (status = SERVICE_UNAVAILABLE, description = "SERVER_BUSY (rate-limit store slow or down; fails closed).", body = ProblemDetails),
+    )
+)]
+pub async fn verify_email_sign_in(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    body: ValidJson<EmailVerifyRequest>,
+) -> Result<Json<TokenPair>, ApiError> {
+    let body = body.0;
+    if !identity::valid_link_token(&body.token) {
+        return Err(ApiError::Validation(
+            "token must be 43 base64url characters".to_owned(),
+        ));
+    }
+    if !identity::valid_code_verifier(&body.code_verifier) {
+        return Err(ApiError::Validation(
+            "code_verifier must be 43 to 128 characters of A-Z a-z 0-9 - . _ ~".to_owned(),
+        ));
+    }
+    let device = body.device.map(DeviceRequest::into_info).transpose()?;
+    let signals = sign_up_signals(&state, &headers);
+    let signed_in = state
+        .identity
+        .sign_in_with_magic_link(&body.token, &body.code_verifier, device.as_ref(), &signals)
+        .await
+        .map_err(|err| match err {
+            LinkSignInError::Invalid => ApiError::MagicLinkInvalid,
+            LinkSignInError::Expired => ApiError::MagicLinkExpired,
+            LinkSignInError::Used => ApiError::MagicLinkUsed,
+            LinkSignInError::Blocked(_) => ApiError::AccountSuspended,
+            LinkSignInError::Store(err) => ApiError::internal(err),
+        })?;
+    Ok(Json(signed_in.session.into()))
+}
 
 /// Rotate a refresh token. Auth: none (the refresh token in the body is the credential).
 #[utoipa::path(

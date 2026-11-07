@@ -145,6 +145,10 @@ pub fn router() -> ApiRouter<AppState> {
             routes!(auth::start_email_sign_in),
         )
         .route(
+            RoutePolicy::public().limited("auth.email.verify"),
+            routes!(auth::verify_email_sign_in),
+        )
+        .route(
             RoutePolicy::session().limited("auth.reauth"),
             routes!(auth::reauthenticate),
         )

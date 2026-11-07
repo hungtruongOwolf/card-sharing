@@ -61,6 +61,17 @@ pub enum ApiError {
     /// The route needs a fresh re-auth token (`X-Reauth`, minted at most 5 minutes ago).
     #[error("re-authentication required")]
     ReauthRequired,
+    /// The magic link is unknown, or the PKCE verifier does not match it (the link was forwarded,
+    /// or opened in another browser or device). The two cases are not told apart.
+    #[error("magic link invalid")]
+    MagicLinkInvalid,
+    /// The magic link is past its 15-minute lifetime. Reported only after the verifier matched,
+    /// so only the device that asked for the link learns it.
+    #[error("magic link expired")]
+    MagicLinkExpired,
+    /// The magic link was already used (single use). Reported only after the verifier matched.
+    #[error("magic link used")]
+    MagicLinkUsed,
     /// Authenticated, but this kind of session may not call the route.
     #[error("forbidden")]
     Forbidden,
@@ -174,7 +185,9 @@ impl ApiError {
             Self::Unauthenticated
             | Self::SessionExpired
             | Self::SessionRevoked
-            | Self::ReauthRequired => StatusCode::UNAUTHORIZED,
+            | Self::ReauthRequired
+            | Self::MagicLinkInvalid => StatusCode::UNAUTHORIZED,
+            Self::MagicLinkExpired | Self::MagicLinkUsed => StatusCode::GONE,
             Self::Forbidden
             | Self::OnboardingIncomplete
             | Self::AccountSuspended
@@ -219,6 +232,9 @@ impl ApiError {
             Self::SessionExpired => "SESSION_EXPIRED",
             Self::SessionRevoked => "SESSION_REVOKED",
             Self::ReauthRequired => "REAUTH_REQUIRED",
+            Self::MagicLinkInvalid => "MAGIC_LINK_INVALID",
+            Self::MagicLinkExpired => "MAGIC_LINK_EXPIRED",
+            Self::MagicLinkUsed => "MAGIC_LINK_USED",
             Self::Forbidden => "FORBIDDEN",
             Self::OnboardingIncomplete => "ONBOARDING_INCOMPLETE",
             Self::AccountSuspended => "ACCOUNT_SUSPENDED",
@@ -335,6 +351,9 @@ mod tests {
             ApiError::SessionExpired,
             ApiError::SessionRevoked,
             ApiError::ReauthRequired,
+            ApiError::MagicLinkInvalid,
+            ApiError::MagicLinkExpired,
+            ApiError::MagicLinkUsed,
             ApiError::Forbidden,
             ApiError::OnboardingIncomplete,
             ApiError::AccountSuspended,

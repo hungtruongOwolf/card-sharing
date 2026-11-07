@@ -67,8 +67,8 @@ sign-up opt in with their tickets.
 |---|---|---|---|---|---|---|---|---|
 | POST | /v1/auth/apple | Verify Apple ID token (+nonce), create/find account, mint session | none | — | identity from verified token only | 10/min ip | no | US-1 |
 | POST | /v1/auth/google | Same for Google ID token | none | — | same | 10/min ip | no | US-1 |
-| POST | /v1/auth/email/start | Send magic link (PKCE challenge); always 202 | none | — | no enumeration | 5/15 min per ip & per email | yes | US-1 AC-1.2 |
-| POST | /v1/auth/email/verify | Exchange link token + verifier for session; called only from the in-app confirm screen after the Universal/App Link opens (the link's web page never consumes it) | none | — | single-use, 15 min, verifier matches the starting device | 10/min ip | no | US-1 AC-1.3 |
+| POST | /v1/auth/email/start | Send magic link (PKCE challenge); always 202 `{request_id}` | none | — | no enumeration | 5/15 min per ip & per email | yes | US-1 AC-1.2 |
+| POST | /v1/auth/email/verify | Exchange link token + verifier for session; called only from the app's landing screen after its confirm (the link's GET never consumes it) | none | — | single-use, 15 min, verifier matches the starting device | 10/min ip | no | US-1 AC-1.3 |
 | POST | /v1/auth/refresh | Rotate refresh token → new access + refresh pair | none (refresh token in body) | — | token unconsumed, session live; reuse of a consumed token ⇒ revoke the whole session family + alert | 30/h d | no | US-1 AC-1.4 |
 | GET | /v1/sessions | My active sessions (client label, country, last seen, `is_current`) | ses | user | `account_id` = caller | 30/min u | yes | AC-1.4 |
 | DELETE | /v1/sessions/{id} | Revoke one session (+ its widget token) | ses | user | session of caller | 30/h u | yes | AC-1.4 |
@@ -142,15 +142,29 @@ is never reachable whatever its handle; a non-seed handle or an unseeded databas
 `ACCOUNT_SUSPENDED`, unknown fields → 400. Documented in OpenAPI (tag `dev`) so the TS client has the types.
 
 `POST /v1/auth/email/start` (T-22, none, limits `auth.email.start` 5/15 min per IP + `auth.email.start.email` 5/15 min per
-hashed email, both fail closed) `{email, code_challenge, code_challenge_method?: "S256"}` → **202, empty body** for every
-well-formed request; malformed email/challenge or extra fields → 400 `VALIDATION_FAILED`; over a limit → 429 `RATE_LIMITED` (same
-body for existing and unknown emails). The handler never looks up the account: it stores one `magic_links` row (token SHA-256,
-PKCE challenge, 15 min) and enqueues one `identity.magic_link.send` job (payload = link id only) in the same transaction, so
-response and latency do not depend on whether the email exists or on the mail provider. The job sends
-`{API_MAGIC_LINK_URL}#token=<43-char token>` (fragment: never sent to the web host) and clears the encrypted delivery data. Mail
-port: `API_MAIL_TRANSPORT` = `none` (default) | `smtp` (Mailpit, local only) | `postmark` (`API_POSTMARK_SERVER_TOKEN`; adapter
-written against Postmark's documented API, not yet run against the real service). Verify (in-app confirm with the PKCE verifier)
-is T-23.
+hashed email, both fail closed) `{email, code_challenge, code_challenge_method?: "S256"}` → **202 `{request_id}`** (a fresh UUID,
+the link's id) for every well-formed request; malformed email/challenge or extra fields → 400 `VALIDATION_FAILED`; over a limit →
+429 `RATE_LIMITED` (same body for existing and unknown emails). The handler never looks up the account: it stores one
+`magic_links` row (token SHA-256, PKCE challenge, 15 min) and enqueues one `identity.magic_link.send` job (payload = link id only)
+in the same transaction, so response and latency do not depend on whether the email exists or on the mail provider. The job
+sends `{API_MAGIC_LINK_URL}#rid=<request_id>&token=<43-char token>` (fragment: never sent to the web host) and clears the
+encrypted delivery data. `API_MAGIC_LINK_URL` is the app's landing route (default `http://localhost:8081/auth/link`, the Expo
+web app; `http://<pc-lan-ip>:8081/auth/link` on the home network, [[ADR-0012-web-sign-up]]); https, `http://localhost`, or
+any http host outside production. Mail port: `API_MAIL_TRANSPORT` = `none` (default) | `smtp` (Mailpit, local only) |
+`postmark` (`API_POSTMARK_SERVER_TOKEN`; adapter written against Postmark's documented API, not yet run against the real
+service).
+
+`POST /v1/auth/email/verify` (T-23, none, limit `auth.email.verify` 10/min per IP, fails closed) `{token, code_verifier,
+device?}` → 200 token pair (same shape and session rules as provider sign-in; audit `auth.sign_in` with `provider: email`,
+`new_account`). The link row is locked; the verifier is checked first (`SHA-256(code_verifier)` = stored S256 challenge,
+constant-time compare), then single use and the 15-minute lifetime; then the email account (`auth_identities` provider
+`email`, subject = hex SHA-256 of the normalized address; the address itself is not stored) is found or created
+(`pending_age`, onboarding session, region signals from the trusted edge) and the link is marked used, in one transaction.
+Unknown token or wrong verifier → the same 401 `MAGIC_LINK_INVALID`, and a wrong verifier does not use the link up (a
+forwarded copy cannot spoil the real one); expired → 410 `MAGIC_LINK_EXPIRED`; already used → 410 `MAGIC_LINK_USED` (both
+only after the verifier matched); suspended/banned → 403 `ACCOUNT_SUSPENDED` (the link is used); malformed token (not 43
+base64url characters) or verifier (not RFC 7636) or unknown fields → 400. Never linked to an Apple/Google account with the
+same address (AC-1.3). Tests: `tests/api/magic_link.rs`.
 
 `POST /v1/auth/google` `{id_token, nonce, device?}`: same contract, limit and errors as Apple, with the same nonce scheme (the
 app gives Google `hex SHA-256(nonce)` as the sign-in nonce). `iss` = `https://accounts.google.com` or `accounts.google.com`,
@@ -1017,9 +1031,10 @@ on `code`); `requestId` equals the `X-Request-Id` response header. Generic codes
 | HTTP | Codes |
 |---|---|
 | 400/422 | `VALIDATION_FAILED` (with `errors[]` field paths), `UNKNOWN_REGISTRY_ID`, `IDEMPOTENCY_KEY_REUSED` |
-| 401 | `UNAUTHENTICATED`, `SESSION_EXPIRED` (access token: refresh and retry), `SESSION_REVOKED` (refresh reuse, logout everywhere, suspend), `REAUTH_REQUIRED` |
+| 401 | `UNAUTHENTICATED`, `SESSION_EXPIRED` (access token: refresh and retry), `SESSION_REVOKED` (refresh reuse, logout everywhere, suspend), `REAUTH_REQUIRED`, `MAGIC_LINK_INVALID` (unknown link or another device's verifier) |
 | 403 | `ONBOARDING_INCOMPLETE`, `AGE_GATE_REFUSED` (neutral copy), `AGE_ALREADY_SUBMITTED` (DOB locked), `FORBIDDEN` (wrong session kind for the route), `ACCOUNT_SUSPENDED`, `POLICY_DISALLOWED` (e.g. public link < min age), `ATTESTATION_FAILED`, `MFA_REQUIRED` |
 | 404 | `NOT_FOUND` (also for every object-level denial, incl. non-pending/expired board invitations), `INVITE_EXPIRED` (reset, expired or use cap reached) |
+| 410 | `MAGIC_LINK_EXPIRED`, `MAGIC_LINK_USED` (told only to the device holding the link's verifier) |
 | 409 | `ALREADY_FRIENDS`, `HANDLE_TAKEN`, `PIN_VERSION_CONFLICT` / `BOARD_VERSION_CONFLICT`, `IDEMPOTENCY_IN_PROGRESS`, `FRIEND_LIMIT_REACHED`, `BOARD_LIMIT_REACHED`, `PIN_LIMIT_REACHED`, `COLLABORATOR_LIMIT_REACHED` (members + pending invitations), `ALREADY_INVITED`, `CARD_HELD_FOR_REVIEW` (owner pins/links a held card), `APPEAL_ALREADY_FILED` |
 | 413/415 | `MEDIA_TOO_LARGE` (uploads), `PAYLOAD_TOO_LARGE` (any other body over the limit), `MEDIA_TYPE_UNSUPPORTED` |
 | 429 | `RATE_LIMITED`, `HANDLE_CHANGE_COOLDOWN`, `EXPORT_COOLDOWN`, `REINVITE_COOLDOWN` (+ `Retry-After`; generic "try later" copy on auth/search) |

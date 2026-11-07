@@ -20,7 +20,8 @@
 # "$ADULT_DOB" = a date of birth 30 years ago, "$NONCE" = a fresh raw nonce, "$APPLE_ID_TOKEN" = an
 # Apple ID token for a new subject and that nonce, signed by the mock JWKS key, "$GOOGLE_ID_TOKEN" = the
 # same for Google, "$HANDLE" = a fresh random valid handle, "$EMAIL" = a fresh address,
-# "$CODE_CHALLENGE" = a fresh PKCE S256 challenge, "$UUID_V7" = a fresh UUIDv7 (client-generated ids).
+# "$CODE_CHALLENGE" = a fresh PKCE S256 challenge (also a well-formed link token or verifier), "$UUID_V7" = a fresh UUIDv7
+# (client-generated ids).
 # `path` (optional) is the concrete path to call when the route has parameters; "$SESSION_ID" = the
 # role's own session id (guest: a random id).
 # `idempotency_key: true` sends a fresh Idempotency-Key with every request (routes that require one).
@@ -56,6 +57,12 @@ routes:
   - route: POST /v1/auth/email/start
     body: { email: $EMAIL, code_challenge: $CODE_CHALLENGE }
     expect: { guest: 202, onboarding_age: 202, onboarding_profile: 202, user: 202, suspended: 202 }
+
+  # T-23: a random token with a random verifier is an unknown link for every caller (bearer tokens
+  # are ignored). Valid links, expiry, reuse and other-device verifiers: tests/api/magic_link.rs.
+  - route: POST /v1/auth/email/verify
+    body: { token: $CODE_CHALLENGE, code_verifier: $CODE_CHALLENGE }
+    expect: { guest: 401, onboarding_age: 401, onboarding_profile: 401, user: 401, suspended: 401 }
 
   # T-26: a proof for a new subject is never the caller's own account (401). Own proofs, replays,
   # expiry and the `re` check are in tests/api/reauth.rs.

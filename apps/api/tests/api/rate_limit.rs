@@ -133,6 +133,7 @@ fn fail_closed_limits_are_the_reviewed_set() {
         "auth.dev",
         "auth.email.start",
         "auth.email.start.email",
+        "auth.email.verify",
         "auth.reauth",
         "auth.signin",
         "friend_requests.create",

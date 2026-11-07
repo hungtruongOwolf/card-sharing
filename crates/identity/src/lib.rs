@@ -29,8 +29,8 @@ pub use age_gate::{AgeGateError, AgeOutcome, AgeSubmission, age_on};
 pub use age_service::{AgeError, AgeService, AgeStatus, OsAgeSignal, OsAgeSource};
 pub use attestation::{AttestationOutcome, AttestationService, AttestationStoreError, Challenge};
 pub use magic_link::{
-    DeliveryError, MAGIC_LINK_JOB, MagicLinkError, MagicLinkJob, MagicLinkTemplate, email_hash,
-    normalize_email,
+    DeliveryError, LinkSignInError, MAGIC_LINK_JOB, MagicLinkError, MagicLinkJob,
+    MagicLinkTemplate, email_hash, normalize_email, valid_code_verifier, valid_link_token,
 };
 pub use model::{AccountStatus, RegionSignals, SessionScope, UnknownValue};
 pub use personal_data::IdentityPersonalData;

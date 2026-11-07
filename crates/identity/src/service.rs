@@ -269,37 +269,15 @@ impl IdentityService {
             return Ok((account_id, false));
         }
         let now = self.clock.now();
-        let account_id = new_id();
         let mut tx = self.pool.begin().await?;
-        sqlx::query(
-            "INSERT INTO identity.accounts (id, status, region_signals, created_at, updated_at)
-             VALUES ($1, 'pending_age', $3, $2, $2)",
-        )
-        .bind(account_id)
-        .bind(now)
-        .bind(sqlx::types::Json(signals))
-        .execute(&mut *tx)
-        .await?;
-        let inserted = sqlx::query(
-            "INSERT INTO identity.auth_identities (id, account_id, provider, subject, email, created_at)
-             VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (provider, subject) DO NOTHING",
-        )
-        .bind(new_id())
-        .bind(account_id)
-        .bind(identity.provider.as_str())
-        .bind(&identity.subject)
-        .bind(identity.email.as_deref())
-        .bind(now)
-        .execute(&mut *tx)
-        .await?;
-        if inserted.rows_affected() == 0 {
+        let Some(account_id) = insert_account(&mut tx, identity, signals, now).await? else {
             // A concurrent first sign-in won the race: drop ours and use theirs.
             tx.rollback().await?;
             let existing = self.find_account(identity).await?;
             return existing
                 .map(|id| (id, false))
                 .ok_or_else(|| StoreError::Corrupt("identity vanished during sign-in".to_owned()));
-        }
+        };
         tx.commit().await?;
         Ok((account_id, true))
     }
@@ -760,6 +738,39 @@ impl IdentityService {
 
 fn corrupt(err: crate::model::UnknownValue) -> AccessError {
     AccessError::Store(StoreError::Corrupt(err.to_string()))
+}
+
+/// Inserts a new account (status `pending_age`) and its identity in `tx`. `None` when the identity
+/// already exists (a concurrent first sign-in won): the caller rolls back and uses that account.
+pub(crate) async fn insert_account(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    identity: &VerifiedIdentity,
+    signals: &RegionSignals,
+    now: OffsetDateTime,
+) -> Result<Option<Uuid>, sqlx::Error> {
+    let account_id = new_id();
+    sqlx::query(
+        "INSERT INTO identity.accounts (id, status, region_signals, created_at, updated_at)
+         VALUES ($1, 'pending_age', $3, $2, $2)",
+    )
+    .bind(account_id)
+    .bind(now)
+    .bind(sqlx::types::Json(signals))
+    .execute(&mut **tx)
+    .await?;
+    let inserted = sqlx::query(
+        "INSERT INTO identity.auth_identities (id, account_id, provider, subject, email, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (provider, subject) DO NOTHING",
+    )
+    .bind(new_id())
+    .bind(account_id)
+    .bind(identity.provider.as_str())
+    .bind(&identity.subject)
+    .bind(identity.email.as_deref())
+    .bind(now)
+    .execute(&mut **tx)
+    .await?;
+    Ok((inserted.rows_affected() == 1).then_some(account_id))
 }
 
 async fn insert_refresh_token(
