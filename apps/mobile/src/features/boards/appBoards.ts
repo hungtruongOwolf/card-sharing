@@ -66,7 +66,11 @@ export function usePublicLinks(): { api: PublicLinksApi; prefs: PublicLinkPrefs 
   const client = useAuthClient();
   return useMemo(() => {
     linkPrefs ??= createPublicLinkPrefs();
-    return { api: createPublicLinksApi(client.fetch), prefs: linkPrefs };
+    // Development builds talk to the local stack, whose share pages are plain http on the LAN (B3).
+    return {
+      api: createPublicLinksApi(client.fetch, { allowLocalHttp: __DEV__ }),
+      prefs: linkPrefs,
+    };
   }, [client]);
 }
 

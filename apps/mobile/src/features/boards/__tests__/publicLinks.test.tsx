@@ -110,9 +110,57 @@ describe('public links api (T-129 contract)', () => {
       'javascript:alert(1)',
       'http://share.example/b/3q2-7wAAAAAAAAAAAAAAAA',
       'https://x/y',
+      'https://share.example@evil.example/b/3q2-7wAAAAAAAAAAAAAAAA',
+      'https://share.example/b/3q2-7wAAAAAAAAAAAAAAAA?next=x',
     ]) {
       expect(parseCreated(body(bad))).toBeNull();
     }
+  });
+
+  it('accepts the local stack plain-http share page in development builds only (B3)', () => {
+    const body = (url: string) => ({
+      link: {
+        id: LINK,
+        board_id: BOARD,
+        created_at: '2026-11-06T00:00:00Z',
+        expires_at: '2026-11-07T00:00:00Z',
+        url,
+        url_already_shown: false,
+      },
+    });
+    for (const local of [
+      'http://localhost:3000/b/3q2-7wAAAAAAAAAAAAAAAA',
+      'http://192.168.1.20:3000/b/3q2-7wAAAAAAAAAAAAAAAA',
+    ]) {
+      expect(parseCreated(body(local), true)?.url).toBe(local);
+      expect(parseCreated(body(local))).toBeNull();
+    }
+    // A public host stays https-only even in development.
+    expect(parseCreated(body('http://share.example/b/3q2-7wAAAAAAAAAAAAAAAA'), true)).toBeNull();
+  });
+
+  it('shows the URL of a link the local stack created (201, http base) instead of failing', async () => {
+    const url = 'http://localhost:3000/b/3q2-7wAAAAAAAAAAAAAAAA';
+    const created = {
+      link: {
+        id: LINK,
+        board_id: BOARD,
+        created_at: '2026-11-06T00:00:00Z',
+        expires_at: '2026-11-07T00:00:00Z',
+        url,
+        url_already_shown: false,
+      },
+    };
+    const devApi = createPublicLinksApi(async () => json(201, created), { allowLocalHttp: true });
+    await expect(devApi.create(BOARD, '24h', 'k')).resolves.toMatchObject({
+      id: LINK,
+      url,
+      urlAlreadyShown: false,
+    });
+    const releaseApi = createPublicLinksApi(async () => json(201, created));
+    await expect(releaseApi.create(BOARD, '24h', 'k')).rejects.toMatchObject({
+      kind: 'unavailable',
+    });
   });
 });
 
