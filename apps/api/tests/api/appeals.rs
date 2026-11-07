@@ -122,7 +122,10 @@ async fn only_the_owner_of_a_held_card_can_appeal() {
     // A note longer than 500 characters.
     let long = appeal(&env, &s.sender, s.card, &json!({"note": "x".repeat(501)})).await;
     assert_eq!(long.status(), StatusCode::BAD_REQUEST);
-    assert_eq!(hold_status(&env, s.card).await, "held");
+    // None of the refused calls filed an appeal. Not `== "held"`: `expire_holds` is global and the
+    // expiry test, running concurrently on the same database with its clock 31 days ahead, may
+    // expire this hold too (#361).
+    assert_ne!(hold_status(&env, s.card).await, "appealed");
 }
 
 #[tokio::test]
