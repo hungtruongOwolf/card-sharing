@@ -14,12 +14,15 @@ import { deviceFeedCache, deviceSeenStore, PurgeSync } from '../features/feed';
 import { TimeZoneSync, useNotificationsApi } from '../features/notifications';
 import { createAppOutbox, deviceOutboxStore, OutboxProvider } from '../features/outbox';
 import {
+  captureLaunchLink,
   createAppOnboardingDeps,
   ErrorScreen,
   GuardedStack,
+  IntendedLinkProvider,
   LoadingScreen,
   OnboardingProvider,
-  useIntendedLink,
+  useIntendedLinkState,
+  useMagicLinkLanding,
   useOnboarding,
 } from '../features/onboarding';
 import { deviceExportStore } from '../features/privacy';
@@ -28,6 +31,10 @@ import { useCardsApi } from '../features/sharing';
 import { createWidgetTokenApi, deviceWidgetTokenStore, WidgetTokenSync } from '../features/widget';
 import { deviceSyncedTimeZoneStore } from '../features/notifications/syncedTimeZone';
 import { ThemeProvider, ToastProvider, useBrandFonts, useTheme } from '../ui';
+
+// Web: a magic link's token is read from the URL fragment before the router renders, then removed from the address
+// bar (ADR-0012). A no-op elsewhere.
+captureLaunchLink();
 
 /** Purge instructions for cached friends' cards (T-83), checked only while signed in. */
 function CardPurges() {
@@ -52,7 +59,8 @@ function PhaseStack() {
   const theme = useTheme();
   const { phase } = useOnboarding();
   // Before any early return: the link the app was opened at must be read while the phase is still loading.
-  const returnTo = useIntendedLink(phase);
+  const { returnTo, pending } = useIntendedLinkState(phase);
+  const magicLinkLanding = useMagicLinkLanding(phase);
   if (phase === 'loading') return <LoadingScreen />;
   if (phase === 'error') return <ErrorScreen />;
   return (
@@ -65,11 +73,14 @@ function PhaseStack() {
           <WidgetToken />
         </>
       ) : null}
-      <GuardedStack
-        phase={phase}
-        returnTo={returnTo}
-        contentStyle={{ backgroundColor: theme.color.bg.canvas }}
-      />
+      <IntendedLinkProvider value={pending}>
+        <GuardedStack
+          phase={phase}
+          returnTo={returnTo}
+          magicLinkLanding={magicLinkLanding}
+          contentStyle={{ backgroundColor: theme.color.bg.canvas }}
+        />
+      </IntendedLinkProvider>
     </>
   );
 }

@@ -11,8 +11,21 @@
  * boundary (the injected `fetch`), the same seam MSW would use.
  */
 
+import { pkceChallenge } from '../features/auth/pkce';
+
 const ACCESS_TTL_MS = 10 * 60_000;
 const REFRESH_GRACE_MS = 30_000;
+const MAGIC_LINK_TTL_MS = 15 * 60_000;
+
+/** A link `POST /v1/auth/email/start` "emailed" (crates/identity/src/magic_link.rs, ADR-0012). */
+export interface FakeMagicLink {
+  readonly requestId: string;
+  readonly token: string;
+  readonly email: string;
+  readonly challenge: string;
+  readonly createdAt: number;
+  used: boolean;
+}
 
 interface RefreshToken {
   token: string;
@@ -80,6 +93,14 @@ export class FakeAuthServer {
    * development sign-in, so `/v1/dev/*` answers 404 like staging and production.
    */
   devSeedHandles: Set<string> | null = null;
+  /** Magic links sent, newest last. */
+  readonly magicLinks: FakeMagicLink[] = [];
+  /** Emails with an account (`POST /v1/auth/email/verify` signs them in without an invite code). */
+  readonly emailAccounts = new Set<string>();
+  /** The sign-up gate (`config/signup.yaml` `invites.required`). */
+  inviteRequired = false;
+  /** Invite codes the gate accepts (canonical, without dashes), each with uses left. */
+  readonly inviteCodes = new Map<string, number>();
 
   private families: Family[] = [];
   private counter = 0;
@@ -110,6 +131,13 @@ export class FakeAuthServer {
     };
     this.families.push(family);
     return this.pair(family);
+  }
+
+  /** The newest link sent to `email`. */
+  linkFor(email: string): FakeMagicLink {
+    const link = [...this.magicLinks].reverse().find((l) => l.email === email);
+    if (!link) throw new Error(`no magic link for ${email}`);
+    return link;
   }
 
   /** The server forgets every session (e.g. the account was deleted): their tokens become unknown. */
@@ -178,6 +206,9 @@ export class FakeAuthServer {
       }
       return json(this.issue());
     }
+
+    if (method === 'POST' && path === '/v1/auth/email/start') return this.startMagicLink(body);
+    if (method === 'POST' && path === '/v1/auth/email/verify') return this.verifyMagicLink(body);
 
     if (path.startsWith('/v1/dev/')) {
       if (!this.devSeedHandles) return problem(404, 'NOT_FOUND');
@@ -264,6 +295,50 @@ export class FakeAuthServer {
     if (family.revoked) return problem(401, 'SESSION_REVOKED');
     if (this.nowMs >= family.accessExpiresAt) return problem(401, 'SESSION_EXPIRED');
     return family;
+  }
+
+  private startMagicLink(body: unknown): Response {
+    const b = body as { email?: unknown; code_challenge?: unknown } | undefined;
+    if (
+      typeof b?.email !== 'string' ||
+      !b.email.includes('@') ||
+      typeof b.code_challenge !== 'string'
+    ) {
+      return problem(400, 'VALIDATION_FAILED');
+    }
+    this.counter += 1;
+    const n = String(this.counter).padStart(12, '0');
+    const link: FakeMagicLink = {
+      requestId: `00000000-0000-4000-9000-${n}`,
+      token: `tok${n}`.padEnd(43, 'x'),
+      email: b.email.trim().toLowerCase(),
+      challenge: b.code_challenge,
+      createdAt: this.nowMs,
+      used: false,
+    };
+    this.magicLinks.push(link);
+    return json({ request_id: link.requestId }, 202);
+  }
+
+  private verifyMagicLink(body: unknown): Response {
+    const b = body as
+      { token?: unknown; code_verifier?: unknown; invite_code?: unknown } | undefined;
+    const link = this.magicLinks.find((l) => l.token === b?.token);
+    const verifier = typeof b?.code_verifier === 'string' ? b.code_verifier : '';
+    if (!link || pkceChallenge(verifier) !== link.challenge)
+      return problem(401, 'MAGIC_LINK_INVALID');
+    if (link.used) return problem(410, 'MAGIC_LINK_USED');
+    if (this.nowMs - link.createdAt >= MAGIC_LINK_TTL_MS) return problem(410, 'MAGIC_LINK_EXPIRED');
+    if (!this.emailAccounts.has(link.email) && this.inviteRequired) {
+      if (typeof b?.invite_code !== 'string') return problem(403, 'INVITE_REQUIRED');
+      const code = b.invite_code.toUpperCase().replace(/[\s-]/g, '');
+      const left = this.inviteCodes.get(code) ?? 0;
+      if (left < 1) return problem(403, 'INVITE_INVALID');
+      this.inviteCodes.set(code, left - 1);
+    }
+    link.used = true;
+    this.emailAccounts.add(link.email);
+    return json(this.issue());
   }
 
   private async refresh(body: unknown): Promise<Response> {

@@ -48,8 +48,12 @@ export class FakeOnboardingServer {
   readonly fetch: typeof fetch = async (input, init) => {
     const response = await this.auth.fetch(input, init);
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-    if (url.endsWith('/v1/auth/apple') || url.endsWith('/v1/auth/google')) {
-      if (response.ok) this.resetAccount(); // the fake signs every provider token into a fresh account
+    if (
+      url.endsWith('/v1/auth/apple') ||
+      url.endsWith('/v1/auth/google') ||
+      url.endsWith('/v1/auth/email/verify')
+    ) {
+      if (response.ok) this.resetAccount(); // the fake signs every sign-in into a fresh account
     }
     return response;
   };

@@ -325,6 +325,13 @@ jobs:
         options: >-
           --health-cmd "valkey-cli ping"
           --health-interval 5s --health-timeout 3s --health-retries 10
+      # Catches the sign-in emails (same image as infra/docker-compose.yml); the sign-up specs read them over its API.
+      mailpit:
+        image: axllent/mailpit:v1.33.0
+        ports: ['1025:1025', '8025:8025']
+        options: >-
+          --health-cmd "/mailpit readyz"
+          --health-interval 5s --health-timeout 3s --health-retries 10
     # CI-only values (the zero keys match .env.example); never used outside this job. No RUST* or CARGO* names here:
     # rust-cache hashes those into its key, and this job reuses the rust-test cache.
     env:
@@ -343,7 +350,11 @@ jobs:
       API_AI_EFFECT_PROVIDER: fake
       API_PUSH_SENDER: fake
       API_CAPTCHA_VERIFIER: fake
-      API_MAIL_TRANSPORT: none
+      API_MAIL_TRANSPORT: smtp
+      API_SMTP_HOST: 127.0.0.1
+      API_SMTP_PORT: '1025'
+      API_MAGIC_LINK_URL: http://127.0.0.1:8081/auth/link
+      MAILPIT_URL: http://127.0.0.1:8025
       API_DEV_SIGN_IN: 'true'
       API_LOG_FORMAT: json
       EXPO_PUBLIC_API_URL: http://127.0.0.1:8080
@@ -374,6 +385,13 @@ jobs:
           target/debug/api seed > seed.txt
           head -n 1 seed.txt
           rm seed.txt
+      # config/signup.yaml gates sign-up behind invite codes; the sign-up specs use this one (masked in the log).
+      - name: Mint an invite code for the sign-up specs
+        run: |
+          code=$(target/debug/api invites create --label e2e --uses 20 --days 1 | grep -oE '[0-9A-Z]{4}-[0-9A-Z]{4}-[0-9A-Z]{4}' | head -n 1)
+          test -n "$code"
+          echo "::add-mask::$code"
+          echo "E2E_INVITE_CODE=$code" >> "$GITHUB_ENV"
       - name: Start the API and the job worker
         env:
           RUST_LOG: info,api=debug,tower_http=info

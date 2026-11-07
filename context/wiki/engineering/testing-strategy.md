@@ -66,6 +66,13 @@ Browser E2E (implemented, sprint 10 phase 0, [[sprint-10]]):
   and a test that needed it is reported flaky and fixed within the sprint.
 - The web cutout segmenter downloads a ~115 MB model, so CI swaps that one module worker for a stand-in speaking the
   same protocol (`support/cutout.ts`, an ellipse matte); the rest of the cutout pipeline runs unchanged.
+- Real sign-up (sprint 10 phase 2, `tests/signup.spec.ts`): a new user asks for a magic link, the CI job's **Mailpit**
+  service (same image as `infra/docker-compose.yml`, `API_MAIL_TRANSPORT=smtp`, `API_MAGIC_LINK_URL` on the Metro
+  origin) catches the email and `support/mailpit.ts` reads the link over Mailpit's HTTP API; the link opens in a second
+  tab of the same browser, a wrong invite code is refused, the code the job minted with `api invites create` (masked,
+  `E2E_INVITE_CODE`) signs up, onboarding finishes and the user sends alice a friend request by handle. A second spec
+  checks a link opened in another browser and an expired link (the stored request is aged in `localStorage`). Each run
+  uses fresh addresses and at most two links, inside `auth.email.start` (5 per 15 minutes per IP) even with a retry.
 - A test blocked by a known bug is `test.fixme` with the bug id first in its title (e.g. `B1: ...`); the fix's PR
   enables it. Run locally against a running stack and web app: `E2E_BASE_URL=http://127.0.0.1:8081 pnpm --filter
   @card-sharing/e2e-web run e2e` (install the browser once with `run install-browser`).

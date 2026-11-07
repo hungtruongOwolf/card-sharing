@@ -182,6 +182,21 @@ code, detail provider). Codes are minted only by staff on the command line: `api
 `auth.invite_code_created` / `auth.invite_code_revoked`. Friend invite links do not grant sign-up (ADR-0012). Tests:
 `tests/api/invite_codes.rs`.
 
+App side (sprint 10 phase 2, web first, native-compatible): the sign-in screen asks for an email first
+(`EmailSignInSection`; `?invite=<code>` on `/onboarding/sign-in` prefills the invite code), then shows "Check your email".
+`features/onboarding/magicLink.ts` makes the PKCE pair (`features/auth/pkce.ts`: own SHA-256, because `crypto.subtle` is
+missing on `http://<pc-lan-ip>`; randomness only from `crypto.getRandomValues`, else email sign-in is unavailable) and keeps
+`{verifier, createdAt, inviteCode?, returnTo?}` in the secure store under `cs.magiclink.v1.<request_id>` (`localStorage`
+on the web), at most 5 records, 15 minutes valid, deleted after use or a final refusal. The link opens the landing route
+`/auth/link` (guarded to the sign-in phase): the root layout reads `#rid&token` once at start-up and removes it from the
+address bar (`captureLaunchLink`); `MagicLinkScreen` looks the request up (missing → "open it where you asked", stale →
+"expired", both without a server call), asks the user to confirm (AC-1.3), then calls `AuthClient.signInWithMagicLink`.
+`INVITE_REQUIRED` / `INVITE_INVALID` show the invite-code field and retry the same link; `MAGIC_LINK_EXPIRED` / `_USED` /
+`_INVALID` / `ACCOUNT_SUSPENDED` show a final state with "Ask for a new link". The link the user started from (`returnTo`,
+e.g. `/i/<token>`) is handed to the new tab's intended-link tracker (`usePendingLink().remember`, only the app's own
+signed-in routes, `isReturnableHref`), so after onboarding it opens there. Tests: `features/auth/__tests__/pkce.test.ts`,
+`features/onboarding/__tests__/magicLink*.test.ts*`, E2E `e2e/web/tests/signup.spec.ts`.
+
 `POST /v1/auth/google` `{id_token, nonce, device?}`: same contract, limit and errors as Apple, with the same nonce scheme (the
 app gives Google `hex SHA-256(nonce)` as the sign-in nonce). `iss` = `https://accounts.google.com` or `accounts.google.com`,
 `aud` ∈ `API_GOOGLE_CLIENT_IDS` (a token issued for another client id → 401), keys from Google's cached JWKS

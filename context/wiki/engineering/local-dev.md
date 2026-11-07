@@ -193,6 +193,14 @@ Restart `pnpm dev:api` after a change: links already shown keep the old base. `A
 `http://localhost:8081/auth/link` (the Expo web app); plain http to a LAN address is accepted outside production. Sign-in
 emails land in Mailpit (`http://127.0.0.1:8025`) while `API_MAIL_TRANSPORT=smtp`.
 
+### Sign up on the web with an email link (sprint 10, [[ADR-0012-web-sign-up]])
+With `API_MAIL_TRANSPORT=smtp` the sign-in emails land in Mailpit (`http://127.0.0.1:8025`). On the sign-in screen type an
+address, "Email me a sign-in link", open the email in Mailpit and click the link **in the same browser** (it opens a new
+tab): "Continue", then the invite code if the address has no account yet, then onboarding. A link opened in another
+browser or device, after 15 minutes or a second time does not sign in. For testers on the home network, set
+`API_MAGIC_LINK_URL=http://<pc-lan-ip>:8081/auth/link` (table above); real delivery needs the mail provider (Postmark)
+configured by the EM (`API_MAIL_TRANSPORT=postmark`, `API_POSTMARK_SERVER_TOKEN`, `API_MAIL_FROM`).
+
 ### Invite codes for testers (sprint 10, [[ADR-0012-web-sign-up]])
 Sign-up needs an invite code while `config/signup.yaml` has `invites.required: true` (existing accounts and the seed
 users are not affected). Mint one per tester: `cargo run -p api -- invites create --label "<who>" --uses 1 --days 14`

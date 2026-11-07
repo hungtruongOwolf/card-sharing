@@ -21,6 +21,13 @@ import { RefusedScreen } from '../features/onboarding/screens/RefusedScreen';
 import { SignInScreen } from '../features/onboarding/screens/SignInScreen';
 import { ErrorScreen, LoadingScreen } from '../features/onboarding/screens/StatusScreens';
 import type { DevSignIn } from '../features/onboarding/devSignIn';
+import {
+  createMagicLinkSignIn,
+  type LinkFragment,
+  type MagicLinkKeyValue,
+  type MagicLinkSignIn,
+} from '../features/onboarding/magicLink';
+import { MagicLinkScreen } from '../features/onboarding/screens/MagicLinkScreen';
 import type { IdTokenCredential, SignInProvider } from '../features/onboarding/signInProviders';
 import { DeletionPendingScreen } from '../features/privacy/DeletionPendingScreen';
 import { createPrivacyApi } from '../features/privacy/privacyApi';
@@ -88,9 +95,47 @@ export function fakeProvider(
   };
 }
 
+/** In-memory key-value store for the magic-link records (the secure store has its own tests). */
+export function memoryKeyValue(): MagicLinkKeyValue & { items: Map<string, string> } {
+  const items = new Map<string, string>();
+  return {
+    items,
+    getItem: async (key) => items.get(key) ?? null,
+    setItem: async (key, value) => {
+      items.set(key, value);
+    },
+    deleteItem: async (key) => {
+      items.delete(key);
+    },
+  };
+}
+
+/** Deterministic randomness for PKCE verifiers in tests (never used by the app). */
+export function testRandom(): (bytes: Uint8Array) => Uint8Array {
+  let next = 1;
+  return (bytes) => {
+    for (let i = 0; i < bytes.length; i++) bytes[i] = (next++ * 37) & 0xff;
+    return bytes;
+  };
+}
+
+interface LandingProps {
+  /** Render the magic-link landing screen (`/auth/link`) instead of the sign-in screen. */
+  landing?: LinkFragment | null;
+  onContinueAt?: (href: string) => void;
+  onRestart?: () => void;
+  inviteCode?: string;
+}
+
 /** Same phase → screen mapping as the guarded stack in src/app/_layout.tsx, without the native navigator. */
-function PhaseSwitch({ onPhase }: { onPhase?: (phase: OnboardingPhase) => void }) {
-  const { phase, refreshAccount } = useOnboarding();
+function PhaseSwitch({
+  onPhase,
+  landing,
+  onContinueAt = () => undefined,
+  onRestart = () => undefined,
+  inviteCode,
+}: { onPhase?: (phase: OnboardingPhase) => void } & LandingProps) {
+  const { phase, refreshAccount, magicLink } = useOnboarding();
   const authClient = useAuthClient();
   useEffect(() => {
     onPhase?.(phase);
@@ -101,7 +146,16 @@ function PhaseSwitch({ onPhase }: { onPhase?: (phase: OnboardingPhase) => void }
     case 'error':
       return <ErrorScreen />;
     case 'signIn':
-      return <SignInScreen />;
+      return landing !== undefined ? (
+        <MagicLinkScreen
+          link={landing}
+          magicLink={magicLink}
+          onContinueAt={onContinueAt}
+          onRestart={onRestart}
+        />
+      ) : (
+        <SignInScreen inviteCode={inviteCode} />
+      );
     case 'refused':
       return <RefusedScreen />;
     case 'birthDate':
@@ -133,15 +187,27 @@ interface Options {
   devSignIn?: ((authClient: AuthClient) => DevSignIn) | null;
   /** Hears every phase the app goes through, in order. */
   onPhase?: (phase: OnboardingPhase) => void;
+  /** Magic-link records (shared between renders to play "the link opens in a new tab"). */
+  magicLinkStore?: MagicLinkKeyValue;
+  /** Builds the magic-link sign-in; defaults to one over the fake server and `magicLinkStore`. */
+  magicLink?: ((authClient: AuthClient) => MagicLinkSignIn) | null;
 }
 
-export async function renderOnboarding(server: FakeOnboardingServer, options: Options = {}) {
+export async function renderOnboarding(
+  server: FakeOnboardingServer,
+  options: Options & LandingProps = {},
+) {
   const {
     signedIn = false,
     camera = fakeCamera(),
     providers = [fakeProvider('apple')],
     devSignIn = null,
     onPhase,
+    magicLinkStore = memoryKeyValue(),
+    landing,
+    onContinueAt,
+    onRestart,
+    inviteCode,
   } = options;
   const store = memoryStore(signedIn ? sessionFromTokenPair(server.auth.issue()) : null);
   const authClient: AuthClient = createAuthClient({
@@ -161,12 +227,31 @@ export async function renderOnboarding(server: FakeOnboardingServer, options: Op
           api={createOnboardingApi(authClient.fetch)}
           signInProviders={providers}
           devSignIn={devSignIn ? devSignIn(authClient) : null}
+          magicLink={
+            options.magicLink === null
+              ? null
+              : (options.magicLink?.(authClient) ??
+                createMagicLinkSignIn({
+                  baseUrl: () => server.baseUrl,
+                  authClient,
+                  store: magicLinkStore,
+                  fetch: server.fetch,
+                  now: server.now,
+                  random: testRandom(),
+                }))
+          }
           camera={camera}
         >
-          <PhaseSwitch onPhase={onPhase} />
+          <PhaseSwitch
+            onPhase={onPhase}
+            landing={landing}
+            onContinueAt={onContinueAt}
+            onRestart={onRestart}
+            inviteCode={inviteCode}
+          />
         </OnboardingProvider>
       </AuthProvider>
     </QueryClientProvider>,
   );
-  return { ...result, authClient, store, camera, queryClient };
+  return { ...result, authClient, store, camera, queryClient, magicLinkStore };
 }

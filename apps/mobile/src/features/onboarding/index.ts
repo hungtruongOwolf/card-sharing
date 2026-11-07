@@ -4,6 +4,7 @@ import type { CameraPermissions } from './cameraPermissions';
 import { createExpoCameraPermissions } from './expoCameraPermissions';
 import { createOnboardingApi, type OnboardingApi } from './onboardingApi';
 import { createDevSignIn, type DevSignIn } from './devSignIn';
+import { createMagicLinkSignIn, type MagicLinkSignIn } from './magicLink';
 import { createAppSignInProviders, type SignInProvider } from './signInProviders';
 
 export type { CameraPermissions, CameraPermissionStatus } from './cameraPermissions';
@@ -11,8 +12,31 @@ export { createDevSignIn, DevSignInError, type DevSignIn, type SeedUser } from '
 export { createExpoCameraPermissions } from './expoCameraPermissions';
 export { OnboardingProvider, useOnboarding } from './OnboardingProvider';
 export type { OnboardingPhase } from './phase';
-export { GuardedStack, useIntendedLink } from './GuardedStack';
-export { intendedHref, PHASE_ROUTES, trackIntendedLink, type RoutedPhase } from './phaseRoutes';
+export {
+  GuardedStack,
+  IntendedLinkProvider,
+  useIntendedLink,
+  useIntendedLinkState,
+  usePendingLink,
+  type PendingLink,
+} from './GuardedStack';
+export {
+  intendedHref,
+  isReturnableHref,
+  LINK_ONLY_ROUTES,
+  PHASE_ROUTES,
+  trackIntendedLink,
+  type RoutedPhase,
+} from './phaseRoutes';
+export { captureLaunchLink, useMagicLinkFragment, useMagicLinkLanding } from './launchLink';
+export {
+  createMagicLinkSignIn,
+  parseLinkFragment,
+  type LinkFragment,
+  type LinkOutcome,
+  type MagicLinkSignIn,
+} from './magicLink';
+export { MagicLinkScreen } from './screens/MagicLinkScreen';
 export { BirthDateScreen } from './screens/BirthDateScreen';
 export { CameraPermissionScreen } from './screens/CameraPermissionScreen';
 export { DisplayNameScreen } from './screens/DisplayNameScreen';
@@ -26,6 +50,8 @@ export interface OnboardingDeps {
   signInProviders: readonly SignInProvider[];
   /** Development builds only (#306); null in release builds. */
   devSignIn: DevSignIn | null;
+  /** Email magic-link sign-in (ADR-0012). */
+  magicLink: MagicLinkSignIn;
   camera: CameraPermissions;
 }
 
@@ -35,6 +61,7 @@ export function createAppOnboardingDeps(authClient: AuthClient): OnboardingDeps 
     api: createOnboardingApi(authClient.fetch),
     signInProviders: createAppSignInProviders(),
     devSignIn: __DEV__ ? createDevSignIn({ baseUrl: apiBaseUrl, authClient }) : null,
+    magicLink: createMagicLinkSignIn({ baseUrl: apiBaseUrl, authClient }),
     camera: createExpoCameraPermissions(),
   };
 }

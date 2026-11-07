@@ -11,6 +11,10 @@ import { mountPhoneFrame, shouldFrame, topLevel } from './src/platform/web/phone
 if (shouldFrame(topLevel(window))) {
   // Desktop: draw the phone frame; the app runs inside it (src/platform/web/phoneFrame.ts).
   mountPhoneFrame(document, window, window.location.href, t('app.name'));
+  // A magic link's token now lives in the frame's URL only; keep it out of the address bar (ADR-0012).
+  if (/^\/auth\/link\/?$/.test(window.location.pathname) && window.location.hash) {
+    window.history.replaceState(window.history.state, '', window.location.pathname);
+  }
 } else {
   // React Native Skia on web needs CanvasKit before any Skia module is evaluated, so the app (whose routes
   // import Skia) is required only once it has loaded. scripts/copy-canvaskit.mjs puts the WASM in public/.
