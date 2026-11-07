@@ -340,3 +340,7 @@ Source: raw/discussions/2026-11-07-web-mvp-direction.md. See [[sprint-10]].
   Web E2E (Playwright); documented in [[testing-strategy]], phase 0 row in [[sprint-10]].
 - Why: the EM wants every merge that touches the core loop gated by a real browser run. Tests blocked by the app
   lane's open bugs (B1, R1, B5, B3, E1) are `test.fixme` with the bug id in the title until their fixes land.
+## [2026-11-07] decision | live events after the activity row commits (B6)
+- [[ADR-0010-realtime-delivery]] implementation notes and [[api-mvp]] fan-out: `card.delivered`, `card.reply` and a set
+  `card.reaction` are now notified from the activity job's transaction instead of the delivery / reaction transaction.
+- Why: the app refetched activity on the event before the outbox consumer wrote the row (sprint 10 audit bug B6).

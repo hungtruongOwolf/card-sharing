@@ -834,8 +834,10 @@ Frames (`event:` + JSON `data:` with ids only): `ready` `{}` (first frame: refet
 {card_id}` (to each recipient), `card.reply {card_id, reply_to}` (to the original sender), `card.reaction {card_id}` (to the
 card owner on set, change or removal), `resync` `{}` (events may have been missed: the stream lagged or the instance listener
 reconnected), `reconnect {reason: max_age|session|shutdown}` (the server is closing the stream). A `: hb` comment every 25 s.
-Fan-out: the delivery transaction (`CardService::deliver`) and the reaction writes run `pg_notify('rt_events', …)` with
-`{to, type, card_id, reply_to?}` (sent on commit only); each instance holds one `PgListener` and forwards to the streams of
+Fan-out: the transaction that writes the addressee's activity item (`notifications::Activity::record`, the
+`notify.activity` job after delivery or a set reaction) runs `pg_notify('rt_events', …)` with `{to, type, card_id,
+reply_to?}` (sent on commit only, so the app's refetch finds the item, B6); a removed reaction notifies from its own
+transaction; each instance holds one `PgListener` and forwards to the streams of
 `to` only. Limits: 5 open streams per account (`API_EVENTS_MAX_PER_ACCOUNT`, 429 `RATE_LIMITED`), 2000 per instance
 (`API_EVENTS_MAX_PER_INSTANCE`, 503 `SERVER_BUSY` + `Retry-After: 5`), streams close after 30 min, and within 30 s of a
 revoked session or an expired access token (10 min TTL: the client refreshes and reconnects). The browser `EventSource`

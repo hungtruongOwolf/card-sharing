@@ -23,8 +23,9 @@ pub struct Reaction {
     pub updated_at: OffsetDateTime,
 }
 
-/// ADR-0010 `card.reaction` to the card's owner (ids only).
-fn reaction_changed(owner: Uuid, card_id: Uuid) -> RealtimeEvent {
+/// ADR-0010 `card.reaction` to the card's owner (ids only) when a reaction is removed. Set and
+/// changed reactions are announced with the owner's activity item (`notifications::Activity`).
+fn reaction_removed(owner: Uuid, card_id: Uuid) -> RealtimeEvent {
     RealtimeEvent {
         to: owner,
         kind: EventKind::CardReaction,
@@ -63,9 +64,9 @@ impl CardService {
             topic: CARD_REACTED,
             payload: json!({ "card_id": card_id, "owner_id": owner, "reactor_id": viewer }),
         };
+        // ADR-0010: the owner's live `card.reaction` is announced by the activity job once the
+        // owner's activity item is written (B6), so the app's refetch of activity finds it.
         outbox::publish(&mut *tx, &event, now).await?;
-        // ADR-0010: the owner's open app refetches the reactions (ids only).
-        realtime::notify(&mut *tx, &[reaction_changed(owner, card_id)]).await?;
         tx.commit().await?;
         Ok(true)
     }
@@ -94,8 +95,9 @@ impl CardService {
                 .execute(&mut *tx)
                 .await?
                 .rows_affected();
+        // A removal has no activity item: announce it from this transaction (ADR-0010).
         if removed > 0 {
-            realtime::notify(&mut *tx, &[reaction_changed(owner, card_id)]).await?;
+            realtime::notify(&mut *tx, &[reaction_removed(owner, card_id)]).await?;
         }
         tx.commit().await?;
         Ok(true)

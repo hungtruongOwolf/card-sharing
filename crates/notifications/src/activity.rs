@@ -2,18 +2,24 @@
 //! whether or not a push went out (push denied, toggled off, capped, quiet hours). Items carry ids
 //! only; at read time each item is re-checked against the owning module's rule (card still
 //! visible, request still open, still friends), so unfriend, block and delete remove them too.
+//!
+//! The live events of [[ADR-0010-realtime-delivery]] that make the app refetch its activity tab
+//! (`card.delivered`, `card.reply`, `card.reaction` on set) are announced from the transaction that
+//! writes the item (B6): the app's refetch after the event always finds it.
 
 use std::sync::Arc;
 
 use platform::clock::SharedClock;
 use platform::jobs::{ClaimedJob, JobError, JobFuture, JobHandler, Lane, NewJob};
 use platform::outbox::{StoredEvent, Subscriber};
+use platform::realtime::{self, EventKind, RealtimeEvent};
 use serde_json::{Value, json};
 use sqlx::PgPool;
 use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::notify::recipients_of;
+use crate::push::PushKind;
 use crate::tokens::StoreError;
 
 /// Job kind that records activity items.
@@ -45,6 +51,42 @@ fn actor_of(topic: &str, payload: &Value) -> Option<Uuid> {
         .get(key)
         .and_then(Value::as_str)
         .and_then(|s| Uuid::parse_str(s).ok())
+}
+
+/// The ADR-0010 live event (ids only) for an item of `kind` just recorded for `account`: a new
+/// card (`card.reply` with the original's id when the delivery payload names one) or a reaction on
+/// the account's card. Other kinds have no live event.
+fn live_event(
+    kind: PushKind,
+    account: Uuid,
+    subject: Uuid,
+    payload: &Value,
+) -> Option<RealtimeEvent> {
+    match kind {
+        PushKind::CardNew => {
+            let reply_to = payload
+                .get("reply_to_card_id")
+                .and_then(Value::as_str)
+                .and_then(|s| Uuid::parse_str(s).ok());
+            Some(RealtimeEvent {
+                to: account,
+                kind: if reply_to.is_some() {
+                    EventKind::CardReply
+                } else {
+                    EventKind::CardDelivered
+                },
+                card_id: subject,
+                reply_to,
+            })
+        }
+        PushKind::ReactionNew => Some(RealtimeEvent {
+            to: account,
+            kind: EventKind::CardReaction,
+            card_id: subject,
+            reply_to: None,
+        }),
+        _ => None,
+    }
 }
 
 /// Outbox subscriber: one `notify.activity` job per alert-worthy event (default lane).
@@ -113,7 +155,9 @@ impl Activity {
         Self { pool, clock }
     }
 
-    /// Records the items of one event (idempotent per event, account and kind).
+    /// Records the items of one event (idempotent per event, account and kind) and, in the same
+    /// transaction, queues the live event of each new item (sent by Postgres on commit, so it never
+    /// reaches the app before the item is readable; a re-run that inserts nothing sends nothing).
     pub async fn record(
         &self,
         event_id: i64,
@@ -123,6 +167,8 @@ impl Activity {
         let actor = actor_of(topic, payload);
         let now = self.clock.now();
         let mut recorded = 0;
+        let mut live = Vec::new();
+        let mut tx = self.pool.begin().await?;
         for recipient in recipients_of(topic, payload) {
             let kind = recipient.notification.kind();
             if !kind.in_activity() {
@@ -144,10 +190,15 @@ impl Activity {
             .bind(subject)
             .bind(actor)
             .bind(now)
-            .execute(&self.pool)
+            .execute(&mut *tx)
             .await?;
-            recorded += usize::try_from(done.rows_affected()).unwrap_or(0);
+            if done.rows_affected() > 0 {
+                recorded += 1;
+                live.extend(live_event(kind, recipient.account_id, subject, payload));
+            }
         }
+        realtime::notify(&mut *tx, &live).await?;
+        tx.commit().await?;
         Ok(recorded)
     }
 
@@ -295,6 +346,43 @@ mod tests {
                 "social.friend_request_created",
                 &json!({ "recipient_id": a })
             ),
+            None
+        );
+    }
+
+    #[test]
+    fn live_events_name_ids_only_and_follow_the_item_kind() {
+        let (to, card, original) = (Uuid::now_v7(), Uuid::now_v7(), Uuid::now_v7());
+        let delivered = live_event(PushKind::CardNew, to, card, &json!({ "card_id": card }));
+        assert_eq!(
+            delivered,
+            Some(RealtimeEvent {
+                to,
+                kind: EventKind::CardDelivered,
+                card_id: card,
+                reply_to: None,
+            })
+        );
+        let reply = live_event(
+            PushKind::CardNew,
+            to,
+            card,
+            &json!({ "card_id": card, "reply_to_card_id": original }),
+        );
+        assert_eq!(
+            reply,
+            Some(RealtimeEvent {
+                to,
+                kind: EventKind::CardReply,
+                card_id: card,
+                reply_to: Some(original),
+            })
+        );
+        let reaction = live_event(PushKind::ReactionNew, to, card, &json!({}));
+        assert_eq!(reaction.map(|e| e.kind), Some(EventKind::CardReaction));
+        assert_eq!(live_event(PushKind::CardHeld, to, card, &json!({})), None);
+        assert_eq!(
+            live_event(PushKind::FriendRequest, to, card, &json!({})),
             None
         );
     }
