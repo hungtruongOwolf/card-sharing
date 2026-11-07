@@ -41,3 +41,5 @@ suite in CI gates every merge that touches the loop.
 | B9 | minor | Reaction buttons lack selected state for assistive tech | `features/feed/ReactionBar.tsx` |
 | E1 | major | Image export hidden on web (`canShareImages = platform === 'ios'`) | `features/export/cardExport.ts` |
 | D1 | minor | Demo seed clutter (30 duplicate cards, 99+ activity, 26 sessions) | seed / reset script |
+| V1 | major | Story viewer shows an empty card frame on the web: the picture is an `Image` with `flex: 1` inside the frame (`alignItems: 'center'`), so it gets no width (found by the E2E suite) | `features/feed/CardViewerScreen.tsx` |
+| W1 | minor | The web mints a widget token after every sign-in although it has no widget; web sessions have no device id, so device-scoped limits (`widget.token` 20/day, `auth.refresh` 30/h) fall back to the client IP: the E2E run (one IP) gets 429 past 20 sign-ins, and so would testers behind one NAT once hosted | `app/_layout.tsx` (WidgetToken), `config/limits.yaml` |
