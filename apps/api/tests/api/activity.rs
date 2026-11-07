@@ -10,8 +10,9 @@ use http::StatusCode;
 use serde_json::{Value, json};
 use uuid::Uuid;
 
-/// Records every outbox event about `card` into activity, as the job would.
-async fn record_events(env: &TestEnv, card: Uuid) {
+/// Records every outbox event about `card` into activity, as the job would (and so sends the live
+/// events of the new items, ADR-0010).
+pub async fn record_events(env: &TestEnv, card: Uuid) {
     let events: Vec<(i64, String, Value)> = sqlx::query_as(
         "SELECT id, topic, payload FROM platform.outbox_events
          WHERE payload->>'card_id' = $1 ORDER BY id",

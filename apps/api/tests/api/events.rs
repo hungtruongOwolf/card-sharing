@@ -1,10 +1,13 @@
 //! ADR-0010: `GET /v1/events`. Each stream receives only its account's events, as ids; delivery,
-//! replies and reactions are announced from their transactions through `NOTIFY`; streams are
-//! capped per account and end when the session is revoked. The database (and so the NOTIFY
-//! channel) is shared with concurrent tests: every assertion is about this test's own accounts.
+//! replies and set reactions are announced through `NOTIFY` from the transaction that writes the
+//! addressee's activity item (the `notify.activity` job, run here by `record_events`), a removed
+//! reaction from its own transaction; streams are capped per account and end when the session is
+//! revoked. The database (and so the NOTIFY channel) is shared with concurrent tests: every
+//! assertion is about this test's own accounts.
 
 use std::time::Duration;
 
+use crate::activity::record_events;
 use crate::cards_read::deliver_to;
 use crate::cards_send::{clean_media, post_card};
 use crate::common::*;
@@ -126,6 +129,7 @@ async fn deliveries_replies_and_reactions_reach_only_their_addressee_as_ids() {
 
     // Alice sends to Bob: Bob hears `card.delivered` with the id only; Carol hears nothing.
     let card = deliver_to(&env, &alice, &[&bob]).await;
+    record_events(&env, card).await;
     let frame = bob_events.about(card, WAIT).await.unwrap();
     assert_eq!(frame.event, "card.delivered");
     assert_eq!(frame.data, json!({ "card_id": card }));
@@ -146,6 +150,7 @@ async fn deliveries_replies_and_reactions_reach_only_their_addressee_as_ids() {
     )
     .await;
     assert_eq!(response.status(), StatusCode::NO_CONTENT);
+    record_events(&env, card).await;
     let frame = alice_events.about(card, WAIT).await.unwrap();
     assert_eq!(frame.event, "card.reaction");
     assert_eq!(frame.data, json!({ "card_id": card }));
@@ -167,9 +172,92 @@ async fn deliveries_replies_and_reactions_reach_only_their_addressee_as_ids() {
         .evaluate(&env.state.media, reply)
         .await
         .unwrap();
+    record_events(&env, reply).await;
     let frame = alice_events.about(reply, WAIT).await.unwrap();
     assert_eq!(frame.event, "card.reply");
     assert_eq!(frame.data, json!({ "card_id": reply, "reply_to": card }));
+}
+
+/// The subjects of `user`'s visible activity items of type `kind`, newest first.
+async fn activity_subjects(env: &TestEnv, user: &User, kind: &str) -> Vec<Value> {
+    let response = call(env, "GET", "/v1/activity", user, None).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    json_body(response).await["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|item| item["type"] == kind)
+        .map(|item| item["subject_id"].clone())
+        .collect()
+}
+
+/// Waits for the first frame about `card` on `stream` while the outbox events about `card` are
+/// recorded into activity only after a delay (as the outbox relay and the `notify.activity` job
+/// would), and reads `user`'s activity items of type `kind` the moment the frame arrives.
+async fn frame_then_activity(
+    env: &TestEnv,
+    stream: &mut Stream,
+    card: Uuid,
+    user: &User,
+    kind: &str,
+) -> (Frame, Vec<Value>) {
+    let observe = async {
+        let frame = stream.about(card, WAIT).await.unwrap();
+        (frame, activity_subjects(env, user, kind).await)
+    };
+    let record = async {
+        tokio::time::sleep(Duration::from_millis(1500)).await;
+        record_events(env, card).await;
+    };
+    tokio::join!(observe, record).0
+}
+
+/// B6: the app refetches its activity tab on `card.delivered` and `card.reaction`, so the item
+/// must be readable when the event arrives. An event sent from the delivery or reaction
+/// transaction would arrive before the (delayed) activity job and the refetch would miss it.
+#[tokio::test]
+async fn activity_events_arrive_once_the_activity_item_is_readable() {
+    let Some(env) = env_with(RealtimeSettings::default()).await else {
+        return;
+    };
+    let alice = adult(&env).await;
+    let bob = adult(&env).await;
+    make_friends(&env, alice.id, bob.id).await;
+    let mut alice_events = Stream::opened(&env, &alice).await;
+    let mut bob_events = Stream::opened(&env, &bob).await;
+
+    let card = deliver_to(&env, &alice, &[&bob]).await;
+    let (frame, items) = frame_then_activity(&env, &mut bob_events, card, &bob, "card.new").await;
+    assert_eq!(frame.event, "card.delivered");
+    assert_eq!(items, vec![json!(card)]);
+
+    let response = call(
+        &env,
+        "PUT",
+        &format!("/v1/cards/{card}/reaction"),
+        &bob,
+        Some(&json!({ "kind": "react.heart" })),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::NO_CONTENT);
+    let (frame, items) =
+        frame_then_activity(&env, &mut alice_events, card, &alice, "reaction.new").await;
+    assert_eq!(frame.event, "card.reaction");
+    assert_eq!(items, vec![json!(card)]);
+
+    // A removal has no activity item: it is announced from its own transaction, at once.
+    let response = call(
+        &env,
+        "DELETE",
+        &format!("/v1/cards/{card}/reaction"),
+        &bob,
+        None,
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::NO_CONTENT);
+    let frame = alice_events.about(card, WAIT).await.unwrap();
+    assert_eq!(frame.event, "card.reaction");
+    assert_eq!(frame.data, json!({ "card_id": card }));
 }
 
 #[tokio::test]

@@ -334,3 +334,8 @@ EM asked for a complete, working web MVP to validate the idea before UI polish. 
 hidden on web, no real sign-up, URL routing). EM decisions: magic link then Google on web, not hosted yet (home
 network), invite-code gated testers with fake scanners for now, start the browser E2E gate and bug fixes now.
 Source: raw/discussions/2026-11-07-web-mvp-direction.md. See [[sprint-10]].
+
+## [2026-11-07] decision | live events after the activity row commits (B6)
+- [[ADR-0010-realtime-delivery]] implementation notes and [[api-mvp]] fan-out: `card.delivered`, `card.reply` and a set
+  `card.reaction` are now notified from the activity job's transaction instead of the delivery / reaction transaction.
+- Why: the app refetched activity on the event before the outbox consumer wrote the row (sprint 10 audit bug B6).
