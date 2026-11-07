@@ -200,10 +200,13 @@ export class FakeAuthServer {
 
     if (method === 'POST' && path === '/v1/auth/refresh') return this.refresh(body);
     if (method === 'POST' && (path === '/v1/auth/apple' || path === '/v1/auth/google')) {
-      const b = body as { id_token?: unknown; nonce?: unknown } | undefined;
+      const b = body as { id_token?: unknown; nonce?: unknown; invite_code?: unknown } | undefined;
       if (b?.id_token !== 'valid-id-token' || typeof b.nonce !== 'string' || b.nonce.length < 16) {
         return problem(401, 'UNAUTHENTICATED');
       }
+      // The fake signs every provider token into a new account, so the sign-up gate always applies.
+      const refusal = this.inviteRefusal(b.invite_code);
+      if (refusal) return refusal;
       return json(this.issue());
     }
 
@@ -297,6 +300,17 @@ export class FakeAuthServer {
     return family;
   }
 
+  /** The sign-up gate for a sign-in that creates an account: null when it may proceed (one use spent). */
+  private inviteRefusal(inviteCode: unknown): Response | null {
+    if (!this.inviteRequired) return null;
+    if (typeof inviteCode !== 'string') return problem(403, 'INVITE_REQUIRED');
+    const code = inviteCode.toUpperCase().replace(/[\s-]/g, '');
+    const left = this.inviteCodes.get(code) ?? 0;
+    if (left < 1) return problem(403, 'INVITE_INVALID');
+    this.inviteCodes.set(code, left - 1);
+    return null;
+  }
+
   private startMagicLink(body: unknown): Response {
     const b = body as { email?: unknown; code_challenge?: unknown } | undefined;
     if (
@@ -329,12 +343,9 @@ export class FakeAuthServer {
       return problem(401, 'MAGIC_LINK_INVALID');
     if (link.used) return problem(410, 'MAGIC_LINK_USED');
     if (this.nowMs - link.createdAt >= MAGIC_LINK_TTL_MS) return problem(410, 'MAGIC_LINK_EXPIRED');
-    if (!this.emailAccounts.has(link.email) && this.inviteRequired) {
-      if (typeof b?.invite_code !== 'string') return problem(403, 'INVITE_REQUIRED');
-      const code = b.invite_code.toUpperCase().replace(/[\s-]/g, '');
-      const left = this.inviteCodes.get(code) ?? 0;
-      if (left < 1) return problem(403, 'INVITE_INVALID');
-      this.inviteCodes.set(code, left - 1);
+    if (!this.emailAccounts.has(link.email)) {
+      const refusal = this.inviteRefusal(b?.invite_code);
+      if (refusal) return refusal;
     }
     link.used = true;
     this.emailAccounts.add(link.email);

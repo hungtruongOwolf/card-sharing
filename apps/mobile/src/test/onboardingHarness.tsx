@@ -18,7 +18,7 @@ import { CameraPermissionScreen } from '../features/onboarding/screens/CameraPer
 import { DisplayNameScreen } from '../features/onboarding/screens/DisplayNameScreen';
 import { HandleScreen } from '../features/onboarding/screens/HandleScreen';
 import { RefusedScreen } from '../features/onboarding/screens/RefusedScreen';
-import { SignInScreen } from '../features/onboarding/screens/SignInScreen';
+import { SignInScreen, type SignInScreenProps } from '../features/onboarding/screens/SignInScreen';
 import { ErrorScreen, LoadingScreen } from '../features/onboarding/screens/StatusScreens';
 import type { DevSignIn } from '../features/onboarding/devSignIn';
 import {
@@ -120,6 +120,8 @@ export function testRandom(): (bytes: Uint8Array) => Uint8Array {
 }
 
 interface LandingProps {
+  /** Google's web button config for the sign-in screen (a fake `google.accounts.id`). */
+  googleWeb?: SignInScreenProps['googleWeb'];
   /** Render the magic-link landing screen (`/auth/link`) instead of the sign-in screen. */
   landing?: LinkFragment | null;
   onContinueAt?: (href: string) => void;
@@ -134,6 +136,7 @@ function PhaseSwitch({
   onContinueAt = () => undefined,
   onRestart = () => undefined,
   inviteCode,
+  googleWeb = null,
 }: { onPhase?: (phase: OnboardingPhase) => void } & LandingProps) {
   const { phase, refreshAccount, magicLink } = useOnboarding();
   const authClient = useAuthClient();
@@ -154,7 +157,7 @@ function PhaseSwitch({
           onRestart={onRestart}
         />
       ) : (
-        <SignInScreen inviteCode={inviteCode} />
+        <SignInScreen inviteCode={inviteCode} googleWeb={googleWeb} />
       );
     case 'refused':
       return <RefusedScreen />;
@@ -208,6 +211,7 @@ export async function renderOnboarding(
     onContinueAt,
     onRestart,
     inviteCode,
+    googleWeb,
   } = options;
   const store = memoryStore(signedIn ? sessionFromTokenPair(server.auth.issue()) : null);
   const authClient: AuthClient = createAuthClient({
@@ -248,6 +252,7 @@ export async function renderOnboarding(
             onContinueAt={onContinueAt}
             onRestart={onRestart}
             inviteCode={inviteCode}
+            googleWeb={googleWeb}
           />
         </OnboardingProvider>
       </AuthProvider>

@@ -210,7 +210,12 @@ address bar (`captureLaunchLink`); `MagicLinkScreen` looks the request up (missi
 `INVITE_REQUIRED` / `INVITE_INVALID` show the invite-code field and retry the same link; `MAGIC_LINK_EXPIRED` / `_USED` /
 `_INVALID` / `ACCOUNT_SUSPENDED` show a final state with "Ask for a new link". The link the user started from (`returnTo`,
 e.g. `/i/<token>`) is handed to the new tab's intended-link tracker (`usePendingLink().remember`, only the app's own
-signed-in routes, `isReturnableHref`), so after onboarding it opens there. Tests: `features/auth/__tests__/pkce.test.ts`,
+signed-in routes, `isReturnableHref`), so after onboarding it opens there. Google on the web: Google Identity Services'
+own button (`features/auth/GoogleWebButton.tsx`, `googleIdentity.ts`) behind `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` (hidden
+when unset or not on the web), one raw nonce per button (Google gets `hex SHA-256(nonce)`), sent to `POST /v1/auth/google`;
+`INVITE_REQUIRED` / `INVITE_INVALID` show the invite field and the **same** credential is retried with the code (the nonce
+is not claimed by a gate refusal). The confirm sheet offers it for re-auth too. The web shows no Apple/Google placeholder
+buttons (no native sheets there). Tests: `features/auth/__tests__/googleWeb.test.tsx`, `features/auth/__tests__/pkce.test.ts`,
 `features/onboarding/__tests__/magicLink*.test.ts*`, E2E `e2e/web/tests/signup.spec.ts`.
 
 `POST /v1/auth/google` `{id_token, nonce, device?}`: same contract, limit and errors as Apple, with the same nonce scheme (the
