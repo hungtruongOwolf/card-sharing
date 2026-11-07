@@ -115,7 +115,9 @@ working at once. Both writes are audited (`auth.session_revoked`, `auth.logout_a
 Mobile client (#197): Settings → Signed-in devices (`apps/mobile/src/features/sessions`) lists the rows (malformed rows dropped),
 revokes any device but the current one (that one logs out instead; a 404 reads as "already signed out"), and "Log out everywhere"
 asks for a confirm, then `AuthClient.signOutEverywhere()` clears the secure store only after the 204 (or a 401 `SESSION_REVOKED`), so
-a failed call never pretends the other devices were signed out.
+a failed call never pretends the other devices were signed out. "Sign out of this device" (sprint 10 B8) sits on the current
+device's row and in the home More sheet (`SignOutButton`): `AuthClient.signOut()` sends `DELETE /v1/sessions/current` (best effort,
+bounded wait) and always clears the tokens and device data.
 
 `POST /v1/auth/apple` (none, limit `auth.signin` 10/min per IP, fails closed) `{id_token, nonce, authorization_code?, device?:
 {id, platform: ios|android, app_version}}` → 200 token pair (same shape as refresh). New account → `pending_age` + onboarding
