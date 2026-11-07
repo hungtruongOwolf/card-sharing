@@ -9,6 +9,8 @@ import { intendedHref, PHASE_ROUTES, trackIntendedLink } from '../phaseRoutes';
 
 /** The phase as the onboarding provider would report it, driven by the test. */
 let currentPhase: OnboardingPhase = 'loading';
+/** Whether the app was opened with a sign-in link (useMagicLinkLanding). */
+let magicLinkLanding = false;
 const listeners = new Set<() => void>();
 const usePhase = () =>
   useSyncExternalStore(
@@ -30,7 +32,7 @@ function RootLayout() {
   const phase = usePhase();
   const returnTo = useIntendedLink(phase);
   if (phase === 'loading' || phase === 'error') return <Text>{`status:${phase}`}</Text>;
-  return <GuardedStack phase={phase} returnTo={returnTo} />;
+  return <GuardedStack phase={phase} returnTo={returnTo} magicLinkLanding={magicLinkLanding} />;
 }
 
 function screenFor(name: string) {
@@ -44,8 +46,9 @@ const APP = {
   ...Object.fromEntries(PHASE_ROUTES.map(([, name]) => [name, screenFor(name)])),
 };
 
-async function open(url: string, phase: OnboardingPhase = 'loading') {
+async function open(url: string, phase: OnboardingPhase = 'loading', landing = false) {
   currentPhase = phase;
+  magicLinkLanding = landing;
   return renderRouter(APP, { initialUrl: url });
 }
 
@@ -146,5 +149,22 @@ describe('trackIntendedLink', () => {
     state = trackIntendedLink(state, 'signIn', null);
     state = trackIntendedLink(state, 'signIn', '/i/tok3n');
     expect(state.intended).toBe('/i/tok3n');
+  });
+});
+
+describe('magic-link landing route (ADR-0012)', () => {
+  it('shows only when the app was opened with a sign-in link, then the onboarding takes over', async () => {
+    const app = await open('/auth/link', 'loading', true);
+    await setPhase('signIn');
+    expect(app.getPathname()).toBe('/auth/link');
+    expect(screen.getByText('screen:auth/link')).toBeTruthy();
+    await setPhase('birthDate');
+    expect(app.getPathname()).toBe('/onboarding/birth-date');
+  });
+
+  it('is unavailable otherwise: a link to it lands on the sign-in screen', async () => {
+    const app = await open('/auth/link');
+    await setPhase('signIn');
+    expect(app.getPathname()).toBe('/onboarding/sign-in');
   });
 });

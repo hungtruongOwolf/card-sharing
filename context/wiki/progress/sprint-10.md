@@ -64,4 +64,5 @@ suite in CI gates every merge that touches the loop.
 | B7 (client) | #405 | Merged. Time zone sent only when it changes; 429 honours `Retry-After` and is not retried. |
 | V1 | #406 | Merged. Story viewer picture fills the card frame. |
 | P2 verify | #407 | T-23: `POST /v1/auth/email/verify` (PKCE verifier, single use, 15 min, constant-time compare, same session as provider sign-in); start answers `{request_id}`; link `<API_MAGIC_LINK_URL>#rid=..&token=..` landing on the Expo web app. |
+| P2 app | #409 | Web sign-in screen: email → "Check your email" → landing `/auth/link` (confirm, invite code with retry, clear expired/used/other-browser states), verifier in `localStorage` by request id, token removed from the address bar, `?invite=` prefill, continue at the remembered link. E2E `signup.spec.ts` with Mailpit in CI. |
 | P2 invites | #408 | Invite-code gate (`config/signup.yaml`, on): new accounts via email, Google or Apple need a code; `api invites create/list/revoke`; codes hashed, use limit, expiry, revocation, wrong-code cap per link. |

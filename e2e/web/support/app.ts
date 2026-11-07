@@ -27,7 +27,8 @@ export interface OpenOptions {
 /** One browser profile of one user (its own storage, so its own session) and its first tab. */
 export class Session {
   constructor(
-    readonly persona: Persona,
+    /** A seed persona, or a label for a user the test signs up itself. */
+    readonly persona: Persona | string,
     readonly context: BrowserContext,
     readonly page: Page,
     private readonly guard: Guard,
@@ -38,6 +39,14 @@ export class Session {
     const page = await this.context.newPage();
     this.guard.watch(page, `${this.persona}#${this.context.pages().length}`);
     await page.goto('/');
+    return page;
+  }
+
+  /** Opens `url` in another tab of the same profile, as a click on an emailed link does. */
+  async openTab(url: string): Promise<Page> {
+    const page = await this.context.newPage();
+    this.guard.watch(page, `${this.persona}#${this.context.pages().length}`);
+    await page.goto(url);
     return page;
   }
 }
@@ -57,8 +66,8 @@ export class App {
     this.guard.expectHttp(expected);
   }
 
-  /** A signed-out user on the app's first screen. */
-  async open(persona: Persona, options: OpenOptions = {}): Promise<Session> {
+  /** A signed-out user on the app's first screen (a seed persona, or a label for a user the test signs up). */
+  async open(persona: Persona | string, options: OpenOptions = {}): Promise<Session> {
     const context = await this.browser.newContext();
     this.contexts.push(context);
     await stubCutoutWorker(context);

@@ -7,6 +7,7 @@ import type { TokenStore } from './tokenStore';
 
 type RefreshRequest = components['schemas']['RefreshRequest'];
 type DevSignInRequest = components['schemas']['DevSignInRequest'];
+type EmailVerifyRequest = components['schemas']['EmailVerifyRequest'];
 
 /**
  * Mobile auth client (T-21, ADR-0004). Owns the device session and attaches it to API calls.
@@ -118,6 +119,13 @@ export interface AuthClient {
     options?: SignInOptions,
   ): Promise<void>;
   /**
+   * Redeems an email magic link (T-23, ADR-0012): the token from the link plus the PKCE verifier this device kept
+   * when it asked for the link. The session is stored like a provider sign-in. A refusal throws
+   * {@link AuthError} `rejected` with the server's code (`MAGIC_LINK_INVALID`, `MAGIC_LINK_EXPIRED`,
+   * `MAGIC_LINK_USED`, `INVITE_REQUIRED`, `INVITE_INVALID`, `ACCOUNT_SUSPENDED`); 429 and 5xx are `unavailable`.
+   */
+  signInWithMagicLink(token: string, verifier: string, options?: SignInOptions): Promise<void>;
+  /**
    * Development builds only (#306): signs in as a seed user (`POST /v1/dev/sign-in`) against a local server started
    * with `API_DEV_SIGN_IN=true`. Every other server answers 404 (`rejected`). The session is stored like a provider
    * sign-in. Callers must gate on `__DEV__`; the server is the real gate.
@@ -136,6 +144,11 @@ export interface AuthClient {
 export interface SignInOptions {
   /** Apple's one-time authorization code from the same sheet (optional; Apple only). */
   authorizationCode?: string;
+  /**
+   * Sign-up invite code (ADR-0012). The server needs it only when this sign-in creates an account while the
+   * sign-up gate is on, and ignores it otherwise.
+   */
+  inviteCode?: string;
 }
 
 /**
@@ -146,6 +159,7 @@ interface IdTokenSignInRequest {
   id_token: string;
   nonce: string;
   authorization_code?: string;
+  invite_code?: string;
 }
 
 const DEFAULT_REFRESH_SKEW_MS = 30_000;
@@ -391,7 +405,18 @@ export function createAuthClient(options: AuthClientOptions): AuthClient {
   ): Promise<void> {
     const body: IdTokenSignInRequest = { id_token: idToken, nonce };
     if (signInOptions.authorizationCode) body.authorization_code = signInOptions.authorizationCode;
+    if (signInOptions.inviteCode) body.invite_code = signInOptions.inviteCode;
     await signInVia(`/v1/auth/${provider}`, body);
+  }
+
+  async function signInWithMagicLink(
+    token: string,
+    verifier: string,
+    signInOptions: SignInOptions = {},
+  ): Promise<void> {
+    const body: EmailVerifyRequest = { token, code_verifier: verifier };
+    if (signInOptions.inviteCode) body.invite_code = signInOptions.inviteCode;
+    await signInVia('/v1/auth/email/verify', body);
   }
 
   async function signInAsSeedUser(handle: string): Promise<void> {
@@ -460,6 +485,7 @@ export function createAuthClient(options: AuthClientOptions): AuthClient {
     fetchStream: (path, request) => authorizedFetch(path, request, false, true),
     fetchWithProof: (path, request) => authorizedFetch(path, request, true),
     signInWithIdToken,
+    signInWithMagicLink,
     signInAsSeedUser,
     signOut,
     signOutEverywhere,

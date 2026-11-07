@@ -12,6 +12,7 @@ import {
 } from './onboardingApi';
 import { resolvePhase, type OnboardingPhase } from './phase';
 import type { DevSignIn } from './devSignIn';
+import type { MagicLinkSignIn } from './magicLink';
 import type { SignInProvider } from './signInProviders';
 
 export const ME_QUERY_KEY = ['me'] as const;
@@ -21,6 +22,8 @@ export interface OnboardingContextValue {
   readonly signInProviders: readonly SignInProvider[];
   /** Development builds only (#306): sign in as a seed user of a local server; null otherwise. */
   readonly devSignIn: DevSignIn | null;
+  /** Email magic-link sign-in (ADR-0012); null where it is not wired (some tests). */
+  readonly magicLink: MagicLinkSignIn | null;
   /** `/v1/me` `policy.public_links.allowed` (#321); null until known or when the server did not say. */
   readonly publicLinksAllowed: boolean | null;
   readonly camera: CameraPermissions;
@@ -49,6 +52,7 @@ interface Props {
   api: OnboardingApi;
   signInProviders: readonly SignInProvider[];
   devSignIn?: DevSignIn | null;
+  magicLink?: MagicLinkSignIn | null;
   camera: CameraPermissions;
   children: ReactNode;
 }
@@ -62,6 +66,7 @@ export function OnboardingProvider({
   api,
   signInProviders,
   devSignIn = null,
+  magicLink = null,
   camera,
   children,
 }: Props) {
@@ -141,6 +146,7 @@ export function OnboardingProvider({
       phase,
       signInProviders,
       devSignIn,
+      magicLink,
       publicLinksAllowed,
       camera,
       serverBusy,
@@ -186,6 +192,7 @@ export function OnboardingProvider({
     phase,
     signInProviders,
     devSignIn,
+    magicLink,
     publicLinksAllowed,
     camera,
     serverBusy,
