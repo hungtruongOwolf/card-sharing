@@ -2,8 +2,12 @@ import { useEffect, useState } from 'react';
 
 import { t, type MessageKey } from '../../../i18n';
 import { Button, Screen, Text, TextField } from '../../../ui';
+import { appMagicLinkChannel, type MagicLinkChannel } from '../../auth/magicLinkChannel';
 import type { LinkFragment, LinkOutcome, MagicLinkSignIn, PendingMagicLink } from '../magicLink';
 import { FormMessage } from './FormMessage';
+
+/** How long the tab a re-auth link opened in waits for the asking tab to take it. */
+export const REAUTH_ACK_WAIT_MS = 4000;
 
 type View =
   'reading' | 'confirm' | 'invite' | 'expired' | 'used' | 'otherBrowser' | 'badLink' | 'suspended';
@@ -25,15 +29,81 @@ interface Props {
   onContinueAt(href: string): void;
   /** Back to the sign-in screen to ask for a new link. */
   onRestart(): void;
+  /** Back into the app (after handing over a re-auth link). */
+  onDone?(): void;
+  /** Where a re-auth link is handed to the tab that asked (ADR-0012). */
+  channel?: MagicLinkChannel;
 }
 
 /**
- * Landing screen of an emailed sign-in link (`/auth/link#rid=...&token=...`, T-23, ADR-0012). It signs in only on
+ * Landing screen of emailed links (`/auth/link`, ADR-0012): a sign-in link signs this device in
+ * ({@link SignInLinkScreen}); a re-auth link (`&for=reauth`) is handed to the tab that asked for it
+ * ({@link ReauthLinkHandoff}).
+ */
+export function MagicLinkScreen(props: Props) {
+  const { link, channel = appMagicLinkChannel(), onDone = props.onRestart } = props;
+  return link?.purpose === 'reauth' ? (
+    <ReauthLinkHandoff link={link} channel={channel} onDone={onDone} />
+  ) : (
+    <SignInLinkScreen {...props} />
+  );
+}
+
+/**
+ * A re-auth link opened in its own tab: it passes `{requestId, token}` to the "confirm it's you" sheet of the tab
+ * that asked (which alone holds the verifier) and says where to go next. It never calls the server itself.
+ */
+function ReauthLinkHandoff({
+  link,
+  channel,
+  onDone,
+}: {
+  link: LinkFragment;
+  channel: MagicLinkChannel;
+  onDone(): void;
+}) {
+  const [state, setState] = useState<'waiting' | 'sent' | 'noTab'>('waiting');
+  useEffect(() => {
+    const unsubscribe = channel.subscribe((message) => {
+      if (message.type === 'ack' && message.requestId === link.requestId) setState('sent');
+    });
+    channel.post({ type: 'link', requestId: link.requestId, token: link.token });
+    const timer = setTimeout(
+      () => setState((current) => (current === 'waiting' ? 'noTab' : current)),
+      REAUTH_ACK_WAIT_MS,
+    );
+    return () => {
+      unsubscribe();
+      clearTimeout(timer);
+    };
+  }, [channel, link]);
+
+  if (state === 'waiting') {
+    return (
+      <Screen title={t('magicLink.title')} testID="magic-link-reauthWaiting">
+        <Text tone="muted">{t('magicLink.reading')}</Text>
+      </Screen>
+    );
+  }
+  const sent = state === 'sent';
+  return (
+    <Screen
+      title={t(sent ? 'magicLink.reauthSentTitle' : 'magicLink.reauthNoTabTitle')}
+      testID={sent ? 'magic-link-reauthSent' : 'magic-link-reauthNoTab'}
+    >
+      <Text>{t(sent ? 'magicLink.reauthSentBody' : 'magicLink.reauthNoTabBody')}</Text>
+      <Button block variant="secondary" label={t('magicLink.backToApp')} onPress={onDone} />
+    </Screen>
+  );
+}
+
+/**
+ * An emailed sign-in link (`/auth/link#rid=...&token=...`, T-23, ADR-0012). It signs in only on
  * the device and browser that asked for the link (the PKCE verifier kept under the request id) and only after the
  * user confirms (AC-1.3: opening the link never consumes it). When the link would create an account and the sign-up
  * gate needs a code, it asks for one (prefilled from the invite link) and retries the same link.
  */
-export function MagicLinkScreen({ link, magicLink, onContinueAt, onRestart }: Props) {
+function SignInLinkScreen({ link, magicLink, onContinueAt, onRestart }: Props) {
   const [view, setView] = useState<View>('reading');
   const [pending, setPending] = useState<PendingMagicLink | null>(null);
   const [code, setCode] = useState('');

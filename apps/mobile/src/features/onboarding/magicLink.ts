@@ -59,10 +59,14 @@ export function secureMagicLinkStore(): MagicLinkKeyValue {
   };
 }
 
-/** What the emailed link carries back (`#rid=<request id>&token=<token>`). */
+/** What a link is for: sign in, or confirm a signed-in session (`&for=reauth`, ADR-0012). */
+export type LinkPurpose = 'sign_in' | 'reauth';
+
+/** What the emailed link carries back (`#rid=<request id>&token=<token>[&for=reauth]`). */
 export interface LinkFragment {
   readonly requestId: string;
   readonly token: string;
+  readonly purpose: LinkPurpose;
 }
 
 /** Reads `#rid=...&token=...`; null when either is missing or malformed. */
@@ -75,7 +79,8 @@ export function parseLinkFragment(hash: string): LinkFragment | null {
   }
   const requestId = params.get('rid') ?? '';
   const token = params.get('token') ?? '';
-  return UUID.test(requestId) && TOKEN.test(token) ? { requestId, token } : null;
+  const purpose: LinkPurpose = params.get('for') === 'reauth' ? 'reauth' : 'sign_in';
+  return UUID.test(requestId) && TOKEN.test(token) ? { requestId, token, purpose } : null;
 }
 
 /** What this device keeps for a link it asked for. */

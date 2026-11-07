@@ -26,7 +26,7 @@ async function askForLink(
     random: testRandom(),
   });
   const { requestId } = await tab1.start(EMAIL, context);
-  return { requestId, token: server.auth.linkFor(EMAIL).token };
+  return { requestId, token: server.auth.linkFor(EMAIL).token, purpose: 'sign_in' as const };
 }
 
 describe('email sign-in, sign-in screen (US-1, ADR-0012)', () => {

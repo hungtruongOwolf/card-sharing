@@ -24,7 +24,7 @@ async function askForLink(page: Page, email: string): Promise<void> {
   await expect(page.getByTestId('check-email')).toBeVisible();
 }
 
-test('a new user signs up by magic link with an invite code, onboards and adds alice by handle', async ({
+test('a new user signs up by magic link with an invite code, onboards, adds alice and confirms by email to export', async ({
   app,
 }) => {
   const id = unique();
@@ -79,6 +79,22 @@ test('a new user signs up by magic link with an invite code, onboards and adds a
   await expect(tab.getByTestId('find-result')).toContainText(NAMES.alice);
   await tab.getByTestId('find-result').getByRole('button').click();
   await expect(tab.getByTestId('find-sent')).toBeVisible();
+
+  // Download your data needs a fresh confirmation: an email account confirms by a re-auth link, which opens in yet
+  // another tab and is handed back to this one (ADR-0012).
+  await tab.goto('/settings/data-export');
+  await expect(tab.getByTestId('data-export')).toBeVisible({ timeout: 30_000 });
+  await tab.getByRole('button', { name: 'Request my data', exact: true }).click();
+  await expect(tab.getByTestId('reauth-sheet')).toBeVisible();
+  await tab.getByRole('button', { name: 'Email me a link', exact: true }).click();
+  await tab.getByTestId('reauth-email').fill(email);
+  await tab.getByRole('button', { name: 'Send link', exact: true }).click();
+  await expect(tab.getByTestId('reauth-email-sent')).toBeVisible();
+  const reauthLink = await signInLink(email, new Set([link]));
+  expect(reauthLink).toMatch(/&for=reauth$/);
+  const confirmTab = await user.openTab(reauthLink);
+  await expect(confirmTab.getByTestId('magic-link-reauthSent')).toBeVisible({ timeout: 60_000 });
+  await expect(tab.getByTestId('data-export-status')).toBeVisible({ timeout: 30_000 });
 });
 
 test('sign-in links fail safely: another browser, an expired link, a fresh start', async ({

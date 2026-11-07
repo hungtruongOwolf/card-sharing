@@ -41,6 +41,11 @@ limits:
     requests: 5
     per_secs: 900
     on_store_failure: closed
+  auth.reauth.email.start: # POST /v1/auth/reauth/email/start (re-auth links, 5 per 15 minutes per user, ADR-0012)
+    scope: user
+    requests: 5
+    per_secs: 900
+    on_store_failure: closed
   auth.email.start.email: # same route, keyed by the hashed email (checked in the handler)
     scope: user
     requests: 5

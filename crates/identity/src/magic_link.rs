@@ -14,6 +14,11 @@
 //!   time), within 15 minutes, once. An unknown token and a wrong verifier get the same answer;
 //!   "expired" and "used" are told only to the holder of the verifier. A wrong verifier does not
 //!   burn the link, so a forwarded copy cannot spoil the real one.
+//! - Re-auth links (ADR-0012): a signed-in session asks for a link to the address of its account's
+//!   own email identity (typed again; the address is not stored). The link is bound to that
+//!   account and session, carries `&for=reauth`, and redeems to nothing but proof of a fresh
+//!   sign-in for the re-auth token of that session. An address that is not the account's gets
+//!   the same answer and no email.
 //! - Behind the sign-up gate (invite_codes.rs) a link that would create an account needs an
 //!   invite code. A missing or wrong code leaves the link usable, so the user can type the code
 //!   and retry; wrong codes per link are capped, then the link expires.
@@ -86,6 +91,48 @@ impl MagicLinkTemplate {
     /// The link of one request: `<link_url>#rid=<request id>&token=<token>`.
     pub fn link(&self, request_id: Uuid, token: &str) -> String {
         format!("{}#rid={request_id}&token={token}", self.link_url)
+    }
+
+    /// A re-auth link: the same, plus `&for=reauth` so the app hands it to the tab that asked.
+    pub fn reauth_link(&self, request_id: Uuid, token: &str) -> String {
+        format!("{}&for=reauth", self.link(request_id, token))
+    }
+}
+
+/// What a link is for (`magic_links.purpose`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Purpose {
+    SignIn,
+    Reauth,
+}
+
+impl Purpose {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::SignIn => "sign_in",
+            Self::Reauth => "reauth",
+        }
+    }
+}
+
+/// Why a re-auth link did not confirm the session.
+#[derive(Debug, thiserror::Error)]
+pub enum ReauthLinkError {
+    /// Unknown token, another device's verifier, a sign-in link, or a link of another account or
+    /// session. The caller cannot tell which.
+    #[error("unknown link or verifier mismatch")]
+    Invalid,
+    #[error("link expired")]
+    Expired,
+    #[error("link already used")]
+    Used,
+    #[error(transparent)]
+    Store(#[from] StoreError),
+}
+
+impl From<sqlx::Error> for ReauthLinkError {
+    fn from(err: sqlx::Error) -> Self {
+        Self::Store(StoreError::Database(err))
     }
 }
 
@@ -168,6 +215,18 @@ struct LinkRow {
     pkce_challenge: Vec<u8>,
     expires_at: OffsetDateTime,
     used_at: Option<OffsetDateTime>,
+    purpose: String,
+}
+
+#[derive(sqlx::FromRow)]
+struct ReauthLinkRow {
+    id: Uuid,
+    pkce_challenge: Vec<u8>,
+    expires_at: OffsetDateTime,
+    used_at: Option<OffsetDateTime>,
+    purpose: String,
+    account_id: Option<Uuid>,
+    session_id: Option<Uuid>,
 }
 
 /// A redeemed link: the account it belongs to, and whether redeeming it created that account.
@@ -208,29 +267,81 @@ impl IdentityService {
     ) -> Result<Uuid, MagicLinkError> {
         let email = normalize_email(email).ok_or(MagicLinkError::InvalidEmail)?;
         let challenge = decode_challenge(code_challenge).ok_or(MagicLinkError::InvalidChallenge)?;
+        self.insert_link(&email, &challenge, cipher, None).await
+    }
+
+    /// Records a re-auth link for the signed-in `session_id` of `account_id` when `email` is the
+    /// address of the account's email identity, and enqueues its delivery. Returns a request id
+    /// either way (a fresh one, with nothing stored or sent, when the address is not the
+    /// account's), so the answer does not say whether the typed address matched.
+    pub async fn start_reauth_link(
+        &self,
+        account_id: Uuid,
+        session_id: Uuid,
+        email: &str,
+        code_challenge: &str,
+        cipher: &FieldCipher,
+    ) -> Result<Uuid, MagicLinkError> {
+        let email = normalize_email(email).ok_or(MagicLinkError::InvalidEmail)?;
+        let challenge = decode_challenge(code_challenge).ok_or(MagicLinkError::InvalidChallenge)?;
+        let owns: Option<Uuid> = sqlx::query_scalar(
+            "SELECT account_id FROM identity.auth_identities
+             WHERE account_id = $1 AND provider = $2 AND subject = $3",
+        )
+        .bind(account_id)
+        .bind(Provider::Email.as_str())
+        .bind(email_hash(&email).to_hex())
+        .fetch_optional(&self.pool)
+        .await?;
+        if owns.is_none() {
+            tracing::info!(event = "auth.reauth_link.not_sent", account_id = %account_id);
+            return Ok(Uuid::now_v7());
+        }
+        self.insert_link(&email, &challenge, cipher, Some((account_id, session_id)))
+            .await
+    }
+
+    /// Inserts a link (a re-auth link when `binding` names its account and session) and enqueues
+    /// its delivery, in one transaction.
+    async fn insert_link(
+        &self,
+        email: &str,
+        challenge: &[u8; 32],
+        cipher: &FieldCipher,
+        binding: Option<(Uuid, Uuid)>,
+    ) -> Result<Uuid, MagicLinkError> {
         let token = SecretToken::generate().map_err(StoreError::from)?;
         let now = self.clock.now();
         let id = Uuid::now_v7();
         let delivery = serde_json::to_vec(&Delivery {
-            email: email.clone(),
+            email: email.to_owned(),
             token: token.expose().to_owned(),
         })
         .map_err(|err| StoreError::Corrupt(err.to_string()))?;
         let delivery_enc = cipher.encrypt(&delivery, id.as_bytes())?;
 
         let mut tx = self.pool.begin().await?;
+        let purpose = if binding.is_some() {
+            Purpose::Reauth
+        } else {
+            Purpose::SignIn
+        };
         sqlx::query(
             "INSERT INTO identity.magic_links
-               (id, email_hash, token_hash, pkce_challenge, delivery_enc, expires_at, created_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7)",
+               (id, email_hash, token_hash, pkce_challenge, delivery_enc, expires_at, created_at,
+                purpose, account_id, session_id)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
         )
         .bind(id)
-        .bind(email_hash(&email).as_bytes())
+        .bind(email_hash(email).as_bytes())
         .bind(token.hash().as_bytes())
         .bind(&challenge[..])
         .bind(delivery_enc)
         .bind(now + LINK_TTL)
         .bind(now)
+        .bind(purpose.as_str())
+        .bind(binding.map(|(account, _)| account))
+        .bind(binding.map(|(_, session)| session))
         .execute(&mut *tx)
         .await?;
         let job = NewJob::new(
@@ -242,7 +353,11 @@ impl IdentityService {
         .max_attempts(5);
         enqueue(&mut *tx, &job, now).await?;
         tx.commit().await?;
-        tracing::info!(event = "auth.magic_link.started", magic_link_id = %id);
+        tracing::info!(
+            event = "auth.magic_link.started",
+            magic_link_id = %id,
+            purpose = purpose.as_str()
+        );
         Ok(id)
     }
 
@@ -255,14 +370,14 @@ impl IdentityService {
         mailer: &dyn Mailer,
         template: &MagicLinkTemplate,
     ) -> Result<(), DeliveryError> {
-        let row: Option<(Option<Vec<u8>>, time::OffsetDateTime)> = sqlx::query_as(
-            "SELECT delivery_enc, expires_at FROM identity.magic_links WHERE id = $1",
+        let row: Option<(Option<Vec<u8>>, time::OffsetDateTime, String)> = sqlx::query_as(
+            "SELECT delivery_enc, expires_at, purpose FROM identity.magic_links WHERE id = $1",
         )
         .bind(id)
         .fetch_optional(&self.pool)
         .await
         .map_err(|err| DeliveryError::Temporary(err.to_string()))?;
-        let Some((Some(sealed), expires_at)) = row else {
+        let Some((Some(sealed), expires_at, purpose)) = row else {
             return Ok(());
         };
         if self.clock.now() >= expires_at {
@@ -275,14 +390,27 @@ impl IdentityService {
             .map_err(|err| DeliveryError::Permanent(err.to_string()))?;
         let delivery: Delivery = serde_json::from_slice(&plain)
             .map_err(|err| DeliveryError::Permanent(err.to_string()))?;
-        let email = Email {
-            to: delivery.email,
-            subject: "Your sign-in link".to_owned(),
-            text: format!(
-                "Open this link on the device and in the browser where you asked to sign in:\n\n{}\n\n\
-                 It works once and expires in 15 minutes. If you did not ask for it, ignore this email.\n",
-                template.link(id, &delivery.token)
-            ),
+        let email = if purpose == Purpose::Reauth.as_str() {
+            Email {
+                to: delivery.email,
+                subject: "Confirm it's you".to_owned(),
+                text: format!(
+                    "Open this link in the browser where you asked to confirm it's you, while that tab is still open:\n\n{}\n\n\
+                     It works once and expires in 15 minutes. If you did not ask for it, someone may be using your \
+                     account: sign out of every device from Settings.\n",
+                    template.reauth_link(id, &delivery.token)
+                ),
+            }
+        } else {
+            Email {
+                to: delivery.email,
+                subject: "Your sign-in link".to_owned(),
+                text: format!(
+                    "Open this link on the device and in the browser where you asked to sign in:\n\n{}\n\n\
+                     It works once and expires in 15 minutes. If you did not ask for it, ignore this email.\n",
+                    template.link(id, &delivery.token)
+                ),
+            }
         };
         mailer.send(&email).await.map_err(|err| match err {
             MailError::Temporary(reason) => DeliveryError::Temporary(reason),
@@ -374,7 +502,7 @@ impl IdentityService {
         let now = self.clock.now();
         let mut tx = self.pool.begin().await?;
         let link: Option<LinkRow> = sqlx::query_as(
-            "SELECT id, email_hash, pkce_challenge, expires_at, used_at
+            "SELECT id, email_hash, pkce_challenge, expires_at, used_at, purpose
              FROM identity.magic_links WHERE token_hash = $1 FOR UPDATE",
         )
         .bind(token_hash.as_bytes())
@@ -388,6 +516,15 @@ impl IdentityService {
             tracing::warn!(
                 event = "auth.magic_link.rejected",
                 reason = "verifier",
+                magic_link_id = %link.id
+            );
+            return Err(LinkSignInError::Invalid);
+        }
+        if link.purpose != Purpose::SignIn.as_str() {
+            // A re-auth link never signs anyone in.
+            tracing::warn!(
+                event = "auth.magic_link.rejected",
+                reason = "purpose",
                 magic_link_id = %link.id
             );
             return Err(LinkSignInError::Invalid);
@@ -471,6 +608,55 @@ impl IdentityService {
             created = redeemed.created
         );
         Ok(Some(redeemed))
+    }
+
+    /// Redeems a re-auth link for the calling `session_id` of `account_id` (ADR-0012): the verifier
+    /// of the tab that asked, a link of purpose `reauth` bound to this account and session, not
+    /// used, not expired. Marks it used; the caller then mints the re-auth token.
+    pub async fn redeem_reauth_link(
+        &self,
+        account_id: Uuid,
+        session_id: Uuid,
+        token: &str,
+        verifier: &str,
+    ) -> Result<(), ReauthLinkError> {
+        if !valid_link_token(token) || !valid_code_verifier(verifier) {
+            return Err(ReauthLinkError::Invalid);
+        }
+        let now = self.clock.now();
+        let mut tx = self.pool.begin().await?;
+        let row: Option<ReauthLinkRow> = sqlx::query_as(
+            "SELECT id, pkce_challenge, expires_at, used_at, purpose, account_id, session_id
+             FROM identity.magic_links WHERE token_hash = $1 FOR UPDATE",
+        )
+        .bind(TokenHash::of(token).as_bytes())
+        .fetch_optional(&mut *tx)
+        .await?;
+        let Some(link) = row else {
+            return Err(ReauthLinkError::Invalid);
+        };
+        if !verifier_matches(&link.pkce_challenge, verifier)
+            || link.purpose != Purpose::Reauth.as_str()
+            || link.account_id != Some(account_id)
+            || link.session_id != Some(session_id)
+        {
+            tracing::warn!(event = "auth.reauth_link.rejected", magic_link_id = %link.id);
+            return Err(ReauthLinkError::Invalid);
+        }
+        if link.used_at.is_some() {
+            return Err(ReauthLinkError::Used);
+        }
+        if now >= link.expires_at {
+            return Err(ReauthLinkError::Expired);
+        }
+        sqlx::query("UPDATE identity.magic_links SET used_at = $2 WHERE id = $1")
+            .bind(link.id)
+            .bind(now)
+            .execute(&mut *tx)
+            .await?;
+        tx.commit().await?;
+        tracing::info!(event = "auth.reauth_link.redeemed", magic_link_id = %link.id);
+        Ok(())
     }
 
     /// Counts a wrong invite code against a link; the attempt that reaches the cap expires it.
@@ -603,6 +789,17 @@ mod tests {
         assert_eq!(
             template.link(Uuid::nil(), "tok"),
             "http://192.168.1.20:8081/auth/link#rid=00000000-0000-0000-0000-000000000000&token=tok"
+        );
+    }
+
+    #[test]
+    fn reauth_links_say_what_they_are_for() {
+        let template = MagicLinkTemplate {
+            link_url: "https://cardsharing.app/auth/link".to_owned(),
+        };
+        assert_eq!(
+            template.reauth_link(Uuid::nil(), "tok"),
+            "https://cardsharing.app/auth/link#rid=00000000-0000-0000-0000-000000000000&token=tok&for=reauth"
         );
     }
 

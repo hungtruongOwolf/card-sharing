@@ -106,7 +106,9 @@ it. `devices.attest_key_id` is set on registration. Challenges live in Redis onl
 Magic links (T-22, `migrations/20261108000003_identity_magic_links.sql`): `magic_links(id, email_hash BYTEA(32)` (SHA-256 of the
 trimmed, lowercased email), `token_hash UNIQUE`, `pkce_challenge BYTEA(32)` (S256), `delivery_enc BYTEA NULL` (the address and the raw link secret, sealed with XChaCha20-Poly1305 bound to the link id;
 cleared by the delivery job), `sent_at`, `expires_at` (15 min), `used_at`
-(T-23), `invite_attempts SMALLINT` (wrong sign-up codes tried with this link; the cap expires it, sprint 10), `created_at)`;
+(T-23), `invite_attempts SMALLINT` (wrong sign-up codes tried with this link; the cap expires it, sprint 10), `purpose`
+(`sign_in` | `reauth`), `account_id`, `session_id` (set only, and always, for `reauth` links: the account and device session that
+asked, migration `20261127000001`), `created_at)`;
 purged after 24 h by the worker. Indexes `(email_hash, created_at)`, `(created_at)`.
 
 Age-gate refusal stores **nothing** in Postgres: the pending account is deleted and a 24 h cooldown key

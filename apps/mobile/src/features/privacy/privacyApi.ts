@@ -4,6 +4,8 @@ import { problemCode } from '../../data/problemCode';
 import type { AuthClient, IdTokenProvider } from '../auth';
 
 type ReauthRequest = components['schemas']['ReauthRequest'];
+type ReauthEmailStartRequest = components['schemas']['ReauthEmailStartRequest'];
+type ReauthEmailVerifyRequest = components['schemas']['ReauthEmailVerifyRequest'];
 
 /** A fresh provider proof from the native sheet (the same shape sign-in uses). */
 export interface ReauthProof {
@@ -53,6 +55,12 @@ export type PrivacyErrorKind =
   | 'proof_rejected'
   /** 401 `REAUTH_REQUIRED`: the re-auth token is missing, wrong or older than 5 minutes. */
   | 'reauth_required'
+  /** Re-auth link (ADR-0012), 401 `MAGIC_LINK_INVALID`: not this tab's link (or unknown). */
+  | 'link_invalid'
+  /** Re-auth link, 410 `MAGIC_LINK_EXPIRED` or `MAGIC_LINK_USED`: ask for a new one. */
+  | 'link_spent'
+  /** Re-auth link: the server does not accept the address or the challenge (400). */
+  | 'invalid_email'
   /** 404: nothing pending, the grace period is over, or no such export of the caller. */
   | 'not_found'
   /** 429 `EXPORT_COOLDOWN`: one export per 24 hours. */
@@ -82,6 +90,13 @@ export class PrivacyError extends Error {
 export interface PrivacyApi {
   /** `POST /v1/auth/reauth`: exchanges a fresh provider proof for a 5-minute re-auth token. */
   reauthenticate(proof: ReauthProof): Promise<ReauthGrant>;
+  /**
+   * `POST /v1/auth/reauth/email/start` (ADR-0012): emails a re-auth link if `email` is this account's address (the
+   * answer is the same either way). Returns the request id the link carries back.
+   */
+  startEmailReauth(email: string, codeChallenge: string): Promise<string>;
+  /** `POST /v1/auth/reauth/email/verify`: the link's token plus this tab's verifier → a re-auth token. */
+  verifyEmailReauth(token: string, codeVerifier: string): Promise<ReauthGrant>;
   /** `GET /v1/me/deletion`: the pending deletion, or null when nothing is pending. */
   getDeletion(): Promise<PendingDeletion | null>;
   /** `POST /v1/me/deletion` (`re`): every session of the account, this one included, is logged out. */
@@ -198,6 +213,34 @@ export function createPrivacyApi(client: Pick<AuthClient, 'fetch' | 'fetchWithPr
         body: JSON.stringify(body),
       });
       if (response.status === 401) throw new PrivacyError('proof_rejected', 401);
+      if (!response.ok) throw await failure(response);
+      return parsed(parseReauthGrant(await response.json().catch(() => null)), response.status);
+    },
+    async startEmailReauth(email, codeChallenge) {
+      const body: ReauthEmailStartRequest = { email, code_challenge: codeChallenge };
+      const response = await fetcher('/v1/auth/reauth/email/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (response.status === 400) throw new PrivacyError('invalid_email', 400);
+      if (response.status !== 202) throw await failure(response);
+      const requestId = field(await response.json().catch(() => null), 'request_id');
+      if (typeof requestId !== 'string' || !UUID.test(requestId)) {
+        throw new PrivacyError('unavailable', response.status);
+      }
+      return requestId;
+    },
+    async verifyEmailReauth(token, codeVerifier) {
+      const body: ReauthEmailVerifyRequest = { token, code_verifier: codeVerifier };
+      // 401 MAGIC_LINK_INVALID refuses the link, not the session: `fetchWithProof` hands it back.
+      const response = await proofFetcher('/v1/auth/reauth/email/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (response.status === 401) throw new PrivacyError('link_invalid', 401);
+      if (response.status === 410) throw new PrivacyError('link_spent', 410);
       if (!response.ok) throw await failure(response);
       return parsed(parseReauthGrant(await response.json().catch(() => null)), response.status);
     },

@@ -41,10 +41,13 @@ describe('parseLinkFragment', () => {
     expect(parseLinkFragment(`#rid=${RID}&token=${TOKEN}`)).toEqual({
       requestId: RID,
       token: TOKEN,
+      purpose: 'sign_in',
     });
+    expect(parseLinkFragment(`#rid=${RID}&token=${TOKEN}&for=reauth`)?.purpose).toBe('reauth');
     expect(parseLinkFragment(`token=${TOKEN}&rid=${RID}`)).toEqual({
       requestId: RID,
       token: TOKEN,
+      purpose: 'sign_in',
     });
   });
 
@@ -221,7 +224,11 @@ describe('captureLaunchLink', () => {
       { pathname: '/auth/link', search: '', hash: `#rid=${RID}&token=${TOKEN}` },
       history,
     );
-    expect(capturedLaunchLink()).toEqual({ requestId: RID, token: TOKEN });
+    expect(capturedLaunchLink()).toEqual({
+      requestId: RID,
+      token: TOKEN,
+      purpose: 'sign_in',
+    });
     expect(history.replaceState).toHaveBeenCalledWith({ router: 1 }, '', '/auth/link');
   });
 

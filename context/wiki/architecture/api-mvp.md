@@ -74,6 +74,8 @@ sign-up opt in with their tickets.
 | DELETE | /v1/sessions/{id} | Revoke one session (+ its widget token) | ses | user | session of caller | 30/h u | yes | AC-1.4 |
 | POST | /v1/sessions/revoke-all | Log out everywhere (incl. current, widget tokens) | ses | user | self | 10/h u | yes | AC-1.4 |
 | POST | /v1/auth/reauth | Fresh provider proof → reauth token (5 min) | ses | user | proof subject = session account | 5/15 min u | no | US-29, US-30 |
+| POST | /v1/auth/reauth/email/start | Email a re-auth link (accounts that signed up by email); always 202 `{request_id}` | ses | user | sent only to the account's own email identity, bound to this session | 5/15 min u | no | US-29, US-30 |
+| POST | /v1/auth/reauth/email/verify | Re-auth link token + this tab's verifier → reauth token (5 min) | ses | user | link of purpose `reauth`, this account and session, single use, 15 min | 5/15 min u (shared with /reauth) | no | US-29, US-30 |
 | DELETE | /v1/sessions/current | Log out (revokes session + widget token of device) | onb/ses | user | own session | 30/min u | yes | US-16 AC-16.2 |
 
 Implemented (T-26, #28, server part): `POST /v1/auth/reauth` takes `{provider: "apple"|"google", id_token, nonce}` (same field
@@ -88,6 +90,20 @@ as a bearer token is 401 on every route. Rate limit `auth.reauth` 5 per 15 minut
 proof and keeps the token in memory for one action; the auth client's `fetchWithProof` returns a refused proof (401
 `UNAUTHENTICATED`) to the caller instead of signing out, and every request returns 401 `REAUTH_REQUIRED` to the caller with
 the session kept. The native Apple/Google sheets still need a device build. Tests: `tests/api/reauth.rs`.
+
+Re-auth by magic link (sprint 10 phase 2, [[ADR-0012-web-sign-up]]): for accounts that signed up by email (the address is not
+stored, so the user types it). `POST /v1/auth/reauth/email/start` (ses, `auth.reauth.email.start` 5/15 min per user, fails
+closed) `{email, code_challenge}` → 202 `{request_id}` for every well-formed request; a link (`magic_links.purpose = reauth`,
+`account_id` + `session_id` of the caller) is stored and emailed ("Confirm it's you", `...#rid=..&token=..&for=reauth`) only
+when the address hashes to the caller's own email identity, otherwise nothing is stored or sent. `POST
+/v1/auth/reauth/email/verify` (ses, `auth.reauth`) `{token, code_verifier}` → 200 `{reauth_token, expires_at}`, the same token as
+`/v1/auth/reauth` (child session, 5 minutes, replaces the previous one). Unknown token, another tab's verifier, a sign-in link,
+or a link of another account or session → 401 `MAGIC_LINK_INVALID` (not burned); expired / used → 410. A re-auth link is
+refused by `/v1/auth/email/verify` (never signs in). App: the "confirm it's you" sheet (`useReauth`) has "Email me a link";
+it keeps the verifier in memory, and the link opens `/auth/link` (available at home only for `&for=reauth` links) in a new tab,
+which hands `{request_id, token}` back over a `BroadcastChannel` (`features/auth/magicLinkChannel.ts`, same origin, nothing
+persisted; in-process on native) and says "Go back to the tab where you asked"; the asking tab redeems it and continues.
+Tests: `tests/api/reauth_link.rs`, `features/privacy/__tests__/emailReauth.test.tsx`, E2E `signup.spec.ts` (export).
 | POST | /v1/attestation/challenge | Nonce for `att` (32 bytes, single use, 5 min) | onb/ses | user | — | 30/min d | no | US-5, US-13 |
 | POST | /v1/attestation/apple-keys | Register this install's App Attest key (attestation object) | onb/ses | user | key bound to caller | 10/day d | no | US-5, US-13 |
 | GET | /v1/me | Account status, onboarding step, profile, resolved policy flags | onb/ses | user | self | 120/min u | yes | US-1–3 |
