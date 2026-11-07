@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
   compareVersions,
   killedIds,
+  missingCapabilities,
+  platformSupport,
   resolveAvailability,
   visibleEntries,
   type DeviceContext,
@@ -10,6 +12,7 @@ import {
 import { ENTRIES } from './entries';
 import { cutDiecut } from './entries/cut.diecut';
 import { fxHolo } from './entries/fx.holo';
+import { fxLaserEyes } from './entries/fx.laser-eyes';
 import { BOARD_KINDS, type EffectEntry } from './schema';
 
 /** Card styles only: board backdrops and decorations (T-111) are listed by the board, not the editor. */
@@ -26,6 +29,12 @@ const noGms: DeviceContext = {
   osVersion: 29,
   appVersion: '0.1.0',
   capabilities: new Set(),
+};
+/** The web target (ADR-0009) after a successful in-browser cutout. */
+const browser: DeviceContext = {
+  platform: 'web',
+  appVersion: '0.1.0',
+  capabilities: new Set(['subjectMask']),
 };
 
 describe('resolveAvailability', () => {
@@ -92,6 +101,58 @@ describe('resolveAvailability', () => {
       platforms: { ...fxHolo.platforms, ios: { min: '18', requires: [] } },
     };
     expect(resolveAvailability(ios18, iphone)).toEqual({ status: 'hidden', reason: 'os' });
+  });
+});
+
+describe('resolveAvailability on the web target (ADR-0009)', () => {
+  it('never gates a browser on an OS version', () => {
+    const ios18: EffectEntry = {
+      ...fxHolo,
+      platforms: {
+        ...fxHolo.platforms,
+        ios: { min: '18', requires: [] },
+        android: { min: 99, requires: [] },
+      },
+    };
+    expect(resolveAvailability(ios18, browser)).toEqual({ status: 'available' });
+  });
+
+  it('shows subject styles once the in-browser cutout produced a mask', () => {
+    expect(resolveAvailability(cutDiecut, browser)).toEqual({ status: 'available' });
+    expect(resolveAvailability(cutDiecut, { ...browser, capabilities: new Set() })).toEqual({
+      status: 'hidden',
+      reason: 'requires',
+    });
+  });
+
+  it('reads the web requirements, not the native ones', () => {
+    const nativeOnly: EffectEntry = {
+      ...fxHolo,
+      platforms: { ...fxHolo.platforms, web: { requires: ['gyro'] } },
+    };
+    expect(resolveAvailability(nativeOnly, browser)).toEqual({
+      status: 'hidden',
+      reason: 'requires',
+    });
+    expect(resolveAvailability(nativeOnly, iphone)).toEqual({ status: 'available' });
+    expect(missingCapabilities(nativeOnly, browser)).toEqual(['gyro']);
+    expect(platformSupport(nativeOnly, browser)).toBe(nativeOnly.platforms.web);
+  });
+
+  it('takes the tap fallback for face-anchored effects (no landmark detector on the web yet)', () => {
+    expect(resolveAvailability(fxLaserEyes, browser)).toEqual({
+      status: 'fallback',
+      fallback: 'userPoints',
+      missing: ['faceLandmarks'],
+    });
+  });
+
+  it('lists every card style on the web that an iPhone with the same capabilities lists', () => {
+    const ids = (device: DeviceContext) =>
+      visibleEntries(CARD_ENTRIES, device).map(({ entry }) => entry.id);
+    const sameCapabilities = { ...iphone, capabilities: browser.capabilities };
+    expect(ids(browser)).toEqual(ids(sameCapabilities));
+    expect(ids(browser).length).toBeGreaterThan(20);
   });
 });
 

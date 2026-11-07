@@ -73,7 +73,9 @@ export default function SendRoute() {
         router.replace({ pathname: '/editor', params: { draft: card.id, ...replyParams(reply) } })
       }
       onOpenFriends={() => router.push('/friends')}
-      onDone={() => router.replace('/')}
+      // Back to the home screen already under capture, editor and send: `replace` would stack a second home on top
+      // (two feeds mounted on the web, and back would return to the editor).
+      onDone={() => router.dismissTo('/')}
     />
   );
 }

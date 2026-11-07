@@ -110,9 +110,20 @@ export type ParamSpec =
 
 export type ParamValue = number | boolean | string;
 
+/** What an entry needs on a native platform. */
 export interface PlatformSupport {
   /** Minimum OS: iOS major version string, Android API level. */
   min: string | number;
+  requires: readonly Capability[];
+  fallback?: Fallback;
+}
+
+/**
+ * What an entry needs on the app's web target (ADR-0009). A browser has no OS version to gate on: what differs is the
+ * capabilities the page can provide (a subject mask from the in-browser cutout, but no face landmarks yet), so a
+ * native-only feature is a capability the web never probes and the entry is hidden there with that reason.
+ */
+export interface WebSupport {
   requires: readonly Capability[];
   fallback?: Fallback;
 }
@@ -140,6 +151,9 @@ export interface EffectEntry {
   platforms: {
     ios: PlatformSupport;
     android: PlatformSupport;
+    /** The app running in a browser (Expo web target, ADR-0009). */
+    web: WebSupport;
+    /** How the public share page (apps/web) shows the entry: a baked still or a live render. */
     webPreview: 'baked' | 'live';
   };
   cost: { gpu: GpuCost; bakeMs: number; liveAllowed: boolean; maxLive: number };

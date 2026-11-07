@@ -1,8 +1,9 @@
-import { Platform } from 'react-native';
+import { Platform, type PlatformOSType } from 'react-native';
 
 import {
   EFFECT_SLOT_KINDS,
   killedIds,
+  missingCapabilities,
   resolveAvailability,
   type Capability,
   type DeviceContext,
@@ -24,9 +25,12 @@ export type PickerSlot = StyleSlot | 'effects';
 export type UnavailableReason =
   /** The entry needs a newer app build (`flags.minAppVersion`). */
   | 'needsUpdate'
-  /** The OS is older than the entry's minimum. */
+  /** The OS is older than the entry's minimum (native only: the web target has no OS gate). */
   | 'osTooOld'
-  /** A device capability other than the subject mask is missing (pose, landmarks, gyro). */
+  /**
+   * A device capability other than the subject mask is missing (pose, landmarks, gyro), including a native-only
+   * feature on the web target.
+   */
   | 'notSupported';
 
 export type TileState =
@@ -81,9 +85,7 @@ export function tileState(
       case 'os':
         return { kind: 'unavailable', reason: 'osTooOld' };
       case 'requires': {
-        const missing = entry.platforms[device.platform].requires.filter(
-          (capability) => !device.capabilities.has(capability),
-        );
+        const missing = missingCapabilities(entry, device);
         // No subject mask = a whole-photo card, which offers only mask-free styles (EM decision 2026-11-05).
         if (missing.includes('subjectMask')) return null;
         return { kind: 'unavailable', reason: 'notSupported' };
@@ -152,14 +154,22 @@ export function defaultCut(
 
 /**
  * This device as the registry sees it. `subjectMask` is present only when the current card has a subject
- * (a mask exists and the user did not choose "Use whole photo").
+ * (a mask exists and the user did not choose "Use whole photo"). The web target (ADR-0009) is its own platform:
+ * react-native-web has no `Platform.Version`, and a browser must not be judged against iOS or Android minimums.
  */
-export function deviceContext(appVersion: string, hasSubject: boolean): DeviceContext {
+export function deviceContext(
+  appVersion: string,
+  hasSubject: boolean,
+  os: PlatformOSType = Platform.OS,
+  osVersion: string | number | undefined = Platform.Version,
+): DeviceContext {
   // Other capabilities (pose, landmarks, gyro) are probed when the first entry needing them ships.
   const capabilities = new Set<Capability>(hasSubject ? ['subjectMask'] : []);
+  if (os === 'web') return { platform: 'web', appVersion, capabilities };
   return {
-    platform: Platform.OS === 'android' ? 'android' : 'ios',
-    osVersion: Platform.Version,
+    platform: os === 'android' ? 'android' : 'ios',
+    // An unknown version compares as 0, which hides OS-gated entries rather than guessing they run.
+    osVersion: osVersion ?? 0,
     appVersion,
     capabilities,
   };

@@ -8,14 +8,9 @@ import {
   type SharedValue,
 } from 'react-native-reanimated';
 
-import { INITIAL_TILT_STATE, stepTilt, tiltChanged, type Tilt } from './gyroTilt';
+import { gravityAxisSign, INITIAL_TILT_STATE, stepTilt, tiltChanged, type Tilt } from './gyroTilt';
 
-/**
- * Core Motion reports gravity pointing down (face-up flat = z -1 g), Android's TYPE_GRAVITY pointing
- * up (z +9.81), so iOS axes are flipped to share one convention. Assumption to verify on a device
- * (T-52 measurement protocol): tilting the right edge down should move the foil the same way on both.
- */
-const AXIS_SIGN = Platform.OS === 'ios' ? -1 : 1;
+const AXIS_SIGN = gravityAxisSign(Platform.OS);
 
 export interface GyroTiltDriverProps {
   /** Written on the UI thread whenever the tilt moves more than the noise threshold. */

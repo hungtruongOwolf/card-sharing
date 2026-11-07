@@ -1,4 +1,4 @@
-import type { Capability, EffectEntry, Fallback } from './schema';
+import type { Capability, EffectEntry, Fallback, PlatformSupport, WebSupport } from './schema';
 
 /** The `GET /v1/config` fields routing needs (shape of the API's `AppConfigResponse`). */
 export interface RemoteRegistryConfig {
@@ -8,13 +8,22 @@ export interface RemoteRegistryConfig {
   >;
 }
 
-export interface DeviceContext {
-  platform: 'ios' | 'android';
-  /** iOS version (`"17.4"`) or Android API level (`34`). */
-  osVersion: string | number;
+interface DeviceBase {
   appVersion: string;
   capabilities: ReadonlySet<Capability>;
 }
+
+/**
+ * This device as the registry sees it. A native device carries its OS version; the web target (ADR-0009) has none
+ * to compare (a browser is not an iOS or Android release), only the capabilities the page can provide.
+ */
+export type DeviceContext =
+  | (DeviceBase & {
+      platform: 'ios' | 'android';
+      /** iOS version (`"17.4"`) or Android API level (`34`). */
+      osVersion: string | number;
+    })
+  | (DeviceBase & { platform: 'web' });
 
 export type HiddenReason = 'killSwitch' | 'featureFlag' | 'minAppVersion' | 'os' | 'requires';
 
@@ -49,9 +58,24 @@ export function compareVersions(a: string | number, b: string | number): number 
   return 0;
 }
 
+/** What the entry needs on this device's platform. */
+export function platformSupport(
+  entry: EffectEntry,
+  device: DeviceContext,
+): PlatformSupport | WebSupport {
+  return entry.platforms[device.platform];
+}
+
+/** The capabilities the entry needs on this device's platform that the device does not have. */
+export function missingCapabilities(entry: EffectEntry, device: DeviceContext): Capability[] {
+  return platformSupport(entry, device).requires.filter(
+    (capability) => !device.capabilities.has(capability),
+  );
+}
+
 /**
  * Decides whether the app shows an entry on this device, in order: remote kill switch, feature flag
- * (entries ship dark), app version, OS version, then capabilities, where a declared fallback UX
+ * (entries ship dark), app version, OS version (native only), then capabilities, where a declared fallback UX
  * (e.g. tap-the-eyes) keeps the entry visible. Display only: the server validates stored styles itself.
  */
 export function resolveAvailability(
@@ -68,13 +92,16 @@ export function resolveAvailability(
   if (minAppVersion !== undefined && compareVersions(device.appVersion, minAppVersion) < 0) {
     return { status: 'hidden', reason: 'minAppVersion' };
   }
-  const platform = entry.platforms[device.platform];
-  if (compareVersions(device.osVersion, platform.min) < 0)
+  if (
+    device.platform !== 'web' &&
+    compareVersions(device.osVersion, entry.platforms[device.platform].min) < 0
+  ) {
     return { status: 'hidden', reason: 'os' };
-  const missing = platform.requires.filter((capability) => !device.capabilities.has(capability));
+  }
+  const missing = missingCapabilities(entry, device);
   if (missing.length === 0) return { status: 'available' };
-  if (platform.fallback !== undefined)
-    return { status: 'fallback', fallback: platform.fallback, missing };
+  const { fallback } = platformSupport(entry, device);
+  if (fallback !== undefined) return { status: 'fallback', fallback, missing };
   return { status: 'hidden', reason: 'requires' };
 }
 

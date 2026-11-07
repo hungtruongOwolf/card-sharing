@@ -1,5 +1,5 @@
 import type { EffectEntry } from '../schema';
-import { APP_MIN_ANDROID, APP_MIN_IOS } from './platforms';
+import { NEEDS_FACE_LANDMARKS } from './platforms';
 
 /**
  * Classic meme laser eyes (effects-catalog.md §3.1 #4): glowing beams from both eyes. Anchored to the eyes; without
@@ -32,11 +32,7 @@ export const fxLaserEyes: EffectEntry = {
   layer: 'over',
   stackable: false,
   conflictsWith: [],
-  platforms: {
-    ios: { min: APP_MIN_IOS, requires: ['faceLandmarks'], fallback: 'userPoints' },
-    android: { min: APP_MIN_ANDROID, requires: ['faceLandmarks'], fallback: 'userPoints' },
-    webPreview: 'baked',
-  },
+  platforms: NEEDS_FACE_LANDMARKS,
   cost: { gpu: 'M', bakeMs: 40, liveAllowed: false, maxLive: 0 },
   export: { still: true, loop: { seconds: 2, fps: 30, seamless: true } },
   motion: { reduced: 'static' },

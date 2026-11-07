@@ -24,7 +24,7 @@ test('an imported photo opens the editor with its cut-out subject and the AI ent
   await expect(page.getByTestId('editor-ai')).toBeVisible();
 });
 
-test.fixme('B1: a styled card from an imported photo reaches a friend live', async ({ app }) => {
+test('B1: a styled card from an imported photo reaches a friend live', async ({ app }) => {
   const bob = await app.signIn('bob');
   const alice = await app.signIn('alice');
   const caption = uniqueCaption('E2E card');
@@ -32,7 +32,7 @@ test.fixme('B1: a styled card from an imported photo reaches a friend live', asy
   await alice.page.getByTestId('home-capture').click();
   await importPhoto(alice.page);
   const tray = await openEditorTool(alice.page, 'Shape');
-  // B1: on the web every tile says "unavailable: Needs a newer system version", so there is no card and no Next.
+  // B1: the web used to mark every tile "unavailable: Needs a newer system version" (no card, no Next).
   const usable = tray.locator('[data-testid^="tile-"]:not([aria-label*=", unavailable:"])');
   await expect(usable.first()).toBeVisible();
   await usable.first().click();

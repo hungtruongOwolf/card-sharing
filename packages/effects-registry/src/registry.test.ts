@@ -60,7 +60,12 @@ describe('launch cut styles (AC-10.1)', () => {
       'cut.shape.heart',
     ]) {
       const platforms = registry.get(id)?.platforms;
-      expect([id, platforms?.ios.requires, platforms?.android.requires]).toEqual([id, [], []]);
+      expect([
+        id,
+        platforms?.ios.requires,
+        platforms?.android.requires,
+        platforms?.web.requires,
+      ]).toEqual([id, [], [], []]);
     }
   });
 });
@@ -157,6 +162,11 @@ describe('validateEntry', () => {
       'unknown capability',
       { platforms: { ...cutDiecut.platforms, ios: { min: '17', requires: ['lidar' as never] } } },
       /capability/,
+    ],
+    [
+      'unknown web capability',
+      { platforms: { ...cutDiecut.platforms, web: { requires: ['webxr' as never] } } },
+      /web: unknown capability/,
     ],
   ];
 
