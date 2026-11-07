@@ -11,6 +11,8 @@ export { createDevSignIn, DevSignInError, type DevSignIn, type SeedUser } from '
 export { createExpoCameraPermissions } from './expoCameraPermissions';
 export { OnboardingProvider, useOnboarding } from './OnboardingProvider';
 export type { OnboardingPhase } from './phase';
+export { GuardedStack, useIntendedLink } from './GuardedStack';
+export { intendedHref, PHASE_ROUTES, trackIntendedLink, type RoutedPhase } from './phaseRoutes';
 export { BirthDateScreen } from './screens/BirthDateScreen';
 export { CameraPermissionScreen } from './screens/CameraPermissionScreen';
 export { DisplayNameScreen } from './screens/DisplayNameScreen';

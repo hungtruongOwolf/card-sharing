@@ -1,5 +1,4 @@
 import { QueryClientProvider } from '@tanstack/react-query';
-import { Stack } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -17,10 +16,11 @@ import { createAppOutbox, deviceOutboxStore, OutboxProvider } from '../features/
 import {
   createAppOnboardingDeps,
   ErrorScreen,
+  GuardedStack,
   LoadingScreen,
   OnboardingProvider,
+  useIntendedLink,
   useOnboarding,
-  type OnboardingPhase,
 } from '../features/onboarding';
 import { deviceExportStore } from '../features/privacy';
 import { RealtimeEvents } from '../features/realtime';
@@ -28,52 +28,6 @@ import { useCardsApi } from '../features/sharing';
 import { createWidgetTokenApi, deviceWidgetTokenStore, WidgetTokenSync } from '../features/widget';
 import { ThemeProvider, ToastProvider, useBrandFonts, useTheme } from '../ui';
 
-/**
- * Routes of each phase. Only the current phase's routes are reachable (src/features/onboarding/phase.ts);
- * the first one listed is where the phase lands.
- */
-const ROUTES: readonly (readonly [Exclude<OnboardingPhase, 'loading' | 'error'>, string])[] = [
-  ['home', 'index'],
-  ['home', 'holo-lab'],
-  ['home', 'capture'],
-  ['home', 'editor'],
-  ['home', 'drafts'],
-  ['home', 'send'],
-  ['home', 'feed'],
-  ['home', 'activity'],
-  ['home', 'card/[id]'],
-  ['home', 'boards'],
-  ['home', 'board/[id]'],
-  ['home', 'board-lab'],
-  ['home', 'outbox'],
-  ['home', 'cut-lab'],
-  ['home', 'effects-lab'],
-  ['home', 'settings/sessions'],
-  ['home', 'settings/privacy'],
-  ['home', 'settings/feedback'],
-  ['home', 'settings/notifications'],
-  ['home', 'settings/delete-account'],
-  ['home', 'settings/data-export'],
-  ['home', 'friends/index'],
-  ['home', 'friends/requests'],
-  ['home', 'friends/invite'],
-  ['home', 'friends/find'],
-  ['home', 'i/[token]'],
-  ['signIn', 'onboarding/sign-in'],
-  ['refused', 'onboarding/refused'],
-  ['birthDate', 'onboarding/birth-date'],
-  ['displayName', 'onboarding/display-name'],
-  ['handle', 'onboarding/handle'],
-  ['camera', 'onboarding/camera'],
-  ['deletionPending', 'account/deletion-pending'],
-];
-
-/**
- * The stack follows the onboarding phase: when the phase changes, the guard of the current screen turns
- * false and Expo Router moves to the only screen left available and drops the old one from history, so
- * there is no "back" into a finished step (the DOB screen in particular, AC-2.3). The server enforces the
- * same order; these guards only keep the UI consistent with it.
- */
 /** Purge instructions for cached friends' cards (T-83), checked only while signed in. */
 function CardPurges() {
   const api = useCardsApi();
@@ -96,6 +50,8 @@ function WidgetToken() {
 function PhaseStack() {
   const theme = useTheme();
   const { phase } = useOnboarding();
+  // Before any early return: the link the app was opened at must be read while the phase is still loading.
+  const returnTo = useIntendedLink(phase);
   if (phase === 'loading') return <LoadingScreen />;
   if (phase === 'error') return <ErrorScreen />;
   return (
@@ -108,19 +64,11 @@ function PhaseStack() {
           <WidgetToken />
         </>
       ) : null}
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          gestureEnabled: false,
-          contentStyle: { backgroundColor: theme.color.bg.canvas },
-        }}
-      >
-        {ROUTES.map(([routePhase, name]) => (
-          <Stack.Protected key={name} guard={phase === routePhase}>
-            <Stack.Screen name={name} />
-          </Stack.Protected>
-        ))}
-      </Stack>
+      <GuardedStack
+        phase={phase}
+        returnTo={returnTo}
+        contentStyle={{ backgroundColor: theme.color.bg.canvas }}
+      />
     </>
   );
 }

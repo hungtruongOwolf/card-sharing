@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { isServerBusy } from '../../data/serverBusy';
 import { useAuthClient, useAuthState } from '../auth';
@@ -71,6 +71,7 @@ export function OnboardingProvider({
   const [refused, setRefused] = useState(false);
   const [displayNameSaved, setDisplayNameSaved] = useState(false);
   const [cameraHandled, setCameraHandled] = useState(false);
+  const [cameraGranted, setCameraGranted] = useState<boolean | undefined>(undefined);
 
   const signedIn = auth.status === 'signedIn';
   const me = useQuery({
@@ -88,8 +89,30 @@ export function OnboardingProvider({
     if (auth.status === 'signedOut') {
       setDisplayNameSaved(false);
       setCameraHandled(false);
+      setCameraGranted(undefined);
     }
   }
+
+  // An onboarded account skips the camera explainer when the permission is already granted: read it before
+  // choosing the phase, so a launch does not route through the explainer (and lose the URL it was opened at).
+  const cameraCheckNeeded =
+    signedIn && me.data?.step === 'done' && !cameraHandled && cameraGranted === undefined;
+  useEffect(() => {
+    if (!cameraCheckNeeded) return;
+    let cancelled = false;
+    void camera
+      .get()
+      .then(
+        (status) => status === 'granted',
+        () => false,
+      )
+      .then((granted) => {
+        if (!cancelled) setCameraGranted(granted);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [cameraCheckNeeded, camera]);
 
   const publicLinksAllowed = (signedIn ? me.data?.publicLinksAllowed : null) ?? null;
   const phase = resolvePhase({
@@ -100,6 +123,7 @@ export function OnboardingProvider({
     refused,
     displayNameSaved,
     cameraHandled,
+    cameraGranted,
   });
 
   const serverBusy = me.isError && isServerBusy(me.error);
@@ -155,6 +179,7 @@ export function OnboardingProvider({
         setRefused(false);
         setDisplayNameSaved(false);
         setCameraHandled(false);
+        setCameraGranted(undefined);
       },
     };
   }, [

@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { View } from 'react-native';
 
 import { AuthProvider, useAuthClient } from '../features/auth/AuthProvider';
@@ -11,6 +12,7 @@ import type {
 } from '../features/onboarding/cameraPermissions';
 import { createOnboardingApi } from '../features/onboarding/onboardingApi';
 import { OnboardingProvider, useOnboarding } from '../features/onboarding/OnboardingProvider';
+import type { OnboardingPhase } from '../features/onboarding/phase';
 import { BirthDateScreen } from '../features/onboarding/screens/BirthDateScreen';
 import { CameraPermissionScreen } from '../features/onboarding/screens/CameraPermissionScreen';
 import { DisplayNameScreen } from '../features/onboarding/screens/DisplayNameScreen';
@@ -87,9 +89,12 @@ export function fakeProvider(
 }
 
 /** Same phase → screen mapping as the guarded stack in src/app/_layout.tsx, without the native navigator. */
-function PhaseSwitch() {
+function PhaseSwitch({ onPhase }: { onPhase?: (phase: OnboardingPhase) => void }) {
   const { phase, refreshAccount } = useOnboarding();
   const authClient = useAuthClient();
+  useEffect(() => {
+    onPhase?.(phase);
+  }, [onPhase, phase]);
   switch (phase) {
     case 'loading':
       return <LoadingScreen />;
@@ -126,6 +131,8 @@ interface Options {
   providers?: readonly SignInProvider[];
   /** Builds the development sign-in over the harness's auth client (#306). */
   devSignIn?: ((authClient: AuthClient) => DevSignIn) | null;
+  /** Hears every phase the app goes through, in order. */
+  onPhase?: (phase: OnboardingPhase) => void;
 }
 
 export async function renderOnboarding(server: FakeOnboardingServer, options: Options = {}) {
@@ -134,6 +141,7 @@ export async function renderOnboarding(server: FakeOnboardingServer, options: Op
     camera = fakeCamera(),
     providers = [fakeProvider('apple')],
     devSignIn = null,
+    onPhase,
   } = options;
   const store = memoryStore(signedIn ? sessionFromTokenPair(server.auth.issue()) : null);
   const authClient: AuthClient = createAuthClient({
@@ -155,7 +163,7 @@ export async function renderOnboarding(server: FakeOnboardingServer, options: Op
           devSignIn={devSignIn ? devSignIn(authClient) : null}
           camera={camera}
         >
-          <PhaseSwitch />
+          <PhaseSwitch onPhase={onPhase} />
         </OnboardingProvider>
       </AuthProvider>
     </QueryClientProvider>,
