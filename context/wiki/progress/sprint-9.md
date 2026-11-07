@@ -31,6 +31,10 @@ native builds can be tried without an Apple account, and measures latency in par
 ## Progress
 | Lane | Ticket | PR | Result |
 |---|---|---|---|
+| Web | Expo web target + phone frame + CI web export | #365 | Merged. `index.web.ts` loads CanvasKit and fonts; 430 x 932 iframe frame on wide screens; `js-web-app` CI job. |
+| Web | Web fallbacks for native seams | #366 | Merged. localStorage-backed secure store (preview-only exception), `blob:` photos, web font URIs. Drafts lose photos on reload. |
+| Web | CORS for the browser app | #368 | Merged. Allows `X-App-Version`/`X-Reauth`, exposes `Idempotent-Replayed`/`Retry-After`, no credentials. |
+| Web | Web AI cutout | #369 | Merged. BiRefNet_lite via transformers.js from jsDelivr (pinned + SRI) in a worker; WebGPU failed on the dev PC's iGPU, WASM fallback untested; ~115 MB first download. |
 
 ## Exit checklist
 - [ ] The EM can open the app in a phone browser and in Expo Go, and the main screens follow the new design system.
