@@ -5,8 +5,8 @@ use axum::Json;
 use axum::extract::State;
 use http::{HeaderMap, StatusCode};
 use identity::{
-    DeviceInfo, IssuedSession, LinkSignInError, MagicLinkError, Platform, Provider, RefreshError,
-    RegionSignals, RevokeReason, SignInError, SignInRequest,
+    DeviceInfo, IssuedSession, LinkSignInError, MagicLinkError, Platform, Provider,
+    ReauthLinkError, RefreshError, RegionSignals, RevokeReason, SignInError, SignInRequest,
 };
 use platform::problem::{ApiError, ProblemDetails};
 use platform::rate_limit::{AccountSubject, Decision, STORE_RETRY_AFTER_SECS, Subject};
@@ -637,6 +637,142 @@ pub async fn reauthenticate(
     let token = state
         .identity
         .issue_reauth_token(caller.0.account_id, caller.0.session_id)
+        .await
+        .map_err(ApiError::internal)?
+        .ok_or(ApiError::Unauthenticated)?;
+    Ok(Json(ReauthResponse {
+        reauth_token: token.token.expose().to_owned(),
+        expires_at: token.expires_at,
+    }))
+}
+
+/// Body of `POST /v1/auth/reauth/email/start`.
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReauthEmailStartRequest {
+    /// The address this account signed up with, typed again (it is not stored).
+    #[schema(min_length = 3, max_length = 320, example = "cat@example.com")]
+    pub email: String,
+    /// PKCE S256 challenge of a verifier the asking tab keeps in memory (43 characters).
+    #[schema(min_length = 43, max_length = 43)]
+    pub code_challenge: String,
+}
+
+/// Ask for a re-auth link (ADR-0012), for accounts that signed up by email. Auth: ses.
+///
+/// When `email` is the address of this account's email identity, a link bound to this account and
+/// device session is emailed (`...#rid=..&token=..&for=reauth`, 15 minutes, single use). The answer
+/// is the same 202 with a fresh request id when it is not, and nothing is sent.
+#[utoipa::path(
+    post,
+    path = "/v1/auth/reauth/email/start",
+    tag = TAG,
+    operation_id = "startEmailReauth",
+    security(("bearer" = [])),
+    request_body = ReauthEmailStartRequest,
+    responses(
+        (status = ACCEPTED, description = "If the address is this account's, a link is on its way (the same answer otherwise).", body = EmailStartResponse),
+        (status = BAD_REQUEST, description = "VALIDATION_FAILED (malformed email or challenge, unknown fields).", body = ProblemDetails),
+        (status = UNAUTHORIZED, description = "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.", body = ProblemDetails),
+        (status = FORBIDDEN, description = "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.", body = ProblemDetails),
+        (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED (5 per 15 minutes).", body = ProblemDetails),
+        (status = SERVICE_UNAVAILABLE, description = "SERVER_BUSY (rate-limit store slow or down; fails closed).", body = ProblemDetails),
+    )
+)]
+pub async fn start_email_reauth(
+    State(state): State<AppState>,
+    caller: Caller,
+    body: ValidJson<ReauthEmailStartRequest>,
+) -> Result<(StatusCode, Json<EmailStartResponse>), ApiError> {
+    let body = body.0;
+    let request_id = state
+        .identity
+        .start_reauth_link(
+            caller.0.account_id,
+            caller.0.session_id,
+            &body.email,
+            &body.code_challenge,
+            &state.field_cipher,
+        )
+        .await
+        .map_err(|err| match err {
+            MagicLinkError::InvalidEmail | MagicLinkError::InvalidChallenge => {
+                ApiError::Validation("email or code_challenge is invalid".to_owned())
+            }
+            other => ApiError::internal(other),
+        })?;
+    Ok((
+        StatusCode::ACCEPTED,
+        Json(EmailStartResponse { request_id }),
+    ))
+}
+
+/// Body of `POST /v1/auth/reauth/email/verify`.
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReauthEmailVerifyRequest {
+    /// The re-auth link's token, from its fragment: 43 base64url characters.
+    #[schema(min_length = 43, max_length = 43)]
+    pub token: String,
+    /// The PKCE verifier the asking tab kept (RFC 7636: 43 to 128 characters of
+    /// `A-Z a-z 0-9 - . _ ~`).
+    #[schema(min_length = 43, max_length = 128)]
+    pub code_verifier: String,
+}
+
+/// Mint a 5-minute re-auth token from a re-auth link (ADR-0012). Auth: ses.
+///
+/// The link must be one this device session asked for (its account and session), redeemed with
+/// the verifier of the tab that asked, once, within 15 minutes. The token is the same as the one
+/// a fresh Apple/Google proof mints (`POST /v1/auth/reauth`): bound to this session, 5 minutes,
+/// replacing any earlier one.
+#[utoipa::path(
+    post,
+    path = "/v1/auth/reauth/email/verify",
+    tag = TAG,
+    operation_id = "verifyEmailReauth",
+    security(("bearer" = [])),
+    request_body = ReauthEmailVerifyRequest,
+    responses(
+        (status = OK, description = "Re-auth token for this device session (5 minutes).", body = ReauthResponse),
+        (status = BAD_REQUEST, description = "VALIDATION_FAILED (malformed token or verifier, unknown fields).", body = ProblemDetails),
+        (status = UNAUTHORIZED, description = "MAGIC_LINK_INVALID (unknown link, another tab's verifier, a sign-in link, or a link of another session), SESSION_EXPIRED or SESSION_REVOKED.", body = ProblemDetails),
+        (status = FORBIDDEN, description = "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.", body = ProblemDetails),
+        (status = GONE, description = "MAGIC_LINK_EXPIRED or MAGIC_LINK_USED: ask for a new link.", body = ProblemDetails),
+        (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED (5 per 15 minutes, shared with POST /v1/auth/reauth).", body = ProblemDetails),
+        (status = SERVICE_UNAVAILABLE, description = "SERVER_BUSY (rate-limit store slow or down; fails closed).", body = ProblemDetails),
+    )
+)]
+pub async fn verify_email_reauth(
+    State(state): State<AppState>,
+    caller: Caller,
+    body: ValidJson<ReauthEmailVerifyRequest>,
+) -> Result<Json<ReauthResponse>, ApiError> {
+    let body = body.0;
+    if !identity::valid_link_token(&body.token) {
+        return Err(ApiError::Validation(
+            "token must be 43 base64url characters".to_owned(),
+        ));
+    }
+    if !identity::valid_code_verifier(&body.code_verifier) {
+        return Err(ApiError::Validation(
+            "code_verifier must be 43 to 128 characters of A-Z a-z 0-9 - . _ ~".to_owned(),
+        ));
+    }
+    let (account_id, session_id) = (caller.0.account_id, caller.0.session_id);
+    state
+        .identity
+        .redeem_reauth_link(account_id, session_id, &body.token, &body.code_verifier)
+        .await
+        .map_err(|err| match err {
+            ReauthLinkError::Invalid => ApiError::MagicLinkInvalid,
+            ReauthLinkError::Expired => ApiError::MagicLinkExpired,
+            ReauthLinkError::Used => ApiError::MagicLinkUsed,
+            ReauthLinkError::Store(err) => ApiError::internal(err),
+        })?;
+    let token = state
+        .identity
+        .issue_reauth_token(account_id, session_id)
         .await
         .map_err(ApiError::internal)?
         .ok_or(ApiError::Unauthenticated)?;

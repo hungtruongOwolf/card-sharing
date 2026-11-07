@@ -46,8 +46,9 @@ export const PHASE_ROUTES: readonly (readonly [RoutedPhase, string])[] = [
 ];
 
 /**
- * Routes available only while the app was opened with an emailed sign-in link (and has not signed in since). Entering
- * the sign-in phase otherwise must land on the sign-in screen, and Expo Router picks among all available routes.
+ * Routes available only while the app was opened with an emailed link: a sign-in link before sign-in, a re-auth link at
+ * home (`GuardedStack`). Entering a phase otherwise must land on its own first route, and Expo Router picks among all
+ * available routes. Listed under `signIn` above, so they are never remembered as a link to return to.
  */
 export const LINK_ONLY_ROUTES: ReadonlySet<string> = new Set(['auth/link']);
 

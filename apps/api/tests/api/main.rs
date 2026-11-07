@@ -74,6 +74,7 @@ mod push_notify;
 mod push_tokens;
 mod rate_limit;
 mod reauth;
+mod reauth_link;
 mod registry_style;
 mod report_queue;
 mod reports;

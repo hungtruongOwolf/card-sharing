@@ -10,7 +10,7 @@ import { intendedHref, PHASE_ROUTES, trackIntendedLink } from '../phaseRoutes';
 /** The phase as the onboarding provider would report it, driven by the test. */
 let currentPhase: OnboardingPhase = 'loading';
 /** Whether the app was opened with a sign-in link (useMagicLinkLanding). */
-let magicLinkLanding = false;
+let magicLinkLanding: 'sign_in' | 'reauth' | null = null;
 const listeners = new Set<() => void>();
 const usePhase = () =>
   useSyncExternalStore(
@@ -46,7 +46,11 @@ const APP = {
   ...Object.fromEntries(PHASE_ROUTES.map(([, name]) => [name, screenFor(name)])),
 };
 
-async function open(url: string, phase: OnboardingPhase = 'loading', landing = false) {
+async function open(
+  url: string,
+  phase: OnboardingPhase = 'loading',
+  landing: 'sign_in' | 'reauth' | null = null,
+) {
   currentPhase = phase;
   magicLinkLanding = landing;
   return renderRouter(APP, { initialUrl: url });
@@ -154,12 +158,24 @@ describe('trackIntendedLink', () => {
 
 describe('magic-link landing route (ADR-0012)', () => {
   it('shows only when the app was opened with a sign-in link, then the onboarding takes over', async () => {
-    const app = await open('/auth/link', 'loading', true);
+    const app = await open('/auth/link', 'loading', 'sign_in');
     await setPhase('signIn');
     expect(app.getPathname()).toBe('/auth/link');
     expect(screen.getByText('screen:auth/link')).toBeTruthy();
     await setPhase('birthDate');
     expect(app.getPathname()).toBe('/onboarding/birth-date');
+  });
+
+  it('opens a re-auth link at home', async () => {
+    const app = await open('/auth/link', 'loading', 'reauth');
+    await setPhase('home');
+    expect(app.getPathname()).toBe('/auth/link');
+  });
+
+  it('never opens a sign-in link at home', async () => {
+    const app = await open('/auth/link', 'loading', 'sign_in');
+    await setPhase('home');
+    expect(app.getPathname()).toBe('/');
   });
 
   it('is unavailable otherwise: a link to it lands on the sign-in screen', async () => {

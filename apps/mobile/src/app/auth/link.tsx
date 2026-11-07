@@ -11,8 +11,8 @@ import {
 } from '../../features/onboarding';
 
 /**
- * Landing route of emailed sign-in links (`API_MAGIC_LINK_URL`, `/auth/link#rid=<request id>&token=<token>`,
- * ADR-0012). The fragment is read once at start-up and removed from the address bar (`captureLaunchLink`); nothing in
+ * Landing route of emailed links (`API_MAGIC_LINK_URL`, `/auth/link#rid=<request id>&token=<token>[&for=reauth]`,
+ * ADR-0012): sign-in links before sign-in, re-auth links at home. The fragment is read once at start-up and removed from the address bar (`captureLaunchLink`); nothing in
  * it is trusted beyond its shape, and the server checks the token against this device's verifier.
  */
 export default function MagicLinkRoute() {
@@ -34,6 +34,7 @@ export default function MagicLinkRoute() {
       magicLink={magicLink}
       onContinueAt={pendingLink.remember}
       onRestart={() => router.replace('/onboarding/sign-in')}
+      onDone={() => router.replace('/')}
     />
   );
 }

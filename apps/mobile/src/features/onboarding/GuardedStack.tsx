@@ -2,6 +2,7 @@ import { Stack, useGlobalSearchParams, usePathname, useSegments, type Href } fro
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import type { ViewStyle } from 'react-native';
 
+import type { LinkPurpose } from './magicLink';
 import type { OnboardingPhase } from './phase';
 import {
   intendedHref,
@@ -19,17 +20,18 @@ import {
  * only keep the UI consistent with it.
  *
  * `returnTo` (from {@link useIntendedLink}) is where a finished onboarding step goes instead of the home screen.
- * `magicLinkLanding` (from `useMagicLinkLanding`) opens the routes in `LINK_ONLY_ROUTES`.
+ * `magicLinkLanding` (from `useMagicLinkLanding`) opens the routes in `LINK_ONLY_ROUTES`: a sign-in link before
+ * sign-in, a re-auth link at home (ADR-0012).
  */
 export function GuardedStack({
   phase,
   returnTo,
-  magicLinkLanding = false,
+  magicLinkLanding = null,
   contentStyle,
 }: {
   phase: RoutedPhase;
   returnTo?: Href;
-  magicLinkLanding?: boolean;
+  magicLinkLanding?: LinkPurpose | null;
   contentStyle?: ViewStyle;
 }) {
   return (
@@ -37,7 +39,12 @@ export function GuardedStack({
       {PHASE_ROUTES.map(([routePhase, name]) => (
         <Stack.Protected
           key={name}
-          guard={phase === routePhase && (magicLinkLanding || !LINK_ONLY_ROUTES.has(name))}
+          guard={
+            LINK_ONLY_ROUTES.has(name)
+              ? (magicLinkLanding === 'sign_in' && phase === 'signIn') ||
+                (magicLinkLanding === 'reauth' && phase === 'home')
+              : phase === routePhase
+          }
           redirectTo={routePhase === 'home' ? undefined : returnTo}
         >
           <Stack.Screen name={name} />

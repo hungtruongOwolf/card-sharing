@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Linking, Platform } from 'react-native';
 
-import { parseLinkFragment, type LinkFragment } from './magicLink';
+import { parseLinkFragment, type LinkFragment, type LinkPurpose } from './magicLink';
 import type { OnboardingPhase } from './phase';
 
 /** The app's magic-link landing route (`API_MAGIC_LINK_URL`, ADR-0012). */
@@ -98,32 +98,35 @@ export function useMagicLinkFragment(): LinkFragment | null | undefined {
   return link;
 }
 
-/** Whether a URL is a sign-in link to the landing route. */
-function isMagicLinkUrl(url: string | null | undefined): boolean {
-  if (!url || !fragmentOf(url)) return false;
+/** The purpose of a URL that is a link to the landing route, or null. */
+function landingPurpose(url: string | null | undefined): LinkPurpose | null {
+  const link = fragmentOf(url);
+  if (!url || !link) return null;
   const path = url.replace(/^[a-z][a-z0-9+.-]*:\/\/[^/]*/i, '').split(/[?#]/)[0] ?? '';
-  return MAGIC_LINK_PATH.test(path);
+  return MAGIC_LINK_PATH.test(path) ? link.purpose : null;
 }
 
 /**
- * Whether the landing route may show (`LINK_ONLY_ROUTES`): the app was opened with a sign-in link and nobody has
- * signed in since. Once the phase moves past sign-in the link is spent, so a later sign-out lands on the sign-in
- * screen, not on an old link.
+ * Which emailed link the landing route may show (`LINK_ONLY_ROUTES`), if any: the app was opened with a sign-in link
+ * and nobody has signed in since, or with a re-auth link while signed in. A sign-in link is spent once the phase moves
+ * past sign-in, so a later sign-out lands on the sign-in screen, not on an old link.
  */
-export function useMagicLinkLanding(phase: OnboardingPhase): boolean {
-  const [opened, setOpened] = useState(
-    () => Platform.OS === 'web' && capturedLaunchLink() !== null,
+export function useMagicLinkLanding(phase: OnboardingPhase): LinkPurpose | null {
+  const [opened, setOpened] = useState<LinkPurpose | null>(() =>
+    Platform.OS === 'web' ? (capturedLaunchLink()?.purpose ?? null) : null,
   );
   useEffect(() => {
     if (Platform.OS === 'web') return;
     let cancelled = false;
     void Linking.getInitialURL()
       .then((url) => {
-        if (!cancelled && isMagicLinkUrl(url)) setOpened(true);
+        const purpose = landingPurpose(url);
+        if (!cancelled && purpose) setOpened(purpose);
       })
       .catch(() => undefined);
     const subscription = Linking.addEventListener('url', ({ url }) => {
-      if (isMagicLinkUrl(url)) setOpened(true);
+      const purpose = landingPurpose(url);
+      if (purpose) setOpened(purpose);
     });
     return () => {
       cancelled = true;
@@ -132,6 +135,7 @@ export function useMagicLinkLanding(phase: OnboardingPhase): boolean {
   }, []);
   // Adjusted during render (React's "reset state when a value changes" pattern), not in an effect.
   const signedInSince = phase !== 'signIn' && phase !== 'loading' && phase !== 'error';
-  if (opened && signedInSince) setOpened(false);
-  return opened && !signedInSince;
+  const spent = opened === 'sign_in' && signedInSince;
+  if (spent) setOpened(null);
+  return spent ? null : opened;
 }

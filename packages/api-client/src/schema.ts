@@ -436,6 +436,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/auth/reauth/email/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask for a re-auth link (ADR-0012), for accounts that signed up by email. Auth: ses.
+         * @description When `email` is the address of this account's email identity, a link bound to this account and
+         *     device session is emailed (`...#rid=..&token=..&for=reauth`, 15 minutes, single use). The answer
+         *     is the same 202 with a fresh request id when it is not, and nothing is sent.
+         */
+        post: operations["startEmailReauth"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/reauth/email/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mint a 5-minute re-auth token from a re-auth link (ADR-0012). Auth: ses.
+         * @description The link must be one this device session asked for (its account and session), redeemed with
+         *     the verifier of the tab that asked, once, within 15 minutes. The token is the same as the one
+         *     a fresh Apple/Google proof mints (`POST /v1/auth/reauth`): bound to this session, 5 minutes,
+         *     replacing any earlier one.
+         */
+        post: operations["verifyEmailReauth"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/auth/refresh": {
         parameters: {
             query?: never;
@@ -3100,6 +3145,26 @@ export interface components {
             /** @example ready */
             status: string;
         };
+        /** @description Body of `POST /v1/auth/reauth/email/start`. */
+        ReauthEmailStartRequest: {
+            /** @description PKCE S256 challenge of a verifier the asking tab keeps in memory (43 characters). */
+            code_challenge: string;
+            /**
+             * @description The address this account signed up with, typed again (it is not stored).
+             * @example cat@example.com
+             */
+            email: string;
+        };
+        /** @description Body of `POST /v1/auth/reauth/email/verify`. */
+        ReauthEmailVerifyRequest: {
+            /**
+             * @description The PKCE verifier the asking tab kept (RFC 7636: 43 to 128 characters of
+             *     `A-Z a-z 0-9 - . _ ~`).
+             */
+            code_verifier: string;
+            /** @description The re-auth link's token, from its fragment: 43 base64url characters. */
+            token: string;
+        };
         /**
          * @description Provider of a re-auth proof.
          * @enum {string}
@@ -4741,6 +4806,153 @@ export interface operations {
                 };
             };
             /** @description TEMPORARILY_UNAVAILABLE (provider not configured or its keys unreachable). */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    startEmailReauth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReauthEmailStartRequest"];
+            };
+        };
+        responses: {
+            /** @description If the address is this account's, a link is on its way (the same answer otherwise). */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailStartResponse"];
+                };
+            };
+            /** @description VALIDATION_FAILED (malformed email or challenge, unknown fields). */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED (5 per 15 minutes). */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description SERVER_BUSY (rate-limit store slow or down; fails closed). */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    verifyEmailReauth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReauthEmailVerifyRequest"];
+            };
+        };
+        responses: {
+            /** @description Re-auth token for this device session (5 minutes). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReauthResponse"];
+                };
+            };
+            /** @description VALIDATION_FAILED (malformed token or verifier, unknown fields). */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description MAGIC_LINK_INVALID (unknown link, another tab's verifier, a sign-in link, or a link of another session), SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description MAGIC_LINK_EXPIRED or MAGIC_LINK_USED: ask for a new link. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED (5 per 15 minutes, shared with POST /v1/auth/reauth). */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description SERVER_BUSY (rate-limit store slow or down; fails closed). */
             503: {
                 headers: {
                     [name: string]: unknown;

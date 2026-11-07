@@ -153,6 +153,14 @@ pub fn router() -> ApiRouter<AppState> {
             routes!(auth::reauthenticate),
         )
         .route(
+            RoutePolicy::session().limited("auth.reauth.email.start"),
+            routes!(auth::start_email_reauth),
+        )
+        .route(
+            RoutePolicy::session().limited("auth.reauth"),
+            routes!(auth::verify_email_reauth),
+        )
+        .route(
             RoutePolicy::public().limited("auth.dev"),
             routes!(dev_auth::list_seed_users),
         )

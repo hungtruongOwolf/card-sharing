@@ -22,7 +22,7 @@ pub const EXEMPT_TABLES: &[(&str, &str)] = &[
     ),
     (
         "identity.magic_links",
-        "keyed by email hash, not by account; deleted after 24 hours",
+        "keyed by email hash (re-auth links also name their account and session); deleted after 24 hours",
     ),
     (
         "identity.staff_members",

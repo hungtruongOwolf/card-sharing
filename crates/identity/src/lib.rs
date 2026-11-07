@@ -36,7 +36,7 @@ pub use invite_codes::{
 };
 pub use magic_link::{
     DeliveryError, LinkSignInError, MAGIC_LINK_JOB, MagicLinkError, MagicLinkJob,
-    MagicLinkTemplate, email_hash, normalize_email, valid_code_verifier, valid_link_token,
+    MagicLinkTemplate, ReauthLinkError, email_hash, normalize_email, valid_code_verifier, valid_link_token,
 };
 pub use model::{AccountStatus, RegionSignals, SessionScope, UnknownValue};
 pub use personal_data::IdentityPersonalData;

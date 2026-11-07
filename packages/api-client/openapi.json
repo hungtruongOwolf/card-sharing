@@ -1757,6 +1757,204 @@
         }
       }
     },
+    "/v1/auth/reauth/email/start": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Ask for a re-auth link (ADR-0012), for accounts that signed up by email. Auth: ses.",
+        "description": "When `email` is the address of this account's email identity, a link bound to this account and\ndevice session is emailed (`...#rid=..&token=..&for=reauth`, 15 minutes, single use). The answer\nis the same 202 with a fresh request id when it is not, and nothing is sent.",
+        "operationId": "startEmailReauth",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReauthEmailStartRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "If the address is this account's, a link is on its way (the same answer otherwise).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailStartResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED (malformed email or challenge, unknown fields).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED (5 per 15 minutes).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVER_BUSY (rate-limit store slow or down; fails closed).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "auth.reauth.email.start",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
+    "/v1/auth/reauth/email/verify": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Mint a 5-minute re-auth token from a re-auth link (ADR-0012). Auth: ses.",
+        "description": "The link must be one this device session asked for (its account and session), redeemed with\nthe verifier of the tab that asked, once, within 15 minutes. The token is the same as the one\na fresh Apple/Google proof mints (`POST /v1/auth/reauth`): bound to this session, 5 minutes,\nreplacing any earlier one.",
+        "operationId": "verifyEmailReauth",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReauthEmailVerifyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Re-auth token for this device session (5 minutes).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReauthResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED (malformed token or verifier, unknown fields).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "MAGIC_LINK_INVALID (unknown link, another tab's verifier, a sign-in link, or a link of another session), SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "MAGIC_LINK_EXPIRED or MAGIC_LINK_USED: ask for a new link.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED (5 per 15 minutes, shared with POST /v1/auth/reauth).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVER_BUSY (rate-limit store slow or down; fails closed).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "auth.reauth",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
     "/v1/auth/refresh": {
       "post": {
         "tags": [
@@ -11772,6 +11970,53 @@
             "example": "ready"
           }
         }
+      },
+      "ReauthEmailStartRequest": {
+        "type": "object",
+        "description": "Body of `POST /v1/auth/reauth/email/start`.",
+        "required": [
+          "email",
+          "code_challenge"
+        ],
+        "properties": {
+          "code_challenge": {
+            "type": "string",
+            "description": "PKCE S256 challenge of a verifier the asking tab keeps in memory (43 characters).",
+            "maxLength": 43,
+            "minLength": 43
+          },
+          "email": {
+            "type": "string",
+            "description": "The address this account signed up with, typed again (it is not stored).",
+            "example": "cat@example.com",
+            "maxLength": 320,
+            "minLength": 3
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReauthEmailVerifyRequest": {
+        "type": "object",
+        "description": "Body of `POST /v1/auth/reauth/email/verify`.",
+        "required": [
+          "token",
+          "code_verifier"
+        ],
+        "properties": {
+          "code_verifier": {
+            "type": "string",
+            "description": "The PKCE verifier the asking tab kept (RFC 7636: 43 to 128 characters of\n`A-Z a-z 0-9 - . _ ~`).",
+            "maxLength": 128,
+            "minLength": 43
+          },
+          "token": {
+            "type": "string",
+            "description": "The re-auth link's token, from its fragment: 43 base64url characters.",
+            "maxLength": 43,
+            "minLength": 43
+          }
+        },
+        "additionalProperties": false
       },
       "ReauthProvider": {
         "type": "string",

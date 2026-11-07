@@ -70,6 +70,16 @@ routes:
     body: { provider: apple, id_token: $APPLE_ID_TOKEN, nonce: $NONCE }
     expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 401, suspended: 403 }
 
+  # Re-auth links (ADR-0012): any address gets 202 (sent only to the account's own); a random token is an
+  # unknown link (401). Own links, other sessions, expiry and reuse: tests/api/reauth_link.rs.
+  - route: POST /v1/auth/reauth/email/start
+    body: { email: $EMAIL, code_challenge: $CODE_CHALLENGE }
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 202, suspended: 403 }
+
+  - route: POST /v1/auth/reauth/email/verify
+    body: { token: $CODE_CHALLENGE, code_verifier: $CODE_CHALLENGE }
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 401, suspended: 403 }
+
   # Development-only sign-in (#306): the test config leaves API_DEV_SIGN_IN off, so both routes are
   # absent for every caller (the same 404 as an unknown path). Enabled behaviour, the seed-only rule and
   # the staging/production refusal are in tests/api/dev_sign_in.rs and config.rs unit tests.

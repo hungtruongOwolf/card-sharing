@@ -4,8 +4,9 @@
  */
 const MAILPIT_URL = process.env.MAILPIT_URL ?? 'http://127.0.0.1:8025';
 
-/** `<API_MAGIC_LINK_URL>#rid=<request id>&token=<token>` (crates/identity/src/magic_link.rs). */
-const SIGN_IN_LINK = /https?:\/\/\S+\/auth\/link#rid=[0-9a-f-]{36}&token=[A-Za-z0-9_-]{43}/;
+/** `<API_MAGIC_LINK_URL>#rid=<request id>&token=<token>[&for=reauth]` (crates/identity/src/magic_link.rs). */
+const SIGN_IN_LINK =
+  /https?:\/\/\S+\/auth\/link#rid=[0-9a-f-]{36}&token=[A-Za-z0-9_-]{43}(?:&for=reauth)?/;
 
 interface SearchResult {
   messages?: { ID?: string }[];
@@ -20,7 +21,7 @@ async function getJson<T>(path: string): Promise<T> {
 }
 
 /**
- * The sign-in link of the newest email to `to`, waiting for the worker to send it (it is a background job). Links in
+ * The link (sign-in or re-auth) of the newest email to `to`, waiting for the worker to send it (it is a background job). Links in
  * `seen` are skipped, so a test can wait for a second link to the same address.
  */
 export async function signInLink(

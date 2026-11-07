@@ -9,6 +9,7 @@
  * - `POST /v1/me/exports` queues an export available 48 h later; a second one within 24 h is 429
  *   `EXPORT_COOLDOWN` with `Retry-After`. `GET` returns a fresh single-use download path once ready.
  */
+import { pkceChallenge } from '../features/auth/pkce';
 import { FakeAuthServer, json, problem, type RecordedRequest } from './fakeAuthServer';
 
 const MINUTE = 60_000;
@@ -36,6 +37,12 @@ export class FakePrivacyServer {
   onDeletionCancelled: (() => void) | null = null;
   /** Next response for `METHOD path`, consumed once (e.g. a 503). */
   readonly overrides = new Map<string, Response>();
+
+  /** The address of the account's email identity; re-auth links go only there (ADR-0012). */
+  accountEmail: string | null = null;
+  /** Re-auth links sent, newest last (`POST /v1/auth/reauth/email/start`). */
+  readonly reauthLinks: { requestId: string; token: string; challenge: string; used: boolean }[] =
+    [];
 
   private grant: { token: string; issuedAt: number } | null = null;
   private readonly usedNonces = new Set<string>();
@@ -121,6 +128,39 @@ export class FakePrivacyServer {
         return problem(401, 'UNAUTHENTICATED');
       }
       this.usedNonces.add(nonce);
+      this.counter += 1;
+      this.grant = { token: `reauth-${this.counter}`, issuedAt: now };
+      return json({ reauth_token: this.grant.token, expires_at: this.iso(now + REAUTH_TTL_MS) });
+    }
+
+    if (method === 'POST' && path === '/v1/auth/reauth/email/start') {
+      const b = body as { email?: unknown; code_challenge?: unknown } | undefined;
+      if (typeof b?.email !== 'string' || typeof b.code_challenge !== 'string') {
+        return problem(400, 'VALIDATION_FAILED');
+      }
+      this.counter += 1;
+      const n = String(this.counter).padStart(12, '0');
+      const requestId = `00000000-0000-4000-a000-${n}`;
+      if (b.email.trim().toLowerCase() === this.accountEmail) {
+        this.reauthLinks.push({
+          requestId,
+          token: `re${n}`.padEnd(43, 'y'),
+          challenge: b.code_challenge,
+          used: false,
+        });
+      }
+      return json({ request_id: requestId }, 202);
+    }
+
+    if (method === 'POST' && path === '/v1/auth/reauth/email/verify') {
+      const b = body as { token?: unknown; code_verifier?: unknown } | undefined;
+      const link = this.reauthLinks.find((l) => l.token === b?.token);
+      const verifier = typeof b?.code_verifier === 'string' ? b.code_verifier : '';
+      if (!link || pkceChallenge(verifier) !== link.challenge) {
+        return problem(401, 'MAGIC_LINK_INVALID');
+      }
+      if (link.used) return problem(410, 'MAGIC_LINK_USED');
+      link.used = true;
       this.counter += 1;
       this.grant = { token: `reauth-${this.counter}`, issuedAt: now };
       return json({ reauth_token: this.grant.token, expires_at: this.iso(now + REAUTH_TTL_MS) });
