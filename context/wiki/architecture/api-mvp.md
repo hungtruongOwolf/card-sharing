@@ -798,7 +798,10 @@ hours (30-minute steps, one adjustable control per time) as a draft saved in one
 window is blocked before sending. `TimeZoneSync` (mounted while signed in) reads
 `Intl.DateTimeFormat().resolvedOptions().timeZone` on launch and on every return to the foreground and writes it back
 (GET, then `PUT` with the other fields unchanged) only when the stored zone differs; failures retry on the next
-foreground, a refused zone (400) is not retried until it changes.
+foreground, a refused zone (400) is not retried until it changes. Sprint 10 B7: the device remembers the zone it last
+sent for the account (`cs.notifications.zone.v1`, cleared on sign-out) and makes no request while the device zone
+equals it, so a web reload no longer reads the preferences; after a 429 it sends nothing before `Retry-After` (60 s
+without one). App-wide, TanStack Query no longer retries a rate-limited query (`retryQuery`, `data/queryClient.ts`).
 
 US-28 (CSAM hashing + nudity classifier) has no scan endpoint: the `media.process` job gates delivery ([[ADR-0005-media-pipeline]]);
 the only user touchpoint is `POST /v1/cards/{id}/appeal`. Email change does not exist in MVP; when added it requires `re` (AC-1.4).

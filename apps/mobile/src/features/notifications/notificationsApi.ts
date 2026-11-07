@@ -53,6 +53,8 @@ export class NotificationsError extends Error {
   constructor(
     readonly kind: NotificationsErrorKind,
     readonly status?: number,
+    /** From `Retry-After` on a 429: how long to leave the endpoint alone. */
+    readonly retryAfterMs?: number,
   ) {
     super(status === undefined ? `notifications: ${kind}` : `notifications: ${kind} (${status})`);
   }
@@ -127,9 +129,16 @@ export function notificationPrefsBody(
   };
 }
 
-function failure(status: number): NotificationsError {
+/** `Retry-After` in seconds (the API never sends the HTTP-date form), as milliseconds. */
+function retryAfterMs(response: Response): number | undefined {
+  const seconds = Number(response.headers.get('Retry-After'));
+  return Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : undefined;
+}
+
+function failure(response: Response): NotificationsError {
+  const { status } = response;
   if (status === 400) return new NotificationsError('invalid', status);
-  if (status === 429) return new NotificationsError('rate_limited', status);
+  if (status === 429) return new NotificationsError('rate_limited', status, retryAfterMs(response));
   return new NotificationsError('unavailable', status);
 }
 
@@ -141,7 +150,7 @@ const PATH = '/v1/me/notification-preferences';
  */
 export function createNotificationsApi(fetcher: AuthClient['fetch']): NotificationsApi {
   const read = async (response: Response) => {
-    if (!response.ok) throw failure(response.status);
+    if (!response.ok) throw failure(response);
     const prefs = parseNotificationPrefs(await response.json().catch(() => null));
     if (!prefs) throw new NotificationsError('unavailable', response.status);
     return prefs;

@@ -26,6 +26,7 @@ import { deviceExportStore } from '../features/privacy';
 import { RealtimeEvents } from '../features/realtime';
 import { useCardsApi } from '../features/sharing';
 import { createWidgetTokenApi, deviceWidgetTokenStore, WidgetTokenSync } from '../features/widget';
+import { deviceSyncedTimeZoneStore } from '../features/notifications/syncedTimeZone';
 import { ThemeProvider, ToastProvider, useBrandFonts, useTheme } from '../ui';
 
 /**
@@ -142,7 +143,8 @@ function Onboarding() {
  * Device copies of account data never outlive the session: the offline feed holds friends' names and captions
  * (T-80), the outbox holds this account's unsent cards and reactions (T-78), which must never go out as the
  * next account, the widget token (T-91) must leave the widget empty (AC-16.2), and board copies (T-105) hold
- * friends' cards and names. The remembered data export (T-155) and the seen marks of story rings belong to the account too.
+ * friends' cards and names. The remembered data export (T-155), the seen marks of story rings and the time zone last
+ * sent to the server (B7) belong to the account too.
  */
 const clearDeviceData = () => {
   void deviceFeedCache()
@@ -160,6 +162,10 @@ const clearDeviceData = () => {
     .catch(() => undefined);
   // Which friends' cards were opened (story rings, sprint 9).
   void deviceSeenStore()
+    .clear()
+    .catch(() => undefined);
+  // The time zone last sent for this account (B7): the next account syncs its own.
+  void deviceSyncedTimeZoneStore()
     .clear()
     .catch(() => undefined);
 };
