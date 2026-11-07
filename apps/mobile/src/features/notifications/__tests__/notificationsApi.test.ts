@@ -65,6 +65,15 @@ describe('notifications api', () => {
     ).rejects.toMatchObject({ kind: 'invalid', status: 400 });
     server.overrides.set(`PUT ${PATH}`, problem(429, 'RATE_LIMITED'));
     await expect(api.put(prefs)).rejects.toMatchObject({ kind: 'rate_limited' });
+    server.overrides.set(
+      `PUT ${PATH}`,
+      new Response('{}', { status: 429, headers: { 'Retry-After': '90' } }),
+    );
+    // Retry-After (seconds) travels with the error so callers can wait it out (B7).
+    await expect(api.put(prefs)).rejects.toMatchObject({
+      kind: 'rate_limited',
+      retryAfterMs: 90_000,
+    });
     server.overrides.set(`GET ${PATH}`, problem(503, 'TEMPORARILY_UNAVAILABLE'));
     await expect(api.get()).rejects.toBeInstanceOf(NotificationsError);
   });
