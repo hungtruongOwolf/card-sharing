@@ -89,7 +89,7 @@ impl From<InvitePreview> for InvitePreviewResponse {
         (status = FORBIDDEN, description = "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.", body = ProblemDetails),
         (status = NOT_FOUND, description = "NOT_FOUND (unknown) or INVITE_EXPIRED (reset, expired or used up).", body = ProblemDetails),
         (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED.", body = ProblemDetails),
-        (status = SERVICE_UNAVAILABLE, description = "TEMPORARILY_UNAVAILABLE (rate limit store down; fails closed).", body = ProblemDetails),
+        (status = SERVICE_UNAVAILABLE, description = "SERVER_BUSY (rate-limit store slow or down; fails closed; retry after Retry-After).", body = ProblemDetails),
     )
 )]
 pub async fn preview_invite(

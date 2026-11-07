@@ -64,6 +64,7 @@ export const en = {
   'onboarding.error.title': 'Something went wrong',
   'onboarding.error.body': 'We couldn’t reach the server. Check your connection and try again.',
   'onboarding.error.retry': 'Try again',
+  'error.serverBusy': 'The server is busy right now. Please try again in a moment.',
   'onboarding.error.generic': 'That didn’t work. Please try again.',
   'onboarding.error.rateLimited': 'Too many tries. Please wait a bit and try again.',
   'onboarding.continue': 'Continue',

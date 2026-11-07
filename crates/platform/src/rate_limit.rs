@@ -7,13 +7,19 @@
 //! - An optional `global` bucket per limit is a circuit breaker across all callers.
 //! - Optional `also` windows add more per-caller buckets to one limit (e.g. 20/min and 100/day);
 //!   a request must pass every window.
-//! - When Redis fails, `on_store_failure: closed` limits (auth, search) refuse the request;
+//! - When Redis fails, `on_store_failure: closed` limits (auth, search) refuse the request
+//!   ([`Decision::Unavailable`], served as 503 `SERVER_BUSY` with `Retry-After`);
 //!   `open` limits fall back to a per-instance in-memory bucket.
+//! - A failed store call opens a short breaker ([`STORE_BACKOFF`]): while it is open no request
+//!   waits for the store, so a slow Valkey costs one timeout per backoff window instead of one
+//!   per request (closed limits answer at once, open ones use memory). The first request after
+//!   the window probes the store again.
 
 use std::collections::{BTreeMap, HashMap};
 use std::net::IpAddr;
 use std::path::Path;
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicI64, Ordering};
 use std::time::Duration;
 
 use redis::aio::ConnectionManager;
@@ -28,6 +34,10 @@ const SUPPORTED_VERSION: u32 = 1;
 const STORE_TIMEOUT: Duration = Duration::from_millis(300);
 /// In-memory fallback buckets kept per instance before old ones are pruned.
 const MEMORY_SOFT_CAP: usize = 50_000;
+/// How long the store is skipped after a failed call (the breaker window).
+pub const STORE_BACKOFF: Duration = Duration::from_secs(2);
+/// `Retry-After` for a fail-closed limit whose store is unavailable: one breaker window.
+pub const STORE_RETRY_AFTER_SECS: u64 = STORE_BACKOFF.as_secs();
 
 #[derive(Debug, thiserror::Error)]
 pub enum RateLimitConfigError {
@@ -138,6 +148,18 @@ impl RateLimitConfig {
         self.limits.get(name)
     }
 
+    /// Names of the limits with `on_store_failure: closed`, sorted.
+    pub fn fail_closed_limits(&self) -> Vec<&str> {
+        let mut names: Vec<&str> = self
+            .limits
+            .iter()
+            .filter(|(_, spec)| spec.on_store_failure == FailMode::Closed)
+            .map(|(name, _)| name.as_str())
+            .collect();
+        names.sort_unstable();
+        names
+    }
+
     /// Fails when a route references a limit that the config does not define.
     pub fn ensure_defined<'a>(
         &self,
@@ -200,7 +222,8 @@ pub enum Decision {
     Limited {
         retry_after_secs: u64,
     },
-    /// The store is down and the limit fails closed.
+    /// The store is slow or down and the limit fails closed. Retry after
+    /// [`STORE_RETRY_AFTER_SECS`].
     Unavailable,
 }
 
@@ -214,6 +237,8 @@ pub struct RateLimiter {
     memory: MemoryBuckets,
     clock: SharedClock,
     key_prefix: String,
+    /// Unix milliseconds until which the store is skipped (0 = closed breaker).
+    store_skip_until_ms: AtomicI64,
 }
 
 enum Store {
@@ -242,6 +267,7 @@ impl RateLimiter {
             memory: MemoryBuckets::default(),
             clock,
             key_prefix: "rl".to_owned(),
+            store_skip_until_ms: AtomicI64::new(0),
         }
     }
 
@@ -323,16 +349,37 @@ impl RateLimiter {
         let Store::Redis(redis) = &self.store else {
             return self.memory.take(key, bucket, now_ms);
         };
+        if now_ms < self.store_skip_until_ms.load(Ordering::Relaxed) {
+            return self.store_failed(key, bucket, fail, now_ms);
+        }
         match take_in_redis(redis.clone(), key, bucket, now_ms).await {
             Ok(decision) => decision,
             Err(err) => {
-                tracing::warn!(error = %err, ?fail, "rate limit store unavailable");
-                match fail {
-                    FailMode::Closed => Decision::Unavailable,
-                    FailMode::Open => self.memory.take(key, bucket, now_ms),
-                }
+                let backoff_ms = i64::try_from(STORE_BACKOFF.as_millis()).unwrap_or(i64::MAX);
+                self.store_skip_until_ms
+                    .fetch_max(now_ms.saturating_add(backoff_ms), Ordering::Relaxed);
+                tracing::warn!(
+                    error = %err,
+                    ?fail,
+                    backoff_ms,
+                    "rate limit store unavailable; skipping it for the backoff window"
+                );
+                self.store_failed(key, bucket, fail, now_ms)
             }
         }
+    }
+
+    /// What a limit does without its store: refuse (closed) or use the memory bucket (open).
+    fn store_failed(&self, key: &str, bucket: Bucket, fail: FailMode, now_ms: i64) -> Decision {
+        match fail {
+            FailMode::Closed => Decision::Unavailable,
+            FailMode::Open => self.memory.take(key, bucket, now_ms),
+        }
+    }
+
+    /// Names of the limits that refuse requests when the store is down (for policy tests).
+    pub fn fail_closed_limits(&self) -> Vec<&str> {
+        self.config.fail_closed_limits()
     }
 }
 
@@ -669,6 +716,56 @@ limits:
             "{ requests: 0, per_secs: 3600 }",
         );
         assert!(RateLimitConfig::from_yaml_str(&zero).is_err());
+    }
+
+    #[tokio::test]
+    async fn a_failed_store_call_opens_the_breaker_for_the_backoff_window() {
+        let clock = Arc::new(ManualClock::starting_now());
+        let redis =
+            crate::cache::connect_lazy(&crate::config::Secret::new("redis://127.0.0.1:1/0"))
+                .unwrap();
+        let config = RateLimitConfig::from_yaml_str(YAML).unwrap();
+        let limiter = RateLimiter::with_redis(config, redis, clock.clone());
+        let ip = Subject {
+            ip: Some(IpAddr::from([10, 0, 2, 1])),
+            ..Subject::default()
+        };
+        let now_ms = unix_millis(clock.now());
+
+        // Closed limit: refused, and the store is skipped for STORE_BACKOFF.
+        assert_eq!(
+            limiter.check("test.ip", &ip).await.unwrap(),
+            Decision::Unavailable
+        );
+        let skip_until = limiter.store_skip_until_ms.load(Ordering::Relaxed);
+        assert_eq!(skip_until, now_ms + 2_000);
+        assert_eq!(STORE_RETRY_AFTER_SECS, 2);
+
+        // Inside the window: no store call (the breaker does not move), open limits use memory.
+        assert_eq!(
+            limiter.check("test.user", &old_account()).await.unwrap(),
+            Decision::Allowed
+        );
+        assert_eq!(
+            limiter.check("test.ip", &ip).await.unwrap(),
+            Decision::Unavailable
+        );
+        assert_eq!(
+            limiter.store_skip_until_ms.load(Ordering::Relaxed),
+            skip_until
+        );
+
+        // After the window the store is probed again (and, still down, re-opens the breaker).
+        clock.advance(time::Duration::seconds(3));
+        assert_eq!(
+            limiter.check("test.ip", &ip).await.unwrap(),
+            Decision::Unavailable
+        );
+        assert_eq!(
+            limiter.store_skip_until_ms.load(Ordering::Relaxed),
+            now_ms + 3_000 + 2_000
+        );
+        assert_eq!(limiter.fail_closed_limits(), vec!["test.ip"]);
     }
 
     #[tokio::test]

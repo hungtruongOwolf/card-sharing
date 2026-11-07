@@ -56,7 +56,7 @@ pub struct PublicReportAccepted {
         (status = UNAUTHORIZED, description = "UNAUTHENTICATED: missing or wrong service credential.", body = ProblemDetails),
         (status = NOT_FOUND, description = "NOT_FOUND: the same answer for every unusable token (malformed, unknown, revoked, expired).", body = ProblemDetails),
         (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED: more than 5 reports per hour from this visitor IP.", body = ProblemDetails),
-        (status = SERVICE_UNAVAILABLE, description = "TEMPORARILY_UNAVAILABLE: captcha provider not configured or unreachable, or the rate-limit store is down.", body = ProblemDetails),
+        (status = SERVICE_UNAVAILABLE, description = "TEMPORARILY_UNAVAILABLE: captcha provider not configured or unreachable. SERVER_BUSY: the rate-limit store is slow or down (fails closed).", body = ProblemDetails),
     )
 )]
 pub async fn create_public_report(

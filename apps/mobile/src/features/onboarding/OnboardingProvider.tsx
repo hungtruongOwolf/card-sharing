@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
 
+import { isServerBusy } from '../../data/serverBusy';
 import { useAuthClient, useAuthState } from '../auth';
 import type { CameraPermissions } from './cameraPermissions';
 import {
@@ -23,6 +24,8 @@ export interface OnboardingContextValue {
   /** `/v1/me` `policy.public_links.allowed` (#321); null until known or when the server did not say. */
   readonly publicLinksAllowed: boolean | null;
   readonly camera: CameraPermissions;
+  /** `/v1/me` failed because the server is busy (503 `SERVER_BUSY`), not unreachable. */
+  readonly serverBusy: boolean;
   /** Re-reads `/v1/me` after a failure. */
   retry(): void;
   /** Re-reads `/v1/me`, e.g. after a pending deletion was cancelled. */
@@ -99,6 +102,8 @@ export function OnboardingProvider({
     cameraHandled,
   });
 
+  const serverBusy = me.isError && isServerBusy(me.error);
+
   const value = useMemo<OnboardingContextValue>(() => {
     const setStep = (step: OnboardingStep) =>
       queryClient.setQueryData(ME_QUERY_KEY, {
@@ -114,6 +119,7 @@ export function OnboardingProvider({
       devSignIn,
       publicLinksAllowed,
       camera,
+      serverBusy,
       retry: () => void refetch(),
       refreshAccount: refetchMe,
       async submitBirthDate(birthDate) {
@@ -157,6 +163,7 @@ export function OnboardingProvider({
     devSignIn,
     publicLinksAllowed,
     camera,
+    serverBusy,
     refetch,
     api,
     authClient,

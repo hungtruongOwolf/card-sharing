@@ -1,5 +1,7 @@
 import type { components } from '@card-sharing/api-client';
 
+import { problemCode } from '../../data/problemCode';
+import { SERVER_BUSY } from '../../data/serverBusy';
 import type { AuthClient } from '../auth';
 
 type DevSeedUsers = components['schemas']['DevSeedUsers'];
@@ -14,6 +16,8 @@ export interface SeedUser {
 export type DevSignInErrorKind =
   /** 404: this server has no development sign-in (staging, production, or `API_DEV_SIGN_IN` off). */
   | 'disabled'
+  /** 503 `SERVER_BUSY`: the server is overloaded, not down. */
+  | 'busy'
   /** Network, 429, 5xx or an unexpected body. */
   | 'unavailable';
 
@@ -74,6 +78,9 @@ export function createDevSignIn({
         throw new DevSignInError('unavailable');
       }
       if (response.status === 404) throw new DevSignInError('disabled');
+      if (response.status === 503 && (await problemCode(response)) === SERVER_BUSY) {
+        throw new DevSignInError('busy');
+      }
       if (!response.ok) throw new DevSignInError('unavailable');
       const users = parseSeedUsers(await response.json().catch(() => null));
       if (!users) throw new DevSignInError('unavailable');

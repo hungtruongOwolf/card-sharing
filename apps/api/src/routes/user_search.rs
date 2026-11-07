@@ -7,7 +7,7 @@ use std::time::Duration;
 use axum::Json;
 use axum::extract::{Extension, State};
 use platform::problem::{ApiError, ProblemDetails};
-use platform::rate_limit::{AccountSubject, Decision, Subject};
+use platform::rate_limit::{AccountSubject, Decision, STORE_RETRY_AFTER_SECS, Subject};
 use serde::{Deserialize, Serialize};
 use social::SearchHit;
 use tokio::time::Instant;
@@ -81,7 +81,7 @@ impl From<Option<SearchHit>> for SearchResponse {
         (status = UNAUTHORIZED, description = "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.", body = ProblemDetails),
         (status = FORBIDDEN, description = "ONBOARDING_INCOMPLETE, ACCOUNT_SUSPENDED or ATTESTATION_FAILED (enforce mode).", body = ProblemDetails),
         (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED (try later).", body = ProblemDetails),
-        (status = SERVICE_UNAVAILABLE, description = "TEMPORARILY_UNAVAILABLE (rate limit store down; fails closed).", body = ProblemDetails),
+        (status = SERVICE_UNAVAILABLE, description = "SERVER_BUSY (rate-limit store slow or down; fails closed; retry after Retry-After).", body = ProblemDetails),
     )
 )]
 pub async fn search_users(
@@ -119,8 +119,8 @@ async fn check_limit(state: &AppState, limit: &str, subject: &Subject) -> Result
         Ok(Decision::Limited { retry_after_secs }) => {
             Err(ApiError::RateLimited { retry_after_secs })
         }
-        Ok(Decision::Unavailable) => Err(ApiError::Unavailable {
-            retry_after_secs: 5,
+        Ok(Decision::Unavailable) => Err(ApiError::ServerBusy {
+            retry_after_secs: STORE_RETRY_AFTER_SECS,
         }),
         Err(err) => Err(ApiError::internal(err)),
     }

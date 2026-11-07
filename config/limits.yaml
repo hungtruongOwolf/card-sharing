@@ -4,7 +4,10 @@
 #   scope: user   -> per account (falls back to device, then client IP, for anonymous callers)
 #          device -> per device (falls back to client IP)
 #          ip     -> per client IP
-#   on_store_failure: closed -> 503 when Redis is down (auth, search); open -> per-instance memory bucket
+#   on_store_failure: closed -> 503 SERVER_BUSY + Retry-After when Redis is slow or down (auth, guessable
+#                             tokens, enumeration, staff, abuse-prone writes; the reviewed list is asserted by
+#                             apps/api/tests/api/rate_limit.rs, see security-baseline.md "Rate limiter failure mode")
+#                     open   -> per-instance memory bucket (every other limit)
 #   new_account_requests: quota for accounts younger than new_account.days (defaults to requests)
 #   global: circuit breaker shared by all callers of the limit
 #   also: extra per-caller windows (e.g. a daily cap on top of a per-minute limit); all must pass

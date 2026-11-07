@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { radius, space } from '@card-sharing/tokens';
 
+import { isServerBusy } from '../../../data/serverBusy';
 import { t } from '../../../i18n';
 import { Button, Text, useTheme } from '../../../ui';
 import { AuthError } from '../../auth';
@@ -31,7 +32,9 @@ export function DevSignInSection({ devSignIn }: { devSignIn: DevSignIn }) {
       setMessage(
         error instanceof DevSignInError && error.kind === 'disabled'
           ? t('devSignIn.disabled')
-          : t('devSignIn.unreachable'),
+          : error instanceof DevSignInError && error.kind === 'busy'
+            ? t('error.serverBusy')
+            : t('devSignIn.unreachable'),
       );
     } finally {
       setBusy(null);
@@ -47,7 +50,9 @@ export function DevSignInSection({ devSignIn }: { devSignIn: DevSignIn }) {
       setMessage(
         error instanceof AuthError && error.status === 404
           ? t('devSignIn.disabled')
-          : t('devSignIn.failed'),
+          : isServerBusy(error)
+            ? t('error.serverBusy')
+            : t('devSignIn.failed'),
       );
     } finally {
       setBusy(null);
