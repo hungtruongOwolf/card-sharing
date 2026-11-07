@@ -334,3 +334,9 @@ EM asked for a complete, working web MVP to validate the idea before UI polish. 
 hidden on web, no real sign-up, URL routing). EM decisions: magic link then Google on web, not hosted yet (home
 network), invite-code gated testers with fake scanners for now, start the browser E2E gate and bug fixes now.
 Source: raw/discussions/2026-11-07-web-mvp-direction.md. See [[sprint-10]].
+
+## [2026-11-07] decision | browser E2E suite and CI job (sprint 10 phase 0)
+- Added `e2e/web` (Playwright, two users, fails on page/console errors, HTTP 5xx and unexpected 4xx) and the CI job
+  Web E2E (Playwright); documented in [[testing-strategy]], phase 0 row in [[sprint-10]].
+- Why: the EM wants every merge that touches the core loop gated by a real browser run. Tests blocked by the app
+  lane's open bugs (B1, R1, B5, B3, E1) are `test.fixme` with the bug id in the title until their fixes land.

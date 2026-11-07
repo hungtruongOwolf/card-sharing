@@ -20,7 +20,7 @@ suite in CI gates every merge that touches the loop.
 ## Phases
 | Phase | Work | Status |
 |---|---|---|
-| 0. Browser E2E gate | Playwright suite in the repo (two users, full core loop, fails on console errors / HTTP 5xx), CI job against the docker stack + Expo web export | planned |
+| 0. Browser E2E gate | Playwright suite in the repo (two users, full core loop, fails on console errors / HTTP 5xx), CI job against the docker stack + Expo web export ([[testing-strategy]] "Browser E2E") | in review |
 | 1. Bug fixes | See the bug list below | planned |
 | 2. Real sign-up | Magic-link verify (T-23) + email screen + web landing, invite-code gate, magic-link re-auth (unblocks delete account / data export), then Google web client | planned |
 | 3. Hosting | Deferred by the EM | — |
