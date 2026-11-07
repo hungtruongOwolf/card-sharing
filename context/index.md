@@ -39,6 +39,7 @@ Tip: open `context/` as an Obsidian vault for graph/backlinks; run `python tools
 - [[design-system]] — wiki/engineering/design-system.md — principles, tokens, motion/springs, haptics, components, canvas budgets (draft)
 - [[local-dev]] — wiki/engineering/local-dev.md — local compose stack, `pnpm dev:seed` demo data, env vars, demo steps (accepted)
 - [[testing-strategy]] — wiki/engineering/testing-strategy.md — test pyramid & tooling (draft)
+- [[performance-budgets]] — wiki/engineering/performance-budgets.md — per-action latency budgets, release-build baseline, `tools/perf/bench.mjs` (draft)
 
 ## Tech stack
 - [[stack-research]] — wiki/tech-stack/stack-research.md — research: Rust backend, frontend options for rich UI/3D (research)

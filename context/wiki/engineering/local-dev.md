@@ -4,7 +4,7 @@ type: guide
 status: accepted
 updated: 2026-11-07
 sources: []
-related: [[conventions]], [[ADR-0009-app-on-web]], [[ADR-0008-hosting]], [[testing-strategy]], [[data-model]], [[api-mvp]]
+related: [[conventions]], [[ADR-0009-app-on-web]], [[ADR-0008-hosting]], [[testing-strategy]], [[data-model]], [[api-mvp]], [[performance-budgets]]
 ---
 # Local dev stack and demo runbook
 **TL;DR:** `pnpm infra:up` starts Postgres, Valkey, MinIO and Mailpit; `pnpm dev:seed` applies the
@@ -45,6 +45,7 @@ Optional in `.env`:
 | `pnpm dev:api` | the HTTP API on `API_BIND_ADDR` (default `127.0.0.1:8080`) |
 | `pnpm dev:worker` | the job worker (push fakes, activity, board change notices, housekeeping) |
 | `pnpm dev:web` | Next.js preview pages on `http://localhost:3000` |
+| `node tools/perf/bench.mjs` | latency of the main user actions against a running API (release build for real numbers; setup in [[performance-budgets]]) |
 
 The `dev:*` API scripts load `.env` with Node's built-in `--env-file` (`tools/dev/run.mjs`), so no
 dotenv tool is needed. Without pnpm: export the variables from `.env` and run `cargo run -p api -- seed`.
