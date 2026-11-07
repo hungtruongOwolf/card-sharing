@@ -193,6 +193,13 @@ Restart `pnpm dev:api` after a change: links already shown keep the old base. `A
 `http://localhost:8081/auth/link` (the Expo web app); plain http to a LAN address is accepted outside production. Sign-in
 emails land in Mailpit (`http://127.0.0.1:8025`) while `API_MAIL_TRANSPORT=smtp`.
 
+### Invite codes for testers (sprint 10, [[ADR-0012-web-sign-up]])
+Sign-up needs an invite code while `config/signup.yaml` has `invites.required: true` (existing accounts and the seed
+users are not affected). Mint one per tester: `cargo run -p api -- invites create --label "<who>" --uses 1 --days 14`
+prints the code once (`XXXX-XXXX-XXXX`) and a sign-up link built from `API_MAGIC_LINK_URL`'s origin
+(`http://<pc-lan-ip>:8081/onboarding/sign-in?invite=<code>`). `cargo run -p api -- invites list` shows uses and state
+(never the code); `cargo run -p api -- invites revoke <id>` stops a code. Turn the gate off by setting `required: false`.
+
 ## Staff (moderation) sign-in, server only (T-144)
 There is no admin console yet. To try the staff API locally: sign a seed user in (above), note its id, then
 `cargo run -p api -- staff grant <account id> moderator` (or `admin`) and add the printed `otpauth://` URI to an

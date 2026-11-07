@@ -65,6 +65,7 @@ erDiagram
 | `profiles` | `account_id PK FK CASCADE`; `display_name TEXT CHECK len 2–30`; `avatar_media_id UUID NULL`; `handle CITEXT UNIQUE CHECK ~ '^[a-z0-9._]{3,20}$'`; `handle_changed_at`; `findable_by_handle BOOL DEFAULT false` (set by the age gate: true only for sign-ups at or above `discovery.min_age`; only effective at or above that age; minors cannot turn it on) | `UNIQUE(handle)` | U (name, avatar, handle) | With account |
 | `handle_reservations` | `handle CITEXT PK`; `released_by UUID`; `reserved_until` (30 d) | `(reserved_until)` | I | Until expiry |
 | `devices` | `id` (client-generated); `account_id FK CASCADE`; `platform CHECK (ios, android)`; `app_version`; `attest_key_id NULL`; `last_seen_at` | `(account_id)` | I | 90 d inactive |
+| `invite_codes` | `id`; `code_hash BYTEA UNIQUE` (SHA-256 of the canonical 12-character code; the code is shown once, never stored); `label` (staff note, 1–64 chars); `max_uses`, `uses` (`uses <= max_uses`); `expires_at`; `revoked_at`; `created_at` (sprint 10 phase 2, migration `20261126000001`, [[ADR-0012-web-sign-up]]) | `code_hash` unique | S | Kept (small; not linked to accounts) |
 | `staff_members` | `account_id PK FK CASCADE`; `role CHECK (moderator, admin)`; `totp_secret_enc` (FieldCipher; WebAuthn credentials later); `totp_last_step` (replay guard); `disabled_at`; `created_at` (T-144: migration `20261121000001`) | — | S | Employment + 2 y |
 | `staff_logins` | Staff login challenge after the provider proof: `id`; `account_id FK`; `token_hash UNIQUE`; `attempts ≤ 5`; `expires_at` (5 min); `used_at` | `(account_id)` | S | Short-lived |
 | `staff_sessions` | Staff cookie session (separate from `sessions`): `id`; `account_id FK`; `token_hash UNIQUE`; `csrf_hash`; `mfa_at`; `idle_expires_at` (30 min sliding); `absolute_expires_at` (12 h); `last_seen_at`; `revoked_at` | `(account_id) WHERE revoked_at IS NULL` | S | 30 d after expiry |
@@ -105,7 +106,8 @@ it. `devices.attest_key_id` is set on registration. Challenges live in Redis onl
 Magic links (T-22, `migrations/20261108000003_identity_magic_links.sql`): `magic_links(id, email_hash BYTEA(32)` (SHA-256 of the
 trimmed, lowercased email), `token_hash UNIQUE`, `pkce_challenge BYTEA(32)` (S256), `delivery_enc BYTEA NULL` (the address and the raw link secret, sealed with XChaCha20-Poly1305 bound to the link id;
 cleared by the delivery job), `sent_at`, `expires_at` (15 min), `used_at`
-(T-23), `created_at)`; purged after 24 h by the worker. Indexes `(email_hash, created_at)`, `(created_at)`.
+(T-23), `invite_attempts SMALLINT` (wrong sign-up codes tried with this link; the cap expires it, sprint 10), `created_at)`;
+purged after 24 h by the worker. Indexes `(email_hash, created_at)`, `(created_at)`.
 
 Age-gate refusal stores **nothing** in Postgres: the pending account is deleted and a 24 h cooldown key
 `agegate:{sha256(device_id)}` / `agegate:{sha256(provider:subject)}` lives in Redis only (AC-2.1). Implemented (T-28) as

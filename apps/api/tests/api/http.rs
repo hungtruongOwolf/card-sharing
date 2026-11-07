@@ -38,6 +38,7 @@ fn test_config() -> Config {
         text_filter_config_path: "unused-in-tests".into(),
         profile_config_path: "unused-in-tests".into(),
         social_config_path: "unused-in-tests".into(),
+        signup_config_path: "unused-in-tests".into(),
         notifications_config_path: "unused-in-tests".into(),
         boards_config_path: "unused-in-tests".into(),
         sharing_config_path: "unused-in-tests".into(),

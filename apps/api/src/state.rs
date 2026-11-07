@@ -1,7 +1,9 @@
 use std::sync::Arc;
 
 use http::{HeaderMap, HeaderName};
-use identity::{AgeService, AttestationService, IdentityService, ProfileRules, ProviderSignIn};
+use identity::{
+    AgeService, AttestationService, IdentityService, ProfileRules, ProviderSignIn, SignupSettings,
+};
 use media::{MediaService, ObjectKey, ObjectStore, SignedUrl, UrlAudience, UrlSigner};
 use platform::crypto::FieldCipher;
 use platform::idempotency::{IdempotencySettings, IdempotencyStore};
@@ -92,6 +94,8 @@ pub struct AppState {
     /// Development-only sign-in for the seed users (#306). Set by [`crate::build`] from
     /// `API_DEV_SIGN_IN`, and only when `API_ENV` is development or test.
     pub dev_sign_in: bool,
+    /// Sign-up rules (`config/signup.yaml`, ADR-0012): the invite-code gate. Open by default.
+    pub signup: Arc<SignupSettings>,
 }
 
 impl AppState {
@@ -203,6 +207,7 @@ impl AppState {
             ip_country_header: None,
             sign_in: None,
             dev_sign_in: false,
+            signup: Arc::new(SignupSettings::default()),
         }
     }
 
@@ -373,6 +378,12 @@ impl AppState {
             self.identity.clock(),
             settings,
         ));
+        self
+    }
+
+    /// Installs the sign-up rules (`config/signup.yaml`): the invite-code gate.
+    pub fn with_signup_settings(mut self, settings: SignupSettings) -> Self {
+        self.signup = Arc::new(settings);
         self
     }
 

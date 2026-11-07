@@ -55,6 +55,9 @@ async fn main() -> anyhow::Result<()> {
         Some("staff") => {
             return run_staff(&config, pool).await;
         }
+        Some("invites") => {
+            return run_invites(&config, pool).await;
+        }
         Some("replay-erasures") => {
             // Restore drill (T-152): after restoring a backup, erase every account that was erased
             // before, so their data does not come back.
@@ -69,7 +72,7 @@ async fn main() -> anyhow::Result<()> {
         }
         Some(other) => {
             anyhow::bail!(
-                "unknown command {other:?} (expected no argument, `migrate`, `worker`, `seed`, `staff` or `replay-erasures`)"
+                "unknown command {other:?} (expected no argument, `migrate`, `worker`, `seed`, `staff`, `invites` or `replay-erasures`)"
             )
         }
     }
@@ -148,6 +151,12 @@ fn build_state(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<AppState> 
     let genai_settings = genai::GenAiSettings::from_path(&config.ai_effects_config_path)
         .context("failed to load AI effects config")?;
     let genai_available = config.ai_effect_provider == api::config::SafetyAdapter::Fake;
+    let signup = identity::SignupSettings::from_path(&config.signup_config_path)
+        .context("failed to load signup config")?;
+    tracing::info!(
+        invite_required = signup.invite_required,
+        "signup config loaded"
+    );
     let state = AppState::new(
         policy,
         limiter,
@@ -160,6 +169,7 @@ fn build_state(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<AppState> 
     .with_ip_country_header(config.ip_country_header.clone())
     .with_os_age_signals(config.os_age_signals_enabled)
     .with_social_settings(social)
+    .with_signup_settings(signup)
     .with_board_settings(board_settings)
     .with_sharing_settings(sharing_settings)
     .with_privacy_settings(privacy_settings)
@@ -256,6 +266,113 @@ async fn run_staff(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
         _ => anyhow::bail!(usage),
     }
     Ok(())
+}
+
+/// `api invites create [--uses N] [--days D] [--label TEXT]` mints a sign-up invite code and prints
+/// it once (with a sign-up link to the app's sign-in screen); `api invites list` shows every code
+/// (never the code itself); `api invites revoke <id>` revokes one (ADR-0012). Codes are never
+/// minted through the API. Defaults and caps come from `config/signup.yaml`.
+async fn run_invites(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
+    let args: Vec<String> = std::env::args().skip(2).collect();
+    let usage = "usage: api invites create [--uses N] [--days D] [--label TEXT] | api invites list | api invites revoke <id>";
+    let settings = identity::SignupSettings::from_path(&config.signup_config_path)
+        .context("failed to load signup config")?;
+    let identity =
+        IdentityService::new(pool, None, Arc::new(SystemClock), SessionPolicy::default());
+    match args.first().map(String::as_str) {
+        Some("create") => {
+            let mut uses = settings.default_max_uses;
+            let mut days = settings.default_ttl_days;
+            let mut label = "invite".to_owned();
+            let mut rest = args[1..].iter();
+            while let Some(flag) = rest.next() {
+                let value = rest.next().context(usage)?;
+                match flag.as_str() {
+                    "--uses" => uses = value.parse().context(usage)?,
+                    "--days" => days = value.parse().context(usage)?,
+                    "--label" => label.clone_from(value),
+                    _ => anyhow::bail!(usage),
+                }
+            }
+            if !(1..=settings.max_uses_limit).contains(&uses) {
+                anyhow::bail!("--uses must be 1..={}", settings.max_uses_limit);
+            }
+            if !(1..=settings.max_ttl_days).contains(&days) {
+                anyhow::bail!("--days must be 1..={}", settings.max_ttl_days);
+            }
+            let created = identity
+                .create_invite_code(&label, uses, time::Duration::days(i64::from(days)))
+                .await
+                .map_err(|err| anyhow::anyhow!("could not create the invite code: {err}"))?;
+            println!("Invite code (shown once): {}", created.code);
+            println!(
+                "  id {}, {} use(s), expires {}",
+                created.id, created.max_uses, created.expires_at
+            );
+            if let Some(origin) = app_origin(&config.mail.magic_link_url) {
+                println!(
+                    "  sign-up link: {origin}/onboarding/sign-in?invite={}",
+                    created.code
+                );
+            }
+            if !settings.invite_required {
+                println!(
+                    "  note: config/signup.yaml has invites.required off; codes are not needed now"
+                );
+            }
+        }
+        Some("list") => {
+            let codes = identity
+                .list_invite_codes()
+                .await
+                .map_err(|err| anyhow::anyhow!("could not list invite codes: {err}"))?;
+            if codes.is_empty() {
+                println!("No invite codes.");
+            }
+            for code in codes {
+                let state = if code.revoked_at.is_some() {
+                    "revoked"
+                } else if code.expires_at <= time::OffsetDateTime::now_utc() {
+                    "expired"
+                } else if code.uses >= code.max_uses {
+                    "used up"
+                } else {
+                    "live"
+                };
+                println!(
+                    "{}  {:<8} {}/{} uses  expires {}  {}",
+                    code.id, state, code.uses, code.max_uses, code.expires_at, code.label
+                );
+            }
+        }
+        Some("revoke") => {
+            let id = args
+                .get(1)
+                .and_then(|id| uuid::Uuid::try_parse(id).ok())
+                .context(usage)?;
+            let revoked = identity
+                .revoke_invite_code(id)
+                .await
+                .map_err(|err| anyhow::anyhow!("could not revoke the invite code: {err}"))?;
+            println!(
+                "{}",
+                if revoked {
+                    "Revoked."
+                } else {
+                    "Nothing changed."
+                }
+            );
+        }
+        _ => anyhow::bail!(usage),
+    }
+    Ok(())
+}
+
+/// `scheme://host[:port]` of the app's magic-link landing URL (the app's own origin).
+fn app_origin(link_url: &str) -> Option<String> {
+    let (scheme, rest) = link_url.split_once("://")?;
+    let host = rest.split('/').next().filter(|host| !host.is_empty())?;
+    Some(format!("{scheme}://{host}"))
 }
 
 /// `api seed`: local demo users, friendships, cards and a shared board (src/seed.rs). Refused

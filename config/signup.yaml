@@ -1,0 +1,15 @@
+# Sign-up rules (sprint 10 phase 2, ADR-0012) — see crates/identity/src/invite_codes.rs and
+# context/wiki/architecture/api-mvp.md "Invite-gated sign-up".
+version: 1
+
+invites:
+  # A sign-in that would create an account (email link, Google, Apple) needs a valid invite code.
+  # Existing accounts sign in as before. On for the tester phase (EM, 2026-11-07).
+  required: true
+  # Wrong codes tried with one magic link; the attempt that reaches this expires the link.
+  max_attempts_per_link: 5
+  # `api invites create` defaults (--uses, --days) and their upper bounds.
+  default_max_uses: 1
+  max_uses_limit: 100
+  default_ttl_days: 14
+  max_ttl_days: 90

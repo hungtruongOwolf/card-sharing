@@ -166,6 +166,22 @@ only after the verifier matched); suspended/banned → 403 `ACCOUNT_SUSPENDED` (
 base64url characters) or verifier (not RFC 7636) or unknown fields → 400. Never linked to an Apple/Google account with the
 same address (AC-1.3). Tests: `tests/api/magic_link.rs`.
 
+**Invite-gated sign-up** (sprint 10 phase 2, [[ADR-0012-web-sign-up]]): `config/signup.yaml` `invites.required` (on for
+the tester phase; `API_SIGNUP_CONFIG_PATH`). While on, a sign-in that would **create** an account — `POST
+/v1/auth/email/verify`, `/v1/auth/google`, `/v1/auth/apple` — needs `invite_code` (optional body field, 1–32 characters as
+typed; normalized to 12 Crockford base32 characters, look-alikes I/L→1 and O→0); existing accounts never need one.
+Missing → 403 `INVITE_REQUIRED`; unknown, malformed, expired, revoked or used up → 403 `INVITE_INVALID` (one answer).
+Neither refusal uses up the credential: the magic link stays usable and the ID-token nonce is not claimed (the gate is
+checked before the nonce), so the client retries the same link or token with a code. Wrong codes per magic link are
+counted (`magic_links.invite_attempts`); the `invites.max_attempts_per_link`-th (5) expires the link. A use is a
+conditional increment (`uses < max_uses`, not revoked, not expired) in the transaction that inserts the account, so the
+limit holds under concurrent sign-ups and a lost insert race spends nothing; audit `auth.invite_redeemed` (target the
+code, detail provider). Codes are minted only by staff on the command line: `api invites create [--uses N] [--days D]
+[--label TEXT]` (defaults 1 use, 14 days; caps 100 uses, 90 days, from the yaml; prints the code once and a sign-up link
+`<app origin>/onboarding/sign-in?invite=<code>`), `api invites list` (never the code), `api invites revoke <id>`; audit
+`auth.invite_code_created` / `auth.invite_code_revoked`. Friend invite links do not grant sign-up (ADR-0012). Tests:
+`tests/api/invite_codes.rs`.
+
 `POST /v1/auth/google` `{id_token, nonce, device?}`: same contract, limit and errors as Apple, with the same nonce scheme (the
 app gives Google `hex SHA-256(nonce)` as the sign-in nonce). `iss` = `https://accounts.google.com` or `accounts.google.com`,
 `aud` ∈ `API_GOOGLE_CLIENT_IDS` (a token issued for another client id → 401), keys from Google's cached JWKS
@@ -1032,7 +1048,7 @@ on `code`); `requestId` equals the `X-Request-Id` response header. Generic codes
 |---|---|
 | 400/422 | `VALIDATION_FAILED` (with `errors[]` field paths), `UNKNOWN_REGISTRY_ID`, `IDEMPOTENCY_KEY_REUSED` |
 | 401 | `UNAUTHENTICATED`, `SESSION_EXPIRED` (access token: refresh and retry), `SESSION_REVOKED` (refresh reuse, logout everywhere, suspend), `REAUTH_REQUIRED`, `MAGIC_LINK_INVALID` (unknown link or another device's verifier) |
-| 403 | `ONBOARDING_INCOMPLETE`, `AGE_GATE_REFUSED` (neutral copy), `AGE_ALREADY_SUBMITTED` (DOB locked), `FORBIDDEN` (wrong session kind for the route), `ACCOUNT_SUSPENDED`, `POLICY_DISALLOWED` (e.g. public link < min age), `ATTESTATION_FAILED`, `MFA_REQUIRED` |
+| 403 | `INVITE_REQUIRED` / `INVITE_INVALID` (sign-up gate, ADR-0012), `ONBOARDING_INCOMPLETE`, `AGE_GATE_REFUSED` (neutral copy), `AGE_ALREADY_SUBMITTED` (DOB locked), `FORBIDDEN` (wrong session kind for the route), `ACCOUNT_SUSPENDED`, `POLICY_DISALLOWED` (e.g. public link < min age), `ATTESTATION_FAILED`, `MFA_REQUIRED` |
 | 404 | `NOT_FOUND` (also for every object-level denial, incl. non-pending/expired board invitations), `INVITE_EXPIRED` (reset, expired or use cap reached) |
 | 410 | `MAGIC_LINK_EXPIRED`, `MAGIC_LINK_USED` (told only to the device holding the link's verifier) |
 | 409 | `ALREADY_FRIENDS`, `HANDLE_TAKEN`, `PIN_VERSION_CONFLICT` / `BOARD_VERSION_CONFLICT`, `IDEMPOTENCY_IN_PROGRESS`, `FRIEND_LIMIT_REACHED`, `BOARD_LIMIT_REACHED`, `PIN_LIMIT_REACHED`, `COLLABORATOR_LIMIT_REACHED` (members + pending invitations), `ALREADY_INVITED`, `CARD_HELD_FOR_REVIEW` (owner pins/links a held card), `APPEAL_ALREADY_FILED` |

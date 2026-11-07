@@ -17,6 +17,10 @@ use crate::state::AppState;
 /// Tables with no per-account export or erase, and why.
 pub const EXEMPT_TABLES: &[(&str, &str)] = &[
     (
+        "identity.invite_codes",
+        "sign-up invite codes (code hash, staff label, use counts), not linked to any account",
+    ),
+    (
         "identity.magic_links",
         "keyed by email hash, not by account; deleted after 24 hours",
     ),

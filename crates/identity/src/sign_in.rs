@@ -1,7 +1,9 @@
-//! Sign-in with a provider ID token (Apple T-19, Google T-20): verify → reject a replayed nonce →
-//! find or create the account (keyed by provider + `sub` only; no linking by email, AC-1.3) →
-//! (Apple) exchange the authorization code and store the refresh token encrypted → start an
-//! onboarding or full session.
+//! Sign-in with a provider ID token (Apple T-19, Google T-20): verify → find the account (keyed by
+//! provider + `sub` only; no linking by email, AC-1.3) or check the sign-up gate (an invite code,
+//! ADR-0012) → reject a replayed nonce → create the account if needed → (Apple) exchange the
+//! authorization code and store the refresh token encrypted → start an onboarding or full session.
+//! The gate is checked before the nonce is claimed, so a refusal for a missing or wrong code
+//! leaves the same ID token usable for the retry with a code.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -14,6 +16,7 @@ use redis::SetOptions;
 use uuid::Uuid;
 
 use crate::apple::{AppleTokenClient, AppleTokenError};
+use crate::invite_codes::{SignupError, SignupGate};
 use crate::model::{AccountStatus, RegionSignals};
 use crate::oidc::{IdTokenVerifier, VerifiedIdToken, VerifyError};
 use crate::service::{
@@ -35,6 +38,8 @@ pub struct SignInRequest {
     pub device: Option<DeviceInfo>,
     /// Region signals stored on a newly created account (SR-24).
     pub signals: RegionSignals,
+    /// What a sign-in that creates an account must bring (an invite code while the gate is on).
+    pub signup: SignupGate,
 }
 
 #[derive(Debug)]
@@ -56,6 +61,13 @@ pub enum SignInError {
     /// sign in during its grace period to cancel the deletion (T-151, AC-29.2).
     #[error("account blocked: {0}")]
     Blocked(AccountStatus),
+    /// No account yet and the sign-up gate needs an invite code; none was sent. The nonce is not
+    /// claimed.
+    #[error("invite code required")]
+    InviteRequired,
+    /// No account yet and the invite code is unknown, malformed, expired, revoked or used up.
+    #[error("invite code invalid")]
+    InviteInvalid,
     /// The provider is not configured, its keys are unreachable, or the nonce store is down
     /// (fails closed).
     #[error("unavailable: {0}")]
@@ -192,17 +204,40 @@ impl ProviderSignIn {
                 }
                 VerifyError::KeysUnavailable(reason) => SignInError::Unavailable(reason),
             })?;
-        self.claim_nonce(&verified).await?;
-
         let identity = VerifiedIdentity {
             provider,
             subject: verified.subject.clone(),
             email: verified.email.clone(),
         };
-        let (account_id, created) = self
-            .identity
-            .find_or_create_account(&identity, &request.signals)
-            .await?;
+        let (account_id, created) = match self.identity.find_account(&identity).await? {
+            Some(account_id) => {
+                self.claim_nonce(&verified).await?;
+                (account_id, false)
+            }
+            None => {
+                // The gate first: a refusal leaves the nonce unclaimed, so the same token can be
+                // sent again with a code.
+                let gate = &request.signup;
+                if gate.invite_required {
+                    let code = gate
+                        .invite_code
+                        .as_deref()
+                        .ok_or(SignInError::InviteRequired)?;
+                    if !self.identity.invite_code_usable(code).await? {
+                        return Err(SignInError::InviteInvalid);
+                    }
+                }
+                self.claim_nonce(&verified).await?;
+                self.identity
+                    .create_account_gated(&identity, &request.signals, gate)
+                    .await
+                    .map_err(|err| match err {
+                        SignupError::InviteRequired => SignInError::InviteRequired,
+                        SignupError::InviteInvalid => SignInError::InviteInvalid,
+                        SignupError::Store(err) => SignInError::Store(err),
+                    })?
+            }
+        };
         let status = self.identity.account_status(account_id).await?;
         if matches!(status, AccountStatus::Suspended | AccountStatus::Banned) {
             return Err(SignInError::Blocked(status));

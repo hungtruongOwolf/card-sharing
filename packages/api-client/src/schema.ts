@@ -381,6 +381,10 @@ export interface paths {
          *     never linked to an Apple or Google account with the same address (AC-1.3). An unknown token
          *     and a verifier from another browser or device get the same 401; a wrong verifier does not use
          *     the link up.
+         *
+         *     While the sign-up gate is on (`config/signup.yaml`), a link that would create an account needs
+         *     `invite_code`: missing → 403 `INVITE_REQUIRED`, wrong → 403 `INVITE_INVALID`, both leaving the
+         *     link usable for the retry; the fifth wrong code per link expires it.
          */
         post: operations["verifyEmailSignIn"];
         delete?: never;
@@ -2110,6 +2114,11 @@ export interface components {
             /** @description Apple identity token (JWS) from the native Sign in with Apple sheet. */
             id_token: string;
             /**
+             * @description Sign-up invite code (ADR-0012), needed only when this sign-in creates an account while
+             *     the sign-up gate is on; ignored otherwise. Letters, digits, `-` and spaces as typed.
+             */
+            invite_code?: string | null;
+            /**
              * @description The raw nonce the app generated for this sign-in (16 to 256 visible ASCII characters,
              *     single use). The app passes `lowercase hex SHA-256(nonce)` to Apple; the token's `nonce`
              *     claim must match.
@@ -2488,6 +2497,11 @@ export interface components {
              */
             code_verifier: string;
             device?: components["schemas"]["DeviceRequest"] | null;
+            /**
+             * @description Sign-up invite code (ADR-0012), needed only when the link would create an account while
+             *     the sign-up gate is on; ignored otherwise. Letters, digits, `-` and spaces as typed.
+             */
+            invite_code?: string | null;
             /** @description The link's token, from its fragment (`#rid=...&token=<token>`): 43 base64url characters. */
             token: string;
         };
@@ -2533,6 +2547,11 @@ export interface components {
             device?: components["schemas"]["DeviceRequest"] | null;
             /** @description Google ID token (JWS) from the native Google sign-in. */
             id_token: string;
+            /**
+             * @description Sign-up invite code (ADR-0012), needed only when this sign-in creates an account while
+             *     the sign-up gate is on; ignored otherwise. Letters, digits, `-` and spaces as typed.
+             */
+            invite_code?: string | null;
             /**
              * @description The raw nonce the app generated for this sign-in (16 to 256 visible ASCII characters,
              *     single use). The app passes `lowercase hex SHA-256(nonce)` to Google as the sign-in nonce;
@@ -4436,7 +4455,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description ACCOUNT_SUSPENDED: the account may not sign in (suspended, banned or deletion pending). */
+            /** @description ACCOUNT_SUSPENDED: the account may not sign in (suspended, banned or deletion pending). INVITE_REQUIRED / INVITE_INVALID: this sign-in would create an account and the sign-up gate needs a valid invite code (the nonce is not used up: send the same token again with a code). */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -4556,7 +4575,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description ACCOUNT_SUSPENDED: the account may not sign in (suspended or banned). */
+            /** @description ACCOUNT_SUSPENDED: the account may not sign in (suspended or banned). INVITE_REQUIRED / INVITE_INVALID: the link would create an account and the sign-up gate needs a valid invite code (the link stays usable). */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -4634,7 +4653,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description ACCOUNT_SUSPENDED: the account may not sign in (suspended, banned or deletion pending). */
+            /** @description ACCOUNT_SUSPENDED: the account may not sign in (suspended, banned or deletion pending). INVITE_REQUIRED / INVITE_INVALID: this sign-in would create an account and the sign-up gate needs a valid invite code (the nonce is not used up: send the same token again with a code). */
             403: {
                 headers: {
                     [name: string]: unknown;

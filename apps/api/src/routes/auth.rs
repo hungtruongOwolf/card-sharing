@@ -74,6 +74,11 @@ pub struct AppleSignInRequest {
     /// The signing-in device. Recommended: device-scoped limits and cooldowns use it.
     #[serde(default)]
     pub device: Option<DeviceRequest>,
+    /// Sign-up invite code (ADR-0012), needed only when this sign-in creates an account while
+    /// the sign-up gate is on; ignored otherwise. Letters, digits, `-` and spaces as typed.
+    #[schema(min_length = 1, max_length = 32)]
+    #[serde(default)]
+    pub invite_code: Option<String>,
 }
 
 /// The device a session is issued to. `id` is a UUID the app generates once per install.
@@ -143,7 +148,7 @@ fn check_token_and_nonce(id_token: &str, nonce: &str) -> Result<(), ApiError> {
         (status = OK, description = "Signed in: an onboarding session for a new or unfinished account, a full session otherwise. Call GET /v1/me for the onboarding step.", body = TokenPair),
         (status = BAD_REQUEST, description = "VALIDATION_FAILED (unknown fields are rejected).", body = ProblemDetails),
         (status = UNAUTHORIZED, description = "UNAUTHENTICATED: invalid, expired, forged or misaddressed ID token, nonce mismatch, or a replayed nonce.", body = ProblemDetails),
-        (status = FORBIDDEN, description = "ACCOUNT_SUSPENDED: the account may not sign in (suspended, banned or deletion pending).", body = ProblemDetails),
+        (status = FORBIDDEN, description = "ACCOUNT_SUSPENDED: the account may not sign in (suspended, banned or deletion pending). INVITE_REQUIRED / INVITE_INVALID: this sign-in would create an account and the sign-up gate needs a valid invite code (the nonce is not used up: send the same token again with a code).", body = ProblemDetails),
         (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED.", body = ProblemDetails),
         (status = SERVICE_UNAVAILABLE, description = "TEMPORARILY_UNAVAILABLE: provider not configured or unreachable, or the nonce store is down. SERVER_BUSY: the rate-limit store is slow or down (fails closed); retry after Retry-After.", body = ProblemDetails),
     )
@@ -164,12 +169,14 @@ pub async fn sign_in_apple(
             "authorization_code must be 1 to 1024 characters".to_owned(),
         ));
     }
+    check_invite_code(body.invite_code.as_deref())?;
     let request = SignInRequest {
         id_token: body.id_token,
         raw_nonce: body.nonce,
         authorization_code: body.authorization_code,
         device: body.device.map(DeviceRequest::into_info).transpose()?,
         signals: sign_up_signals(&state, &headers),
+        signup: state.signup.gate(body.invite_code),
     };
     sign_in(&state, Provider::Apple, request).await
 }
@@ -189,6 +196,11 @@ pub struct GoogleSignInRequest {
     /// The signing-in device. Recommended: device-scoped limits and cooldowns use it.
     #[serde(default)]
     pub device: Option<DeviceRequest>,
+    /// Sign-up invite code (ADR-0012), needed only when this sign-in creates an account while
+    /// the sign-up gate is on; ignored otherwise. Letters, digits, `-` and spaces as typed.
+    #[schema(min_length = 1, max_length = 32)]
+    #[serde(default)]
+    pub invite_code: Option<String>,
 }
 
 /// Sign in with Google. Auth: none (the ID token is the credential). Creates the account on first
@@ -205,7 +217,7 @@ pub struct GoogleSignInRequest {
         (status = OK, description = "Signed in: an onboarding session for a new or unfinished account, a full session otherwise. Call GET /v1/me for the onboarding step.", body = TokenPair),
         (status = BAD_REQUEST, description = "VALIDATION_FAILED (unknown fields are rejected).", body = ProblemDetails),
         (status = UNAUTHORIZED, description = "UNAUTHENTICATED: invalid, expired, forged or misaddressed ID token (including a token for another client id), nonce mismatch, or a replayed nonce.", body = ProblemDetails),
-        (status = FORBIDDEN, description = "ACCOUNT_SUSPENDED: the account may not sign in (suspended, banned or deletion pending).", body = ProblemDetails),
+        (status = FORBIDDEN, description = "ACCOUNT_SUSPENDED: the account may not sign in (suspended, banned or deletion pending). INVITE_REQUIRED / INVITE_INVALID: this sign-in would create an account and the sign-up gate needs a valid invite code (the nonce is not used up: send the same token again with a code).", body = ProblemDetails),
         (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED.", body = ProblemDetails),
         (status = SERVICE_UNAVAILABLE, description = "TEMPORARILY_UNAVAILABLE: provider not configured or unreachable, or the nonce store is down. SERVER_BUSY: the rate-limit store is slow or down (fails closed); retry after Retry-After.", body = ProblemDetails),
     )
@@ -217,14 +229,27 @@ pub async fn sign_in_google(
 ) -> Result<Json<TokenPair>, ApiError> {
     let body = body.0;
     check_token_and_nonce(&body.id_token, &body.nonce)?;
+    check_invite_code(body.invite_code.as_deref())?;
     let request = SignInRequest {
         id_token: body.id_token,
         raw_nonce: body.nonce,
         authorization_code: None,
         device: body.device.map(DeviceRequest::into_info).transpose()?,
         signals: sign_up_signals(&state, &headers),
+        signup: state.signup.gate(body.invite_code),
     };
     sign_in(&state, Provider::Google, request).await
+}
+
+/// Length check of an optional invite code; its content is judged by the gate (a malformed code
+/// is just a wrong code, so the answer does not tell malformed from unknown).
+fn check_invite_code(code: Option<&str>) -> Result<(), ApiError> {
+    if code.is_some_and(|code| code.is_empty() || code.len() > identity::INVITE_CODE_MAX_INPUT) {
+        return Err(ApiError::Validation(
+            "invite_code must be 1 to 32 characters".to_owned(),
+        ));
+    }
+    Ok(())
 }
 
 /// Region signals recorded on a new account: the trusted edge's IP country (SR-24).
@@ -250,6 +275,8 @@ async fn sign_in(
             Err(ApiError::Unauthenticated)
         }
         Err(SignInError::Replayed) => Err(ApiError::Unauthenticated),
+        Err(SignInError::InviteRequired) => Err(ApiError::InviteRequired),
+        Err(SignInError::InviteInvalid) => Err(ApiError::InviteInvalid),
         Err(SignInError::Blocked(status)) => {
             tracing::info!(provider = provider.as_str(), %status, "sign-in refused for a blocked account");
             Err(ApiError::AccountSuspended)
@@ -380,6 +407,11 @@ pub struct EmailVerifyRequest {
     /// none.
     #[serde(default)]
     pub device: Option<DeviceRequest>,
+    /// Sign-up invite code (ADR-0012), needed only when the link would create an account while
+    /// the sign-up gate is on; ignored otherwise. Letters, digits, `-` and spaces as typed.
+    #[schema(min_length = 1, max_length = 32)]
+    #[serde(default)]
+    pub invite_code: Option<String>,
 }
 
 /// Sign in with an email magic link (T-23). Auth: none (the link token plus this device's PKCE
@@ -391,6 +423,10 @@ pub struct EmailVerifyRequest {
 /// never linked to an Apple or Google account with the same address (AC-1.3). An unknown token
 /// and a verifier from another browser or device get the same 401; a wrong verifier does not use
 /// the link up.
+///
+/// While the sign-up gate is on (`config/signup.yaml`), a link that would create an account needs
+/// `invite_code`: missing → 403 `INVITE_REQUIRED`, wrong → 403 `INVITE_INVALID`, both leaving the
+/// link usable for the retry; the fifth wrong code per link expires it.
 #[utoipa::path(
     post,
     path = "/v1/auth/email/verify",
@@ -402,7 +438,7 @@ pub struct EmailVerifyRequest {
         (status = OK, description = "Signed in: an onboarding session for a new or unfinished account, a full session otherwise. Call GET /v1/me for the onboarding step.", body = TokenPair),
         (status = BAD_REQUEST, description = "VALIDATION_FAILED (malformed token or verifier, unknown fields).", body = ProblemDetails),
         (status = UNAUTHORIZED, description = "MAGIC_LINK_INVALID: unknown link, or the verifier is not the one of the device that asked for it.", body = ProblemDetails),
-        (status = FORBIDDEN, description = "ACCOUNT_SUSPENDED: the account may not sign in (suspended or banned).", body = ProblemDetails),
+        (status = FORBIDDEN, description = "ACCOUNT_SUSPENDED: the account may not sign in (suspended or banned). INVITE_REQUIRED / INVITE_INVALID: the link would create an account and the sign-up gate needs a valid invite code (the link stays usable).", body = ProblemDetails),
         (status = GONE, description = "MAGIC_LINK_EXPIRED (older than 15 minutes) or MAGIC_LINK_USED (single use): ask for a new link.", body = ProblemDetails),
         (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED.", body = ProblemDetails),
         (status = SERVICE_UNAVAILABLE, description = "SERVER_BUSY (rate-limit store slow or down; fails closed).", body = ProblemDetails),
@@ -424,17 +460,27 @@ pub async fn verify_email_sign_in(
             "code_verifier must be 43 to 128 characters of A-Z a-z 0-9 - . _ ~".to_owned(),
         ));
     }
+    check_invite_code(body.invite_code.as_deref())?;
     let device = body.device.map(DeviceRequest::into_info).transpose()?;
     let signals = sign_up_signals(&state, &headers);
+    let gate = state.signup.gate(body.invite_code);
     let signed_in = state
         .identity
-        .sign_in_with_magic_link(&body.token, &body.code_verifier, device.as_ref(), &signals)
+        .sign_in_with_magic_link(
+            &body.token,
+            &body.code_verifier,
+            device.as_ref(),
+            &signals,
+            &gate,
+        )
         .await
         .map_err(|err| match err {
             LinkSignInError::Invalid => ApiError::MagicLinkInvalid,
             LinkSignInError::Expired => ApiError::MagicLinkExpired,
             LinkSignInError::Used => ApiError::MagicLinkUsed,
             LinkSignInError::Blocked(_) => ApiError::AccountSuspended,
+            LinkSignInError::InviteRequired => ApiError::InviteRequired,
+            LinkSignInError::InviteInvalid => ApiError::InviteInvalid,
             LinkSignInError::Store(err) => ApiError::internal(err),
         })?;
     Ok(Json(signed_in.session.into()))
