@@ -247,10 +247,29 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @card-sharing/web build
 
+  # ADR-0009: the Expo app's web target (apps/mobile) must keep building; it bundles every screen for the browser.
+  js-web-app:
+    name: JS mobile web export
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      EXPO_NO_TELEMETRY: 1
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1 (version from packageManager)
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @card-sharing/mobile build:web
+      - name: The export holds the app and the self-hosted CanvasKit
+        run: test -f apps/mobile/dist/index.html && test -f apps/mobile/dist/canvaskit.wasm
+
   js:
     name: JS (format, lint, boundaries, typecheck, test, web build)
     if: always()
-    needs: [js-static, js-test, js-web]
+    needs: [js-static, js-test, js-web, js-web-app]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
