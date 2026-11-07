@@ -285,6 +285,68 @@ async fn cors_denies_unlisted_origin() {
 }
 
 #[tokio::test]
+async fn cors_preflight_allows_the_headers_the_app_sends() {
+    // The app's web target (ADR-0009) sends X-App-Version on every call, X-Reauth on re-auth routes and
+    // Idempotency-Key on writes; a preflight that refused any of them would block the browser app.
+    let response = send(
+        app(),
+        Request::builder()
+            .method("OPTIONS")
+            .uri("/healthz")
+            .header(header::ORIGIN, ALLOWED_ORIGIN)
+            .header("access-control-request-method", "POST")
+            .header(
+                "access-control-request-headers",
+                "authorization,content-type,idempotency-key,x-app-version,x-reauth",
+            )
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(
+        header_str(&response, "access-control-allow-origin"),
+        Some(ALLOWED_ORIGIN)
+    );
+    let allowed = header_str(&response, "access-control-allow-headers")
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    for name in [
+        "authorization",
+        "content-type",
+        "idempotency-key",
+        "x-app-version",
+        "x-reauth",
+    ] {
+        assert!(allowed.contains(name), "{name} missing from {allowed:?}");
+    }
+    assert!(
+        response
+            .headers()
+            .get("access-control-allow-credentials")
+            .is_none(),
+        "no cookies cross origins"
+    );
+}
+
+#[tokio::test]
+async fn cors_exposes_the_headers_the_app_reads() {
+    let response = send(
+        app(),
+        Request::get("/healthz")
+            .header(header::ORIGIN, ALLOWED_ORIGIN)
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    let exposed = header_str(&response, "access-control-expose-headers")
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    for name in ["x-request-id", "idempotent-replayed", "retry-after"] {
+        assert!(exposed.contains(name), "{name} missing from {exposed:?}");
+    }
+}
+
+#[tokio::test]
 async fn openapi_document_lists_health_routes_and_problem_schema() {
     let response = get_path("/openapi.json").await;
     assert_eq!(response.status(), StatusCode::OK);

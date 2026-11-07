@@ -19,8 +19,8 @@ pub use caller::{
     Caller, DenyAllResolver, Principal, ResolveError, ResolveFuture, SessionResolver,
 };
 pub use enforce::{
-    AccessState, ClientIp, ClientIpSource, SERVICE_CLIENT_IP_HEADER, SERVICE_CREDENTIAL_HEADER,
-    enforce,
+    APP_VERSION_HEADER, AccessState, ClientIp, ClientIpSource, REAUTH_HEADER,
+    SERVICE_CLIENT_IP_HEADER, SERVICE_CREDENTIAL_HEADER, enforce,
 };
 pub use idempotency::{IDEMPOTENCY_KEY_HEADER, IDEMPOTENT_REPLAYED_HEADER, ReplayBody};
 pub use json::ValidJson;
