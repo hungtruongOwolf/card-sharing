@@ -46,6 +46,8 @@ fn test_config() -> Config {
         push_sender: api::config::SafetyAdapter::Fake,
         cdn_purger: api::config::SafetyAdapter::Fake,
         captcha_verifier: api::config::SafetyAdapter::Fake,
+        ai_effects_config_path: "unused-in-tests".into(),
+        ai_effect_provider: api::config::SafetyAdapter::Fake,
         media_storage_dir: None,
         media_s3: None,
         media_signing_key: None,

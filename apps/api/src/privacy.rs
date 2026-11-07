@@ -100,6 +100,7 @@ pub fn registry_from(
             media: Arc::clone(&media),
         }))
         .register(Arc::new(cards::CardsPersonalData { pool: pool.clone() }))
+        .register(Arc::new(genai::GenAiPersonalData { pool: pool.clone() }))
         .register(Arc::new(boards::BoardsPersonalData { boards }))
         .register(Arc::new(notifications::NotificationsPersonalData {
             pool: pool.clone(),

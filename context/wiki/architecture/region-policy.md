@@ -17,7 +17,7 @@ default:
   min_age: 13
   discovery: { min_age: 18 }          # handle search never returns younger users (prd-mvp US-5a)
   public_links: { min_age: 18 }       # public board links off below this age (prd-mvp US-24)
-  ai_effects: { cloud_allowed: true, people_in_photo: on_device_or_non_gemini }
+  ai_effects: { cloud_allowed: true, min_age: 18, people_in_photo: on_device_or_non_gemini }  # min_age: Gemini 18+ terms (sprint 9)
   ads: { rewarded: true, personalized_requires_consent: false }
   ai_label: { visible_badge: true, c2pa: true }
 overrides:

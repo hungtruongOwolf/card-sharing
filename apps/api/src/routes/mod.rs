@@ -1,4 +1,5 @@
 pub mod activity;
+pub mod ai_effects;
 pub mod admin_auth;
 pub mod admin_reports;
 pub mod age_signal;

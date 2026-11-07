@@ -297,6 +297,23 @@ limits:
     requests: 100
     per_secs: 86400
     on_store_failure: open
+  ai.read: # GET /v1/ai-effects, GET /v1/ai-effects/jobs/{id} (the app polls a job every few seconds)
+    scope: user
+    requests: 120
+    per_secs: 60
+    on_store_failure: open
+  ai.consent: # PUT and DELETE /v1/ai-effects/consent
+    scope: user
+    requests: 20
+    per_secs: 3600
+    on_store_failure: open
+  ai.jobs.create: # POST /v1/ai-effects/jobs (credits cap the spend; this caps bursts: 20/h and 60/day)
+    scope: user
+    requests: 20
+    per_secs: 3600
+    on_store_failure: open
+    also:
+      - { requests: 60, per_secs: 86400 }
   cards.read: # GET /v1/cards/{id}
     scope: user
     requests: 300

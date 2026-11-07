@@ -71,6 +71,7 @@ dependencies = [
  "boards",
  "bytes",
  "cards",
+ "genai",
  "http",
  "http-body-util",
  "identity",
@@ -816,6 +817,26 @@ dependencies = [
  "memchr",
  "pin-project-lite",
  "slab",
+]
+
+[[package]]
+name = "genai"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "image",
+ "media",
+ "platform",
+ "serde",
+ "serde_json",
+ "serde_norway",
+ "sha2 0.11.1",
+ "sqlx",
+ "thiserror",
+ "time",
+ "tokio",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]

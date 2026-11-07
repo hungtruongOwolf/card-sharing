@@ -98,6 +98,13 @@ pub struct Config {
     /// `fake-captcha-pass`; refused when `API_ENV=production`). The real provider is an EM
     /// decision (T-142).
     pub captcha_verifier: SafetyAdapter,
+    /// `API_AI_EFFECTS_CONFIG_PATH` — default `config/ai_effects.yaml` (templates, consent
+    /// version, starter credits).
+    pub ai_effects_config_path: PathBuf,
+    /// `API_AI_EFFECT_PROVIDER` — `none` (default: AI effects are offered to nobody) or `fake`
+    /// (local pixel transforms, no network; refused when `API_ENV=production`). Real providers
+    /// wait for an EM decision and a spending cap (genai-effects.md).
+    pub ai_effect_provider: SafetyAdapter,
     /// `API_APPLE_CLIENT_IDS` — comma-separated `aud` values accepted in Apple ID tokens (the iOS
     /// bundle id; a Services ID if web sign-in is ever added). Empty (default) = Apple sign-in
     /// answers 503.
@@ -334,6 +341,10 @@ impl Config {
         let push_sender = safety_adapter(env, "API_PUSH_SENDER", content_safety.env)?;
         let cdn_purger = safety_adapter(env, "API_CDN_PURGER", content_safety.env)?;
         let captcha_verifier = safety_adapter(env, "API_CAPTCHA_VERIFIER", content_safety.env)?;
+        let ai_effect_provider = safety_adapter(env, "API_AI_EFFECT_PROVIDER", content_safety.env)?;
+        let ai_effects_config_path = env
+            .optional("API_AI_EFFECTS_CONFIG_PATH")
+            .map_or_else(|| PathBuf::from("config/ai_effects.yaml"), PathBuf::from);
         if media_s3.is_some() && media_storage_dir.is_some() {
             return Err(invalid(
                 "API_S3_ENDPOINT",
@@ -415,6 +426,8 @@ impl Config {
             push_sender,
             cdn_purger,
             captcha_verifier,
+            ai_effects_config_path,
+            ai_effect_provider,
             media_storage_dir,
             media_s3,
             content_safety,
@@ -802,6 +815,22 @@ mod tests {
         assert!(load(&[("API_CAPTCHA_VERIFIER", "fake")]).is_err());
         let config = load(&[("API_ENV", "development"), ("API_CAPTCHA_VERIFIER", "fake")]).unwrap();
         assert_eq!(config.captcha_verifier, SafetyAdapter::Fake);
+        // The fake AI effect provider too (sprint 9).
+        assert_eq!(load(&[]).unwrap().ai_effect_provider, SafetyAdapter::None);
+        assert!(load(&[("API_AI_EFFECT_PROVIDER", "fake")]).is_err());
+        let config = load(&[
+            ("API_ENV", "development"),
+            ("API_AI_EFFECT_PROVIDER", "fake"),
+        ])
+        .unwrap();
+        assert_eq!(config.ai_effect_provider, SafetyAdapter::Fake);
+        assert!(
+            load(&[
+                ("API_ENV", "development"),
+                ("API_AI_EFFECT_PROVIDER", "fal")
+            ])
+            .is_err()
+        );
         // The fake CDN purger too (T-133).
         assert_eq!(load(&[]).unwrap().cdn_purger, SafetyAdapter::None);
         assert!(load(&[("API_CDN_PURGER", "fake")]).is_err());

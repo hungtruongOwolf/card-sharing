@@ -592,6 +592,18 @@ Implemented (T-60): `AppState::validate_style` (registry embedded from `packages
 [[effects-catalog]]) returns the normalized style or 422 `UNKNOWN_REGISTRY_ID` (no detail); the card route calls it when it lands.
 Kill switches are not enforced server-side yet.
 
+### AI effects (Tier 2, fake provider, sprint 9)
+| Method | Path | Purpose | Auth | Role | Object rule | Rate limit | Idem. | US |
+|---|---|---|---|---|---|---|---|---|
+| GET | /v1/ai-effects | `{available, consent: {required_version, granted}, credits, templates[{id, version, title, cost}], ai_label}` | ses | user | self; templates empty unless available | `ai.read` 120/min u | yes | genai |
+| PUT | /v1/ai-effects/consent | `{version}` = current consent text → 204 (older version 400) | ses | user | self | `ai.consent` 20/h u | yes | genai |
+| DELETE | /v1/ai-effects/consent | Withdraw consent → 204 | ses | user | self | `ai.consent` | yes | genai |
+| POST | /v1/ai-effects/jobs | `{client_job_id, template_id, template_version, input_media_id}` → 202 `{job}`; reserves credits | ses | user | input = caller's clean `card_render`/`original` (else 404); region/age policy (403 `POLICY_DISALLOWED`), consent (403 `CONSENT_REQUIRED`), credits (402 `INSUFFICIENT_CREDITS`), no provider (503) | `ai.jobs.create` 20/h + 60/day u | required (= `client_job_id`) | genai |
+| GET | /v1/ai-effects/jobs/{id} | `{job: {id, status, outcome, cost, refunded, output_media_id, ai_generated, c2pa_recorded, ...}}` | ses | user | owner only; anyone else the same 404 as a missing id | `ai.read` | yes | genai |
+
+Details and the pipeline: [[genai-effects]] "Implementation on a fake provider". Tests: `tests/api/ai_effects.rs`, authz
+matrix rows.
+
 ### Safety, moderation, privacy, notifications
 | Method | Path | Purpose | Auth | Role | Object rule | Rate limit | Idem. | US |
 |---|---|---|---|---|---|---|---|---|

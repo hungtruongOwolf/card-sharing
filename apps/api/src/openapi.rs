@@ -5,8 +5,8 @@ use utoipa_axum::routes;
 
 use crate::access::{ApiRouter, Idempotency, RoutePolicy};
 use crate::routes::{
-    activity, admin_auth, admin_reports, age_signal, app_config, appeals, attestation, auth,
-    blocks, board_invitations, board_members, board_ops, board_read, boards, cards, deletion,
+    activity, admin_auth, admin_reports, age_signal, ai_effects, app_config, appeals, attestation,
+    auth, blocks, board_invitations, board_members, board_ops, board_read, boards, cards, deletion,
     dev_auth, devices, exports, feed, friend_requests, friends, health, invites, me, media,
     media_files, notification_preferences, public_boards, public_invites, public_links,
     public_reports, reports, sessions, user_search, widget,
@@ -44,6 +44,7 @@ Every operation carries `x-policy` (auth kind, role, attestation) from its deny-
         (name = boards::TAG, description = "Personal and shared boards of pinned cards (US-18..US-20, ADR-0007)"),
         (name = public_links::TAG, description = "Public board links (US-24)"),
         (name = reports::TAG, description = "Reports of cards, boards, public links and users (US-26)"),
+        (name = ai_effects::TAG, description = "Tier 2 cloud AI effects: curated templates, consent, server-side credits, effect jobs (genai-effects, fake provider)"),
         (name = media::TAG, description = "Image uploads into quarantine and their state (ADR-0005)"),
         (name = app_config::TAG, description = "Public client configuration"),
         (name = public_invites::TAG, description = "Server-to-server routes for the web share app (svc, /v1/public/*)"),
@@ -339,6 +340,28 @@ pub fn router() -> ApiRouter<AppState> {
         .route(
             RoutePolicy::session().limited("cards.reactions.read"),
             routes!(cards::list_reactions),
+        )
+        .route(
+            RoutePolicy::session().limited("ai.read"),
+            routes!(ai_effects::get_ai_effects),
+        )
+        .route(
+            RoutePolicy::session().limited("ai.consent"),
+            routes!(ai_effects::put_ai_consent),
+        )
+        .route(
+            RoutePolicy::session().limited("ai.consent"),
+            routes!(ai_effects::delete_ai_consent),
+        )
+        .route(
+            RoutePolicy::session()
+                .limited("ai.jobs.create")
+                .idempotency(Idempotency::Required),
+            routes!(ai_effects::create_ai_job),
+        )
+        .route(
+            RoutePolicy::session().limited("ai.read"),
+            routes!(ai_effects::get_ai_job),
         )
         .route(
             RoutePolicy::session().limited("feed.read"),

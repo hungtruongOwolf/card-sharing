@@ -78,6 +78,7 @@ struct InviteOverride {
 #[serde(deny_unknown_fields)]
 struct AiEffectsOverride {
     cloud_allowed: Option<bool>,
+    min_age: Option<u8>,
     people_in_photo: Option<PeopleInPhotoRouting>,
 }
 
@@ -224,6 +225,9 @@ fn apply(policy: &mut Policy, o: &PolicyOverride) {
 fn apply_ai_effects(target: &mut AiEffectsPolicy, o: &AiEffectsOverride) {
     if let Some(v) = o.cloud_allowed {
         target.cloud_allowed = v;
+    }
+    if let Some(v) = o.min_age {
+        target.min_age = v;
     }
     if let Some(v) = o.people_in_photo {
         target.people_in_photo = v;

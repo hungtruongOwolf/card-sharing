@@ -13,6 +13,7 @@ license = "UNLICENSED"
 attestation = { path = "crates/attestation" }
 boards = { path = "crates/boards" }
 cards = { path = "crates/cards" }
+genai = { path = "crates/genai" }
 identity = { path = "crates/identity" }
 media = { path = "crates/media" }
 moderation = { path = "crates/moderation" }

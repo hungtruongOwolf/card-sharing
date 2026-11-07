@@ -376,6 +376,30 @@ routes:
     idempotency_key: true
     expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 400, suspended: 403 }
 
+  # AI effects (sprint 9, fake provider). The matrix user has no date of birth, so the region/age
+  # policy refuses submits; consent, credits, the minor and region gates, refunds and the owner-only
+  # job read are in tests/api/ai_effects.rs.
+  - route: GET /v1/ai-effects
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 200, suspended: 403 }
+
+  - route: PUT /v1/ai-effects/consent
+    body: { version: 1 }
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 204, suspended: 403 }
+
+  - route: DELETE /v1/ai-effects/consent
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 204, suspended: 403 }
+
+  # The matrix body has no ids, so allowed callers get 400 before any policy check.
+  - route: POST /v1/ai-effects/jobs
+    body: { template_id: ai.watercolor }
+    idempotency_key: true
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 400, suspended: 403 }
+
+  - route: GET /v1/ai-effects/jobs/{id}
+    path: /v1/ai-effects/jobs/0192f0c1-7c1e-7a3b-9d2e-123456789abc
+    missing_path: /v1/ai-effects/jobs/0192f0c1-7c1e-7a3b-9d2e-000000000000
+    expect: { guest: 401, onboarding_age: 403, onboarding_profile: 403, user: 404, suspended: 403 }
+
   # Read a card (T-79). A card the caller may not see is the same 404 as a missing id; the owner,
   # recipient, stranger, unfriended, blocked, suspended-sender and held/pending cells are in
   # tests/api/cards_read.rs.

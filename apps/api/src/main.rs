@@ -135,6 +135,9 @@ fn build_state(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<AppState> 
     let moderation_settings =
         moderation::ModerationSettings::from_path(&config.moderation_config_path)
             .context("failed to load moderation config")?;
+    let genai_settings = genai::GenAiSettings::from_path(&config.ai_effects_config_path)
+        .context("failed to load AI effects config")?;
+    let genai_available = config.ai_effect_provider == api::config::SafetyAdapter::Fake;
     let state = AppState::new(
         policy,
         limiter,
@@ -143,6 +146,7 @@ fn build_state(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<AppState> 
         field_cipher,
         profile,
     )
+    .with_genai(genai_settings, genai_available)
     .with_ip_country_header(config.ip_country_header.clone())
     .with_os_age_signals(config.os_age_signals_enabled)
     .with_social_settings(social)
@@ -508,6 +512,25 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
         pool.clone(),
         Arc::clone(&clock),
     ));
+    let genai_jobs = genai::RunEffectJob {
+        service: Arc::new(genai::GenAiService::new(
+            pool.clone(),
+            Arc::clone(&clock),
+            Arc::new(
+                genai::GenAiSettings::from_path(&config.ai_effects_config_path)
+                    .context("failed to load AI effects config")?,
+            ),
+        )),
+        media: Arc::clone(&media),
+        provider: match config.ai_effect_provider {
+            // Config refuses the fake in production.
+            api::config::SafetyAdapter::Fake => Arc::new(genai::FakeProvider),
+            api::config::SafetyAdapter::None => Arc::new(genai::UnconfiguredProvider),
+        },
+        // Fake moderation gates until real ones are chosen with the provider (EM decision); the
+        // media pipeline's CSAM and nudity gates still run on every output.
+        gates: Arc::new(genai::Gates::fake()),
+    };
     let relay = Arc::new(
         OutboxRelay::new(pool, clock)
             .subscribe(Arc::new(notifications::PushOnEvents))
@@ -540,6 +563,7 @@ async fn run_worker(config: &Config, pool: sqlx::PgPool) -> anyhow::Result<()> {
         )
         .handle(cards::EVALUATE_JOB, Arc::new(card_jobs))
         .handle(cards::PURGE_JOB, Arc::new(purge_jobs))
+        .handle(genai::RUN_JOB, Arc::new(genai_jobs))
         .handle(
             boards::RESOLVE_BLOCK_JOB,
             Arc::new(boards::ResolveBlockJob(block_resolver)),
