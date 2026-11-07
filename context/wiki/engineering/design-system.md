@@ -240,9 +240,13 @@ Rules: ≤1 haptic per 50 ms (coalesce during drags), never on scroll, global to
 Implemented (T-66, `apps/mobile/src/features/feedback`): screens emit named events (`FEEDBACK_EVENTS`: squish,
 toggle, sendSuccess, error → haptic + optional sound) through `FeedbackProvider`/`useFeedback`. A gate coalesces haptics
 (≥ 50 ms apart) and sounds (≥ 80 ms), honours the Settings → Sounds and haptics switches (both on by default, persisted in
-expo-secure-store under `cs.prefs.feedback.v1`) and stays silent while the app is not active. Haptics and sound engines are
-`HapticsPort`/`SoundPort` seams with no-op adapters; expo-haptics and expo-audio are installed since the SDK 58 upgrade,
-the real adapters are follow-up #246.
+expo-secure-store under `cs.prefs.feedback.v1`) and stays silent while the app is not active. Engines (#246) sit behind
+the `HapticsPort`/`SoundPort` seams, chosen by `deviceFeedback()` (`deviceFeedback.web.ts`: no-op on the web):
+`hapticsAdapter.ts` maps each kind to the iOS column (expo-haptics impact / selection / notification) and the Android
+column (`performAndroidHapticsAsync`, falling back below API 30 / 34 as in the table), both following the OS haptics
+setting; `soundAdapter.ts` plays three in-house synthesized WAV clips (`tools/dev/gen_feedback_sounds.py`, no
+third-party license: squeak, pop, whoosh) through expo-audio at 0.6 volume with `playsInSilentMode: false` (the
+ring/silent switch mutes them) and `mixWithOthers` (no audio focus), loading expo-audio and the clips on the first play.
 
 ### 3.8 Other tokens
 | Token | Values |
@@ -384,5 +388,5 @@ Images pre-resized server-side to widget sizes; no shaders in widgets (baked out
 - **Decided (EM 2026-11-07, sprint 9):** v2 "Stories, alive" (section 0) replaces the warm cream/tomato palette; the faces stay.
 - **Superseded by v2:** brand vibe "warm scrapbook zine" — Bricolage Grotesque + DM Sans + Caveat + Anton + DM Mono, primary tomato `#C8412B`. Card-touch sounds ship in MVP (toggle, respect mute).
 - App name / logo not yet decided — tokens are brand-agnostic until then.
-- Sound design: ship optional sounds in MVP or later?
+- Sound design: the first clips are synthesized placeholders (squeak, pop, whoosh); replace them with designed sounds before launch?
 - Validate spring/haptic values on device during the week-1 spike; Android haptic quality varies by OEM.
