@@ -366,3 +366,9 @@ Source: raw/discussions/2026-11-07-web-mvp-direction.md. See [[sprint-10]].
 #393 (B6), #390 (B7 server), #394 (D1 seed reset), #392 (B4 link bases, ADR-0011 proposed) and #395 (browser E2E
 gate) merged after CI was green on each head commit; their log entries were moved here to avoid append conflicts.
 New bugs from the E2E suite: V1 (story viewer picture has no width on web), W1 (web mints widget tokens). See [[sprint-10]].
+
+## [2026-11-07] progress | sprint 10 app lane merged; E2E check required; ADR-0011 accepted
+#404 (W1), #391 (B1), #396 (R1), #397 (B5), #399 (B3), #400 (E1), #401 (B2), #402 (B8), #403 (B9), #405 (B7 client)
+and #406 (V1) merged after CI (including the browser E2E job with every former fixme spec enabled) was green on each
+head commit. EM confirmed invite links open the web app ([[ADR-0011-invite-links-open-web-app]] accepted) and made
+"Web E2E (Playwright)" a required check on main. Open: B2 in a real browser, phase 2 sign-up. See [[sprint-10]].

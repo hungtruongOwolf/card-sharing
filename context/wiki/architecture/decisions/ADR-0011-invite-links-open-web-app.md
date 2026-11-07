@@ -1,14 +1,14 @@
 ---
 title: ADR-0011 Invite links open the Expo web app while testers use the web target
 type: decision
-status: proposed
+status: accepted
 updated: 2026-11-07
-sources: [raw/discussions/2026-11-07-web-mvp-direction.md]
+sources: [raw/discussions/2026-11-07-web-mvp-direction.md, raw/discussions/2026-11-07-sprint-10-em-confirmations.md]
 related: [[ADR-0002-cross-platform-stack]], [[ADR-0009-app-on-web]], [[sprint-10]], [[local-dev]], [[api-mvp]]
 ---
 # ADR-0011: Invite links open the Expo web app while testers use the web target
 
-> **Proposed, needs lead/EM confirmation.** Written with sprint-10 bug B4. The code change is config only
+> **Accepted by the EM on 2026-11-07** (Q&A). Written with sprint-10 bug B4. The code change is config only
 > (env overrides for the link bases); this page records the routing choice it enables so it is not taken silently.
 
 ## Context
@@ -30,7 +30,7 @@ related: [[ADR-0002-cross-platform-stack]], [[ADR-0009-app-on-web]], [[sprint-10
 | Keep the Next.js landing and add an "Open the web app" button there | Keeps the split; OG preview stays | New web code and a second hop; the Next.js server must run on the LAN too |
 | Wait for hosting and Universal Links | No interim config | Blocks the sprint-10 invite flow |
 
-## Decision (proposed)
+## Decision
 - Both link bases become per-deployment env values with the yaml as fallback: `API_INVITE_URL_BASE` and
   `API_PUBLIC_LINK_URL_BASE` (validated http(s), ending with `/`, https only when `API_ENV=production`).
 - While testers use the web target (sprint 10, home network), `API_INVITE_URL_BASE` points at the **Expo web app**
