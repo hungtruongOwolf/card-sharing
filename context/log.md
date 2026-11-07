@@ -309,3 +309,8 @@ adopted; Playwright (web, in CI) and Maestro (mobile, later) fit better.
 EM rated the demo 3-4/10: works, but latency is poor, features are incomplete, and the UI needs a major
 improvement. Fixed during the demo: #363 (app version below the API minimum), #364 (appeals test racing the
 global hold expiry, closes #361). Source: `context/raw/discussions/2026-11-07-first-device-demo-feedback.md`.
+
+## [2026-11-07] decision | sprint 9 direction
+EM: UI closest to Instagram Stories; UI first, latency measured in parallel; wanted features: better editor,
+real-time replies, home-screen widget, real sign-in, AI cutout around the item and AI effects. Source:
+`context/raw/discussions/2026-11-07-sprint-9-direction.md`.
