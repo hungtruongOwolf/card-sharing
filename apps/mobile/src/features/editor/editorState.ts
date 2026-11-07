@@ -8,6 +8,7 @@ import {
 } from '@card-sharing/effects-registry';
 
 import { sanitizeText } from '../../text';
+import type { AiLook } from '../ai-effects/aiLook';
 
 /**
  * Card editor state (T-64): what the user chose, as the registry stores it (`{id, version, params}`), plus an
@@ -34,6 +35,11 @@ export interface CardDraft {
   wholePhoto: boolean;
   /** Optional caption (US-12), stored sanitized; '' = none. Length and filter rules live in features/captions. */
   caption: string;
+  /**
+   * An applied AI effect result (Tier 2, features/ai-effects): it replaces the card render on send while it still
+   * matches the look it was made from (`activeAiLook`). Absent or null = none.
+   */
+  ai?: AiLook | null;
 }
 
 export interface EditorHistory {
@@ -82,6 +88,8 @@ export type EditorAction =
   | { type: 'settle' }
   | { type: 'setWholePhoto'; value: boolean }
   | { type: 'setCaption'; text: string }
+  /** Applies (or removes, with null) an AI effect result; one undo step. */
+  | { type: 'setAiLook'; look: AiLook | null }
   | { type: 'undo' }
   | { type: 'redo' };
 
@@ -151,6 +159,8 @@ function nextDraft(draft: CardDraft, action: EditorAction): CardDraft {
     case 'setCaption':
       // Sanitized here too, so the draft never holds bidi controls or invisible characters (SR-28).
       return { ...draft, caption: sanitizeText(action.text) };
+    case 'setAiLook':
+      return { ...draft, ai: action.look };
     case 'undo':
     case 'redo':
     case 'settle':

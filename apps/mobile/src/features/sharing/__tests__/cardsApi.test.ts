@@ -85,6 +85,12 @@ describe('cards api: parsing', () => {
     });
   });
 
+  it('marks AI-made cards only when the server says so', () => {
+    expect(parseCard(card({ ai_generated: true }))?.aiGenerated).toBe(true);
+    expect(parseCard(card({ ai_generated: 'yes' }))).not.toHaveProperty('aiGenerated');
+    expect(parseCard(card())).not.toHaveProperty('aiGenerated');
+  });
+
   it('drops malformed cards and never trusts owner fields on someone else’s card', () => {
     expect(parseCard(card({ id: '../x' }))).toBeNull();
     expect(parseCard(card({ sent_at: 'yesterday' }))).toBeNull();

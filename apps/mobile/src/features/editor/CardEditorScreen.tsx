@@ -2,6 +2,7 @@ import { Canvas, createPicture, Picture, Skia, type SkImage } from '@shopify/rea
 import { useEffect, useMemo, useReducer, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import {
+  Image,
   ScrollView,
   StyleSheet,
   Switch,
@@ -41,6 +42,10 @@ import {
 import { t, type MessageKey } from '../../i18n';
 import type { TextFilterConfig } from '../../text';
 import { Button, IconButton, Screen, Text, useTheme, useToast, type IconName } from '../../ui';
+import { AiBadge } from '../ai-effects/AiBadge';
+import { AiEffectsSheet } from '../ai-effects/AiEffectsSheet';
+import { activeAiLook } from '../ai-effects/aiLook';
+import type { AiEffectsController } from '../ai-effects/useAiEffects';
 import type { CapturedPhoto } from '../capture';
 import { canShareImages, exportDraftPng, shareImage } from '../export';
 import {
@@ -161,6 +166,11 @@ export interface CardEditorScreenProps {
   onBack: () => void;
   /** Next step for the finished draft (send, a later ticket). Without it the editor has no Next button. */
   onNext?: (draft: CardDraft) => void;
+  /**
+   * Tier 2 cloud AI effects. The AI entry shows only when the server says they are available for this account
+   * (region, age, provider); without a controller there is no AI entry.
+   */
+  aiEffects?: AiEffectsController;
 }
 
 type Loaded =
@@ -261,6 +271,7 @@ function Editor({
   initialDraft,
   onDraftChange,
   onNext,
+  aiEffects,
 }: EditorProps) {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -285,6 +296,9 @@ function Editor({
   const [placeTarget, setPlaceTarget] = useState<PlacementTarget>('body');
   const dragStart = useSharedValue<Readonly<Record<string, ParamValue>> | null>(null);
   const [captionOpen, setCaptionOpen] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
+  /** Signed preview URLs of AI results by job id (short-lived; never stored with the draft). */
+  const [aiPreviews, setAiPreviews] = useState<Readonly<Record<string, string>>>({});
   const toast = useToast();
   const theme = useTheme();
   const { reducedMotion } = theme;
@@ -300,7 +314,7 @@ function Editor({
   const effectsTab = tabs.find((tab) => tab.slot === 'effects');
   // Effects the device or config no longer allows are dropped from what is shown and sent (like a hidden cut).
   const effects = listedEffects(effectsTab, draft.effects);
-  const shown: CardDraft | null = cut
+  const look: CardDraft | null = cut
     ? {
         cut: cut.choice,
         finish: finish?.choice ?? null,
@@ -309,6 +323,11 @@ function Editor({
         caption: draft.caption,
       }
     : null;
+  // An AI result counts only while it matches what is shown; an edit sets it aside (undo brings it back).
+  const aiLook = look && draft.ai ? activeAiLook({ ...look, ai: draft.ai }) : null;
+  const shown: CardDraft | null = look && aiLook ? { ...look, ai: aiLook } : look;
+  const aiPreview = aiLook ? (aiPreviews[aiLook.jobId] ?? null) : null;
+  const aiAvailable = aiEffects?.overview?.available === true;
 
   const shownJson = JSON.stringify(shown);
   useEffect(() => {
@@ -545,6 +564,7 @@ function Editor({
           effects: effects.map(({ entry }) => t(entry.a11yLabel as MessageKey)).join(', '),
         })
       : baseLabel;
+  const shownLabel = aiLook ? t('editor.ai.preview.label', { name: aiLook.title }) : previewLabel;
 
   const exportDraft = async () => {
     if (!shown) return;
@@ -597,7 +617,7 @@ function Editor({
               style={[styles.preview, size, { boxShadow: theme.shadow(3) }]}
               accessible
               accessibilityRole="image"
-              accessibilityLabel={previewLabel}
+              accessibilityLabel={shownLabel}
               accessibilityHint={target ? t('editor.place.hint') : undefined}
               accessibilityActions={placeActions}
               onAccessibilityAction={onPlaceAction}
@@ -618,6 +638,16 @@ function Editor({
               ) : (
                 <Text tone="onMediaMuted">{t('editor.unavailable')}</Text>
               )}
+              {aiPreview ? (
+                <Image
+                  testID="editor-ai-preview"
+                  source={{ uri: aiPreview }}
+                  style={[StyleSheet.absoluteFill, styles.aiPreview]}
+                  resizeMode="cover"
+                  accessibilityIgnoresInvertColors
+                />
+              ) : null}
+              {aiLook ? <AiBadge testID="editor-ai-badge" style={styles.aiBadge} /> : null}
               {guides.vertical ? (
                 <View pointerEvents="none" testID="editor-guide-vertical" style={styles.guideV} />
               ) : null}
@@ -632,6 +662,23 @@ function Editor({
             {draft.caption}
           </Text>
         ) : null}
+        {aiLook ? (
+          <View style={styles.aiRow} testID="editor-ai-look">
+            <Text variant="label.md" tone="onMedia" style={styles.shrink}>
+              {t('editor.ai.applied', { name: aiLook.title })}
+            </Text>
+            <Button
+              variant="ghost"
+              label={t('editor.ai.remove')}
+              onPress={() => dispatch({ type: 'setAiLook', look: null })}
+            />
+          </View>
+        ) : null}
+        {aiLook && !aiPreview ? (
+          <Text variant="label.sm" tone="onMediaMuted" style={styles.caption}>
+            {t('editor.ai.pending')}
+          </Text>
+        ) : null}
         <View style={styles.rail} accessibilityRole="tablist">
           {tools.map((candidate) => (
             <IconButton
@@ -643,6 +690,15 @@ function Editor({
               onPress={() => pickTool(candidate.key)}
             />
           ))}
+          {aiAvailable ? (
+            <IconButton
+              testID="editor-ai"
+              icon="sparkle"
+              accessibilityLabel={t('editor.tab.ai')}
+              selected={aiOpen}
+              onPress={() => setAiOpen(true)}
+            />
+          ) : null}
         </View>
       </View>
       {trayOpen ? (
@@ -814,6 +870,18 @@ function Editor({
         onSave={(text) => dispatch({ type: 'setCaption', text })}
         onClose={() => setCaptionOpen(false)}
       />
+      {aiEffects && look ? (
+        <AiEffectsSheet
+          visible={aiOpen}
+          onClose={() => setAiOpen(false)}
+          controller={aiEffects}
+          draft={look}
+          onApply={(applied, previewUrl) => {
+            if (previewUrl) setAiPreviews((all) => ({ ...all, [applied.jobId]: previewUrl }));
+            dispatch({ type: 'setAiLook', look: applied });
+          }}
+        />
+      ) : null}
     </View>
   );
 }
@@ -861,6 +929,15 @@ const styles = StyleSheet.create({
     backgroundColor: onMedia.ink,
   },
   caption: { alignSelf: 'center', textAlign: 'center', marginTop: space[2] },
+  aiPreview: { borderRadius: radius.md },
+  aiBadge: { position: 'absolute', top: space[2], start: space[2] },
+  aiRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    gap: space[2],
+    marginTop: space[1],
+  },
   rail: {
     position: 'absolute',
     end: space[3],

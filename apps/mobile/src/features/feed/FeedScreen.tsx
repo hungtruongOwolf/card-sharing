@@ -6,6 +6,7 @@ import { linearGradient, radius, size, space } from '@card-sharing/tokens';
 
 import { t } from '../../i18n';
 import { Avatar, Button, IconButton, Screen, Text, useTheme, useToast } from '../../ui';
+import { AiBadge } from '../ai-effects/AiBadge';
 import { AuthError } from '../auth';
 import { CardsError, type CardItem, type CardsApi, type FeedPage } from '../sharing/cardsApi';
 import type { CachedFeed, CachedFeedItem, FeedCache } from './feedCache';
@@ -359,6 +360,7 @@ function FeedRow({
           sent={sentLabel(item.sentAt, now)}
           caption={item.caption}
         />
+        {item.aiGenerated ? <AiBadge testID={`feed-ai-${item.id}`} style={styles.aiBadge} /> : null}
       </Pressable>
       {reactions.length > 0 ? (
         <View style={styles.reactions}>
@@ -430,4 +432,5 @@ const styles = StyleSheet.create({
   },
   shrink: { flexShrink: 1 },
   reactions: { padding: space[3] },
+  aiBadge: { position: 'absolute', top: space[4], end: space[3] },
 });
