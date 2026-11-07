@@ -2,7 +2,7 @@
 title: Security Baseline
 type: guide
 status: accepted
-updated: 2026-11-06
+updated: 2026-11-07
 sources: [raw/discussions/2026-11-04-kickoff.md]
 related: [[conventions]], [[overview]], [[testing-strategy]]
 ---
@@ -91,7 +91,10 @@ Notes:
   Capability-URL pages (`/i/<token>`, `/b/<token>`) send `Referrer-Policy: no-referrer` and `X-Robots-Tag: noindex`;
   their CSP has no WebAssembly and no blob/data images (`apps/web/src/csp.ts`, tested).
 - CSRF: SameSite cookies + CSRF token or double-submit for state-changing requests with cookies.
-- CORS: explicit allow-list; never `*` with credentials.
+- CORS: explicit allow-list; never `*` with credentials. The API reads exact origins from `API_CORS_ALLOWED_ORIGINS`
+  (empty = closed), allows only the request headers clients send (`Authorization`, `Content-Type`, `X-Request-Id`,
+  `Idempotency-Key`, `X-App-Version`, `X-Reauth`), exposes only the ones they read, and never allows credentials
+  (`apps/api/src/middleware.rs`, tests in `tests/api/http.rs`).
 - Rate limiting per IP + per user on all public endpoints; stricter on auth & expensive endpoints.
 - File uploads: size limits, content-type sniffing (magic bytes), re-encode images, store outside web root,
   virus scan if user-to-user sharing.

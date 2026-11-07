@@ -29,6 +29,11 @@ pnpm infra:up            # docker compose up -d --wait
 Optional in `.env`:
 - `API_SERVICE_CREDENTIAL` (web preview pages, `/v1/public/*`): any 32+ printable characters, for example
   `openssl rand -base64 32`. The web server reads the same variable.
+- `API_CORS_ALLOWED_ORIGINS` (exact origins, deny by default): `.env.example` lists the Next.js app
+  (`http://localhost:3000`) and the Expo app's web target (`http://localhost:8081`, [[ADR-0009-app-on-web]]). Opening
+  the web target from a phone on the LAN adds that origin too (for example `http://192.168.1.20:8081`). Media from
+  MinIO is fetched by the browser across origins, so with MinIO use filesystem storage for the web target (served by
+  the API under the same CORS policy).
 - MinIO instead of the filesystem: comment out `API_MEDIA_STORAGE_DIR` and set `API_S3_ENDPOINT=http://127.0.0.1:9000`,
   `API_S3_REGION=us-east-1`, `API_S3_ACCESS_KEY_ID` = `S3_ROOT_USER`, `API_S3_SECRET_ACCESS_KEY` = `S3_ROOT_PASSWORD`.
 

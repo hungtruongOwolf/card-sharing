@@ -17,7 +17,9 @@ use tower_http::set_header::SetResponseHeaderLayer;
 use tower_http::trace::{DefaultOnResponse, TraceLayer};
 use tracing::Level;
 
-use crate::access::IDEMPOTENCY_KEY_HEADER;
+use crate::access::{
+    APP_VERSION_HEADER, IDEMPOTENCY_KEY_HEADER, IDEMPOTENT_REPLAYED_HEADER, REAUTH_HEADER,
+};
 use crate::config::Config;
 use platform::problem::{ApiError, problem_response};
 use platform::request_id::{self, REQUEST_ID_HEADER, RequestId};
@@ -116,6 +118,9 @@ fn make_span(request: &Request) -> tracing::Span {
     tracing::info_span!("http", method = %request.method(), route, request_id)
 }
 
+/// Browser cross-origin access, closed unless `API_CORS_ALLOWED_ORIGINS` lists the origin. Allowed request headers
+/// are exactly the ones clients send (the app's web target sends `X-App-Version` on every call and `X-Reauth` on
+/// re-auth routes, ADR-0009); exposed headers are the ones clients read. No credentials (cookies) cross origins.
 fn cors(config: &Config) -> CorsLayer {
     CorsLayer::new()
         .allow_origin(AllowOrigin::list(
@@ -133,8 +138,14 @@ fn cors(config: &Config) -> CorsLayer {
             header::AUTHORIZATION,
             REQUEST_ID_HEADER,
             IDEMPOTENCY_KEY_HEADER,
+            APP_VERSION_HEADER,
+            REAUTH_HEADER,
         ])
-        .expose_headers([REQUEST_ID_HEADER])
+        .expose_headers([
+            REQUEST_ID_HEADER,
+            IDEMPOTENT_REPLAYED_HEADER,
+            header::RETRY_AFTER,
+        ])
         .max_age(Duration::from_secs(600))
 }
 
