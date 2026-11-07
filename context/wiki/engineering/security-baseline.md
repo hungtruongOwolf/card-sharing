@@ -148,12 +148,14 @@ Notes:
 - **Rate limiter failure mode** (sprint 9, after the first device demo): when Valkey is slow or down, a limit with
   `on_store_failure: closed` refuses the request with 503 `SERVER_BUSY` + `Retry-After: 2`, every other limit falls back
   to a per-instance memory bucket (still limited per instance, never unlimited). Fail closed is reserved for: sign-in and
-  credential steps (`auth.*`, `attestation.*`), guessable tokens (`invites.preview`, `public.*`, `privacy.exports.download`),
+  credential steps (`auth.*` except `auth.refresh`, `attestation.*`), guessable tokens (`invites.preview`, `public.*`, `privacy.exports.download`),
   enumeration (`me.handle.check`, `users.search*`), staff (`admin.*`) and abuse-prone or irreversible writes
   (`friend_requests.create`, `public.reports.create`, `me.age`, `me.handle.claim`, `privacy.deletion.*`,
   `privacy.exports.request`). The list is asserted by `fail_closed_limits_are_the_reviewed_set`
   (`apps/api/tests/api/rate_limit.rs`): adding a fail-closed limit, or moving one to open, is a security review. Reads
-  of the user's own data (feed, cards, boards, `/v1/me`) fail open. A failed store call (300 ms timeout) opens a 2 s
+  of the user's own data (feed, cards, boards, `/v1/me`) fail open. `auth.refresh` fails open too (EM decision 2026-11-07):
+  refresh tokens are 256-bit and single-use (reuse revokes the family), so its limit only caps volume, and refusing
+  refreshes during a store outage would stall every signed-in user; the memory bucket still caps it per instance. A failed store call (300 ms timeout) opens a 2 s
   breaker on that instance so requests stop queueing behind a slow store; the first request after the window probes it.
   The memory fallback is per instance, so with N instances an attacker gets at most N × the quota while the store is down.
 - MVP threat model, abuse cases and SR-1…SR-37 live in [[threat-model-mvp]]; every feature PR checks the SRs it touches.

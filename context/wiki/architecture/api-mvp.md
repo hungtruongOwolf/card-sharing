@@ -103,7 +103,7 @@ the session kept. The native Apple/Google sheets still need a device build. Test
 
 Implemented so far: `POST /v1/auth/refresh` `{refresh_token}` → `{token_type: "Bearer", access_token, access_expires_at, refresh_token}`
 (unknown token → 401 `UNAUTHENTICATED`; reused / revoked / idle- or absolute-expired family → 401 `SESSION_REVOKED`; a retry of the
-previous token within 30 s while its successor is unused is accepted); `DELETE /v1/sessions/current` → 204.
+previous token within 30 s while its successor is unused is accepted); limit `auth.refresh` 30/h per device **fails open** to the per-instance memory bucket while the rate-limit store is down (EM 2026-11-07, [[security-baseline]] "Rate limiter failure mode"); `DELETE /v1/sessions/current` → 204.
 
 Session management (T-24, ses, AC-1.4): `GET /v1/sessions` (limit `sessions.list`) → `{sessions: [{id, client_label, ip_country,
 created_at, last_seen_at, is_current}]}`: live device sessions of the caller only (widget/reauth children are not listed), most

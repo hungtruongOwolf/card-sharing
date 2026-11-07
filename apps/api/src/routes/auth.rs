@@ -364,8 +364,7 @@ pub const EMAIL_LIMIT: &str = "auth.email.start.email";
         (status = OK, description = "New token pair; the presented refresh token is now used up.", body = TokenPair),
         (status = BAD_REQUEST, description = "VALIDATION_FAILED (unknown fields are rejected).", body = ProblemDetails),
         (status = UNAUTHORIZED, description = "UNAUTHENTICATED (unknown token) or SESSION_REVOKED (reused, revoked or ended session: sign in again).", body = ProblemDetails),
-        (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED.", body = ProblemDetails),
-        (status = SERVICE_UNAVAILABLE, description = "SERVER_BUSY (rate-limit store slow or down; auth fails closed; retry after Retry-After).", body = ProblemDetails),
+        (status = TOO_MANY_REQUESTS, description = "RATE_LIMITED (per device; while the rate-limit store is down, per instance).", body = ProblemDetails),
     )
 )]
 pub async fn refresh(

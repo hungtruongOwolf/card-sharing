@@ -86,10 +86,13 @@ limits:
     per_secs: 60
     on_store_failure: closed
   auth.refresh: # POST /v1/auth/refresh (30/h per device; anonymous callers fall back to IP)
+    # Fails open to the per-instance memory bucket (EM 2026-11-07): refresh tokens are 256-bit and
+    # single-use, so the limit only caps volume, and refusing refreshes while Valkey is down would
+    # stall every signed-in user.
     scope: device
     requests: 30
     per_secs: 3600
-    on_store_failure: closed
+    on_store_failure: open
   sessions.current.delete: # DELETE /v1/sessions/current
     scope: user
     requests: 30
