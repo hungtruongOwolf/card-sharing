@@ -344,3 +344,8 @@ Source: raw/discussions/2026-11-07-web-mvp-direction.md. See [[sprint-10]].
 - [[ADR-0010-realtime-delivery]] implementation notes and [[api-mvp]] fan-out: `card.delivered`, `card.reply` and a set
   `card.reaction` are now notified from the activity job's transaction instead of the delivery / reaction transaction.
 - Why: the app refetched activity on the event before the outbox consumer wrote the row (sprint 10 audit bug B6).
+## [2026-11-07] decision | notification preferences limit per minute (B7, server part)
+- `me.notification_preferences` 30/h → 30/min per user (`config/limits.yaml`, [[api-mvp]]).
+- Why: the app reads the preferences on every launch, web reload and new tab, so ordinary web use hit 30/h (audit B7).
+  The route is self-only, idempotent and cheap; the limit only caps a runaway client loop. The client part of B7
+  (no retry on 429) stays with the app lane.
