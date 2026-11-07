@@ -204,6 +204,10 @@ impl ProviderSignIn {
                 }
                 VerifyError::KeysUnavailable(reason) => SignInError::Unavailable(reason),
             })?;
+        // Fail closed before any database work when there is no nonce store to claim the nonce in.
+        if self.identity.cache.redis().is_none() {
+            return Err(SignInError::Unavailable("no Redis configured".to_owned()));
+        }
         let identity = VerifiedIdentity {
             provider,
             subject: verified.subject.clone(),
