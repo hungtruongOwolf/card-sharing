@@ -82,6 +82,13 @@ pub enum ApiError {
     /// "Findable by handle").
     #[error("policy disallowed")]
     PolicyDisallowed,
+    /// The caller has not agreed to the current consent text for this feature (AI effects:
+    /// a photo goes to a third-party AI only after explicit consent).
+    #[error("consent required")]
+    ConsentRequired,
+    /// Not enough server-side credits for this action (AI effects).
+    #[error("insufficient credits")]
+    InsufficientCredits,
     /// The handle belongs to, or is reserved for, someone else (no detail which).
     #[error("handle taken")]
     HandleTaken,
@@ -173,8 +180,10 @@ impl ApiError {
             | Self::AccountSuspended
             | Self::AttestationFailed
             | Self::PolicyDisallowed
+            | Self::ConsentRequired
             | Self::AgeGateRefused
             | Self::AgeAlreadySubmitted => StatusCode::FORBIDDEN,
+            Self::InsufficientCredits => StatusCode::PAYMENT_REQUIRED,
             Self::NotFound | Self::InviteExpired => StatusCode::NOT_FOUND,
             Self::HandleTaken
             | Self::IdempotencyInProgress
@@ -215,6 +224,8 @@ impl ApiError {
             Self::AccountSuspended => "ACCOUNT_SUSPENDED",
             Self::AttestationFailed => "ATTESTATION_FAILED",
             Self::PolicyDisallowed => "POLICY_DISALLOWED",
+            Self::ConsentRequired => "CONSENT_REQUIRED",
+            Self::InsufficientCredits => "INSUFFICIENT_CREDITS",
             Self::AgeGateRefused => "AGE_GATE_REFUSED",
             Self::AgeAlreadySubmitted => "AGE_ALREADY_SUBMITTED",
             Self::NotFound => "NOT_FOUND",
@@ -329,6 +340,8 @@ mod tests {
             ApiError::AccountSuspended,
             ApiError::AttestationFailed,
             ApiError::PolicyDisallowed,
+            ApiError::ConsentRequired,
+            ApiError::InsufficientCredits,
             ApiError::AgeGateRefused,
             ApiError::AgeAlreadySubmitted,
             ApiError::Unavailable {

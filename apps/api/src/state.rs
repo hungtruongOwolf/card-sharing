@@ -67,6 +67,11 @@ pub struct AppState {
     pub push_tokens: Arc<notifications::PushTokens>,
     /// Quarantine uploads and media state (T-70).
     pub media: Arc<MediaService>,
+    /// Tier 2 cloud AI effects (sprint 9): templates, consent, credits, effect jobs.
+    pub genai: Arc<genai::GenAiService>,
+    /// Whether a provider adapter runs in the worker (`API_AI_EFFECT_PROVIDER`). `false` = AI
+    /// effects are offered to nobody and submits answer 503 (deny by default).
+    pub genai_available: bool,
     /// Signs media URLs (T-74). `None` = no key configured: media URLs answer 503.
     pub media_signer: Option<Arc<UrlSigner>>,
     /// Resolves bearer tokens for the access-policy gate (identity sessions by default).
@@ -172,6 +177,12 @@ impl AppState {
                 None,
             )),
             media_signer: None,
+            genai: Arc::new(genai::GenAiService::new(
+                identity.pool().clone(),
+                identity.clock(),
+                Arc::new(genai::GenAiSettings::shipped()),
+            )),
+            genai_available: false,
             policy,
             sessions: Arc::new(IdentitySessions(Arc::clone(&identity))),
             idempotency: Arc::new(IdempotencyStore::new(
@@ -188,6 +199,18 @@ impl AppState {
             sign_in: None,
             dev_sign_in: false,
         }
+    }
+
+    /// Installs the AI effect rules (`config/ai_effects.yaml`) and whether a provider adapter is
+    /// configured for the worker (`API_AI_EFFECT_PROVIDER`).
+    pub fn with_genai(mut self, settings: genai::GenAiSettings, available: bool) -> Self {
+        self.genai = Arc::new(genai::GenAiService::new(
+            self.identity.pool().clone(),
+            self.identity.clock(),
+            Arc::new(settings),
+        ));
+        self.genai_available = available;
+        self
     }
 
     /// Installs the attestation verifiers and mode (`API_ATTESTATION_MODE`).

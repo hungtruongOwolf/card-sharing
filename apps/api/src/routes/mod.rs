@@ -2,6 +2,7 @@ pub mod activity;
 pub mod admin_auth;
 pub mod admin_reports;
 pub mod age_signal;
+pub mod ai_effects;
 pub mod app_config;
 pub mod appeals;
 pub mod attestation;

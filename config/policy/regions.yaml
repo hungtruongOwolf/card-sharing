@@ -19,6 +19,7 @@ default:
     minor_max_uses: 5
   ai_effects:
     cloud_allowed: true
+    min_age: 18 # cloud AI effects (genai-effects: Gemini API terms are 18+); younger accounts get no AI effects
     people_in_photo: on_device_or_non_gemini # any | on_device_or_non_gemini | on_device_only
   ads:
     rewarded: true

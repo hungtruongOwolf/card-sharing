@@ -1,0 +1,29 @@
+[package]
+name = "genai"
+version = "0.1.0"
+description = "Tier 2 cloud AI effects: curated templates, provider adapters, credit ledger, moderation hooks, C2PA marking (see context/wiki/architecture/genai-effects.md)"
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+# media (clean input bytes, output uploads through the content gates) through its public API.
+media.workspace = true
+platform.workspace = true
+
+bytes.workspace = true
+image.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+serde_norway.workspace = true
+sha2.workspace = true
+sqlx.workspace = true
+thiserror.workspace = true
+time.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+
+[lints]
+workspace = true

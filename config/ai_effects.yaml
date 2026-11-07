@@ -1,0 +1,41 @@
+# Tier 2 cloud AI effects (genai-effects.md, ADR-0003) — config over code.
+#
+# The provider adapter is chosen by API_AI_EFFECT_PROVIDER (none | fake; fake is refused when
+# API_ENV=production). There is no real provider until the EM picks one and sets a spending cap.
+# Who may use AI effects comes from config/policy/regions.yaml (`ai_effects.cloud_allowed`,
+# `ai_effects.min_age`), never from here.
+version: 1
+
+# Version of the consent text the app shows before a photo goes to a third-party AI (Apple 5.1.2(i)).
+# Bumping it asks everyone again.
+consent_version: 1
+
+# Credits granted once per account on first use (beta). Purchases and rewarded ads come later
+# (server-side only, security-baseline section 7).
+starter_credits: 5
+
+# Curated templates only: no free-text prompts. `prompt` is for real providers (the fake ignores it);
+# `fake_transform` is what the fake provider does (invert | grayscale | posterize). Templates never
+# change people (no face swap, outfit or undress, genai-effects safety rules).
+templates:
+  - id: ai.watercolor
+    version: 1
+    title: Watercolor
+    cost: 1
+    enabled: true
+    prompt: Repaint the subject as a soft watercolor illustration on paper. Keep the shape.
+    fake_transform: posterize
+  - id: ai.neon_night
+    version: 1
+    title: Neon night
+    cost: 1
+    enabled: true
+    prompt: Give the subject a glowing neon outline against a dark night background.
+    fake_transform: invert
+  - id: ai.vintage_photo
+    version: 1
+    title: Vintage photo
+    cost: 2
+    enabled: true
+    prompt: Turn the photo into a faded black-and-white print from the 1950s.
+    fake_transform: grayscale

@@ -87,11 +87,19 @@ fn default_adult_age() -> u8 {
     18
 }
 
+fn default_ai_effects_min_age() -> u8 {
+    18
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AiEffectsPolicy {
     /// Whether cloud (third-party) AI effects may be offered at all.
     pub cloud_allowed: bool,
+    /// Youngest age that may use cloud AI effects (genai-effects: Gemini API terms are 18+;
+    /// placeholder pending legal review). Strictest = largest.
+    #[serde(default = "default_ai_effects_min_age")]
+    pub min_age: u8,
     /// Where photos that contain people may be processed.
     pub people_in_photo: PeopleInPhotoRouting,
 }
@@ -203,6 +211,7 @@ fn strictest(a: Policy, b: Policy) -> Policy {
         },
         ai_effects: AiEffectsPolicy {
             cloud_allowed: a.ai_effects.cloud_allowed && b.ai_effects.cloud_allowed,
+            min_age: a.ai_effects.min_age.max(b.ai_effects.min_age),
             people_in_photo: a
                 .ai_effects
                 .people_in_photo

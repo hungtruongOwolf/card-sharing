@@ -10,6 +10,7 @@ mod access;
 mod activity;
 mod age_gate;
 mod age_service;
+mod ai_effects;
 mod appeals;
 mod attestation;
 mod audit;

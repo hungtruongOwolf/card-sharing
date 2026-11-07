@@ -726,6 +726,419 @@
         }
       }
     },
+    "/v1/ai-effects": {
+      "get": {
+        "tags": [
+          "ai-effects"
+        ],
+        "summary": "AI effects for the caller: availability, consent, credits, templates. Auth: ses.",
+        "operationId": "getAiEffects",
+        "responses": {
+          "200": {
+            "description": "What the caller may do with AI effects.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiEffectsOverview"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "ai.read",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
+    "/v1/ai-effects/consent": {
+      "put": {
+        "tags": [
+          "ai-effects"
+        ],
+        "summary": "Agree to the current AI consent text. Auth: ses. Accepted for anyone (consent alone never\nenables AI effects; the policy check happens on submit).",
+        "operationId": "putAiConsent",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AiConsentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Consent recorded."
+          },
+          "400": {
+            "description": "VALIDATION_FAILED: not the current consent version.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "ai.consent",
+          "role": "user",
+          "versionGate": true
+        }
+      },
+      "delete": {
+        "tags": [
+          "ai-effects"
+        ],
+        "summary": "Withdraw AI consent; later submits answer 403 `CONSENT_REQUIRED`. Auth: ses.",
+        "operationId": "deleteAiConsent",
+        "responses": {
+          "204": {
+            "description": "No consent remains."
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "ai.consent",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
+    "/v1/ai-effects/jobs": {
+      "post": {
+        "tags": [
+          "ai-effects"
+        ],
+        "summary": "Run a curated AI effect on one of my clean uploads. Auth: ses. `Idempotency-Key` =\n`client_job_id`.",
+        "description": "Checks, in order: provider configured (503), region/age policy (403 `POLICY_DISALLOWED`),\nconsent (403 `CONSENT_REQUIRED`), template (400), input owned and clean (404), credits\n(402 `INSUFFICIENT_CREDITS`). Answers 202 with the queued job; the cost is reserved now and\nrefunded if the job is refused or fails. Replays return the original job.",
+        "operationId": "createAiJob",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAiJobRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Queued; credits reserved.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiJobEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED (unknown fields, unknown template, Idempotency-Key not equal to client_job_id).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "INSUFFICIENT_CREDITS.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "POLICY_DISALLOWED (region or age), CONSENT_REQUIRED, ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: the input is not a clean card render or original of the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "IDEMPOTENCY_IN_PROGRESS.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "IDEMPOTENCY_KEY_REUSED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "TEMPORARILY_UNAVAILABLE: no AI provider configured.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "idempotency": "required",
+          "rateLimit": "ai.jobs.create",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
+    "/v1/ai-effects/jobs/{id}": {
+      "get": {
+        "tags": [
+          "ai-effects"
+        ],
+        "summary": "One of my AI effect jobs. Auth: ses; owner only (anyone else: the same 404 as a missing id).",
+        "operationId": "getAiJob",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Job id from POST /v1/ai-effects/jobs.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The job.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiJobEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: no job of the caller with this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-policy": {
+          "attestation": false,
+          "auth": "ses",
+          "rateLimit": "ai.read",
+          "role": "user",
+          "versionGate": true
+        }
+      }
+    },
     "/v1/attestation/apple-keys": {
       "post": {
         "tags": [
@@ -8139,6 +8552,76 @@
           "adult"
         ]
       },
+      "AiConsentRequest": {
+        "type": "object",
+        "description": "Body of `PUT /v1/ai-effects/consent`.",
+        "required": [
+          "version"
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Must equal `consent.required_version` (the text the app showed).",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "AiConsentView": {
+        "type": "object",
+        "required": [
+          "required_version",
+          "granted"
+        ],
+        "properties": {
+          "granted": {
+            "type": "boolean",
+            "description": "Whether the caller agreed to `required_version`."
+          },
+          "required_version": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The consent text version the app must show and send back.",
+            "minimum": 0
+          }
+        }
+      },
+      "AiEffectsOverview": {
+        "type": "object",
+        "description": "`GET /v1/ai-effects`.",
+        "required": [
+          "available",
+          "consent",
+          "credits",
+          "templates",
+          "ai_label"
+        ],
+        "properties": {
+          "ai_label": {
+            "$ref": "#/components/schemas/AiLabelRules"
+          },
+          "available": {
+            "type": "boolean",
+            "description": "`false` = hide AI effects: no provider configured, or the region/age policy does not allow\nthem for the caller."
+          },
+          "consent": {
+            "$ref": "#/components/schemas/AiConsentView"
+          },
+          "credits": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Spendable credits (includes the one-time starter grant until it is used)."
+          },
+          "templates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AiTemplateView"
+            },
+            "description": "Empty when not `available`."
+          }
+        }
+      },
       "AiEffectsView": {
         "type": "object",
         "required": [
@@ -8156,6 +8639,109 @@
           }
         }
       },
+      "AiJobEnvelope": {
+        "type": "object",
+        "required": [
+          "job"
+        ],
+        "properties": {
+          "job": {
+            "$ref": "#/components/schemas/AiJobView"
+          }
+        }
+      },
+      "AiJobView": {
+        "type": "object",
+        "description": "An effect job as its owner sees it.",
+        "required": [
+          "id",
+          "template_id",
+          "template_version",
+          "input_media_id",
+          "status",
+          "cost",
+          "refunded",
+          "ai_generated",
+          "c2pa_recorded",
+          "created_at"
+        ],
+        "properties": {
+          "ai_generated": {
+            "type": "boolean",
+            "description": "Always `true`: anything this route returns is AI-generated and must carry the badge when\n`ai_label.visible_badge` says so."
+          },
+          "c2pa_recorded": {
+            "type": "boolean",
+            "description": "A C2PA manifest is recorded for the output (not yet signed or embedded)."
+          },
+          "cost": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "input_media_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "outcome": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When refused or failed: `input_moderation`, `output_moderation`, `provider_refused`,\n`provider_failed` or `input_unavailable`."
+          },
+          "output_media_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "The generated image (a `card_render` upload of the caller; poll `GET /v1/media/{id}` until\nit is clean, then send it like any card render). `null` until succeeded."
+          },
+          "refunded": {
+            "type": "boolean",
+            "description": "The reserved credits came back (refused or failed)."
+          },
+          "status": {
+            "type": "string",
+            "description": "`queued`, `succeeded`, `refused` or `failed`."
+          },
+          "template_id": {
+            "type": "string"
+          },
+          "template_version": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "AiLabelRules": {
+        "type": "object",
+        "description": "How AI output must be labelled (region policy `ai_label`).",
+        "required": [
+          "visible_badge",
+          "c2pa"
+        ],
+        "properties": {
+          "c2pa": {
+            "type": "boolean",
+            "description": "Machine-readable C2PA marking (stub until signing lands)."
+          },
+          "visible_badge": {
+            "type": "boolean",
+            "description": "Show the visible \"AI\" badge on generated images."
+          }
+        }
+      },
       "AiLabelView": {
         "type": "object",
         "required": [
@@ -8168,6 +8754,35 @@
           },
           "visible_badge": {
             "type": "boolean"
+          }
+        }
+      },
+      "AiTemplateView": {
+        "type": "object",
+        "description": "One curated template (the prompt stays on the server).",
+        "required": [
+          "id",
+          "version",
+          "title",
+          "cost"
+        ],
+        "properties": {
+          "cost": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Credits one run costs.",
+            "minimum": 0
+          },
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
           }
         }
       },
@@ -8854,6 +9469,37 @@
             "minimum": 0
           },
           "pins_per_board_max": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreateAiJobRequest": {
+        "type": "object",
+        "description": "Body of `POST /v1/ai-effects/jobs`.",
+        "required": [
+          "client_job_id",
+          "template_id",
+          "template_version",
+          "input_media_id"
+        ],
+        "properties": {
+          "client_job_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Client-generated id; must equal the `Idempotency-Key` header."
+          },
+          "input_media_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "A clean `card_render` or `original` upload of the caller."
+          },
+          "template_id": {
+            "type": "string"
+          },
+          "template_version": {
             "type": "integer",
             "format": "int32",
             "minimum": 0
@@ -11648,6 +12294,10 @@
     {
       "name": "safety",
       "description": "Reports of cards, boards, public links and users (US-26)"
+    },
+    {
+      "name": "ai-effects",
+      "description": "Tier 2 cloud AI effects: curated templates, consent, server-side credits, effect jobs (genai-effects, fake provider)"
     },
     {
       "name": "media",

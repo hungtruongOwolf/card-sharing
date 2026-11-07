@@ -12,6 +12,7 @@ default-run = "api"
 attestation.workspace = true
 boards.workspace = true
 cards.workspace = true
+genai.workspace = true
 identity.workspace = true
 media.workspace = true
 moderation.workspace = true

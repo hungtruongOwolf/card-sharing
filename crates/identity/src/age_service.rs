@@ -37,6 +37,9 @@ pub struct AgeStatus {
     pub discoverable: bool,
     /// Old enough to create public board links (`public_links.min_age`, AC-24.6).
     pub public_links: bool,
+    /// May use cloud AI effects: `ai_effects.cloud_allowed`, not a minor, and at least
+    /// `ai_effects.min_age`.
+    pub ai_effects: bool,
 }
 
 impl AgeStatus {
@@ -45,6 +48,7 @@ impl AgeStatus {
         is_minor: true,
         discoverable: false,
         public_links: false,
+        ai_effects: false,
     };
 }
 
@@ -164,6 +168,10 @@ impl AgeService {
             is_minor: effective_age < adult_age,
             discoverable: effective_age >= i32::from(policy.discovery.min_age),
             public_links: effective_age >= i32::from(policy.public_links.min_age),
+            // Never for anyone the minor protections apply to, whatever `min_age` says.
+            ai_effects: policy.ai_effects.cloud_allowed
+                && effective_age >= adult_age
+                && effective_age >= i32::from(policy.ai_effects.min_age),
         })
     }
 
