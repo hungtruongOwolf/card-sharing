@@ -239,9 +239,12 @@ limits:
     per_secs: 3600
     on_store_failure: open
   me.notification_preferences: # GET and PUT /v1/me/notification-preferences (T-87)
+    # Per minute, like the other launch-time reads (me.read, feed.read): the app's TimeZoneSync reads the
+    # preferences on every launch, web reload and new tab (sprint 10 B7: 30/h was used up by ordinary
+    # reloads). Self-only, idempotent, one row per user; this only caps a runaway client loop.
     scope: user
     requests: 30
-    per_secs: 3600
+    per_secs: 60
     on_store_failure: open
   friends.list: # GET /v1/friends
     scope: user
