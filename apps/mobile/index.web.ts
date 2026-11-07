@@ -5,6 +5,7 @@ import '@expo/metro-runtime';
 import { LoadSkiaWeb } from '@shopify/react-native-skia/lib/module/web';
 
 import { t } from './src/i18n';
+import { loadBrandFonts } from './src/platform/web/brandFonts';
 import { mountPhoneFrame, shouldFrame, topLevel } from './src/platform/web/phoneFrame';
 
 if (shouldFrame(topLevel(window))) {
@@ -13,7 +14,11 @@ if (shouldFrame(topLevel(window))) {
 } else {
   // React Native Skia on web needs CanvasKit before any Skia module is evaluated, so the app (whose routes
   // import Skia) is required only once it has loaded. scripts/copy-canvaskit.mjs puts the WASM in public/.
-  void LoadSkiaWeb({ locateFile: (file: string) => `/${file}` }).then(() => {
+  // Brand fonts load alongside, so the first screen already uses them (src/platform/web/brandFonts.ts).
+  void Promise.all([
+    LoadSkiaWeb({ locateFile: (file: string) => `/${file}` }),
+    loadBrandFonts(),
+  ]).then(() => {
     const { App } = require('expo-router/build/qualified-entry');
     const { renderRootComponent } = require('expo-router/build/renderRootComponent');
     renderRootComponent(App);

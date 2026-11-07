@@ -1,5 +1,6 @@
 import { Skia, type SkFont, type SkTypeface } from '@shopify/react-native-skia';
-import { Image } from 'react-native';
+
+import { assetUri } from '../../platform/assetUri';
 
 /**
  * Typefaces effects draw text with inside the Skia canvas (speech bubbles, meme captions). The brand fonts are
@@ -17,7 +18,7 @@ const MEME_FONT_ASSET: number = require('../../../assets/fonts/anton/Anton-Regul
 export type FontLoader = () => Promise<SkTypeface | null>;
 
 const loadBundledMeme: FontLoader = async () => {
-  const uri = Image.resolveAssetSource(MEME_FONT_ASSET)?.uri;
+  const uri = assetUri(MEME_FONT_ASSET);
   if (!uri) return null;
   return Skia.Typeface.MakeFreeTypeFaceFromData(await Skia.Data.fromURI(uri));
 };

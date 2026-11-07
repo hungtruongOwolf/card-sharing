@@ -1,4 +1,4 @@
-import * as SecureStore from 'expo-secure-store';
+import * as SecureStore from '../../platform/secureStore';
 
 /**
  * Touch feedback (T-66, design-system.md §3.7): events map to a haptic and an optional sound. Screens emit events,

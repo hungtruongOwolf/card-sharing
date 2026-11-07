@@ -2,7 +2,7 @@
 title: Security Baseline
 type: guide
 status: accepted
-updated: 2026-11-06
+updated: 2026-11-07
 sources: [raw/discussions/2026-11-04-kickoff.md]
 related: [[conventions]], [[overview]], [[testing-strategy]]
 ---
@@ -137,6 +137,11 @@ Notes:
 - **Outbox** (T-78): unsent cards and reactions of the signed-in account, SecureStore `WHEN_UNLOCKED_THIS_DEVICE_ONLY`,
   parsed as untrusted on read, cleared on sign-out (never sent as the next account); a queued send re-bakes from its
   draft, so the raw capture still never leaves the device.
+- **Web preview target exception** ([[ADR-0009-app-on-web]]): the browser build of the app has no keychain, so the
+  stores above (session tokens included) fall back to `localStorage` (`apps/mobile/src/platform/secureStore.web.ts`):
+  not encrypted at rest and readable by any XSS on the origin. Accepted only because web is a preview target; a web
+  launch needs HttpOnly cookie sessions (section 2) first. Captured photos on the web are same-origin `blob:` URLs that
+  die with the tab (`platform/localPhoto.web.ts` refuses any other URL), so a draft reopened after a reload has no photo.
 - MVP threat model, abuse cases and SR-1…SR-37 live in [[threat-model-mvp]]; every feature PR checks the SRs it touches.
 - Region-specific rules (age, consent, ads) resolved server-side from config — [[region-policy]].
 - See [[genai-effects]], [[monetization]], [[subject-cutout]], [[ADR-0003-effects-tiers]].
