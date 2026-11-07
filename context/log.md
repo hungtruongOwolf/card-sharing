@@ -304,3 +304,8 @@ added the pending native modules. CI green; not yet verified on a device. See [[
 Tried vercel-labs/agent-desktop (OS accessibility tree via UI Automation) on a test page: snapshot, check, click and
 set-value work; headless `type` is refused in Chrome; browser chrome adds noise. It cannot reach the iOS app, so it is not
 adopted; Playwright (web, in CI) and Maestro (mobile, later) fit better.
+
+## [2026-11-07] feedback | first device demo
+EM rated the demo 3-4/10: works, but latency is poor, features are incomplete, and the UI needs a major
+improvement. Fixed during the demo: #363 (app version below the API minimum), #364 (appeals test racing the
+global hold expiry, closes #361). Source: `context/raw/discussions/2026-11-07-first-device-demo-feedback.md`.
