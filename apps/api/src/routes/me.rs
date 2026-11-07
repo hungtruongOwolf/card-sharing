@@ -181,26 +181,21 @@ pub async fn get_me(
     caller: Caller,
     headers: HeaderMap,
 ) -> Result<Json<MeResponse>, ApiError> {
-    let account = state
-        .identity
-        .account(caller.0.account_id)
-        .await
-        .map_err(ApiError::internal)?
-        .or_not_found()?;
-    let profile = state
-        .identity
-        .profile(account.id)
-        .await
-        .map_err(ApiError::internal)?;
+    let id = caller.0.account_id;
     let current = PolicyContext {
         ip_country: state.ip_country(&headers),
         ..PolicyContext::default()
     };
-    let age = state
-        .age
-        .status(account.id, &current)
-        .await
-        .map_err(ApiError::internal)?;
+    // Three independent reads keyed by the caller's id: concurrent, not one after another.
+    // Results are checked in the old order, so a missing account is still a 404.
+    let (account, profile, age) = tokio::join!(
+        state.identity.account(id),
+        state.identity.profile(id),
+        state.age.status(id, &current),
+    );
+    let account = account.map_err(ApiError::internal)?.or_not_found()?;
+    let profile = profile.map_err(ApiError::internal)?;
+    let age = age.map_err(ApiError::internal)?;
     let settings = settings_for(&state, account.id, &age).await?;
     let mut policy: PolicyView = state
         .policy

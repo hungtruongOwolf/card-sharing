@@ -15,6 +15,7 @@
 //! module only gathers its inputs with batched queries per read.
 
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
 use policy::PolicyContext;
 use uuid::Uuid;
@@ -186,41 +187,59 @@ impl BoardService {
         people.sort_unstable();
         people.dedup();
         let context = PolicyContext::default();
-        let viewer_is_minor = match self.age.status(viewer, &context).await {
-            Ok(status) => status.is_minor,
-            // An unknown viewer is treated as an adult, so the rule protects minors from them.
-            Err(err) => {
-                tracing::warn!(error = %err, "viewer age lookup failed; minor rule applies");
-                false
-            }
-        };
-        if people.is_empty() || viewer_is_minor {
+        let viewer_age = self.age.status(viewer, &context);
+        if people.is_empty() {
+            return Ok(ViewerContext {
+                viewer,
+                viewer_is_minor: viewer_is_minor(viewer_age.await),
+                ..ViewerContext::default()
+            });
+        }
+        // The viewer's age and the friend set are independent round trips: run them together.
+        let friends = sqlx::query_scalar::<_, Uuid>(concat!(
+            "SELECT t.id FROM unnest($2::uuid[]) AS t(id) WHERE ",
+            social::friends_unblocked_sql!("$1", "t.id")
+        ))
+        .bind(viewer)
+        .bind(&people)
+        .fetch_all(&self.pool);
+        let (viewer_age, friends) = tokio::join!(viewer_age, friends);
+        let viewer_is_minor = viewer_is_minor(viewer_age);
+        if viewer_is_minor {
             return Ok(ViewerContext {
                 viewer,
                 viewer_is_minor,
                 ..ViewerContext::default()
             });
         }
-        let friends: Vec<Uuid> = sqlx::query_scalar(concat!(
-            "SELECT t.id FROM unnest($2::uuid[]) AS t(id) WHERE ",
-            social::friends_unblocked_sql!("$1", "t.id")
-        ))
-        .bind(viewer)
-        .bind(&people)
-        .fetch_all(&self.pool)
-        .await?;
-        let friends: HashSet<Uuid> = friends.into_iter().collect();
+        let friends: HashSet<Uuid> = friends?.into_iter().collect();
+        // One age lookup per non-friend, all at once (this was an N+1 of sequential lookups).
+        let lookups: Vec<(Uuid, tokio::task::JoinHandle<_>)> = people
+            .iter()
+            .copied()
+            .filter(|person| !friends.contains(person))
+            .map(|person| {
+                let age = Arc::clone(&self.age);
+                let context = context.clone();
+                let lookup = tokio::spawn(async move { age.status(person, &context).await });
+                (person, lookup)
+            })
+            .collect();
         let mut minors = HashSet::new();
-        for person in people.iter().filter(|p| !friends.contains(p)) {
-            let is_minor = match self.age.status(*person, &context).await {
-                Ok(status) => status.is_minor,
-                Err(err) => {
+        for (person, lookup) in lookups {
+            let is_minor = match lookup.await {
+                Ok(Ok(status)) => status.is_minor,
+                Ok(Err(err)) => {
                     tracing::warn!(error = %err, "member age lookup failed; treated as a minor");
+                    true
+                }
+                Err(err) => {
+                    tracing::warn!(error = %err, "member age lookup aborted; treated as a minor");
                     true
                 }
             };
             if is_minor {
-                minors.insert(*person);
+                minors.insert(person);
             }
         }
         Ok(ViewerContext {
@@ -274,6 +293,18 @@ impl BoardService {
                 (row.id, facts)
             })
             .collect())
+    }
+}
+
+/// The viewer's minor status from an age lookup. An unknown viewer is treated as an adult, so
+/// the minor rule protects minors from them.
+fn viewer_is_minor(status: Result<identity::AgeStatus, identity::AgeError>) -> bool {
+    match status {
+        Ok(status) => status.is_minor,
+        Err(err) => {
+            tracing::warn!(error = %err, "viewer age lookup failed; minor rule applies");
+            false
+        }
     }
 }
 

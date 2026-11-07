@@ -21,6 +21,8 @@ serde_json.workspace = true
 serde_norway.workspace = true
 sqlx.workspace = true
 thiserror.workspace = true
+# Concurrent per-member age lookups on board reads (no N+1 of sequential awaits).
+tokio.workspace = true
 time.workspace = true
 tracing.workspace = true
 uuid.workspace = true
