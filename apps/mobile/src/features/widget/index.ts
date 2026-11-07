@@ -12,4 +12,9 @@ export {
   WIDGET_TOKEN_KEY,
   type WidgetTokenStore,
 } from './widgetTokenStore';
-export { ensureWidgetToken, WidgetTokenSync, type WidgetTokenSyncProps } from './WidgetTokenSync';
+export {
+  ensureWidgetToken,
+  hasHomeScreenWidget,
+  WidgetTokenSync,
+  type WidgetTokenSyncProps,
+} from './WidgetTokenSync';
