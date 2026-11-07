@@ -46,6 +46,9 @@ pub struct WidgetCard {
     pub expires_at: OffsetDateTime,
     /// Opens the card in the app.
     pub deep_link: String,
+    /// The render is the output of a cloud AI effect: show the "AI" badge (region policy
+    /// `ai_label.visible_badge`).
+    pub ai_generated: bool,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -164,6 +167,7 @@ pub async fn get_widget(
             image_url: signed.url,
             expires_at: signed.expires_at,
             deep_link: format!("cardsharing://card/{}", card.id),
+            ai_generated: card.ai_generated,
         }),
     }))
 }

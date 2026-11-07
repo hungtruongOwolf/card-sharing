@@ -262,6 +262,13 @@ pub async fn create_card(
     let caption = text_field(&state, "caption", body.caption.as_deref(), caption_max)?;
     let alt_text = text_field(&state, "alt_text", body.alt_text.as_deref(), ALT_TEXT_MAX)?;
     let (audience, recipients) = recipients(&state, owner, &body.audience).await?;
+    // The "AI" badge is decided here from the render's origin, never by the client.
+    let ai_generated = state
+        .genai
+        .ai_outputs(&[render.id])
+        .await
+        .map_err(ApiError::internal)?
+        .contains(&render.id);
 
     let sent = state
         .cards
@@ -276,6 +283,7 @@ pub async fn create_card(
             alt_text,
             audience,
             recipients,
+            ai_generated,
         })
         .await
         .map_err(ApiError::internal)?;
@@ -345,6 +353,9 @@ pub struct CardView {
     /// Owner only, when the classifier held the card.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hold: Option<CardHoldView>,
+    /// The render is the output of a cloud AI effect (decided by the server when the card was
+    /// sent). Show the "AI" badge when `GET /v1/me` `policy.ai_label.visible_badge` says so.
+    pub ai_generated: bool,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -467,6 +478,7 @@ pub(crate) async fn card_views(
             my_reaction: my_reactions.remove(&card.id),
             status: card.is_mine.then(|| card.status.as_str()),
             hold,
+            ai_generated: card.ai_generated,
         });
     }
     Ok(views)

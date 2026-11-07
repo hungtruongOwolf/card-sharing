@@ -402,3 +402,82 @@ async fn without_a_provider_nothing_is_offered_or_accepted() {
     )
     .await;
 }
+
+#[tokio::test]
+async fn a_card_sent_with_an_ai_output_carries_the_badge_for_every_viewer() {
+    let Some(env) = TestEnv::new().await else {
+        return;
+    };
+    let sender = adult(&env).await;
+    let friend = adult(&env).await;
+    make_friends(&env, sender.id, friend.id).await;
+    consent(&env, &sender).await;
+    let input = clean_render(&env, &sender, [10, 20, 30]).await;
+    let id = submitted(&env, &sender, "ai.neon_night", input).await;
+    let outcome = env
+        .state
+        .genai
+        .run(id, &env.state.media, &FakeProvider, &Gates::fake(), false)
+        .await
+        .unwrap();
+    assert_eq!(outcome, RunOutcome::Succeeded);
+    let output = Uuid::parse_str(
+        job(&env, &sender, id).await["output_media_id"]
+            .as_str()
+            .unwrap(),
+    )
+    .unwrap();
+    env.state
+        .media
+        .process_one(output, &fake_gates())
+        .await
+        .unwrap();
+
+    // The client cannot claim (or deny) the badge: the field is not part of the body.
+    let mut forged = crate::cards_send::card_body(
+        input,
+        None,
+        json!({ "mode": "subset", "recipient_ids": [friend.id] }),
+    );
+    forged["ai_generated"] = json!(true);
+    let response = crate::cards_send::post_card(&env, &sender, &forged).await;
+    assert_problem(response, StatusCode::BAD_REQUEST, "VALIDATION_FAILED").await;
+
+    let mut cards = Vec::new();
+    for render in [output, input] {
+        let body = crate::cards_send::card_body(
+            render,
+            None,
+            json!({ "mode": "subset", "recipient_ids": [friend.id] }),
+        );
+        let response = crate::cards_send::post_card(&env, &sender, &body).await;
+        assert_eq!(response.status(), StatusCode::ACCEPTED);
+        let card =
+            Uuid::parse_str(json_body(response).await["card"]["id"].as_str().unwrap()).unwrap();
+        env.state
+            .cards
+            .evaluate(&env.state.media, card)
+            .await
+            .unwrap();
+        cards.push(card);
+    }
+    let (ai_card, plain_card) = (cards[0], cards[1]);
+    for viewer in [&sender, &friend] {
+        for (card, expected) in [(ai_card, true), (plain_card, false)] {
+            let path = format!("/v1/cards/{card}");
+            let view = json_body(call(&env, "GET", &path, viewer, None).await).await;
+            assert_eq!(view["card"]["ai_generated"], expected);
+        }
+    }
+    // The feed item carries it too.
+    let feed = json_body(call(&env, "GET", "/v1/feed", &friend, None).await).await;
+    let items = feed["items"].as_array().unwrap();
+    let flag = |card: Uuid| {
+        items
+            .iter()
+            .find(|item| item["id"] == card.to_string())
+            .map(|item| item["ai_generated"].clone())
+    };
+    assert_eq!(flag(ai_card), Some(json!(true)));
+    assert_eq!(flag(plain_card), Some(json!(false)));
+}

@@ -9343,9 +9343,14 @@
           "sender",
           "style",
           "sent_at",
-          "is_mine"
+          "is_mine",
+          "ai_generated"
         ],
         "properties": {
+          "ai_generated": {
+            "type": "boolean",
+            "description": "The render is the output of a cloud AI effect (decided by the server when the card was\nsent). Show the \"AI\" badge when `GET /v1/me` `policy.ai_label.visible_badge` says so."
+          },
           "alt_text": {
             "type": [
               "string",
@@ -11014,6 +11019,13 @@
           "z_key"
         ],
         "properties": {
+          "ai_generated": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "`card` only: the card's render is the output of a cloud AI effect (show the \"AI\" badge)."
+          },
           "decoration": {
             "type": [
               "object",
@@ -12167,9 +12179,14 @@
           "sender_name",
           "image_url",
           "expires_at",
-          "deep_link"
+          "deep_link",
+          "ai_generated"
         ],
         "properties": {
+          "ai_generated": {
+            "type": "boolean",
+            "description": "The render is the output of a cloud AI effect: show the \"AI\" badge (region policy\n`ai_label.visible_badge`)."
+          },
           "deep_link": {
             "type": "string",
             "description": "Opens the card in the app."

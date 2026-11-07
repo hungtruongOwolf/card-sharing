@@ -65,7 +65,8 @@ macro_rules! recipient_card_visible_sql {
 macro_rules! card_columns {
     () => {
         "c.id, c.owner_id, c.status, c.render_media_id, c.mask_media_id, c.original_media_id,
-         c.style, c.caption, c.alt_text, c.sent_at, r.delivered_at AS delivered_to_viewer_at"
+         c.style, c.caption, c.alt_text, c.sent_at, c.ai_generated,
+         r.delivered_at AS delivered_to_viewer_at"
     };
 }
 
@@ -86,6 +87,8 @@ pub struct VisibleCard {
     /// When the viewer received it (`None` for the owner).
     pub delivered_at: Option<OffsetDateTime>,
     pub is_mine: bool,
+    /// The render came from an AI effect (server-decided at send time): show the "AI" badge.
+    pub ai_generated: bool,
 }
 
 #[derive(sqlx::FromRow)]
@@ -100,6 +103,7 @@ pub(crate) struct CardRow {
     caption: Option<String>,
     alt_text: Option<String>,
     sent_at: OffsetDateTime,
+    ai_generated: bool,
     delivered_to_viewer_at: Option<OffsetDateTime>,
 }
 
@@ -124,6 +128,7 @@ impl CardRow {
             sent_at: self.sent_at,
             delivered_at: self.delivered_to_viewer_at,
             is_mine,
+            ai_generated: self.ai_generated,
         })
     }
 }

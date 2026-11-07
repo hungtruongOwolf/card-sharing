@@ -137,6 +137,9 @@ async fn guests_see_only_the_owners_cards_with_signed_watermarked_images() {
         .collect();
     assert_eq!((cards.len(), tiles.len()), (1, 1), "{body}");
     assert!(tiles[0].get("image_url").is_none());
+    // Not an AI output: the badge flag is present and false on card pins only.
+    assert_eq!(cards[0]["ai_generated"], false);
+    assert!(tiles[0].get("ai_generated").is_none());
     let text = body.to_string();
     for secret in [
         s.friend_card.to_string(),

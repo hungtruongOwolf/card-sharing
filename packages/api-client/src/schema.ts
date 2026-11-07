@@ -2173,6 +2173,11 @@ export interface components {
         };
         /** @description A card as one viewer may see it (card read, feed items). */
         CardView: {
+            /**
+             * @description The render is the output of a cloud AI effect (decided by the server when the card was
+             *     sent). Show the "AI" badge when `GET /v1/me` `policy.ai_label.visible_badge` says so.
+             */
+            ai_generated: boolean;
             alt_text?: string | null;
             caption?: string | null;
             hold?: components["schemas"]["CardHoldView"] | null;
@@ -2828,6 +2833,8 @@ export interface components {
          *     other card: position only) or `decoration`.
          */
         PublicPinView: {
+            /** @description `card` only: the card's render is the output of a cloud AI effect (show the "AI" badge). */
+            ai_generated?: boolean | null;
             /** @description `decoration` only: its registry reference. */
             decoration?: Record<string, never> | null;
             /** Format: int64 */
@@ -3276,6 +3283,11 @@ export interface components {
             id: string;
         };
         WidgetCard: {
+            /**
+             * @description The render is the output of a cloud AI effect: show the "AI" badge (region policy
+             *     `ai_label.visible_badge`).
+             */
+            ai_generated: boolean;
             /** @description Opens the card in the app. */
             deep_link: string;
             /** Format: date-time */
