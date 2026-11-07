@@ -334,3 +334,9 @@ EM asked for a complete, working web MVP to validate the idea before UI polish. 
 hidden on web, no real sign-up, URL routing). EM decisions: magic link then Google on web, not hosted yet (home
 network), invite-code gated testers with fake scanners for now, start the browser E2E gate and bug fixes now.
 Source: raw/discussions/2026-11-07-web-mvp-direction.md. See [[sprint-10]].
+
+## [2026-11-07] decision | notification preferences limit per minute (B7, server part)
+- `me.notification_preferences` 30/h → 30/min per user (`config/limits.yaml`, [[api-mvp]]).
+- Why: the app reads the preferences on every launch, web reload and new tab, so ordinary web use hit 30/h (audit B7).
+  The route is self-only, idempotent and cheap; the limit only caps a runaway client loop. The client part of B7
+  (no retry on 429) stays with the app lane.

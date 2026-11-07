@@ -768,7 +768,7 @@ request" without re-auth; after `available_at`, "Download" re-authenticates, rea
 `Retry-After` hours.
 | PUT | /v1/devices/{deviceId}/push-tokens | Upsert `{provider, kind: alert\|widget, token}` | ses | user | device owned by caller | 30/day d | yes | US-31, US-16 |
 | DELETE | /v1/devices/{deviceId}/push-tokens | Remove device tokens | onb/ses | user | own device | 30/day d | yes | US-16 AC-16.2 |
-| GET / PUT | /v1/me/notification-preferences | Toggles per type + quiet hours + tz | ses | user | self | 30/h u | yes | US-31 AC-31.1 |
+| GET / PUT | /v1/me/notification-preferences | Toggles per type + quiet hours + tz | ses | user | self | 30/min u | yes | US-31 AC-31.1 |
 
 Implemented (T-85, server part of #87, `crates/notifications`, `apps/api/src/routes/devices.rs`, limit `devices.push_tokens`
 30/day per device): `PUT /v1/devices/{deviceId}/push-tokens {provider: apns|fcm, kind: alert|widget, token}` (ses) → 204 and
@@ -783,7 +783,7 @@ deletes rows that were invalidated or whose session ended. Tokens are never retu
 APNs/FCM credentials stay in the secret manager when the real adapters land (T-86 follow-up).
 
 Implemented (T-87, server part of #89, `crates/notifications/src/preferences.rs`,
-`apps/api/src/routes/notification_preferences.rs`, limit `me.notification_preferences` 30/h per user): `GET` and `PUT
+`apps/api/src/routes/notification_preferences.rs`, limit `me.notification_preferences` 30/min per user — per minute since sprint 10 B7, because the app reads it on every launch and web reload): `GET` and `PUT
 /v1/me/notification-preferences` (ses; no id anywhere, always the caller's own) with `{types: {card_new, reaction, friend,
 card_review}, quiet_hours: {enabled, start: "HH:MM", end: "HH:MM"}, time_zone: IANA | null}`; `PUT` replaces all and answers
 the stored value. Defaults until saved: every type on, quiet hours 22:00-08:00, `time_zone` null. Validation: strict `HH:MM`,
