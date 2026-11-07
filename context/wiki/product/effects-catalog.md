@@ -26,7 +26,7 @@ baked still, plus an optional short loop for time-driven effects. Cost figures a
 | `renderer` | `{type: sksl \| imageFilter \| pathEffect \| particles \| anchoredAsset \| skottie \| layout \| composite \| pattern \| vector, ref}` (`pattern` = board backdrop, `vector` = board decoration) | `ref` = shader in `packages/shaders`, asset id, or composite of other ids. Rive only for UI chrome (renders outside the Skia canvas → not exportable) |
 | `layer` | `under \| subject \| over \| frame` | Composition order: cutStyle → filter(s) → under/over overlays & props → frame |
 | `stackable` | bool + `conflictsWith: id[]` | e.g. only one `cutStyle`, one `frame` |
-| `platforms` | `{ios:{min, requires[]}, android:{min, requires[], fallback}, webPreview:'baked'\|'live'}` | `requires` e.g. `animalPose`, `playServices` |
+| `platforms` | `{ios:{min, requires[], fallback?}, android:{min, requires[], fallback?}, web:{requires[], fallback?}, webPreview:'baked'\|'live'}` | `requires` e.g. `animalPose`, `playServices`; `web` = the app's web target ([[ADR-0009-app-on-web]]): no OS minimum, a native-only feature is a capability the web never has; `webPreview` = how the public share page shows the entry |
 | `cost` | `{gpu: 'S'\|'M'\|'L', bakeMs, liveAllowed, maxLive}` | S < 1 ms, M 1–3 ms, L 3–6 ms per frame on mid-range Android (est.) |
 | `export` | `{still: true, loop: null \| {seconds, fps, seamless}}` | Loop only for `time`-driven effects |
 | `motion` | `{reduced: 'static' \| 'simplified' \| 'none'}` | Behaviour under reduced motion ([[design-system]] §6) |
@@ -61,7 +61,7 @@ subject mask (iOS < 17, Android without the bundled model, no subject found, or 
 **whole-photo card**: entries requiring `subjectMask` are hidden and the picker offers the mask-free styles (`cut.none` and
 the shape cuts: rounded square, circle, heart, torn edge, T-63); subject cutout styles appear only when a mask exists. Every entry can be killed remotely: `resolveAvailability` merges all `/v1/config` `kill_switches` groups into
 one id set (ids are unique across kinds), then applies `flags.featureFlag` (dark until the config flag is `true`),
-`flags.minAppVersion`, OS minimum and capabilities. `resolveParams` is the strict param check the server mirrors (unknown
+`flags.minAppVersion`, OS minimum (native only: the web target is its own `DeviceContext` platform with no OS version, B1 sprint 10) and capabilities (`platforms.web.requires` on the web; face-anchored entries take the `userPoints` tap fallback there, subject styles need the in-browser cutout mask). `resolveParams` is the strict param check the server mirrors (unknown
 name, wrong type, out of range → error; missing → default); `clampParams` is the lenient UI/preview variant (numbers clamp,
 invalid → default). Optional `presets` (`{id, name, params}`) are UI-only picker tiles validated against the param rules;
 the "thick sticker" is the `cut.diecut` preset `thick` at `borderWidthPct: 6`, not a separate id. The server view (ids, versions, kinds, stacking, param ranges)

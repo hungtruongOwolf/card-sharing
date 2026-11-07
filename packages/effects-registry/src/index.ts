@@ -10,6 +10,8 @@ export {
 export {
   compareVersions,
   killedIds,
+  missingCapabilities,
+  platformSupport,
   resolveAvailability,
   visibleEntries,
   type Availability,

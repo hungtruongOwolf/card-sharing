@@ -1,5 +1,6 @@
 import {
   DEFAULT_TILT_PARAMS,
+  gravityAxisSign,
   INITIAL_TILT_STATE,
   stepTilt,
   tiltChanged,
@@ -61,6 +62,14 @@ describe('stepTilt', () => {
     const tiltedMs2 = stepTilt(inMs2, 0.3 * G, 0.7 * G, 0.6 * G, DEFAULT_TILT_PARAMS);
     expect(tiltedG.x).toBeCloseTo(tiltedMs2.x, 9);
     expect(tiltedG.y).toBeCloseTo(tiltedMs2.y, 9);
+  });
+});
+
+describe('gravityAxisSign', () => {
+  it('flips iOS and the web (Reanimated normalises browser sensors to the iOS convention), not Android', () => {
+    expect(gravityAxisSign('ios')).toBe(-1);
+    expect(gravityAxisSign('web')).toBe(-1);
+    expect(gravityAxisSign('android')).toBe(1);
   });
 });
 

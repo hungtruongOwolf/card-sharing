@@ -1,5 +1,5 @@
 import type { Anchor, EffectEntry } from '../schema';
-import { APP_MIN_ANDROID, APP_MIN_IOS } from './platforms';
+import { NEEDS_FACE_LANDMARKS } from './platforms';
 
 /**
  * The crown and props family (effects-catalog.md §3.1 #6): vector props drawn by the app (no bitmap assets, so no
@@ -38,11 +38,7 @@ function prop(
     layer: 'over',
     stackable: false,
     conflictsWith,
-    platforms: {
-      ios: { min: APP_MIN_IOS, requires: ['faceLandmarks'], fallback: 'userPoints' },
-      android: { min: APP_MIN_ANDROID, requires: ['faceLandmarks'], fallback: 'userPoints' },
-      webPreview: 'baked',
-    },
+    platforms: NEEDS_FACE_LANDMARKS,
     cost: { gpu: 'S', bakeMs: 10, liveAllowed: false, maxLive: 0 },
     export: { still: true, loop: null },
     motion: { reduced: 'static' },

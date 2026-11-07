@@ -16,6 +16,7 @@ import {
   type EffectEntry,
   type ParamSpec,
   type PlatformSupport,
+  type WebSupport,
 } from './schema';
 import { resolveParams } from './params';
 
@@ -72,7 +73,7 @@ function paramErrors(name: string, spec: ParamSpec): string[] {
   return errors;
 }
 
-function platformErrors(name: string, platform: PlatformSupport): string[] {
+function platformErrors(name: string, platform: PlatformSupport | WebSupport): string[] {
   const errors: string[] = [];
   for (const capability of platform.requires) {
     if (!isOneOf(CAPABILITIES, capability))
@@ -117,6 +118,7 @@ export function validateEntry(entry: EffectEntry): string[] {
   if (entry.conflictsWith.includes(entry.id)) errors.push('an entry cannot conflict with itself');
   errors.push(...platformErrors('ios', entry.platforms.ios));
   errors.push(...platformErrors('android', entry.platforms.android));
+  errors.push(...platformErrors('web', entry.platforms.web));
   const { cost } = entry;
   if (!isOneOf(GPU_COSTS, cost.gpu)) errors.push('unknown gpu cost');
   if (!(Number.isFinite(cost.bakeMs) && cost.bakeMs >= 0)) errors.push('bakeMs must be >= 0');

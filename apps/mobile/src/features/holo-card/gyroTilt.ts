@@ -8,6 +8,18 @@
  * back to 0 and the shimmer comes to rest.
  */
 
+/**
+ * Sign that brings Reanimated's gravity vector to one convention. Core Motion reports gravity pointing down
+ * (face-up flat = z -1 g), Android's TYPE_GRAVITY pointing up (z +9.81), so iOS axes are flipped. On the web,
+ * Reanimated's backend already flips the Android browser's Generic Sensor readings to the iOS convention
+ * (react-native-reanimated 4.7 `JSReanimated.getSensorCallback`), so the web takes the iOS sign, not the Android one.
+ * Assumption to verify on a device (T-52 measurement protocol): tilting the right edge down should move the foil
+ * the same way everywhere.
+ */
+export function gravityAxisSign(os: string): 1 | -1 {
+  return os === 'android' ? 1 : -1;
+}
+
 export interface Tilt {
   x: number;
   y: number;

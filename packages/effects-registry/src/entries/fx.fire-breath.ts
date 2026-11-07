@@ -1,5 +1,5 @@
 import type { EffectEntry } from '../schema';
-import { APP_MIN_ANDROID, APP_MIN_IOS } from './platforms';
+import { NEEDS_FACE_LANDMARKS } from './platforms';
 
 /**
  * Cartoon fire breath from the mouth (effects-catalog.md §3.1 #5, the EM's "cat breathing fire"). Anchored to the
@@ -31,11 +31,7 @@ export const fxFireBreath: EffectEntry = {
   layer: 'over',
   stackable: false,
   conflictsWith: [],
-  platforms: {
-    ios: { min: APP_MIN_IOS, requires: ['faceLandmarks'], fallback: 'userPoints' },
-    android: { min: APP_MIN_ANDROID, requires: ['faceLandmarks'], fallback: 'userPoints' },
-    webPreview: 'baked',
-  },
+  platforms: NEEDS_FACE_LANDMARKS,
   cost: { gpu: 'L', bakeMs: 60, liveAllowed: false, maxLive: 0 },
   export: { still: true, loop: { seconds: 2, fps: 30, seamless: true } },
   motion: { reduced: 'static' },

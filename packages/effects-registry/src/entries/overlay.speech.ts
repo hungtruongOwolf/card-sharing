@@ -1,5 +1,5 @@
 import type { EffectEntry } from '../schema';
-import { ALL_DEVICES } from './platforms';
+import { NEEDS_FACE_LANDMARKS } from './platforms';
 
 /**
  * Comic speech bubble or meme caption (effects-catalog.md §3.1 #14). The text comes from a curated caption library
@@ -45,12 +45,8 @@ export const overlaySpeech: EffectEntry = {
   layer: 'over',
   stackable: true,
   conflictsWith: [],
-  platforms: {
-    // Without landmarks or pose the tail is placed by the subject heuristic or by hand (`userPoints`).
-    ios: { min: ALL_DEVICES.ios.min, requires: ['faceLandmarks'], fallback: 'userPoints' },
-    android: { min: ALL_DEVICES.android.min, requires: ['faceLandmarks'], fallback: 'userPoints' },
-    webPreview: 'baked',
-  },
+  // Without landmarks or pose the tail is placed by the subject heuristic or by hand (`userPoints`).
+  platforms: NEEDS_FACE_LANDMARKS,
   cost: { gpu: 'S', bakeMs: 10, liveAllowed: false, maxLive: 0 },
   export: { still: true, loop: null },
   motion: { reduced: 'static' },

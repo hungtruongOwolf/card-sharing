@@ -113,6 +113,58 @@ describe('picker tabs', () => {
     expect(cut!.tiles.map((tile) => tile.entry.id)).not.toContain('cut.diecut');
   });
 
+  it('treats the web target as its own platform, never as an iOS without a version (B1)', () => {
+    const web = deviceContext('0.1.0', true, 'web', undefined);
+    expect(web).toEqual({
+      platform: 'web',
+      appVersion: '0.1.0',
+      capabilities: new Set(['subjectMask']),
+    });
+    const tabs = pickerTabs(registry, web, undefined);
+    const states = tabs.flatMap((tab) => tab.tiles.map((tile) => tile.state));
+    expect(states).not.toContainEqual({ kind: 'unavailable', reason: 'osTooOld' });
+    const [cut, finish, effects] = tabs;
+    expect(ids(cut!.entries)).toEqual(
+      expect.arrayContaining(['cut.none', 'cut.raw', 'cut.diecut']),
+    );
+    expect(ids(finish!.entries)).toEqual(['fx.matte', 'fx.glossy', 'fx.holo']);
+    expect(effects?.slot).toBe('effects');
+    expect(ids(effects!.entries)).toEqual(expect.arrayContaining(['fx.laser-eyes', 'prop.crown']));
+    // A whole-photo card on the web gets the mask-free styles, like a native one.
+    const [wholePhoto] = pickerTabs(registry, deviceContext('0.1.0', false, 'web'), undefined);
+    expect(ids(wholePhoto!.entries)).toContain('cut.shape.heart');
+    expect(ids(wholePhoto!.tiles.map((tile) => tile.entry))).not.toContain('cut.diecut');
+  });
+
+  it('shows entries needing a native-only feature as not supported on the web', () => {
+    const gyroOnWeb = createRegistry(
+      ENTRIES.map((e) =>
+        e.id === 'cut.torn'
+          ? { ...e, platforms: { ...e.platforms, web: { requires: ['gyro' as const] } } }
+          : e,
+      ),
+    );
+    const state = (os: 'web' | 'ios') =>
+      pickerTabs(gyroOnWeb, deviceContext('0.1.0', true, os, '17.4'), undefined)[0]!.tiles.find(
+        (tile) => tile.entry.id === 'cut.torn',
+      )?.state;
+    expect(state('web')).toEqual({ kind: 'unavailable', reason: 'notSupported' });
+    expect(state('ios')).toEqual({ kind: 'available' });
+  });
+
+  it('keeps the OS gate on native and fails closed on an unknown version', () => {
+    expect(deviceContext('0.1.0', false, 'android', 34)).toMatchObject({
+      platform: 'android',
+      osVersion: 34,
+    });
+    Object.defineProperty(Platform, 'Version', { value: undefined, configurable: true });
+    try {
+      expect(deviceContext('0.1.0', false, 'ios')).toMatchObject({ platform: 'ios', osVersion: 0 });
+    } finally {
+      Object.defineProperty(Platform, 'Version', { value: '17.4', configurable: true });
+    }
+  });
+
   it('defaults to a sticker-style cut with a subject and the first style without one', () => {
     const cuts = registry.byKind('cutStyle');
     expect(defaultCut(cuts, true)?.inputs).toContain('contour');
