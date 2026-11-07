@@ -24,7 +24,7 @@ Tip: open `context/` as an Obsidian vault for graph/backlinks; run `python tools
 - [[ADR-0006-job-queue]] — wiki/architecture/decisions/ADR-0006-job-queue.md — Postgres job queue + transactional outbox (accepted)
 - [[ADR-0007-board-sync]] — wiki/architecture/decisions/ADR-0007-board-sync.md — per-pin rows, versioned ops batches, fractional z-order, Yjs-ready (accepted)
 - [[ADR-0009-app-on-web]] — wiki/architecture/decisions/ADR-0009-app-on-web.md — the app also runs on the web at phone size until native builds (accepted)
-- [[ADR-0010-realtime-delivery]] — wiki/architecture/decisions/ADR-0010-realtime-delivery.md — card replies are cards; real-time cards/replies/reactions over SSE with ids only, fan-out by Postgres NOTIFY (proposed)
+- [[ADR-0010-realtime-delivery]] — wiki/architecture/decisions/ADR-0010-realtime-delivery.md — card replies are cards; real-time cards/replies/reactions over SSE with ids only, fan-out by Postgres NOTIFY (accepted; build in sprint 10)
 - [[ADR-0008-hosting]] — wiki/architecture/decisions/ADR-0008-hosting.md — Supabase Postgres (locked-down Data API), Cloudflare R2/CDN, Fly.io, Upstash, Postmark (accepted)
 - [[ADR-0003-effects-tiers]] — wiki/architecture/decisions/ADR-0003-effects-tiers.md — effects tiers: shader engine / style packs / OS AI / cloud (accepted)
 - [[region-policy]] — wiki/architecture/region-policy.md — per-jurisdiction rules (age, consent, ads) as config (proposed)

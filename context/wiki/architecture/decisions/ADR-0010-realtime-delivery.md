@@ -1,7 +1,7 @@
 ---
 title: ADR-0010 Real-time delivery of cards, card replies and reactions (SSE, ids only)
 type: decision
-status: proposed
+status: accepted
 updated: 2026-11-07
 sources: [raw/discussions/2026-11-07-first-device-demo-feedback.md, raw/discussions/2026-11-07-sprint-9-direction.md]
 related: [[ADR-0006-job-queue]], [[ADR-0007-board-sync]], [[ADR-0004-auth-sessions]], [[api-mvp]], [[prd-mvp]], [[sprint-9]], [[threat-model-mvp]]
@@ -37,7 +37,7 @@ Fan-out between the worker (which delivers) and the API instance holding the con
 | **Postgres `NOTIFY rt_events` in the delivery transaction** | Sent only on commit (never announces a card that rolled back); no new infra; one `PgListener` per API instance, like the job queue | 8000-byte payload cap (we send ids only); NOTIFY is not durable (a missed event is caught up by the refetch on reconnect) |
 | Valkey pub/sub (ADR-0006 follow-up) | Cheap broadcast | Dual write outside the transaction; Valkey is the component that was slow in the demo |
 
-## Decision (proposed)
+## Decision (accepted by the EM 2026-11-07; build in sprint 10)
 1. **Card replies are cards.** `POST /v1/cards` gains an optional `reply_to_card_id`. Server rules: the referenced card must be
    one the caller may read right now (the same predicate as `GET /v1/cards/{id}`, so a reply to a card I cannot see is the
    same 404); the reply's audience is fixed to the original sender only (any `audience` other than that sender is 400), who
@@ -73,5 +73,4 @@ Fan-out between the worker (which delivers) and the API instance holding the con
   = 404, audience other than the sender = 400, minor rules); SSE route + authz matrix rows + OpenAPI; app client and the
   "reply with a card" entry in the card viewer; Phase 2 board realtime can reuse the same stream (`board.changed {board_id}`)
   before Yjs ([[ADR-0007-board-sync]]).
-- Open question for the EM: none blocking for card replies; **free-text replies remain out** until the EM decides how text
-  is moderated for 13+ users.
+- Free-text replies remain out until the EM decides how text is moderated for 13+ users.
