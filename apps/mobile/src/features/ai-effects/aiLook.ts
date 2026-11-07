@@ -1,23 +1,7 @@
-import type { CardDraft } from '../editor/editorState';
+import type { AiLook, CardDraft } from '../editor/editorState';
 import { isTemplateId } from './aiEffectsApi';
 
-/**
- * An AI effect result applied to a draft: the server-made `card_render` upload replaces the card render when the
- * card is sent. It belongs to the look it was made from (`basis`): once the shape, finish, effects or "whole photo"
- * change, the result no longer matches the card and is ignored (undo brings it back). The caption is not part of
- * the render, so it may change freely.
- */
-export interface AiLook {
-  readonly jobId: string;
-  readonly templateId: string;
-  readonly templateVersion: number;
-  /** Server title when it was made, for the editor chip (bounded). */
-  readonly title: string;
-  /** The generated `card_render` upload (clean when applied). */
-  readonly outputMediaId: string;
-  /** {@link lookBasis} of the draft the input was baked from. */
-  readonly basis: string;
-}
+export type { AiLook } from '../editor/editorState';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const BASIS = /^[0-9a-f]{8}$/;
