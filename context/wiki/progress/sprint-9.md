@@ -46,6 +46,12 @@ native builds can be tried without an Apple account, and measures latency in par
 | Backend | ADR-0010 real-time replies | #377 | Merged, accepted by the EM: replies are cards, SSE ids only, `pg_notify`. Build in sprint 10. |
 | Backend | AI effects on a fake provider | #378 | Merged. `genai` crate, consent, credit ledger, 18+ and adult-age gate, 5 starter credits (EM defaults). App screens and the AI badge pending. |
 | Backend | Refresh fails open to memory | #379 | Merged (EM decision). 26 fail-closed limits remain. |
+| App (part 2) | Web-valid board LTR style | #380 | Merged. |
+| App (part 2) | AI effects screens | #381 | Merged. Tool rail entry gated by the server, consent sheet, credits, job states, AI badge; result preview needs a server `output_url`. |
+| App (part 2) | Web drafts keep photos | #382 | Merged. IndexedDB, images only, 12 MB cap. |
+| App (part 2) | Outbox retry on reconnect | #383 | Merged. Closes #265. |
+| App (part 2) | Haptics and sound | #385 | Merged. Closes #246; placeholder sound clips. |
+| Lead | Log-capture test race | #386 | Merged. Global always-interested subscriber in the test harness; closes #330. |
 
 ## Exit checklist
 - [ ] The EM can open the app in a phone browser and in Expo Go, and the main screens follow the new design system.
