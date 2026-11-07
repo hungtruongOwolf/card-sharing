@@ -133,16 +133,85 @@ export function exportDraftPng(
   );
 }
 
-/** Whether this platform can share an exported image (iOS shares a data URI; Android needs expo-sharing). */
-export const canShareImages = (platform: string = Platform.OS) => platform === 'ios';
+/**
+ * Whether this platform can share an exported image: iOS shares a data URI through the share sheet; the web shares a
+ * file through the Web Share API or downloads it (sprint 10 E1); Android needs expo-sharing (not in Expo Go yet).
+ */
+export const canShareImages = (platform: string = Platform.OS) =>
+  platform === 'ios' || platform === 'web';
 
-/** Opens the share sheet with the PNG. Resolves false when the platform cannot share images. */
+/** The parts of the browser the web export uses; injectable for tests. */
+export interface BrowserExportDeps {
+  readonly navigator?: {
+    share?(data: { files: File[] }): Promise<void>;
+    canShare?(data: { files: File[] }): boolean;
+  };
+  readonly document?: Pick<Document, 'createElement' | 'body'>;
+  readonly URL?: Pick<typeof URL, 'createObjectURL' | 'revokeObjectURL'>;
+  readonly Blob?: typeof Blob;
+  readonly File?: typeof File;
+  /** Runs `task` later (the object URL must outlive the click that starts the download). */
+  readonly later?: (task: () => void) => void;
+}
+
+/** File name of an exported card on the web. */
+export const EXPORT_FILE_NAME = 'card-sharing-card.png';
+
+/** How long a download's object URL stays valid; the browser has taken the bytes long before. */
+const OBJECT_URL_TTL_MS = 60_000;
+
+/**
+ * The web export: the PNG goes to the system share sheet as a file when the browser can share files
+ * (`navigator.canShare({ files })`, mostly phones), otherwise it is downloaded through an object URL and an
+ * `<a download>` click. A share the user cancels is not a failure. A share the browser refuses (for example because
+ * encoding outlasted the tap's user activation) falls back to the download. Resolves false when neither works.
+ */
+export async function shareImageOnWeb(
+  png: Uint8Array,
+  deps: BrowserExportDeps = globalThis as BrowserExportDeps,
+): Promise<boolean> {
+  const { navigator: nav, document: doc, URL: urls, Blob: BlobType, File: FileType } = deps;
+  if (!BlobType) return false;
+  // A copy into a plain ArrayBuffer: the bytes may sit in a shared or larger buffer.
+  const blob = new BlobType([png.slice().buffer], { type: 'image/png' });
+  if (FileType && nav?.share && nav.canShare) {
+    const file = new FileType([blob], EXPORT_FILE_NAME, { type: 'image/png' });
+    if (nav.canShare({ files: [file] })) {
+      try {
+        await nav.share({ files: [file] });
+        return true;
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') return true;
+      }
+    }
+  }
+  if (!doc?.body || !urls) return false;
+  const href = urls.createObjectURL(blob);
+  const link = doc.createElement('a');
+  link.href = href;
+  link.download = EXPORT_FILE_NAME;
+  link.rel = 'noopener';
+  link.style.display = 'none';
+  doc.body.appendChild(link);
+  try {
+    link.click();
+  } finally {
+    link.remove();
+    const later = deps.later ?? ((task: () => void) => void setTimeout(task, OBJECT_URL_TTL_MS));
+    later(() => urls.revokeObjectURL(href));
+  }
+  return true;
+}
+
+/** Opens the share sheet with the PNG (or downloads it on the web). Resolves false when the platform cannot share images. */
 export async function shareImage(
   png: Uint8Array,
   share: typeof Share.share = Share.share,
   platform: string = Platform.OS,
+  browser?: BrowserExportDeps,
 ): Promise<boolean> {
   if (!canShareImages(platform)) return false;
+  if (platform === 'web') return shareImageOnWeb(png, browser);
   await share({ url: `data:image/png;base64,${toBase64(png)}` });
   return true;
 }
