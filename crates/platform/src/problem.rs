@@ -86,6 +86,12 @@ pub enum ApiError {
     OnboardingIncomplete,
     #[error("account suspended")]
     AccountSuspended,
+    /// This sign-in would create an account and the sign-up gate needs an invite code (ADR-0012).
+    #[error("invite code required")]
+    InviteRequired,
+    /// The invite code is unknown, malformed, expired, revoked or used up (one answer for all).
+    #[error("invite code invalid")]
+    InviteInvalid,
     /// The device attestation of a request marked `att` failed (enforce mode only).
     #[error("attestation failed")]
     AttestationFailed,
@@ -191,6 +197,8 @@ impl ApiError {
             Self::Forbidden
             | Self::OnboardingIncomplete
             | Self::AccountSuspended
+            | Self::InviteRequired
+            | Self::InviteInvalid
             | Self::AttestationFailed
             | Self::PolicyDisallowed
             | Self::ConsentRequired
@@ -238,6 +246,8 @@ impl ApiError {
             Self::Forbidden => "FORBIDDEN",
             Self::OnboardingIncomplete => "ONBOARDING_INCOMPLETE",
             Self::AccountSuspended => "ACCOUNT_SUSPENDED",
+            Self::InviteRequired => "INVITE_REQUIRED",
+            Self::InviteInvalid => "INVITE_INVALID",
             Self::AttestationFailed => "ATTESTATION_FAILED",
             Self::PolicyDisallowed => "POLICY_DISALLOWED",
             Self::ConsentRequired => "CONSENT_REQUIRED",
@@ -357,6 +367,8 @@ mod tests {
             ApiError::Forbidden,
             ApiError::OnboardingIncomplete,
             ApiError::AccountSuspended,
+            ApiError::InviteRequired,
+            ApiError::InviteInvalid,
             ApiError::AttestationFailed,
             ApiError::PolicyDisallowed,
             ApiError::ConsentRequired,

@@ -46,6 +46,12 @@ pub enum AuditAction {
     AccountBanned,
     /// A temporary suspension ended (T-147).
     AccountUnsuspended,
+    /// Staff minted a sign-up invite code (ADR-0012).
+    InviteCodeCreated,
+    /// Staff revoked a sign-up invite code.
+    InviteCodeRevoked,
+    /// A new account spent one use of a sign-up invite code.
+    InviteRedeemed,
 }
 
 impl AuditAction {
@@ -67,6 +73,9 @@ impl AuditAction {
             Self::StaffView => "moderation.staff_view",
             Self::AccountBanned => "account.banned",
             Self::AccountUnsuspended => "account.unsuspended",
+            Self::InviteCodeCreated => "auth.invite_code_created",
+            Self::InviteCodeRevoked => "auth.invite_code_revoked",
+            Self::InviteRedeemed => "auth.invite_redeemed",
         }
     }
 }
@@ -176,6 +185,9 @@ mod tests {
             AuditAction::AgeRefused,
             AuditAction::HandleChanged,
             AuditAction::AccountSuspended,
+            AuditAction::InviteCodeCreated,
+            AuditAction::InviteCodeRevoked,
+            AuditAction::InviteRedeemed,
         ] {
             let code = action.as_str();
             let (module, verb) = code.split_once('.').unwrap_or_default();

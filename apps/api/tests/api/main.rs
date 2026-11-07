@@ -46,6 +46,7 @@ mod friends;
 mod handle;
 mod http;
 mod idempotency;
+mod invite_codes;
 mod invites;
 mod jobs;
 mod magic_link;

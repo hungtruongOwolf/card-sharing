@@ -76,6 +76,8 @@ pub struct Config {
     pub content_safety: ContentSafetyConfig,
     /// `API_SOCIAL_CONFIG_PATH` — default `config/social.yaml` (invite links, friend caps, search).
     pub social_config_path: PathBuf,
+    /// `API_SIGNUP_CONFIG_PATH` — default `config/signup.yaml` (invite-code gate, ADR-0012).
+    pub signup_config_path: PathBuf,
     /// `API_NOTIFICATIONS_CONFIG_PATH` — default `config/notifications.yaml` (push cap, batching).
     pub notifications_config_path: PathBuf,
     /// `API_BOARDS_CONFIG_PATH` — default `config/boards.yaml` (board caps).
@@ -356,6 +358,9 @@ impl Config {
         let social_config_path = env
             .optional("API_SOCIAL_CONFIG_PATH")
             .map_or_else(|| PathBuf::from("config/social.yaml"), PathBuf::from);
+        let signup_config_path = env
+            .optional("API_SIGNUP_CONFIG_PATH")
+            .map_or_else(|| PathBuf::from("config/signup.yaml"), PathBuf::from);
         let notifications_config_path = env
             .optional("API_NOTIFICATIONS_CONFIG_PATH")
             .map_or_else(|| PathBuf::from("config/notifications.yaml"), PathBuf::from);
@@ -470,6 +475,7 @@ impl Config {
             text_filter_config_path,
             profile_config_path,
             social_config_path,
+            signup_config_path,
             notifications_config_path,
             boards_config_path,
             sharing_config_path,

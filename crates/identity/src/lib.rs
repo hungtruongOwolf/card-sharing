@@ -8,6 +8,7 @@ pub mod apple;
 mod attestation;
 mod cache;
 mod deletion;
+mod invite_codes;
 mod magic_link;
 pub mod mail;
 mod model;
@@ -28,6 +29,11 @@ mod widget;
 pub use age_gate::{AgeGateError, AgeOutcome, AgeSubmission, age_on};
 pub use age_service::{AgeError, AgeService, AgeStatus, OsAgeSignal, OsAgeSource};
 pub use attestation::{AttestationOutcome, AttestationService, AttestationStoreError, Challenge};
+pub use invite_codes::{
+    INVITE_CODE_LEN, INVITE_CODE_MAX_INPUT, InviteCodeError, InviteCodeInfo, NewInviteCode,
+    SignupConfigError, SignupError, SignupGate, SignupSettings, display_invite_code,
+    normalize_invite_code,
+};
 pub use magic_link::{
     DeliveryError, LinkSignInError, MAGIC_LINK_JOB, MagicLinkError, MagicLinkJob,
     MagicLinkTemplate, email_hash, normalize_email, valid_code_verifier, valid_link_token,

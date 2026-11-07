@@ -14,6 +14,9 @@
 //!   time), within 15 minutes, once. An unknown token and a wrong verifier get the same answer;
 //!   "expired" and "used" are told only to the holder of the verifier. A wrong verifier does not
 //!   burn the link, so a forwarded copy cannot spoil the real one.
+//! - Behind the sign-up gate (invite_codes.rs) a link that would create an account needs an
+//!   invite code. A missing or wrong code leaves the link usable, so the user can type the code
+//!   and retry; wrong codes per link are capped, then the link expires.
 
 use std::sync::Arc;
 
@@ -30,6 +33,9 @@ use platform::audit::{self, Actor, AuditAction, AuditEntry};
 use sha2::{Digest, Sha256};
 use time::OffsetDateTime;
 
+use crate::invite_codes::{
+    SignupGate, audit_redemption, normalize_invite_code, redeem_invite_code,
+};
 use crate::mail::{Email, MailError, Mailer, valid_address};
 use crate::model::{AccountStatus, RegionSignals};
 use crate::service::{
@@ -99,6 +105,14 @@ pub enum LinkSignInError {
     /// The account may not sign in (suspended or banned). The link is used up.
     #[error("account blocked: {0}")]
     Blocked(AccountStatus),
+    /// The link would create an account and the sign-up gate needs a code; none was sent. The
+    /// link is still usable.
+    #[error("invite code required")]
+    InviteRequired,
+    /// The invite code is unknown, malformed, expired, revoked or used up (one answer). The link
+    /// is still usable until the wrong-code cap, then it expires.
+    #[error("invite code invalid")]
+    InviteInvalid,
     #[error(transparent)]
     Store(#[from] StoreError),
 }
@@ -292,15 +306,17 @@ impl IdentityService {
     }
 
     /// Signs in with a magic link (T-23): redeems the link with the verifier of the device that
-    /// asked for it, finds the email account or creates it (`pending_age`, AC-1.1; never linked to
-    /// an Apple/Google account with the same address, AC-1.3) and starts a session, exactly as a
-    /// provider sign-in does (onboarding or full scope, audit `auth.sign_in`).
+    /// asked for it, finds the email account or creates it behind the sign-up `gate`
+    /// (`pending_age`, AC-1.1; never linked to an Apple/Google account with the same address,
+    /// AC-1.3) and starts a session, exactly as a provider sign-in does (onboarding or full scope,
+    /// audit `auth.sign_in`).
     pub async fn sign_in_with_magic_link(
         &self,
         token: &str,
         verifier: &str,
         device: Option<&DeviceInfo>,
         signals: &RegionSignals,
+        gate: &SignupGate,
     ) -> Result<SignedIn, LinkSignInError> {
         if !valid_link_token(token) || !valid_code_verifier(verifier) {
             return Err(LinkSignInError::Invalid);
@@ -311,7 +327,7 @@ impl IdentityService {
         let mut redeemed = None;
         for _ in 0..2 {
             redeemed = self
-                .redeem_sign_in_link(&token_hash, verifier, signals)
+                .redeem_sign_in_link(&token_hash, verifier, signals, gate)
                 .await?;
             if redeemed.is_some() {
                 break;
@@ -345,13 +361,15 @@ impl IdentityService {
     }
 
     /// One attempt at redeeming a sign-in link, in one transaction that locks the link row: checks
-    /// the verifier first, then single use and lifetime, then finds or creates the account and
-    /// marks the link used. `Ok(None)` = the account insert lost a race (nothing changed; retry).
+    /// the verifier first, then single use and lifetime, then finds the account or creates it
+    /// behind the gate (spending one invite use in the same transaction) and marks the link used.
+    /// `Ok(None)` = the account insert lost a race (nothing changed; retry).
     async fn redeem_sign_in_link(
         &self,
         token_hash: &TokenHash,
         verifier: &str,
         signals: &RegionSignals,
+        gate: &SignupGate,
     ) -> Result<Option<Redeemed>, LinkSignInError> {
         let now = self.clock.now();
         let mut tx = self.pool.begin().await?;
@@ -407,16 +425,39 @@ impl IdentityService {
                 account_id,
                 created: false,
             },
-            None => match insert_account(&mut tx, &identity, signals, now).await? {
-                Some(account_id) => Redeemed {
-                    account_id,
-                    created: true,
-                },
-                None => {
+            None => {
+                let code_id = if gate.invite_required {
+                    let Some(raw) = gate.invite_code.as_deref() else {
+                        // Nothing changed: the link stays usable for the retry with a code.
+                        return Err(LinkSignInError::InviteRequired);
+                    };
+                    let code_id = match normalize_invite_code(raw) {
+                        Some(code) => redeem_invite_code(&mut tx, &code, now).await?,
+                        None => None,
+                    };
+                    let Some(code_id) = code_id else {
+                        self.count_wrong_invite(&mut tx, link.id, gate, now).await?;
+                        tx.commit().await?;
+                        return Err(LinkSignInError::InviteInvalid);
+                    };
+                    Some(code_id)
+                } else {
+                    None
+                };
+                let Some(account_id) = insert_account(&mut tx, &identity, signals, now).await?
+                else {
                     tx.rollback().await?;
                     return Ok(None);
+                };
+                if let Some(code_id) = code_id {
+                    audit_redemption(&mut tx, account_id, code_id, Provider::Email.as_str(), now)
+                        .await?;
                 }
-            },
+                Redeemed {
+                    account_id,
+                    created: true,
+                }
+            }
         };
         sqlx::query("UPDATE identity.magic_links SET used_at = $2 WHERE id = $1")
             .bind(link.id)
@@ -430,6 +471,35 @@ impl IdentityService {
             created = redeemed.created
         );
         Ok(Some(redeemed))
+    }
+
+    /// Counts a wrong invite code against a link; the attempt that reaches the cap expires it.
+    async fn count_wrong_invite(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        link_id: Uuid,
+        gate: &SignupGate,
+        now: OffsetDateTime,
+    ) -> Result<(), sqlx::Error> {
+        let expired: bool = sqlx::query_scalar(
+            "UPDATE identity.magic_links
+             SET invite_attempts = invite_attempts + 1,
+                 expires_at = CASE WHEN invite_attempts + 1 >= $2 THEN LEAST(expires_at, $3)
+                                   ELSE expires_at END
+             WHERE id = $1
+             RETURNING expires_at <= $3",
+        )
+        .bind(link_id)
+        .bind(i32::from(gate.max_attempts_per_link))
+        .bind(now)
+        .fetch_one(&mut **tx)
+        .await?;
+        tracing::info!(
+            event = "auth.magic_link.invite_rejected",
+            magic_link_id = %link_id,
+            link_expired = expired
+        );
+        Ok(())
     }
 
     /// Deletes magic links older than 24 hours; returns how many.

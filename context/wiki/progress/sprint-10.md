@@ -22,7 +22,7 @@ suite in CI gates every merge that touches the loop.
 |---|---|---|
 | 0. Browser E2E gate | Playwright suite in the repo (two users, full core loop, fails on console errors / HTTP 5xx), CI job against the docker stack + Expo web export ([[testing-strategy]] "Browser E2E") | done (#395); fixme specs enabled as bugs close |
 | 1. Bug fixes | See the bug list below | done in code (2026-11-07); B2 needs a real-browser check |
-| 2. Real sign-up | Magic-link verify (T-23) + email screen + web landing, invite-code gate, magic-link re-auth (unblocks delete account / data export), then Google web client | planned |
+| 2. Real sign-up | Magic-link verify (T-23) + email screen + web landing, invite-code gate, magic-link re-auth (unblocks delete account / data export), then Google web client ([[ADR-0012-web-sign-up]], proposed) | in progress |
 | 3. Hosting | Deferred by the EM | — |
 | Later | Widget, web push (activity tab covers it), mask refine (US-8), moderation UI, real AI provider, real safety scanners | — |
 
@@ -63,3 +63,5 @@ suite in CI gates every merge that touches the loop.
 | W1 | #404 | Merged. The web no longer requests widget tokens. |
 | B7 (client) | #405 | Merged. Time zone sent only when it changes; 429 honours `Retry-After` and is not retried. |
 | V1 | #406 | Merged. Story viewer picture fills the card frame. |
+| P2 verify | #407 | T-23: `POST /v1/auth/email/verify` (PKCE verifier, single use, 15 min, constant-time compare, same session as provider sign-in); start answers `{request_id}`; link `<API_MAGIC_LINK_URL>#rid=..&token=..` landing on the Expo web app. |
+| P2 invites | #408 | Invite-code gate (`config/signup.yaml`, on): new accounts via email, Google or Apple need a code; `api invites create/list/revoke`; codes hashed, use limit, expiry, revocation, wrong-code cap per link. |

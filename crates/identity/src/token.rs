@@ -15,10 +15,16 @@ pub struct SecretToken(String);
 #[error("system random number generator failed: {0}")]
 pub struct RandomnessError(String);
 
+/// `N` bytes from the system RNG.
+pub(crate) fn random_bytes<const N: usize>() -> Result<[u8; N], RandomnessError> {
+    let mut bytes = [0u8; N];
+    getrandom::fill(&mut bytes).map_err(|err| RandomnessError(err.to_string()))?;
+    Ok(bytes)
+}
+
 impl SecretToken {
     pub fn generate() -> Result<Self, RandomnessError> {
-        let mut bytes = [0u8; 32];
-        getrandom::fill(&mut bytes).map_err(|err| RandomnessError(err.to_string()))?;
+        let bytes: [u8; 32] = random_bytes()?;
         Ok(Self(URL_SAFE_NO_PAD.encode(bytes)))
     }
 

@@ -21,13 +21,13 @@ use uuid::Uuid;
 
 const LINK_URL: &str = "https://links.cardsharing.test/auth/link";
 
-fn template() -> MagicLinkTemplate {
+pub fn template() -> MagicLinkTemplate {
     MagicLinkTemplate {
         link_url: LINK_URL.to_owned(),
     }
 }
 
-fn router(env: &TestEnv) -> Router {
+pub fn router(env: &TestEnv) -> Router {
     let mut config = test_config();
     config.client_ip_header = Some(http::HeaderName::from_static("x-test-client-ip"));
     api::build(api::openapi::router(), env.state.clone(), &config)
@@ -37,19 +37,19 @@ fn challenge() -> String {
     URL_SAFE_NO_PAD.encode(Uuid::now_v7().as_bytes().repeat(2))
 }
 
-fn fresh_email() -> String {
+pub fn fresh_email() -> String {
     format!("cat-{}@example.com", Uuid::now_v7().simple())
 }
 
 /// A PKCE pair as the app makes it: (verifier, S256 challenge).
-fn pkce() -> (String, String) {
+pub fn pkce() -> (String, String) {
     let verifier = format!("{}{}", Uuid::now_v7().simple(), Uuid::now_v7().simple());
     let challenge = URL_SAFE_NO_PAD.encode(TokenHash::of(&verifier).as_bytes());
     (verifier, challenge)
 }
 
 /// The token of the link to `request_id` in an email body.
-fn token_in(text: &str, request_id: Uuid) -> String {
+pub fn token_in(text: &str, request_id: Uuid) -> String {
     let prefix = format!("{LINK_URL}#rid={request_id}&token=");
     text.split_whitespace()
         .find_map(|word| word.strip_prefix(&prefix))
@@ -59,7 +59,7 @@ fn token_in(text: &str, request_id: Uuid) -> String {
 
 /// Starts a link for `email` with `challenge`, runs its delivery job and returns (request id,
 /// token from the email).
-async fn emailed_link(env: &TestEnv, email: &str, challenge: &str) -> (Uuid, String) {
+pub async fn emailed_link(env: &TestEnv, email: &str, challenge: &str) -> (Uuid, String) {
     let response = send(
         &router(env),
         start_body(
@@ -83,11 +83,15 @@ async fn emailed_link(env: &TestEnv, email: &str, challenge: &str) -> (Uuid, Str
     (request_id, token_in(&text, request_id))
 }
 
-fn verify(token: &str, verifier: &str) -> Request<Body> {
+pub fn verify(token: &str, verifier: &str) -> Request<Body> {
     verify_body(&json!({ "token": token, "code_verifier": verifier }))
 }
 
-fn verify_body(body: &Value) -> Request<Body> {
+pub fn verify_with_code(token: &str, verifier: &str, code: &str) -> Request<Body> {
+    verify_body(&json!({ "token": token, "code_verifier": verifier, "invite_code": code }))
+}
+
+pub fn verify_body(body: &Value) -> Request<Body> {
     Request::post("/v1/auth/email/verify")
         .header("content-type", "application/json")
         .header("x-test-client-ip", ip())
@@ -97,14 +101,14 @@ fn verify_body(body: &Value) -> Request<Body> {
 }
 
 /// The account behind an access token (`GET /v1/me`).
-async fn me(env: &TestEnv, access_token: &str) -> Value {
+pub async fn me(env: &TestEnv, access_token: &str) -> Value {
     let response = send(&router(env), get_request("/v1/me", Some(access_token))).await;
     assert_eq!(response.status(), StatusCode::OK);
     json_body(response).await
 }
 
 /// Signs up a new email account through a link; returns (email, account id).
-async fn email_account(env: &TestEnv) -> (String, Uuid) {
+pub async fn email_account(env: &TestEnv) -> (String, Uuid) {
     let email = fresh_email();
     let (verifier, challenge) = pkce();
     let (_, token) = emailed_link(env, &email, &challenge).await;
@@ -117,20 +121,20 @@ async fn email_account(env: &TestEnv) -> (String, Uuid) {
 }
 
 /// The problem body without its random request id.
-async fn problem_body(response: http::Response<Body>, status: StatusCode, code: &str) -> Value {
+pub async fn problem_body(response: http::Response<Body>, status: StatusCode, code: &str) -> Value {
     let mut body = assert_problem(response, status, code).await;
     body.as_object_mut().unwrap().remove("requestId");
     body
 }
 
-fn start(email: &str, ip: &str) -> Request<Body> {
+pub fn start(email: &str, ip: &str) -> Request<Body> {
     start_body(
         &json!({ "email": email, "code_challenge": challenge() }),
         ip,
     )
 }
 
-fn start_body(body: &Value, ip: &str) -> Request<Body> {
+pub fn start_body(body: &Value, ip: &str) -> Request<Body> {
     Request::post("/v1/auth/email/start")
         .header("content-type", "application/json")
         .header("x-test-client-ip", ip)
@@ -139,7 +143,7 @@ fn start_body(body: &Value, ip: &str) -> Request<Body> {
 }
 
 /// A random documentation-range IP per test, so tests never share a per-IP bucket.
-fn ip() -> String {
+pub fn ip() -> String {
     let n = Uuid::now_v7().as_bytes()[15];
     format!("198.51.100.{n}")
 }
