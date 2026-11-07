@@ -13,7 +13,7 @@ import {
   WIDGET_TOKEN_KEY,
   type WidgetTokenStore,
 } from '../widgetTokenStore';
-import { ensureWidgetToken, WidgetTokenSync } from '../WidgetTokenSync';
+import { ensureWidgetToken, hasHomeScreenWidget, WidgetTokenSync } from '../WidgetTokenSync';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports -- jest.mock factories must use require()
 jest.mock('expo-secure-store', () => require('../../../test/secureStoreMock').secureStoreMock);
@@ -188,5 +188,30 @@ describe('WidgetTokenSync', () => {
     });
     await waitFor(() => expect(store.current).not.toBeNull());
     expect(minted()).toBe(1);
+  });
+
+  it('mints nothing on the web, which has no widget (W1)', async () => {
+    const { server, api } = setup();
+    const store = memoryTokenStore();
+    const appState = fakeAppState();
+    await render(
+      <WidgetTokenSync
+        api={api}
+        store={store}
+        now={server.now}
+        os="web"
+        appState={appState as unknown as Parameters<typeof WidgetTokenSync>[0]['appState']}
+      />,
+    );
+    await act(async () => {
+      appState.emit('background');
+      appState.emit('active');
+      await Promise.resolve();
+    });
+    expect(server.count('POST', PATH)).toBe(0);
+    expect(store.current).toBeNull();
+    expect(hasHomeScreenWidget('web')).toBe(false);
+    expect(hasHomeScreenWidget('ios')).toBe(true);
+    expect(hasHomeScreenWidget('android')).toBe(true);
   });
 });
