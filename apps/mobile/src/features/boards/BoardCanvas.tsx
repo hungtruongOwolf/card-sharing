@@ -50,7 +50,7 @@ import { HOLO_SKSL } from '@card-sharing/shaders';
 import { space } from '@card-sharing/tokens';
 
 import { t, type MessageKey } from '../../i18n';
-import { animateTo, useTheme } from '../../ui';
+import { animateTo, forceLtrProps, useTheme } from '../../ui';
 import { drawLiftShadow, liftShadow } from '../effects';
 import { GyroTiltDriver } from '../holo-card/GyroTiltDriver';
 import type { Tilt } from '../holo-card/gyroTilt';
@@ -614,7 +614,11 @@ export function BoardCanvas({
           </Group>
         </Canvas>
         {/* Canvas coordinates are physical: the overlay is always left-to-right so `start` means left. */}
-        <View style={[StyleSheet.absoluteFill, styles.ltr]} pointerEvents="none">
+        <View
+          {...FORCE_LTR}
+          style={[StyleSheet.absoluteFill, FORCE_LTR.style]}
+          pointerEvents="none"
+        >
           {labelled.map(({ pin, bounds }) => {
             const topLeft = boardToScreen(settled, bounds);
             const pinEditable = editable && canEdit(pin);
@@ -645,6 +649,4 @@ export function BoardCanvas({
   );
 }
 
-const styles = StyleSheet.create({
-  ltr: { direction: 'ltr' },
-});
+const FORCE_LTR = forceLtrProps();

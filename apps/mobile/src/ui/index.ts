@@ -1,5 +1,6 @@
 export { Avatar, avatarFill, initialOf, type AvatarProps, type AvatarRing } from './Avatar';
 export { Button, type ButtonProps, type ButtonVariant } from './Button';
+export { forceLtrProps } from './forceLtr';
 export { Icon, ICONS, type IconName, type IconProps } from './Icon';
 export { IconButton, type IconButtonProps, type IconButtonVariant } from './IconButton';
 export { Screen, type ScreenProps } from './Screen';
