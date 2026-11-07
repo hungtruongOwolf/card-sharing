@@ -23,6 +23,7 @@ Tip: open `context/` as an Obsidian vault for graph/backlinks; run `python tools
 - [[ADR-0005-media-pipeline]] — wiki/architecture/decisions/ADR-0005-media-pipeline.md — quarantine → re-encode → CSAM/nudity scan → signed per-viewer URLs (accepted)
 - [[ADR-0006-job-queue]] — wiki/architecture/decisions/ADR-0006-job-queue.md — Postgres job queue + transactional outbox (accepted)
 - [[ADR-0007-board-sync]] — wiki/architecture/decisions/ADR-0007-board-sync.md — per-pin rows, versioned ops batches, fractional z-order, Yjs-ready (accepted)
+- [[ADR-0009-app-on-web]] — wiki/architecture/decisions/ADR-0009-app-on-web.md — the app also runs on the web at phone size until native builds (accepted)
 - [[ADR-0008-hosting]] — wiki/architecture/decisions/ADR-0008-hosting.md — Supabase Postgres (locked-down Data API), Cloudflare R2/CDN, Fly.io, Upstash, Postmark (accepted)
 - [[ADR-0003-effects-tiers]] — wiki/architecture/decisions/ADR-0003-effects-tiers.md — effects tiers: shader engine / style packs / OS AI / cloud (accepted)
 - [[region-policy]] — wiki/architecture/region-policy.md — per-jurisdiction rules (age, consent, ads) as config (proposed)
@@ -54,6 +55,7 @@ Tip: open `context/` as an Obsidian vault for graph/backlinks; run `python tools
 - [[sprint-6]] — wiki/progress/sprint-6.md — Sprint 6: boards (pin ops, per-viewer resolution, invitations, canvas, offline sync) (accepted)
 - [[sprint-7]] — sprint 7 plan: local demo stack, public links, account deletion/export, Tier-0 effects
 - [[sprint-8]] — sprint 8 plan: dev sign-in for demos, public board page, moderation server, privacy and report UI
+- [[sprint-9]] — sprint 9 plan: Stories-style UI redesign, the app on the web at phone size, latency budgets
 - backlog.json — wiki/progress/backlog.json — 169 tickets (source for GitHub issues); regenerate with `python tools/planning/gen.py`
 
 ## Raw sources

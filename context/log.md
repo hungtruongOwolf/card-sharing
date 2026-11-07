@@ -314,3 +314,7 @@ global hold expiry, closes #361). Source: `context/raw/discussions/2026-11-07-fi
 EM: UI closest to Instagram Stories; UI first, latency measured in parallel; wanted features: better editor,
 real-time replies, home-screen widget, real sign-in, AI cutout around the item and AI effects. Source:
 `context/raw/discussions/2026-11-07-sprint-9-direction.md`.
+
+## [2026-11-07] plan | sprint 9
+ADR-0009 accepted (the app also runs on the web at phone size until native builds). Three lanes: web target, UI
+redesign, backend latency/replies/AI effects on a fake provider. See [[sprint-9]].
