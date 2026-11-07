@@ -20,9 +20,17 @@ export {
   type Anchors,
   type NativeAnchors,
 } from './anchors';
-export { loadEffectFonts, memeFont, setMemeTypeface, type FontLoader } from './effectFonts';
+export {
+  effectFont,
+  loadEffectFonts,
+  memeFont,
+  setEffectTypeface,
+  setMemeTypeface,
+  type FontLoader,
+} from './effectFonts';
 export { MOVE_STEP, movePlacement, placementTargets, type PlacementTarget } from './placement';
 export { speechText } from './renderers/speech';
+export { inkOn, stickerText } from './renderers/textSticker';
 export { pickSurprise, surpriseParams } from './surprise';
 export { EFFECT_PASS_MS, GPU_BUDGET_MS, LAB_COUNTS, labEntries, liveCostMs } from './effectsLab';
 export { TAPE_ALPHA, TAPE_PALETTE, tapeTone } from './tape';

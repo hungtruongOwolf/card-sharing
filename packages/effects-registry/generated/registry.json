@@ -612,6 +612,84 @@
       }
     },
     {
+      "id": "overlay.text",
+      "version": 1,
+      "kind": "overlay",
+      "stackable": true,
+      "conflicts_with": [],
+      "params": {
+        "angle": {
+          "type": "number",
+          "min": -45,
+          "max": 45,
+          "default": -4
+        },
+        "color": {
+          "type": "color",
+          "default": "#FFFFFF"
+        },
+        "font": {
+          "type": "enum",
+          "values": [
+            "display",
+            "hand",
+            "meme",
+            "mono",
+            "body"
+          ],
+          "default": "display"
+        },
+        "phrase": {
+          "type": "enum",
+          "values": [
+            "omg",
+            "love",
+            "bff",
+            "yay",
+            "mood",
+            "soCute",
+            "goodVibes",
+            "hbd",
+            "missYou",
+            "wow",
+            "iconic",
+            "mainCharacter",
+            "weekend",
+            "thankYou"
+          ],
+          "default": "omg"
+        },
+        "size": {
+          "type": "number",
+          "min": 0.5,
+          "max": 2.5,
+          "default": 1
+        },
+        "textStyle": {
+          "type": "enum",
+          "values": [
+            "plain",
+            "pill",
+            "outline",
+            "neon"
+          ],
+          "default": "pill"
+        },
+        "x": {
+          "type": "number",
+          "min": 0,
+          "max": 1,
+          "default": 0.5
+        },
+        "y": {
+          "type": "number",
+          "min": 0,
+          "max": 1,
+          "default": 0.2
+        }
+      }
+    },
+    {
       "id": "overlay.washi",
       "version": 1,
       "kind": "overlay",
@@ -672,6 +750,81 @@
       }
     },
     {
+      "id": "prop.bow",
+      "version": 1,
+      "kind": "prop",
+      "stackable": false,
+      "conflicts_with": [
+        "prop.crown",
+        "prop.party-hat",
+        "prop.halo"
+      ],
+      "params": {
+        "angle": {
+          "type": "number",
+          "min": -45,
+          "max": 45,
+          "default": 0
+        },
+        "size": {
+          "type": "number",
+          "min": 0.08,
+          "max": 1,
+          "default": 0.3
+        },
+        "x": {
+          "type": "number",
+          "min": 0,
+          "max": 1,
+          "default": 0.5
+        },
+        "y": {
+          "type": "number",
+          "min": 0,
+          "max": 1,
+          "default": 0.3
+        }
+      }
+    },
+    {
+      "id": "prop.cat-ears",
+      "version": 1,
+      "kind": "prop",
+      "stackable": false,
+      "conflicts_with": [
+        "prop.crown",
+        "prop.party-hat",
+        "prop.halo",
+        "prop.bow"
+      ],
+      "params": {
+        "angle": {
+          "type": "number",
+          "min": -45,
+          "max": 45,
+          "default": 0
+        },
+        "size": {
+          "type": "number",
+          "min": 0.08,
+          "max": 1,
+          "default": 0.5
+        },
+        "x": {
+          "type": "number",
+          "min": 0,
+          "max": 1,
+          "default": 0.5
+        },
+        "y": {
+          "type": "number",
+          "min": 0,
+          "max": 1,
+          "default": 0.3
+        }
+      }
+    },
+    {
       "id": "prop.crown",
       "version": 1,
       "kind": "prop",
@@ -691,6 +844,77 @@
           "min": 0.08,
           "max": 1,
           "default": 0.34
+        },
+        "x": {
+          "type": "number",
+          "min": 0,
+          "max": 1,
+          "default": 0.5
+        },
+        "y": {
+          "type": "number",
+          "min": 0,
+          "max": 1,
+          "default": 0.3
+        }
+      }
+    },
+    {
+      "id": "prop.halo",
+      "version": 1,
+      "kind": "prop",
+      "stackable": false,
+      "conflicts_with": [
+        "prop.crown",
+        "prop.party-hat"
+      ],
+      "params": {
+        "angle": {
+          "type": "number",
+          "min": -45,
+          "max": 45,
+          "default": 0
+        },
+        "size": {
+          "type": "number",
+          "min": 0.08,
+          "max": 1,
+          "default": 0.36
+        },
+        "x": {
+          "type": "number",
+          "min": 0,
+          "max": 1,
+          "default": 0.5
+        },
+        "y": {
+          "type": "number",
+          "min": 0,
+          "max": 1,
+          "default": 0.3
+        }
+      }
+    },
+    {
+      "id": "prop.heart-glasses",
+      "version": 1,
+      "kind": "prop",
+      "stackable": false,
+      "conflicts_with": [
+        "prop.sunglasses"
+      ],
+      "params": {
+        "angle": {
+          "type": "number",
+          "min": -45,
+          "max": 45,
+          "default": 0
+        },
+        "size": {
+          "type": "number",
+          "min": 0.08,
+          "max": 1,
+          "default": 0.38
         },
         "x": {
           "type": "number",

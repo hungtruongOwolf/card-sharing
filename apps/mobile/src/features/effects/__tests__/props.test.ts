@@ -24,7 +24,16 @@ jest.mock('@shopify/react-native-skia', () =>
 
 const SIZE = 128;
 const PHOTO = [51, 102, 204, 255];
-const PROPS = ['prop.crown', 'prop.party-hat', 'prop.sunglasses', 'prop.mustache'];
+const PROPS = [
+  'prop.crown',
+  'prop.party-hat',
+  'prop.sunglasses',
+  'prop.mustache',
+  'prop.halo',
+  'prop.bow',
+  'prop.cat-ears',
+  'prop.heart-glasses',
+];
 
 function scene(): CutScene {
   const photo = Skia.Surface.Make(SIZE, SIZE)!;
@@ -131,6 +140,22 @@ describe('props family', () => {
     expect(stackingErrors([registry.get('prop.crown')!, registry.get('prop.sunglasses')!])).toEqual(
       [],
     );
+  });
+
+  it('keeps one thing on top of the head and one pair of glasses (sprint 9 props)', () => {
+    const tops = ['prop.crown', 'prop.party-hat', 'prop.halo', 'prop.bow', 'prop.cat-ears'];
+    for (const a of tops) {
+      for (const b of tops) {
+        if (a === b) continue;
+        expect(stackingErrors([registry.get(a)!, registry.get(b)!])).toHaveLength(1);
+      }
+    }
+    expect(
+      stackingErrors([registry.get('prop.heart-glasses')!, registry.get('prop.sunglasses')!]),
+    ).toHaveLength(1);
+    expect(
+      stackingErrors([registry.get('prop.halo')!, registry.get('prop.heart-glasses')!]),
+    ).toEqual([]);
   });
 
   it('completes the ten MVP effects of effects-catalog.md §3.3 (AC-21.1)', () => {

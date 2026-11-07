@@ -27,7 +27,8 @@ export const overlaySpeech: EffectEntry = {
   description: 'effects.overlay.speech.description',
   a11yLabel: 'effects.overlay.speech.a11y',
   kind: 'overlay',
-  tags: [],
+  // Listed by the editor's Text tool too (sprint 9).
+  tags: ['text'],
   tier: '0',
   inputs: ['text', 'touch', 'faceLandmarks', 'animalPose'],
   anchor: 'mouth',

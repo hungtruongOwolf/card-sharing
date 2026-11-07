@@ -16,6 +16,7 @@ import { fxMatte } from './fx.matte';
 import { fxPaperLift } from './fx.paper-lift';
 import { fxSparkles } from './fx.sparkles';
 import { overlaySpeech } from './overlay.speech';
+import { overlayText } from './overlay.text';
 import { overlayWashi } from './overlay.washi';
 import { PROPS } from './props';
 
@@ -38,6 +39,7 @@ export const ENTRIES: readonly EffectEntry[] = [
   framePolaroid,
   overlayWashi,
   overlaySpeech,
+  overlayText,
   fxSparkles,
   ...PROPS,
   fxLaserEyes,
