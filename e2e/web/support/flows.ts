@@ -34,9 +34,13 @@ export async function importPhoto(page: Page): Promise<void> {
   await expect(page.getByTestId('capture-preview')).toBeVisible();
   await page.getByRole('button', { name: 'Use this photo', exact: true }).click();
   await expect(page.getByTestId('editor')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Next', exact: true })).toBeVisible({
-    timeout: 30_000,
-  });
+  await expect(page.getByTestId('editor-tray')).toBeVisible({ timeout: 30_000 });
+}
+
+/** From the editor: Next, then the send screen. */
+export async function nextToSend(page: Page): Promise<void> {
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await expect(page.getByTestId('send')).toBeVisible();
 }
 
 export async function addCaption(page: Page, caption: string): Promise<void> {

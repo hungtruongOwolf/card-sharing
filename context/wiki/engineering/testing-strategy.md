@@ -59,10 +59,10 @@ Browser E2E (implemented, sprint 10 phase 0, [[sprint-10]]):
   Chromium's "Failed to load resource" line, which repeats a response the HTTP check already judged).
 - CI job **Web E2E (Playwright)** (`.github/workflows/ci.yml`, `e2e-web`): Postgres + Valkey services, the api binary
   from the `rust-test` cache (read-only), `api migrate` + `api seed`, `api` and `api worker` in the background (dev
-  sign-in, fake AI provider, fake scanners, filesystem media), `expo export --dev` with `EXPO_PUBLIC_API_URL` on
-  loopback (a development build: dev sign-in and plain-http API), served by `e2e/web/serve.mjs` (SPA fallback; accepts
-  the dev clients' /hot and /message sockets so nothing logs connection errors). Traces, screenshots and API/worker
-  logs are uploaded on failure. Tests run one at a time (shared seed data and per-user rate limits); one retry in CI,
+  sign-in, fake AI provider, fake scanners, filesystem media), and the web target served by Metro in development mode
+  (`expo start`, as testers run it; `EXPO_PUBLIC_API_URL` on loopback; dev sign-in and plain-http API need `__DEV__`).
+  A static `expo export --dev` does not work: its route chunks all get the empty-content hash, so same-named routes
+  (`card/[id]`, `board/[id]`) overwrite each other. Traces, screenshots and API/worker/Metro logs are uploaded on failure. Tests run one at a time (shared seed data and per-user rate limits); one retry in CI,
   and a test that needed it is reported flaky and fixed within the sprint.
 - The web cutout segmenter downloads a ~115 MB model, so CI swaps that one module worker for a stand-in speaking the
   same protocol (`support/cutout.ts`, an ellipse matte); the rest of the cutout pipeline runs unchanged.

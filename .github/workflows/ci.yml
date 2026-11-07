@@ -280,9 +280,10 @@ jobs:
           exit 1
       - run: echo "JS jobs passed"
 
-  # Sprint 10 phase 0, the browser E2E gate (e2e/web, testing-strategy.md): the app's web export in development mode
-  # (dev sign-in, plain-http API) against the real API and job worker on Postgres and Valkey, with the fake AI
-  # provider, fake content scanners and filesystem media, driven by Playwright (Chromium, two users at a time).
+  # Sprint 10 phase 0, the browser E2E gate (e2e/web, testing-strategy.md): the app's web target served by Metro in
+  # development mode, as testers run it (dev sign-in, plain-http API), against the real API and job worker on Postgres
+  # and Valkey, with the fake AI provider, fake content scanners and filesystem media, driven by Playwright (Chromium,
+  # two users at a time).
   e2e-web:
     name: Web E2E (Playwright)
     runs-on: ubuntu-latest
@@ -327,7 +328,6 @@ jobs:
       API_LOG_FORMAT: json
       EXPO_PUBLIC_API_URL: http://127.0.0.1:8080
       E2E_BASE_URL: http://127.0.0.1:8081
-      E2E_SERVE_EXPORT: '1'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch
@@ -367,22 +367,28 @@ jobs:
           done
           tail -n 100 e2e-logs/api.log
           exit 1
-      # A development export: `__DEV__` keeps the dev sign-in and allows the plain-http API on loopback.
-      - name: Export the app's web target (development build)
+      # Metro in development mode, like `pnpm dev:mobile` on a tester's PC: `__DEV__` keeps the dev sign-in and allows
+      # the plain-http API on loopback, and routes load as Metro's lazy bundles. (A static `expo export --dev` names
+      # every route chunk with the same empty-content hash, so `card/[id]` and `board/[id]` overwrite each other.)
+      - name: Start the app's web target (Metro, development)
         run: |
-          pnpm --filter @card-sharing/mobile run build:web --dev
-          test -f apps/mobile/dist/index.html && test -f apps/mobile/dist/canvaskit.wasm
-          grep -rlq 'Disconnected from Metro' apps/mobile/dist/_expo/static/js/web/ || {
-            echo "::error::the web export is not a development build"
-            exit 1
-          }
+          node apps/mobile/scripts/copy-canvaskit.mjs
+          nohup pnpm --filter @card-sharing/mobile run start --port 8081 > e2e-logs/metro.log 2>&1 &
+          for _ in $(seq 1 90); do
+            curl -sf -H 'Accept: text/html' http://127.0.0.1:8081/ -o e2e-logs/index.html && break
+            sleep 1
+          done
+          bundle=$(grep -o 'src="/[^"]*\.bundle[^"]*"' e2e-logs/index.html | head -n 1 | cut -d'"' -f2 | sed 's/&amp;/\&/g')
+          test -n "$bundle" || { tail -n 100 e2e-logs/metro.log; exit 1; }
+          # Build the web bundle now (about 25 s) while Chromium installs.
+          nohup curl -sf "http://127.0.0.1:8081${bundle}" -o /dev/null > /dev/null 2>&1 &
       - name: Install Chromium (headless shell) for Playwright
         run: pnpm --filter @card-sharing/e2e-web run install-browser
       - name: Run the browser E2E suite
         run: pnpm --filter @card-sharing/e2e-web run e2e
-      - name: API and worker logs
+      - name: API, worker and Metro logs
         if: failure()
-        run: tail -n 300 e2e-logs/api.log e2e-logs/worker.log
+        run: tail -n 200 e2e-logs/api.log e2e-logs/worker.log e2e-logs/metro.log
       - name: Upload the Playwright report, traces and server logs
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
