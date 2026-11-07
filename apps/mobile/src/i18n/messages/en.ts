@@ -326,6 +326,8 @@ export const en = {
   'editor.tab.cut': 'Shape',
   'editor.tab.finish': 'Finish',
   'editor.tab.effects': 'Effects',
+  'editor.tab.stickers': 'Stickers',
+  'editor.tab.text': 'Text',
   'editor.effects.addAnother': 'Add another',
   'editor.effects.remove': 'Remove {name}',
   'editor.effects.replaced': '{name} replaced {replaced}',
@@ -334,6 +336,8 @@ export const en = {
   'editor.effects.surprise.hint': 'Adds a random effect to your card',
   'editor.effects.surprised': 'Added {name}',
   'editor.place.hint': 'Drag on the card to move it',
+  'editor.place.hintTransform':
+    'Drag to move it, pinch to resize, twist to rotate. It snaps to the middle.',
   'editor.place.body': 'Move',
   'editor.place.tail': 'Aim the tail',
   'editor.place.left': 'Move left',

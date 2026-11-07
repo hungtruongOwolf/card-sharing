@@ -403,6 +403,63 @@ describe('CardEditorScreen', () => {
   );
 
   it(
+    'opens stickers from the tool rail, pinches, twists and snaps the sticker to the middle (sprint 9)',
+    async () => {
+      const onDraftChange = jest.fn();
+      await renderEditor({ onDraftChange, loadFonts: async () => undefined });
+      const user = userEvent.setup();
+      await user.press(screen.getByRole('tab', { name: t('editor.tab.stickers') }));
+      // The Stickers tool lists sticker-tagged entries only.
+      expect(screen.queryByRole('button', { name: t('effects.fx.glossy.name') })).toBeNull();
+      await user.press(screen.getByRole('button', { name: t('effects.prop.crown.name') }));
+      const crown = () => onDraftChange.mock.lastCall[0].effects[0].params;
+      const placed = crown();
+
+      await act(async () => {
+        fireGestureHandler(getByGestureTestId('editor-pinch'), [
+          { state: State.BEGAN, scale: 1 },
+          { state: State.ACTIVE, scale: 1.2 },
+          { scale: 1.5 },
+          { state: State.END, scale: 1.5 },
+        ]);
+      });
+      expect(crown().size).toBeCloseTo(Math.min(1, placed.size * 1.5), 5);
+
+      await act(async () => {
+        fireGestureHandler(getByGestureTestId('editor-rotate'), [
+          { state: State.BEGAN, rotation: 0 },
+          { state: State.ACTIVE, rotation: 0.1 },
+          { rotation: Math.PI / 12 },
+          { state: State.END, rotation: Math.PI / 12 },
+        ]);
+      });
+      expect(crown().angle).toBeCloseTo(15, 5);
+
+      // Dragged away, then back to within a few points of the vertical centre line: it snaps onto it.
+      const preview = screen.getByTestId('editor-preview');
+      const { width } = StyleSheet.flatten(preview.props.style) as { width: number };
+      const drag = (dx: number) =>
+        act(async () => {
+          fireGestureHandler(getByGestureTestId('editor-place'), [
+            { state: State.BEGAN, translationX: 0, translationY: 0 },
+            { state: State.ACTIVE, translationX: 0, translationY: 0 },
+            { translationX: dx, translationY: 0 },
+            { state: State.END, translationX: dx, translationY: 0 },
+          ]);
+        });
+      await drag((0.5 - crown().x) * width + 40);
+      const away = crown().x;
+      expect(away).not.toBe(0.5);
+      await drag(-(away - 0.5) * width + 3);
+      expect(crown().x).toBe(0.5);
+      // Each gesture is one undo step.
+      await user.press(screen.getByRole('button', { name: t('editor.undo') }));
+      expect(crown().x).toBeCloseTo(away, 5);
+    },
+    RENDER_TIMEOUT_MS,
+  );
+
+  it(
     'places a speech bubble on the subject and lets the user drag it and aim its tail (T-119)',
     async () => {
       const onDraftChange = jest.fn();
@@ -418,7 +475,8 @@ describe('CardEditorScreen', () => {
       expect(placed.tailX).toBeCloseTo(0.5, 1);
       expect(placed.tailY).toBeGreaterThan(0.1);
       expect(placed.tailY).toBeLessThan(0.5);
-      expect(screen.getByText(t('editor.place.hint'))).toBeTruthy();
+      // A bubble can be resized too, so the hint mentions pinching.
+      expect(screen.getByText(t('editor.place.hintTransform'))).toBeTruthy();
 
       await act(async () => {
         fireGestureHandler(getByGestureTestId('editor-place'), [

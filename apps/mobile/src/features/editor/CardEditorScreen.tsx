@@ -1,6 +1,8 @@
 import { Canvas, createPicture, Picture, Skia, type SkImage } from '@shopify/react-native-skia';
 import { useEffect, useMemo, useReducer, useState } from 'react';
+import { StatusBar } from 'expo-status-bar';
 import {
+  ScrollView,
   StyleSheet,
   Switch,
   useWindowDimensions,
@@ -8,7 +10,14 @@ import {
   type AccessibilityActionEvent,
 } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { useSharedValue } from 'react-native-reanimated';
+import Animated, {
+  FadeIn,
+  FadeOut,
+  SlideInDown,
+  SlideOutDown,
+  useSharedValue,
+} from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { Mask } from '@card-sharing/canvas-engine';
 import {
@@ -20,26 +29,38 @@ import {
   type Registry,
   type RemoteRegistryConfig,
 } from '@card-sharing/effects-registry';
-import { space } from '@card-sharing/tokens';
+import {
+  gesture as gestureTokens,
+  onMedia,
+  palette,
+  radius,
+  space,
+  spring,
+} from '@card-sharing/tokens';
 
 import { t, type MessageKey } from '../../i18n';
 import type { TextFilterConfig } from '../../text';
-import { Button, Screen, Text, useTheme, useToast } from '../../ui';
+import { Button, IconButton, Screen, Text, useTheme, useToast, type IconName } from '../../ui';
 import type { CapturedPhoto } from '../capture';
 import { canShareImages, exportDraftPng, shareImage } from '../export';
 import {
   loadEffectFonts,
   MOVE_STEP,
   movePlacement,
+  NO_GUIDES,
   noAnchorProvider,
   pickSurprise,
   placeEffect,
   placementTargets,
+  resizeRotate,
   resolveAnchors,
+  snapToCentre,
   surpriseParams,
+  transformable,
   type AnchorProvider,
   type NativeAnchors,
   type PlacementTarget,
+  type SnapGuides,
 } from '../effects';
 import { CAPTION_MAX_GRAPHEMES, CaptionSheet } from '../captions';
 import { Squish } from '../feedback';
@@ -70,8 +91,38 @@ import {
 } from './pickerTabs';
 import { thumbSize, useTileThumbnails } from './tileThumbnails';
 
-const MAX_PREVIEW_WIDTH = 360;
-const MAX_PREVIEW_HEIGHT = 440;
+const MAX_PREVIEW_WIDTH = 420;
+/** Share of the window height the canvas may use (the rest: top bar, tray, Next). */
+const PREVIEW_HEIGHT_SHARE = 0.5;
+/** The editor is always night, like a camera: the card is the only colour on screen. */
+const STAGE = palette.night[950];
+
+/**
+ * The tool rail (sprint 9). Shape, finish and effects are the registry slots; Stickers and Text are views of the
+ * effects slot filtered by registry tag, so adding a sticker or a text style is a registry entry, never an editor
+ * change.
+ */
+interface Tool {
+  key: 'cut' | 'finish' | 'stickers' | 'text' | 'effects';
+  slot: PickerSlot;
+  icon: IconName;
+  labelKey: MessageKey;
+  /** Only entries with this tag (effects slot views). */
+  tag?: string;
+}
+const TOOLS: readonly Tool[] = [
+  { key: 'cut', slot: 'cut', icon: 'cut', labelKey: 'editor.tab.cut' },
+  { key: 'finish', slot: 'finish', icon: 'finish', labelKey: 'editor.tab.finish' },
+  {
+    key: 'stickers',
+    slot: 'effects',
+    icon: 'sticker',
+    labelKey: 'editor.tab.stickers',
+    tag: 'sticker',
+  },
+  { key: 'text', slot: 'effects', icon: 'text', labelKey: 'editor.tab.text', tag: 'text' },
+  { key: 'effects', slot: 'effects', icon: 'effects', labelKey: 'editor.tab.effects' },
+];
 /** Long side of the decoded photo kept for previews (covers a 360 pt preview at 3x). */
 const PREVIEW_PHOTO_MAX_SIDE = 1080;
 
@@ -211,11 +262,12 @@ function Editor({
   onDraftChange,
   onNext,
 }: EditorProps) {
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const size = previewSize(
     { width: image.width(), height: image.height() },
-    Math.min(windowWidth - space[4] * 2, MAX_PREVIEW_WIDTH),
-    MAX_PREVIEW_HEIGHT,
+    Math.min(windowWidth - space[16] * 2, MAX_PREVIEW_WIDTH),
+    Math.max(240, windowHeight * PREVIEW_HEIGHT_SHARE),
   );
   const subject = useMemo(() => (mask ? subjectFor(mask, size.width) : null), [mask, size.width]);
   const [history, dispatch] = useReducer(editorReducer, undefined, () => {
@@ -224,7 +276,9 @@ function Editor({
     const cut = defaultCut(tabs[0]?.entries ?? [], subject !== null);
     return initialHistory(cut ?? registry.byKind('cutStyle')[0]!);
   });
-  const [activeSlot, setActiveSlot] = useState<PickerSlot>('cut');
+  const [activeTool, setActiveTool] = useState<Tool['key']>('cut');
+  const [trayOpen, setTrayOpen] = useState(true);
+  const [guides, setGuides] = useState<SnapGuides>(NO_GUIDES);
   /** Index in `draft.effects` of the effect whose controls are shown. */
   const [focusedEffect, setFocusedEffect] = useState<number | null>(null);
   /** Which point of the focused effect a drag on the preview moves. */
@@ -232,7 +286,8 @@ function Editor({
   const dragStart = useSharedValue<Readonly<Record<string, ParamValue>> | null>(null);
   const [captionOpen, setCaptionOpen] = useState(false);
   const toast = useToast();
-  const { reducedMotion } = useTheme();
+  const theme = useTheme();
+  const { reducedMotion } = theme;
   const press = useSharedValue(0);
 
   const draft = history.present;
@@ -286,7 +341,24 @@ function Editor({
     [drawnKey, scene, registry, remoteConfig],
   );
 
-  const activeTab = tabs.find((tab) => tab.slot === activeSlot) ?? cutTab;
+  // Tools whose slot this device lists, and whose tag filter leaves at least one tile.
+  const tools = TOOLS.filter((tool) => {
+    const tab = tabs.find((candidate) => candidate.slot === tool.slot);
+    return tab && (!tool.tag || tab.tiles.some((tile) => tile.entry.tags.includes(tool.tag!)));
+  });
+  const tool = tools.find((candidate) => candidate.key === activeTool) ?? tools[0]!;
+  const activeTab = tabs.find((tab) => tab.slot === tool.slot) ?? cutTab;
+  const shownTiles = tool.tag
+    ? activeTab.tiles.filter((tile) => tile.entry.tags.includes(tool.tag!))
+    : activeTab.tiles;
+  const pickTool = (key: Tool['key']) => {
+    if (key === tool.key) {
+      setTrayOpen((open) => !open);
+      return;
+    }
+    setActiveTool(key);
+    setTrayOpen(true);
+  };
   const focused = effects.find(({ index }) => index === focusedEffect) ?? null;
   const active = activeTab.slot === 'cut' ? cut : activeTab.slot === 'finish' ? finish : focused;
   const isSelected = (entry: EffectEntry) =>
@@ -371,32 +443,76 @@ function Editor({
     transient: boolean,
   ) => {
     if (!focused || !target) return;
+    let params = movePlacement(focused.choice.params, target, start, dx, dy);
+    // The body snaps to the centre lines while dragging, with guides (gesture.snapDistance).
+    if (target === 'body' && transient) {
+      const snapped = snapToCentre(params, size, gestureTokens.snapDistance);
+      params = snapped.params;
+      setGuides(snapped.guides);
+    }
     dispatch({
       type: 'setEffectParams',
       index: focused.index,
       entry: focused.entry,
-      params: movePlacement(focused.choice.params, target, start, dx, dy),
+      params,
       transient,
     });
+  };
+  const canTransform = focused ? transformable(focused.entry) : { scale: false, rotate: false };
+  const transform = (change: { scale?: number; rotationDeg?: number }) => {
+    const start = dragStart.get();
+    if (!focused || !start) return;
+    dispatch({
+      type: 'setEffectParams',
+      index: focused.index,
+      entry: focused.entry,
+      params: resizeRotate(
+        focused.entry,
+        focused.choice.params,
+        start,
+        change,
+        gestureTokens.snapAngle,
+      ),
+      transient: true,
+    });
+  };
+  const beginGesture = () => {
+    if (!dragStart.get()) dragStart.set(focused?.choice.params ?? null);
+  };
+  const endGesture = () => {
+    dragStart.set(null);
+    setGuides(NO_GUIDES);
+    dispatch({ type: 'settle' });
   };
   // Drag on the preview moves the focused effect (or its tail): the manual placement fallback for anchors.
   const placeGesture = Gesture.Pan()
     .withTestId('editor-place')
     .enabled(target !== undefined)
     .runOnJS(true)
-    .onBegin(() => {
-      dragStart.set(focused?.choice.params ?? null);
-    })
+    .onBegin(beginGesture)
     .onUpdate((event) => {
       const start = dragStart.get();
       if (start) {
         place(event.translationX / size.width, event.translationY / size.height, start, true);
       }
     })
-    .onFinalize(() => {
-      dragStart.set(null);
-      dispatch({ type: 'settle' });
-    });
+    .onFinalize(endGesture);
+  // Pinch to resize and twist to rotate the focused layer, together with the drag.
+  const pinchGesture = Gesture.Pinch()
+    .withTestId('editor-pinch')
+    .enabled(canTransform.scale)
+    .runOnJS(true)
+    .onBegin(beginGesture)
+    .onUpdate((event) => transform({ scale: event.scale }))
+    .onFinalize(endGesture);
+  const rotateGesture = Gesture.Rotation()
+    .withTestId('editor-rotate')
+    .enabled(canTransform.rotate)
+    .runOnJS(true)
+    .onBegin(beginGesture)
+    .onUpdate((event) => transform({ rotationDeg: (event.rotation * 180) / Math.PI }))
+    .onFinalize(endGesture);
+  const canvasGesture = Gesture.Simultaneous(placeGesture, pinchGesture, rotateGesture);
   const placeActions = target
     ? (['left', 'right', 'up', 'down'] as const).map((name) => ({
         name: `move-${name}`,
@@ -430,62 +546,266 @@ function Editor({
         })
       : baseLabel;
 
+  const exportDraft = async () => {
+    if (!shown) return;
+    // The user's own draft, from the full-resolution photo at the export size (T-127).
+    const [full, fullMask] = await Promise.all([
+      loadImage(photo.uri).catch(() => null),
+      shown.wholePhoto ? null : maskSource.maskFor(photo).catch(() => null),
+      loadFonts().catch(() => undefined),
+    ]);
+    const png = full
+      ? exportDraftPng({ registry, draft: shown, photo: full, mask: fullMask })
+      : null;
+    if (!png || !(await shareExport(png).catch(() => false))) {
+      toast.show({ message: t('card.export.failed') });
+    }
+  };
+
   return (
-    <Screen title={t('editor.title')} testID="editor">
-      <View style={styles.row}>
-        <Button
-          label={t('editor.undo')}
-          variant="ghost"
+    <View testID="editor" style={[styles.root, { backgroundColor: STAGE }]}>
+      <StatusBar style="light" />
+      <View style={[styles.topBar, { paddingTop: Math.max(insets.top, space[2]) }]}>
+        <Text variant="title.md" tone="onMedia" accessibilityRole="header" style={styles.title}>
+          {t('editor.title')}
+        </Text>
+        <IconButton
+          icon="undo"
+          accessibilityLabel={t('editor.undo')}
           disabled={!canUndo(history)}
           onPress={() => dispatch({ type: 'undo' })}
         />
-        <Button
-          label={t('editor.redo')}
-          variant="ghost"
+        <IconButton
+          icon="redo"
+          accessibilityLabel={t('editor.redo')}
           disabled={!canRedo(history)}
           onPress={() => dispatch({ type: 'redo' })}
         />
+        {shown && canShareImages() ? (
+          <IconButton
+            icon="download"
+            accessibilityLabel={t('card.export')}
+            accessibilityHint={t('card.export.hint')}
+            onPress={exportDraft}
+          />
+        ) : null}
       </View>
-      <Squish style={styles.center} press={press} gestureTestId="editor-squish">
-        <GestureDetector gesture={placeGesture}>
-          <View
-            style={[styles.preview, size]}
-            accessible
-            accessibilityRole="image"
-            accessibilityLabel={previewLabel}
-            accessibilityHint={target ? t('editor.place.hint') : undefined}
-            accessibilityActions={placeActions}
-            onAccessibilityAction={onPlaceAction}
-            testID="editor-preview"
+      <View style={styles.stage}>
+        <Squish style={styles.center} press={press} gestureTestId="editor-squish">
+          <GestureDetector gesture={canvasGesture}>
+            <View
+              style={[styles.preview, size, { boxShadow: theme.shadow(3) }]}
+              accessible
+              accessibilityRole="image"
+              accessibilityLabel={previewLabel}
+              accessibilityHint={target ? t('editor.place.hint') : undefined}
+              accessibilityActions={placeActions}
+              onAccessibilityAction={onPlaceAction}
+              testID="editor-preview"
+            >
+              {picture && liveFinish ? (
+                <LiveFinishPreview
+                  card={{ picture }}
+                  width={size.width}
+                  height={size.height}
+                  intensity={Number(liveFinish.params.intensity ?? 1)}
+                  press={press}
+                />
+              ) : picture ? (
+                <Canvas style={size}>
+                  <Picture picture={picture} />
+                </Canvas>
+              ) : (
+                <Text tone="onMediaMuted">{t('editor.unavailable')}</Text>
+              )}
+              {guides.vertical ? (
+                <View pointerEvents="none" testID="editor-guide-vertical" style={styles.guideV} />
+              ) : null}
+              {guides.horizontal ? (
+                <View pointerEvents="none" testID="editor-guide-horizontal" style={styles.guideH} />
+              ) : null}
+            </View>
+          </GestureDetector>
+        </Squish>
+        {draft.caption ? (
+          <Text variant="hand.md" tone="onMedia" style={styles.caption} testID="editor-caption">
+            {draft.caption}
+          </Text>
+        ) : null}
+        <View style={styles.rail} accessibilityRole="tablist">
+          {tools.map((candidate) => (
+            <IconButton
+              key={candidate.key}
+              icon={candidate.icon}
+              accessibilityRole="tab"
+              accessibilityLabel={t(candidate.labelKey)}
+              selected={candidate.key === tool.key && trayOpen}
+              onPress={() => pickTool(candidate.key)}
+            />
+          ))}
+        </View>
+      </View>
+      {trayOpen ? (
+        <Animated.View
+          testID="editor-tray"
+          entering={
+            theme.reducedMotion
+              ? FadeIn
+              : SlideInDown.springify()
+                  .damping(spring.sheet.damping)
+                  .stiffness(spring.sheet.stiffness)
+                  .mass(spring.sheet.mass)
+          }
+          exiting={theme.reducedMotion ? FadeOut : SlideOutDown}
+          style={[
+            styles.tray,
+            { backgroundColor: theme.color.bg.paper, boxShadow: theme.shadow(4) },
+          ]}
+        >
+          <View style={[styles.grabber, { backgroundColor: theme.hairline }]} />
+          <ScrollView
+            style={styles.trayScroll}
+            contentContainerStyle={styles.trayContent}
+            keyboardShouldPersistTaps="handled"
           >
-            {picture && liveFinish ? (
-              <LiveFinishPreview
-                card={{ picture }}
-                width={size.width}
-                height={size.height}
-                intensity={Number(liveFinish.params.intensity ?? 1)}
-                press={press}
+            <Text variant="title.md" accessibilityRole="header">
+              {t(tool.labelKey)}
+            </Text>
+            {tool.slot === 'cut' ? (
+              subject ? (
+                <View style={styles.row}>
+                  <Text style={styles.shrink}>{t('editor.wholePhoto')}</Text>
+                  <Switch
+                    accessibilityLabel={t('editor.wholePhoto')}
+                    accessibilityHint={t('editor.wholePhoto.hint')}
+                    value={draft.wholePhoto}
+                    onValueChange={(value) => dispatch({ type: 'setWholePhoto', value })}
+                  />
+                </View>
+              ) : (
+                <Text tone="muted">{t('editor.noSubject')}</Text>
+              )
+            ) : null}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.tiles}
+            >
+              {tool.key === 'effects' ? (
+                <Button
+                  label={t('editor.effects.surprise')}
+                  variant="secondary"
+                  accessibilityHint={t('editor.effects.surprise.hint')}
+                  onPress={surprise}
+                />
+              ) : null}
+              {tool.slot === 'finish' ? (
+                <Button
+                  label={t('editor.finish.none')}
+                  variant={active ? 'secondary' : 'primary'}
+                  accessibilityState={{ selected: !active }}
+                  onPress={() => select(null)}
+                />
+              ) : null}
+              {shownTiles.map((tile) => (
+                <EffectTile
+                  key={tile.entry.id}
+                  tile={tile}
+                  selected={isSelected(tile.entry)}
+                  thumbnail={thumbnails[tile.entry.id]}
+                  size={tileSize}
+                  onPress={() => pressTile(tile)}
+                />
+              ))}
+            </ScrollView>
+            {active?.entry.presets?.length ? (
+              <View style={styles.row}>
+                {active.entry.presets.map((preset) => (
+                  <Button
+                    key={preset.id}
+                    label={t(preset.name as MessageKey)}
+                    variant="ghost"
+                    onPress={() =>
+                      setParams(active.entry, { ...active.choice.params, ...preset.params })
+                    }
+                  />
+                ))}
+              </View>
+            ) : null}
+            {activeTab.slot === 'effects' && focused ? (
+              <View style={styles.row}>
+                <Text variant="label.lg" style={styles.shrink}>
+                  {t(focused.entry.name as MessageKey)}
+                </Text>
+                {focused.entry.stackable && draft.effects.length < MAX_EFFECTS ? (
+                  <Button
+                    label={t('editor.effects.addAnother')}
+                    variant="secondary"
+                    onPress={() => pickEffect(focused.entry, true)}
+                  />
+                ) : null}
+                <Button
+                  label={t('editor.effects.remove', { name: t(focused.entry.name as MessageKey) })}
+                  variant="ghost"
+                  onPress={() => {
+                    dispatch({ type: 'removeEffect', index: focused.index });
+                    setFocusedEffect(null);
+                  }}
+                />
+              </View>
+            ) : null}
+            {targets.length > 1 ? (
+              <View style={styles.row} accessibilityRole="radiogroup">
+                {targets.map((option) => (
+                  <Button
+                    key={option}
+                    label={t(option === 'tail' ? 'editor.place.tail' : 'editor.place.body')}
+                    variant={option === target ? 'primary' : 'secondary'}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: option === target }}
+                    onPress={() => setPlaceTarget(option)}
+                  />
+                ))}
+              </View>
+            ) : null}
+            {target ? (
+              <Text tone="muted">
+                {canTransform.scale || canTransform.rotate
+                  ? t('editor.place.hintTransform')
+                  : t('editor.place.hint')}
+              </Text>
+            ) : null}
+            {active ? (
+              <ParamControls
+                entry={active.entry}
+                params={active.choice.params}
+                onChange={(params, transient) => setParams(active.entry, params, transient)}
+                onSettle={() => dispatch({ type: 'settle' })}
               />
-            ) : picture ? (
-              <Canvas style={size}>
-                <Picture picture={picture} />
-              </Canvas>
-            ) : (
-              <Text tone="muted">{t('editor.unavailable')}</Text>
-            )}
-          </View>
-        </GestureDetector>
-      </Squish>
-      {draft.caption ? (
-        <Text variant="hand.md" style={styles.caption} testID="editor-caption">
-          {draft.caption}
-        </Text>
+            ) : null}
+          </ScrollView>
+        </Animated.View>
       ) : null}
-      <Button
-        label={t(draft.caption ? 'editor.caption.edit' : 'editor.caption.add')}
-        variant="secondary"
-        onPress={() => setCaptionOpen(true)}
-      />
+      <View
+        style={[
+          styles.bottomBar,
+          {
+            backgroundColor: theme.color.bg.paper,
+            paddingBottom: Math.max(insets.bottom, space[3]),
+          },
+        ]}
+      >
+        <Button
+          label={t(draft.caption ? 'editor.caption.edit' : 'editor.caption.add')}
+          variant="secondary"
+          onPress={() => setCaptionOpen(true)}
+        />
+        {onNext && shown ? (
+          <View style={styles.grow}>
+            <Button block label={t('editor.next')} onPress={() => onNext(shown)} />
+          </View>
+        ) : null}
+      </View>
       <CaptionSheet
         visible={captionOpen}
         caption={draft.caption}
@@ -494,140 +814,7 @@ function Editor({
         onSave={(text) => dispatch({ type: 'setCaption', text })}
         onClose={() => setCaptionOpen(false)}
       />
-      {subject ? (
-        <View style={styles.row}>
-          <Text style={styles.shrink}>{t('editor.wholePhoto')}</Text>
-          <Switch
-            accessibilityLabel={t('editor.wholePhoto')}
-            accessibilityHint={t('editor.wholePhoto.hint')}
-            value={draft.wholePhoto}
-            onValueChange={(value) => dispatch({ type: 'setWholePhoto', value })}
-          />
-        </View>
-      ) : (
-        <Text tone="muted">{t('editor.noSubject')}</Text>
-      )}
-      <View style={styles.row} accessibilityRole="tablist">
-        {tabs.map((tab) => (
-          <Button
-            key={tab.slot}
-            label={t(tab.labelKey)}
-            variant={tab.slot === activeTab.slot ? 'primary' : 'secondary'}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: tab.slot === activeTab.slot }}
-            onPress={() => setActiveSlot(tab.slot)}
-          />
-        ))}
-      </View>
-      <View style={styles.row}>
-        {activeTab.slot === 'effects' ? (
-          <Button
-            label={t('editor.effects.surprise')}
-            variant="secondary"
-            accessibilityHint={t('editor.effects.surprise.hint')}
-            onPress={surprise}
-          />
-        ) : null}
-        {activeTab.slot === 'finish' ? (
-          <Button
-            label={t('editor.finish.none')}
-            variant={active ? 'secondary' : 'primary'}
-            accessibilityState={{ selected: !active }}
-            onPress={() => select(null)}
-          />
-        ) : null}
-        {activeTab.tiles.map((tile) => (
-          <EffectTile
-            key={tile.entry.id}
-            tile={tile}
-            selected={isSelected(tile.entry)}
-            thumbnail={thumbnails[tile.entry.id]}
-            size={tileSize}
-            onPress={() => pressTile(tile)}
-          />
-        ))}
-      </View>
-      {active?.entry.presets?.length ? (
-        <View style={styles.row}>
-          {active.entry.presets.map((preset) => (
-            <Button
-              key={preset.id}
-              label={t(preset.name as MessageKey)}
-              variant="ghost"
-              onPress={() => setParams(active.entry, { ...active.choice.params, ...preset.params })}
-            />
-          ))}
-        </View>
-      ) : null}
-      {activeTab.slot === 'effects' && focused ? (
-        <View style={styles.row}>
-          <Text style={styles.shrink}>{t(focused.entry.name as MessageKey)}</Text>
-          {focused.entry.stackable && draft.effects.length < MAX_EFFECTS ? (
-            <Button
-              label={t('editor.effects.addAnother')}
-              variant="secondary"
-              onPress={() => pickEffect(focused.entry, true)}
-            />
-          ) : null}
-          <Button
-            label={t('editor.effects.remove', { name: t(focused.entry.name as MessageKey) })}
-            variant="ghost"
-            onPress={() => {
-              dispatch({ type: 'removeEffect', index: focused.index });
-              setFocusedEffect(null);
-            }}
-          />
-        </View>
-      ) : null}
-      {targets.length > 1 ? (
-        <View style={styles.row} accessibilityRole="radiogroup">
-          {targets.map((option) => (
-            <Button
-              key={option}
-              label={t(option === 'tail' ? 'editor.place.tail' : 'editor.place.body')}
-              variant={option === target ? 'primary' : 'secondary'}
-              accessibilityRole="radio"
-              accessibilityState={{ checked: option === target }}
-              onPress={() => setPlaceTarget(option)}
-            />
-          ))}
-        </View>
-      ) : null}
-      {target ? <Text tone="muted">{t('editor.place.hint')}</Text> : null}
-      {active ? (
-        <ParamControls
-          entry={active.entry}
-          params={active.choice.params}
-          onChange={(params, transient) => setParams(active.entry, params, transient)}
-          onSettle={() => dispatch({ type: 'settle' })}
-        />
-      ) : null}
-      {onNext && shown ? (
-        <Button block label={t('editor.next')} onPress={() => onNext(shown)} />
-      ) : null}
-      {shown && canShareImages() ? (
-        <Button
-          block
-          variant="ghost"
-          label={t('card.export')}
-          accessibilityHint={t('card.export.hint')}
-          onPress={async () => {
-            // The user's own draft, from the full-resolution photo at the export size (T-127).
-            const [full, fullMask] = await Promise.all([
-              loadImage(photo.uri).catch(() => null),
-              shown.wholePhoto ? null : maskSource.maskFor(photo).catch(() => null),
-              loadFonts().catch(() => undefined),
-            ]);
-            const png = full
-              ? exportDraftPng({ registry, draft: shown, photo: full, mask: fullMask })
-              : null;
-            if (!png || !(await shareExport(png).catch(() => false))) {
-              toast.show({ message: t('card.export.failed') });
-            }
-          }}
-        />
-      ) : null}
-    </Screen>
+    </View>
   );
 }
 
@@ -640,15 +827,71 @@ function listedEffects(tab: PickerTab | undefined, choices: readonly StyleChoice
 }
 
 const styles = StyleSheet.create({
+  root: { flex: 1 },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[2],
+    paddingHorizontal: space[3],
+    paddingBottom: space[2],
+  },
+  title: { flex: 1 },
+  stage: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   center: { alignSelf: 'center' },
-  preview: { alignSelf: 'center', alignItems: 'center', justifyContent: 'center' },
+  preview: {
+    alignSelf: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.md,
+  },
+  guideV: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    start: '50%',
+    width: 1,
+    backgroundColor: onMedia.ink,
+  },
+  guideH: {
+    position: 'absolute',
+    start: 0,
+    end: 0,
+    top: '50%',
+    height: 1,
+    backgroundColor: onMedia.ink,
+  },
+  caption: { alignSelf: 'center', textAlign: 'center', marginTop: space[2] },
+  rail: {
+    position: 'absolute',
+    end: space[3],
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    gap: space[3],
+  },
+  tray: {
+    borderTopStartRadius: radius.xl,
+    borderTopEndRadius: radius.xl,
+    paddingTop: space[2],
+    maxHeight: '42%',
+  },
+  grabber: { alignSelf: 'center', width: 36, height: 4, borderRadius: radius.full },
+  trayScroll: { flexGrow: 0 },
+  trayContent: { gap: space[3], paddingHorizontal: space[4], paddingVertical: space[2] },
+  tiles: { gap: space[2], alignItems: 'flex-start', paddingVertical: space[1] },
   row: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'center',
     alignItems: 'center',
     gap: space[2],
   },
   shrink: { flexShrink: 1 },
-  caption: { alignSelf: 'center', textAlign: 'center' },
+  bottomBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[3],
+    paddingHorizontal: space[4],
+    paddingTop: space[3],
+  },
+  grow: { flex: 1 },
 });

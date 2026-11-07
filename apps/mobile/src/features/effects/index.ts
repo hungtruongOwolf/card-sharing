@@ -28,7 +28,17 @@ export {
   setMemeTypeface,
   type FontLoader,
 } from './effectFonts';
-export { MOVE_STEP, movePlacement, placementTargets, type PlacementTarget } from './placement';
+export {
+  MOVE_STEP,
+  movePlacement,
+  NO_GUIDES,
+  placementTargets,
+  resizeRotate,
+  snapToCentre,
+  transformable,
+  type PlacementTarget,
+  type SnapGuides,
+} from './placement';
 export { speechText } from './renderers/speech';
 export { inkOn, stickerText } from './renderers/textSticker';
 export { pickSurprise, surpriseParams } from './surprise';
