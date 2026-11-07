@@ -372,3 +372,10 @@ New bugs from the E2E suite: V1 (story viewer picture has no width on web), W1 (
 and #406 (V1) merged after CI (including the browser E2E job with every former fixme spec enabled) was green on each
 head commit. EM confirmed invite links open the web app ([[ADR-0011-invite-links-open-web-app]] accepted) and made
 "Web E2E (Playwright)" a required check on main. Open: B2 in a real browser, phase 2 sign-up. See [[sprint-10]].
+
+## [2026-11-07] progress | sprint 10 phase 2 (real sign-up) merged
+The stacked phase-2 PRs landed through a rebase merge of #411 (CI green on its head, every commit kept on main;
+#407-#410 closed as landed): magic-link verify T-23 (#407), invite-code gate with `api invites` (#408), web email
+sign-in with the `/auth/link` landing (#409), magic-link re-auth unblocking delete account / data export (#410),
+Google Sign-In on the web behind config (#411). [[ADR-0012-web-sign-up]] proposed, awaiting the EM. Open: real mail
+provider, an https origin for Google on the LAN, native Universal/App Links (T-49). See [[sprint-10]].
