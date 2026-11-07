@@ -2,7 +2,12 @@ import { AuthError } from '../../auth';
 import { pkceChallenge } from '../../auth/pkce';
 import { FakeAuthServer } from '../../../test/fakeAuthServer';
 import { memoryKeyValue, testRandom } from '../../../test/onboardingHarness';
-import { captureLaunchLink, capturedLaunchLink, resetLaunchLinkForTests } from '../launchLink';
+import {
+  captureLaunchLink,
+  capturedLaunchLink,
+  resetLaunchLinkForTests,
+  stripLaunchLinkFragment,
+} from '../launchLink';
 import {
   createMagicLinkSignIn,
   isPlausibleEmail,
@@ -218,6 +223,18 @@ describe('captureLaunchLink', () => {
     );
     expect(capturedLaunchLink()).toEqual({ requestId: RID, token: TOKEN });
     expect(history.replaceState).toHaveBeenCalledWith({ router: 1 }, '', '/auth/link');
+  });
+
+  it('strips the fragment again once the landing screen is up', () => {
+    const history = { state: 1, replaceState: jest.fn() };
+    stripLaunchLinkFragment(
+      { pathname: '/auth/link', search: '?a=1', hash: `#token=${TOKEN}` },
+      history,
+    );
+    expect(history.replaceState).toHaveBeenCalledWith(1, '', '/auth/link?a=1');
+    stripLaunchLinkFragment({ pathname: '/auth/link', search: '', hash: '' }, history);
+    stripLaunchLinkFragment({ pathname: '/', search: '', hash: `#token=${TOKEN}` }, history);
+    expect(history.replaceState).toHaveBeenCalledTimes(1);
   });
 
   it('ignores other routes and malformed fragments', () => {

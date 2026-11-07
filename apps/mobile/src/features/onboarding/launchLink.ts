@@ -42,6 +42,24 @@ export function captureLaunchLink(
   }
 }
 
+/**
+ * Web: removes a magic link's fragment from the address bar again. The router may write the URL it started with back
+ * after the start-up capture, so the landing screen calls this once it is mounted.
+ */
+export function stripLaunchLinkFragment(
+  location: LocationLike | undefined = (globalThis as { location?: LocationLike }).location,
+  history: HistoryLike | undefined = (globalThis as { history?: HistoryLike }).history,
+): void {
+  if (!location || !MAGIC_LINK_PATH.test(location.pathname) || !location.hash.includes('token=')) {
+    return;
+  }
+  try {
+    history?.replaceState(history.state, '', `${location.pathname}${location.search}`);
+  } catch {
+    // The token stays in the address bar; the link is single use anyway.
+  }
+}
+
 /** The magic link the app was started with on the web, if any. */
 export function capturedLaunchLink(): LinkFragment | null {
   return launchLink;
@@ -67,7 +85,11 @@ export function useMagicLinkFragment(): LinkFragment | null | undefined {
     Platform.OS === 'web' ? capturedLaunchLink() : undefined,
   );
   useEffect(() => {
-    if (Platform.OS === 'web') return;
+    if (Platform.OS === 'web') {
+      // After the router's first URL sync, which may have written the fragment back.
+      const timer = setTimeout(() => stripLaunchLinkFragment(), 0);
+      return () => clearTimeout(timer);
+    }
     let cancelled = false;
     void Linking.getInitialURL()
       .then((url) => {
