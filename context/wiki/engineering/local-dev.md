@@ -2,9 +2,9 @@
 title: Local dev stack and demo runbook
 type: guide
 status: accepted
-updated: 2026-11-06
+updated: 2026-11-07
 sources: []
-related: [[conventions]], [[ADR-0008-hosting]], [[testing-strategy]], [[data-model]], [[api-mvp]]
+related: [[conventions]], [[ADR-0009-app-on-web]], [[ADR-0008-hosting]], [[testing-strategy]], [[data-model]], [[api-mvp]]
 ---
 # Local dev stack and demo runbook
 **TL;DR:** `pnpm infra:up` starts Postgres, Valkey, MinIO and Mailpit; `pnpm dev:seed` applies the
@@ -130,6 +130,15 @@ only the native modules bundled in it: the app pins exactly the versions from `e
 keep them in sync with `pnpm --filter @card-sharing/mobile deps:check`. When the store Expo Go moves to a newer SDK, or
 the app needs a native module Expo Go lacks, a development build (`eas build --profile development`, needs the Apple
 Developer account) is required to run the app on the iPhone.
+
+### In a browser (web target, [[ADR-0009-app-on-web]])
+The Expo app also runs in a browser at phone size; web is a preview target, not a launch target.
+1. `pnpm --filter @card-sharing/mobile web` copies CanvasKit (React Native Skia's WASM, ~8 MB, self-hosted from
+   `node_modules`) into `apps/mobile/public/` and starts Metro for web on `http://localhost:8081`.
+2. On a desktop-width window (600 px or wider) the page shows the app in a centred 430 x 932 phone frame (an iframe of
+   the same URL, `src/platform/web/phoneFrame.ts`); on a phone browser, or a narrow window, it runs full screen.
+3. `pnpm --filter @card-sharing/mobile build:web` writes a static single-page export to `apps/mobile/dist/` (CI job
+   "JS mobile web export" runs it on every PR). Any static host works if unknown paths fall back to `index.html`.
 
 ## Staff (moderation) sign-in, server only (T-144)
 There is no admin console yet. To try the staff API locally: sign a seed user in (above), note its id, then

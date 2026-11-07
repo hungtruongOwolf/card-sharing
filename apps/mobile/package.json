@@ -2,17 +2,20 @@
   "name": "@card-sharing/mobile",
   "version": "0.0.0",
   "private": true,
-  "main": "expo-router/entry",
+  "main": "index",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
+    "web": "node scripts/copy-canvaskit.mjs && expo start --web",
+    "build:web": "node scripts/copy-canvaskit.mjs && expo export -p web",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "deps:check": "expo install --check",
     "test": "jest"
   },
   "dependencies": {
+    "@expo/metro-runtime": "~58.0.17",
     "@react-native-community/netinfo": "12.0.1",
     "@shopify/react-native-skia": "2.14.0",
     "@tanstack/react-query": "5.104.5",
@@ -31,11 +34,13 @@
     "expo-sqlite": "~58.0.15",
     "expo-status-bar": "~58.0.4",
     "react": "19.3.0",
+    "react-dom": "19.3.0",
     "react-native": "0.88.1",
     "react-native-gesture-handler": "~3.3.0",
     "react-native-reanimated": "4.7.1",
     "react-native-safe-area-context": "~5.11.1",
     "react-native-screens": "~4.30.1",
+    "react-native-web": "~0.21.4",
     "react-native-worklets": "0.13.0"
   },
   "devDependencies": {
