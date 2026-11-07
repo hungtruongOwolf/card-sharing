@@ -1,4 +1,4 @@
-import * as SecureStore from 'expo-secure-store';
+import * as SecureStore from '../../platform/secureStore';
 
 import {
   MAX_EFFECTS,
@@ -195,7 +195,7 @@ const isIsoDate = (value: unknown): value is string =>
 
 /**
  * Reads a stored record defensively (storage is outside the type system; a downgrade or corruption must not crash
- * the tray). The photo must still be an app-private `file://` URI; params are clamped later by the renderers.
+ * the tray). The photo must still be a photo the app holds (`parseEditorPhoto`); params are clamped later by the renderers.
  */
 export function parseLocalCard(raw: string | null, expectedId?: string): LocalCard | null {
   if (!raw) return null;

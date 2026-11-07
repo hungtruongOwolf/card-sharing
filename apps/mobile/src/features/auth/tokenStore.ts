@@ -1,4 +1,4 @@
-import * as SecureStore from 'expo-secure-store';
+import * as SecureStore from '../../platform/secureStore';
 
 import { parseStoredSession, serializeSession, type Session } from './session';
 

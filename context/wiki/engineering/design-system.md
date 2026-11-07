@@ -2,7 +2,7 @@
 title: Design System (foundation)
 type: guide
 status: draft
-updated: 2026-11-06
+updated: 2026-11-07
 sources: [raw/discussions/2026-11-04-prd-design-qa.md, raw/discussions/2026-11-04-idea-round-1.md, raw/discussions/2026-11-04-idea-round-3.md, raw/research/2026-11-04-frontend-stack.md, raw/research/2026-11-04-subject-cutout.md, raw/research/2026-11-04-zero-download-ai.md, raw/research/2026-11-04-boop-teardown.md]
 related: [[vision]], [[competitors]], [[effects-catalog]], [[ADR-0002-cross-platform-stack]], [[ADR-0003-effects-tiers]], [[subject-cutout]], [[change-management]], [[glossary]]
 ---
@@ -112,8 +112,11 @@ opsz 36, DM Sans opsz 14). Anton and DM Mono are static upstream and copied unch
 - **Fallback:** `apps/mobile/src/ui/theme/fonts.ts` (`fontStyleFor`) is the single switch. It uses a face only when
   `getLoadedFonts()` reports it; otherwise (Expo Go, a binary built before the fonts) text renders in the platform font
   with the token weight. A unit test fails if a type token has no bundled face or a face is missing from `app.json` or
-  lacks its `OFL.txt`. Adding a weight: add it to `instance_fonts.py` (or copy the static file), `BRAND_FACES` and the
-  plugin list together.
+  lacks its `OFL.txt`. Adding a weight: add it to `instance_fonts.py` (or copy the static file), `BRAND_FACES`, the
+  plugin list and `BRAND_FONT_FILES` together.
+- **Web target** ([[ADR-0009-app-on-web]]): there is no config plugin in a browser, so the web entry downloads the same
+  files with `expo-font` `loadAsync` (`apps/mobile/src/platform/web/brandFonts.ts`) before the app renders; a test
+  keeps that list equal to `BRAND_FACES` and `app.json`. A failed download falls back to the platform font.
 
 ### 3.3 Spacing (4 pt grid)
 | Token | `space.0` | `.1` | `.2` | `.3` | `.4` | `.5` | `.6` | `.8` | `.10` | `.12` | `.16` |
