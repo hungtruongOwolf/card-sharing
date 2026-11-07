@@ -2,7 +2,7 @@ import { getLoadedFonts } from 'expo-font';
 
 import { type as typeTokens, type TypeStyle } from '@card-sharing/tokens';
 
-import { BRAND_FACES, fontStyleFor, resetFontCacheForTests } from '../theme/fonts';
+import { BRAND_FACES, fontStyleFor, loadBrandFonts, resetFontCacheForTests } from '../theme/fonts';
 
 // Node built-ins without @types/node in the app (the app itself never runs on Node).
 declare const __dirname: string;
@@ -75,5 +75,24 @@ describe('bundled faces stay in sync (change-impact guard)', () => {
       expect(fs.existsSync(abs)).toBe(true);
       expect(fs.existsSync(path.join(path.dirname(abs), 'OFL.txt'))).toBe(true);
     }
+  });
+});
+
+describe('runtime font loading (Expo Go, web)', () => {
+  it('loads them once and never rejects', async () => {
+    const load = jest.fn(() => Promise.resolve());
+    await expect(loadBrandFonts(load)).resolves.toBe(true);
+    expect(load).toHaveBeenCalledWith(
+      expect.objectContaining({ 'Anton-Regular': expect.anything() }),
+    );
+    await expect(loadBrandFonts(() => Promise.reject(new Error('no fonts')))).resolves.toBe(false);
+  });
+
+  it('forgets the cached font list after loading, so new faces are picked up', async () => {
+    mockedLoaded.mockReturnValueOnce(['SomeSystemFont']);
+    expect(fontStyleFor('display', '700')).toEqual({ fontWeight: '700' });
+    await loadBrandFonts(() => Promise.resolve());
+    mockedLoaded.mockReturnValueOnce(['SomeSystemFont', 'BricolageGrotesque-Bold']);
+    expect(fontStyleFor('display', '700')).toEqual({ fontFamily: 'BricolageGrotesque-Bold' });
   });
 });

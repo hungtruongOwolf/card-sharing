@@ -3,14 +3,14 @@
 exports[`golden signatures on the dark canvas matches for the sticker shadow and the polaroid variants 1`] = `
 {
   "paperLift": [
-    "1a1512ff 1a1512ff 1a1512ff 3366ccff 3366ccff 1a1512ff 1a1512ff 1a1512ff",
-    "1a1512ff 1a1512ff c6c5c5ff 3366ccff 3366ccff 181311ff 1a1512ff 1a1512ff",
-    "1a1512ff 1a1512ff e7edf9ff 3366ccff 3366ccff fcfdfeff 1a1512ff 1a1512ff",
-    "1a1512ff 1a1512ff e5ebf8ff 3366ccff 3366ccff fdfdfeff 1a1512ff 1a1512ff",
-    "1a1512ff 1a1512ff ffffffff 3366ccff 3366ccff 494644ff 1a1512ff 1a1512ff",
-    "1a1512ff 1a1512ff 1a1512ff 3366ccff 3366ccff 1a1512ff 1a1512ff 1a1512ff",
-    "1a1512ff 1a1512ff 1a1512ff 191411ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff",
-    "1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff 1a1512ff",
+    "0d0a12ff 0d0a12ff 0d0a12ff 3366ccff 3366ccff 0d0a12ff 0d0a12ff 0d0a12ff",
+    "0d0a12ff 0d0a12ff c4c3c5ff 3366ccff 3366ccff 0c0911ff 0d0a12ff 0d0a12ff",
+    "0d0a12ff 0d0a12ff e7edf9ff 3366ccff 3366ccff fcfdfeff 0d0a12ff 0d0a12ff",
+    "0d0a12ff 0d0a12ff e5ebf8ff 3366ccff 3366ccff fdfdfeff 0d0a12ff 0d0a12ff",
+    "0d0a12ff 0d0a12ff ffffffff 3366ccff 3366ccff 413f44ff 0d0a12ff 0d0a12ff",
+    "0d0a12ff 0d0a12ff 0d0a12ff 3366ccff 3366ccff 0d0a12ff 0d0a12ff 0d0a12ff",
+    "0d0a12ff 0d0a12ff 0d0a12ff 0d0a11ff 0d0a12ff 0d0a12ff 0d0a12ff 0d0a12ff",
+    "0d0a12ff 0d0a12ff 0d0a12ff 0d0a12ff 0d0a12ff 0d0a12ff 0d0a12ff 0d0a12ff",
   ],
   "polaroid": [
     "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff efefeeff",
@@ -38,14 +38,14 @@ exports[`golden signatures on the dark canvas matches for the sticker shadow and
 exports[`golden signatures on the light canvas matches for the sticker shadow and the polaroid variants 1`] = `
 {
   "paperLift": [
-    "f6efe3ff f6efe3ff f6efe3ff 3366ccff 3366ccff f6efe3ff f6efe3ff f6efe3ff",
-    "f6efe3ff f6efe3ff f4f2f0ff 3366ccff 3366ccff e3ddd2ff f6efe3ff f6efe3ff",
-    "f6efe3ff f6efe3ff e7edf9ff 3366ccff 3366ccff fcfdfeff f6efe3ff f6efe3ff",
-    "f6efe3ff f6efe3ff e5ebf8ff 3366ccff 3366ccff fdfdfeff f6efe3ff f6efe3ff",
-    "f6efe3ff f6efe3ff ffffffff 3366ccff 3366ccff dcd7cfff f6efe3ff f6efe3ff",
-    "f6efe3ff f6efe3ff f5eee2ff 3366ccff 3366ccff f6efe3ff f6efe3ff f6efe3ff",
-    "f6efe3ff f6efe3ff f6efe3ff ede6dbff f1ebdfff f6efe3ff f6efe3ff f6efe3ff",
-    "f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff f6efe3ff",
+    "fff7f3ff fff7f3ff fff7f3ff 3366ccff 3366ccff fff7f3ff fff7f3ff fff7f3ff",
+    "fff7f3ff fff7f3ff f6f4f3ff 3366ccff 3366ccff ece4e1ff fff7f3ff fff7f3ff",
+    "fff7f3ff fff7f3ff e7edf9ff 3366ccff 3366ccff fcfdfeff fff7f3ff fff7f3ff",
+    "fff7f3ff fff7f3ff e5ebf8ff 3366ccff 3366ccff fdfdfeff fff7f3ff fff7f3ff",
+    "fff7f3ff fff7f3ff ffffffff 3366ccff 3366ccff e1dddaff fff7f3ff fff7f3ff",
+    "fff7f3ff fff7f3ff fef6f2ff 3366ccff 3366ccff fff7f3ff fff7f3ff fff7f3ff",
+    "fff7f3ff fff7f3ff fff7f3ff f6eeeaff faf2eeff fff7f3ff fff7f3ff fff7f3ff",
+    "fff7f3ff fff7f3ff fff7f3ff fff7f3ff fff7f3ff fff7f3ff fff7f3ff fff7f3ff",
   ],
   "polaroid": [
     "3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff 3366ccff efefeeff",

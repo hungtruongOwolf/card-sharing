@@ -1,11 +1,22 @@
 import { Text as RNText, type TextProps } from 'react-native';
 
-import { typeStyle, type SemanticColors, type TypeVariant } from '@card-sharing/tokens';
+import { onMedia, typeStyle, type SemanticColors, type TypeVariant } from '@card-sharing/tokens';
 
 import { fontStyleFor } from './theme/fonts';
 import { useTheme } from './theme/ThemeProvider';
 
-export type TextTone = 'ink' | 'muted' | 'primary' | 'onPrimary' | 'danger' | 'onDanger' | 'link';
+export type TextTone =
+  | 'ink'
+  | 'muted'
+  | 'primary'
+  | 'onPrimary'
+  | 'onGradient'
+  | 'danger'
+  | 'onDanger'
+  | 'link'
+  /** White text over photos (with a scrim), whatever the scheme. */
+  | 'onMedia'
+  | 'onMediaMuted';
 
 const toneColor = (c: SemanticColors, tone: TextTone): string =>
   ({
@@ -13,9 +24,12 @@ const toneColor = (c: SemanticColors, tone: TextTone): string =>
     muted: c.fg.muted,
     primary: c.primary.base,
     onPrimary: c.primary.onBase,
+    onGradient: c.primary.onGradient,
     danger: c.danger.base,
     onDanger: c.danger.onBase,
     link: c.accent.sky,
+    onMedia: onMedia.ink,
+    onMediaMuted: onMedia.muted,
   })[tone];
 
 export interface AppTextProps extends TextProps {

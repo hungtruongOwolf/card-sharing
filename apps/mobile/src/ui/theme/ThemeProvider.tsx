@@ -1,10 +1,11 @@
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
-import { Platform, useColorScheme } from 'react-native';
+import { Platform } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 
 import {
   boxShadow,
   cssColor,
+  DEFAULT_SCHEME,
   size,
   themes,
   type ColorScheme,
@@ -44,16 +45,16 @@ export function buildTheme(scheme: ColorScheme, reducedMotion: boolean): Theme {
 
 interface Props {
   children: ReactNode;
-  /** Forces a colour scheme (tests, previews); defaults to the OS setting. */
+  /** Forces a colour scheme (tests, previews); defaults to `DEFAULT_SCHEME` (dark first, design-system.md §3). */
   scheme?: ColorScheme;
   /** Forces reduced motion on/off (tests, previews); defaults to the OS setting. */
   reducedMotion?: boolean;
 }
 
 export function ThemeProvider({ children, scheme, reducedMotion }: Props) {
-  const osScheme = useColorScheme();
   const osReducedMotion = useReducedMotion();
-  const resolvedScheme: ColorScheme = scheme ?? (osScheme === 'dark' ? 'dark' : 'light');
+  // v2 is dark first: full-bleed photo screens read best on night surfaces whatever the OS setting.
+  const resolvedScheme: ColorScheme = scheme ?? DEFAULT_SCHEME;
   const resolvedReduced = reducedMotion ?? osReducedMotion;
   const theme = useMemo(
     () => buildTheme(resolvedScheme, resolvedReduced),

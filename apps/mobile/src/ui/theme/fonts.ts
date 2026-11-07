@@ -1,6 +1,8 @@
-import { getLoadedFonts } from 'expo-font';
+import { getLoadedFonts, loadAsync } from 'expo-font';
 
 import type { FontRole, TypeStyle } from '@card-sharing/tokens';
+
+import { BRAND_FONT_FILES } from '../../platform/web/brandFonts';
 
 type Weight = TypeStyle['weight'];
 
@@ -53,7 +55,28 @@ export function fontStyleFor(role: FontRole, weight: Weight): FontStyle {
   return { fontWeight: weight };
 }
 
-/** Test hook: forget the cached font list. */
-export function resetFontCacheForTests(): void {
+/** Forget the cached font list (after `loadBrandFonts`, and in tests). */
+export function refreshLoadedFonts(): void {
   available = null;
+}
+
+/** Test hook (kept for existing tests). */
+export const resetFontCacheForTests = refreshLoadedFonts;
+
+/**
+ * Registers the brand faces (`BRAND_FONT_FILES`, Metro assets) at runtime with `expo-font` `loadAsync`, for Expo Go,
+ * which cannot use the config plugin (a no-op for faces a build embeds or the web entry already loaded), and
+ * refreshes the cached list so `fontStyleFor` picks them up. Never rejects: on failure text keeps the platform font.
+ */
+export async function loadBrandFonts(
+  load: (map: Record<string, number>) => Promise<void> = loadAsync,
+): Promise<boolean> {
+  try {
+    await load({ ...BRAND_FONT_FILES });
+    return true;
+  } catch {
+    return false;
+  } finally {
+    refreshLoadedFonts();
+  }
 }

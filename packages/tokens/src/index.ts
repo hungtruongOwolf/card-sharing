@@ -1,7 +1,8 @@
 /**
  * Design tokens shared by apps/mobile (React Native, Skia) and apps/web (Next.js share pages).
  *
- * Source of truth: context/wiki/engineering/design-system.md §3 ("warm scrapbook zine").
+ * Source of truth: context/wiki/engineering/design-system.md §3 (v2: "Stories, alive": dark-first, vivid gradients,
+ * springy motion, paper objects).
  * Change a value there and here in the same commit; `contrast.test.ts` re-checks every text/background
  * pair in `contrastPairs` against WCAG 2.2 AA on the generated token table (`tokenTable()`).
  *
@@ -14,18 +15,21 @@
  */
 
 export const palette = {
-  cream: { 50: '#FFFBF3', 100: '#F6EFE3', 200: '#EFE4D2' },
-  charcoal: { 900: '#1A1512', 800: '#2A231D', 750: '#332B24', 700: '#3A3028' },
-  ink: { light: '#2B2320', muted: '#6B5E57', subtle: '#9A8B80' },
-  paperInk: { light: '#F5EDE0', muted: '#B9AA9A', subtle: '#857668' },
+  // Night surfaces: a violet-tinted near-black (never pure #000), so photos and gradients pop (Stories-like).
+  night: { 950: '#0D0A12', 900: '#17121F', 850: '#221B2C', 800: '#2A2235', 700: '#3D1A2C' },
+  // Day surfaces: a pink-tinted white.
+  day: { 50: '#FFFFFF', 100: '#FFF7F3', 200: '#F6EBF2', 300: '#FFE0EC' },
+  ink: { light: '#1B1222', muted: '#5E5068', subtle: '#9C90A6' },
+  nightInk: { light: '#FFF6F0', muted: '#C4B9CF', subtle: '#8A7F96' },
   white: '#FFFFFF',
-  tomato: { 500: '#C8412B', 300: '#FF7A5C', 100: '#FBE1DA', 900: '#4A2A22' },
-  mustard: { 400: '#F2C14E', 500: '#E8B43C' },
-  // sky 700 darkened from the original #3E7FA8 so links pass 4.5:1 on every light surface
-  sky: { 700: '#336C91', 300: '#7FB8DA' },
-  mint: { 600: '#4F9A6E', 300: '#8CC7A1' },
-  red: { 700: '#B3261E', 300: '#FF8A80' },
-  amber: { 700: '#B26A00', 300: '#FFB74D' },
+  pink: { 600: '#D61F69', 400: '#FF4F8B' },
+  tangerine: { 400: '#FF8A5B', 500: '#FF6A3D' },
+  violet: { 300: '#B57BFF', 500: '#8B5CFF' },
+  sun: { 400: '#FFC93C' },
+  sky: { 700: '#1F6FB2', 300: '#6CC4FF' },
+  mint: { 700: '#1E8A5C', 300: '#4FE0A5' },
+  red: { 700: '#C62828', 300: '#FF6B6B' },
+  amber: { 700: '#A85F00', 300: '#FFB648' },
   tape: {
     mustard: '#F2C14E',
     pink: '#F4A6B7',
@@ -37,6 +41,12 @@ export const palette = {
 } as const;
 
 export type ColorScheme = 'light' | 'dark';
+
+/**
+ * The scheme the app opens in (design-system.md §3, v2 "dark first"): full-bleed photo screens (viewer, editor,
+ * capture) read best on night surfaces, so the app is dark unless a caller asks for light (tests, share pages).
+ */
+export const DEFAULT_SCHEME: ColorScheme = 'dark';
 
 /** An sRGB colour with alpha, used where the design system specifies translucency. */
 export interface Rgba {
@@ -50,7 +60,8 @@ export interface SemanticColors {
   bg: { canvas: string; paper: string; paperAlt: string };
   surface: { raised: string };
   fg: { ink: string; muted: string; subtle: string };
-  primary: { base: string; onBase: string; soft: string };
+  /** `onGradient`: label colour on `gradient.primary` (checked against every stop). */
+  primary: { base: string; onBase: string; soft: string; onGradient: string };
   accent: { mustard: string; onMustard: string; sky: string; mint: string };
   danger: { base: string; onBase: string };
   warning: { base: string };
@@ -65,56 +76,103 @@ export interface SemanticColors {
 
 export const themes = {
   light: {
-    bg: { canvas: palette.cream[100], paper: palette.cream[50], paperAlt: palette.cream[200] },
+    bg: { canvas: palette.day[100], paper: palette.day[50], paperAlt: palette.day[200] },
     surface: { raised: palette.white },
     fg: { ink: palette.ink.light, muted: palette.ink.muted, subtle: palette.ink.subtle },
-    primary: { base: palette.tomato[500], onBase: palette.white, soft: palette.tomato[100] },
+    primary: {
+      base: palette.pink[600],
+      onBase: palette.white,
+      soft: palette.day[300],
+      onGradient: palette.ink.light,
+    },
     accent: {
-      mustard: palette.mustard[400],
+      mustard: palette.sun[400],
       onMustard: palette.ink.light,
       sky: palette.sky[700],
-      mint: palette.mint[600],
+      mint: palette.mint[700],
     },
     danger: { base: palette.red[700], onBase: palette.white },
     warning: { base: palette.amber[700] },
-    border: { hairline: { r: 43, g: 35, b: 32, a: 0.12 } },
-    overlay: { scrim: { r: 43, g: 35, b: 32, a: 0.4 } },
+    border: { hairline: { r: 27, g: 18, b: 34, a: 0.12 } },
+    overlay: { scrim: { r: 27, g: 18, b: 34, a: 0.45 } },
     focus: { ring: palette.sky[700] },
     sticker: { border: palette.white },
-    shadow: { ink: { r: 60, g: 40, b: 25 } },
+    shadow: { ink: { r: 40, g: 16, b: 50 } },
   },
   dark: {
-    bg: {
-      canvas: palette.charcoal[900],
-      paper: palette.charcoal[800],
-      paperAlt: palette.charcoal[700],
-    },
-    surface: { raised: palette.charcoal[750] },
+    bg: { canvas: palette.night[950], paper: palette.night[900], paperAlt: palette.night[850] },
+    surface: { raised: palette.night[800] },
     fg: {
-      ink: palette.paperInk.light,
-      muted: palette.paperInk.muted,
-      subtle: palette.paperInk.subtle,
+      ink: palette.nightInk.light,
+      muted: palette.nightInk.muted,
+      subtle: palette.nightInk.subtle,
     },
     primary: {
-      base: palette.tomato[300],
-      onBase: palette.charcoal[900],
-      soft: palette.tomato[900],
+      base: palette.pink[400],
+      onBase: palette.night[950],
+      soft: palette.night[700],
+      onGradient: palette.night[950],
     },
     accent: {
-      mustard: palette.mustard[500],
-      onMustard: palette.charcoal[900],
+      mustard: palette.sun[400],
+      onMustard: palette.night[950],
       sky: palette.sky[300],
       mint: palette.mint[300],
     },
-    danger: { base: palette.red[300], onBase: palette.charcoal[900] },
+    danger: { base: palette.red[300], onBase: palette.night[950] },
     warning: { base: palette.amber[300] },
-    border: { hairline: { r: 245, g: 237, b: 224, a: 0.14 } },
-    overlay: { scrim: { r: 0, g: 0, b: 0, a: 0.56 } },
+    border: { hairline: { r: 255, g: 246, b: 240, a: 0.12 } },
+    overlay: { scrim: { r: 5, g: 3, b: 8, a: 0.64 } },
     focus: { ring: palette.sky[300] },
     sticker: { border: palette.white },
     shadow: { ink: { r: 0, g: 0, b: 0 } },
   },
 } as const satisfies Record<ColorScheme, SemanticColors>;
+
+/** One linear gradient: CSS angle (0 = to top, 90 = to right) and evenly spaced stops. */
+export interface Gradient {
+  angle: number;
+  stops: readonly string[];
+}
+
+/**
+ * Accent gradients (the same in both schemes). `story` rings unseen stories and is decorative only; `primary` fills
+ * primary buttons and carries `color.primary.onGradient` text (each stop is contrast-checked); the scrims keep white
+ * text readable over any photo at the top and bottom of full-bleed screens.
+ */
+export const gradient = {
+  story: {
+    angle: 45,
+    stops: [palette.sun[400], palette.tangerine[500], palette.pink[400], palette.violet[500]],
+  },
+  primary: {
+    angle: 120,
+    stops: [palette.tangerine[400], palette.pink[400], palette.violet[300]],
+  },
+  scrimTop: { angle: 180, stops: ['rgba(0, 0, 0, 0.55)', 'rgba(0, 0, 0, 0)'] },
+  scrimBottom: { angle: 180, stops: ['rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0.6)'] },
+} as const satisfies Record<string, Gradient>;
+export type GradientName = keyof typeof gradient;
+
+/** `linear-gradient(...)` string, accepted by CSS and by React Native's `backgroundImage` style (New Architecture). */
+export function linearGradient(name: GradientName): string {
+  const { angle, stops } = gradient[name] as Gradient;
+  const last = stops.length - 1;
+  const parts = stops.map((stop, i) => `${stop} ${Math.round((i / last) * 100)}%`);
+  return `linear-gradient(${angle}deg, ${parts.join(', ')})`;
+}
+
+/**
+ * Text and icons on photos (story viewer chrome, editor tool rail) are white over a scrim gradient, whatever the
+ * scheme; `onMedia.muted` is for secondary text there.
+ */
+export const onMedia = {
+  ink: palette.white,
+  muted: 'rgba(255, 255, 255, 0.78)',
+  glass: 'rgba(20, 14, 26, 0.42)',
+  glassStrong: 'rgba(20, 14, 26, 0.7)',
+  track: 'rgba(255, 255, 255, 0.35)',
+} as const;
 
 /** Washi-tape decoration colours; never carry text. Alpha = `opacity.tape[scheme]`. */
 export const deco = { tape: palette.tape } as const;
@@ -134,7 +192,7 @@ export const space = {
   16: 64,
 } as const;
 
-export const radius = { xs: 4, sm: 8, md: 14, lg: 24, full: 9999 } as const;
+export const radius = { xs: 4, sm: 8, md: 14, lg: 24, xl: 32, full: 9999 } as const;
 
 /** Font families (all SIL OFL 1.1). Apps map them to loaded font assets. */
 export const fontFamily = {
@@ -163,6 +221,14 @@ export const DISPLAY_MAX_FONT_SCALE = 1.3;
 
 export const type = {
   display: {
+    /** Story-sized hero (onboarding, empty states, big moments). */
+    xl: {
+      family: 'display',
+      size: 48,
+      lineHeight: 52,
+      weight: '700',
+      maxFontScale: DISPLAY_MAX_FONT_SCALE,
+    },
     lg: {
       family: 'display',
       size: 40,
@@ -199,6 +265,8 @@ export const type = {
     md: { family: 'body', size: 15, lineHeight: 22, weight: '400', maxFontScale: MAX_FONT_SCALE },
   },
   label: {
+    /** Primary buttons and the story sender name. */
+    lg: { family: 'body', size: 16, lineHeight: 20, weight: '600', maxFontScale: MAX_FONT_SCALE },
     md: { family: 'body', size: 14, lineHeight: 18, weight: '600', maxFontScale: MAX_FONT_SCALE },
     sm: { family: 'body', size: 12, lineHeight: 16, weight: '600', maxFontScale: MAX_FONT_SCALE },
   },
@@ -297,6 +365,10 @@ export const motion = {
   },
   /** Reduced motion replaces springs with a timing of this length (design-system.md §6). */
   reducedDuration: 200,
+  /** Story viewer: how long one card shows before the next, and the press length that pauses instead of tapping. */
+  story: { segmentMs: 5000, holdMs: 200 },
+  /** Stagger between items entering together (story rings, tray tiles). */
+  stagger: 40,
 } as const;
 
 /** Physics spring configs (Reanimated `withSpring`); always pair with `reduceMotion: ReduceMotion.System`. */
@@ -307,6 +379,24 @@ export const spring = {
   drop: { damping: 14, stiffness: 200, mass: 1.2 },
   gentle: { damping: 20, stiffness: 120, mass: 1 },
   flutter: { damping: 6, stiffness: 180, mass: 0.5 },
+  /** Reaction pop, sticker drop-in, ring tap: fast with one visible overshoot. */
+  pop: { damping: 12, stiffness: 420, mass: 0.6 },
+  /** Swipe-to-close and page settles: critically damped, follows the finger's speed. */
+  swipe: { damping: 28, stiffness: 260, mass: 1 },
+  /** Bottom trays (stickers, effects, text): quick, no bounce at the top. */
+  sheet: { damping: 26, stiffness: 300, mass: 0.9 },
+} as const;
+
+/** Gesture thresholds shared by the story viewer, trays and the editor canvas (pt, pt/s, degrees). */
+export const gesture = {
+  /** Swipe down this far, or this fast, to close a full-screen viewer or a tray. */
+  dismissDistance: 120,
+  dismissVelocity: 900,
+  /** Share of the screen width on the start side where a tap goes back (Stories: about a third). */
+  backZone: 0.33,
+  /** Layers snap to the centre lines and to 0/90/180 degrees within these distances. */
+  snapDistance: 8,
+  snapAngle: 4,
 } as const;
 
 export const z = {
@@ -325,6 +415,12 @@ export const size = {
   shutter: { outer: 76, inner: 64 },
   grabber: { width: 36, height: 4 },
   listRowMin: 56,
+  /** Primary button height (v2: big, thumb-friendly pills). */
+  button: 52,
+  /** Story ring stroke and the gap between ring and avatar. */
+  ring: { stroke: 3, gap: 2 },
+  /** Story progress segment height. */
+  progress: 3,
 } as const;
 
 export const opacity = { tape: { light: 0.85, dark: 0.75 } } as const;
@@ -372,7 +468,7 @@ export function tokenTable(): TokenRow[] {
   }));
 }
 
-/** `color.bg.canvas` → `--color-bg-canvas: #F6EFE3` for one scheme (web share pages). */
+/** `color.bg.canvas` → `--color-bg-canvas: #FFF7F3` for one scheme (web share pages). */
 export function cssVariables(scheme: ColorScheme): Record<string, string> {
   const out: Record<string, string> = {};
   for (const row of tokenTable()) {
@@ -456,6 +552,21 @@ export const contrastPairs: readonly ContrastPair[] = [
   },
 ];
 
+/** Text drawn on a gradient: the label token must pass against every stop (the gradient never helps contrast). */
+export const gradientTextPairs: readonly {
+  fg: string;
+  gradient: GradientName;
+  min: number;
+  use: string;
+}[] = [
+  {
+    fg: 'color.primary.onGradient',
+    gradient: 'primary',
+    min: CONTRAST.text,
+    use: 'primary button label',
+  },
+];
+
 function channel(c: number): number {
   const s = c / 255;
   return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
@@ -487,9 +598,12 @@ export const tokens = {
   radius,
   fontFamily,
   type,
+  gradient,
+  onMedia,
   elevation,
   motion,
   spring,
+  gesture,
   z,
   size,
   opacity,

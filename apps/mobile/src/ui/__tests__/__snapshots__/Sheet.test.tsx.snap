@@ -60,7 +60,7 @@ exports[`Sheet (dark) matches the snapshot when open 1`] = `
             "top": 0,
           },
           {
-            "backgroundColor": "rgba(0, 0, 0, 0.56)",
+            "backgroundColor": "rgba(5, 3, 8, 0.64)",
           },
         ]
       }
@@ -72,15 +72,15 @@ exports[`Sheet (dark) matches the snapshot when open 1`] = `
       style={
         [
           {
-            "borderTopEndRadius": 24,
-            "borderTopStartRadius": 24,
+            "borderTopEndRadius": 32,
+            "borderTopStartRadius": 32,
             "gap": 12,
             "maxHeight": "90%",
             "paddingHorizontal": 16,
             "paddingTop": 8,
           },
           {
-            "backgroundColor": "#2A231D",
+            "backgroundColor": "#17121F",
             "boxShadow": "0px 8px 8px rgba(0, 0, 0, 0.12), 0px 24px 48px rgba(0, 0, 0, 0.352)",
             "paddingBottom": 16,
           },
@@ -100,7 +100,7 @@ exports[`Sheet (dark) matches the snapshot when open 1`] = `
               "width": 36,
             },
             {
-              "backgroundColor": "rgba(245, 237, 224, 0.14)",
+              "backgroundColor": "rgba(255, 246, 240, 0.12)",
             },
           ]
         }
@@ -120,7 +120,7 @@ exports[`Sheet (dark) matches the snapshot when open 1`] = `
           style={
             [
               {
-                "color": "#F5EDE0",
+                "color": "#FFF6F0",
                 "fontFamily": "BricolageGrotesque-SemiBold",
                 "fontSize": 20,
                 "lineHeight": 26,
@@ -202,11 +202,12 @@ exports[`Sheet (dark) matches the snapshot when open 1`] = `
                   "borderRadius": 9999,
                   "borderWidth": 0.5,
                   "justifyContent": "center",
-                  "paddingHorizontal": 16,
+                  "paddingHorizontal": 20,
                   "paddingVertical": 8,
                 },
                 {
                   "backgroundColor": "transparent",
+                  "backgroundImage": undefined,
                   "borderColor": "transparent",
                   "minHeight": 44,
                   "minWidth": 44,
@@ -220,11 +221,12 @@ exports[`Sheet (dark) matches the snapshot when open 1`] = `
                   "borderRadius": 9999,
                   "borderWidth": 0.5,
                   "justifyContent": "center",
-                  "paddingHorizontal": 16,
+                  "paddingHorizontal": 20,
                   "paddingVertical": 8,
                 },
                 {
                   "backgroundColor": "transparent",
+                  "backgroundImage": undefined,
                   "borderColor": "transparent",
                   "minHeight": 44,
                   "minWidth": 44,
@@ -246,10 +248,10 @@ exports[`Sheet (dark) matches the snapshot when open 1`] = `
                 style={
                   [
                     {
-                      "color": "#F5EDE0",
+                      "color": "#FFF6F0",
                       "fontFamily": "DMSans-SemiBold",
-                      "fontSize": 14,
-                      "lineHeight": 18,
+                      "fontSize": 16,
+                      "lineHeight": 20,
                       "textAlign": "auto",
                       "textTransform": "none",
                       "writingDirection": "auto",
@@ -271,7 +273,7 @@ exports[`Sheet (dark) matches the snapshot when open 1`] = `
         style={
           [
             {
-              "color": "#F5EDE0",
+              "color": "#FFF6F0",
               "fontFamily": "DMSans-Regular",
               "fontSize": 15,
               "lineHeight": 22,
@@ -350,7 +352,7 @@ exports[`Sheet (light) matches the snapshot when open 1`] = `
             "top": 0,
           },
           {
-            "backgroundColor": "rgba(43, 35, 32, 0.4)",
+            "backgroundColor": "rgba(27, 18, 34, 0.45)",
           },
         ]
       }
@@ -362,16 +364,16 @@ exports[`Sheet (light) matches the snapshot when open 1`] = `
       style={
         [
           {
-            "borderTopEndRadius": 24,
-            "borderTopStartRadius": 24,
+            "borderTopEndRadius": 32,
+            "borderTopStartRadius": 32,
             "gap": 12,
             "maxHeight": "90%",
             "paddingHorizontal": 16,
             "paddingTop": 8,
           },
           {
-            "backgroundColor": "#FFFBF3",
-            "boxShadow": "0px 8px 8px rgba(60, 40, 25, 0.1), 0px 24px 48px rgba(60, 40, 25, 0.22)",
+            "backgroundColor": "#FFFFFF",
+            "boxShadow": "0px 8px 8px rgba(40, 16, 50, 0.1), 0px 24px 48px rgba(40, 16, 50, 0.22)",
             "paddingBottom": 16,
           },
         ]
@@ -390,7 +392,7 @@ exports[`Sheet (light) matches the snapshot when open 1`] = `
               "width": 36,
             },
             {
-              "backgroundColor": "rgba(43, 35, 32, 0.12)",
+              "backgroundColor": "rgba(27, 18, 34, 0.12)",
             },
           ]
         }
@@ -410,7 +412,7 @@ exports[`Sheet (light) matches the snapshot when open 1`] = `
           style={
             [
               {
-                "color": "#2B2320",
+                "color": "#1B1222",
                 "fontFamily": "BricolageGrotesque-SemiBold",
                 "fontSize": 20,
                 "lineHeight": 26,
@@ -492,11 +494,12 @@ exports[`Sheet (light) matches the snapshot when open 1`] = `
                   "borderRadius": 9999,
                   "borderWidth": 0.5,
                   "justifyContent": "center",
-                  "paddingHorizontal": 16,
+                  "paddingHorizontal": 20,
                   "paddingVertical": 8,
                 },
                 {
                   "backgroundColor": "transparent",
+                  "backgroundImage": undefined,
                   "borderColor": "transparent",
                   "minHeight": 44,
                   "minWidth": 44,
@@ -510,11 +513,12 @@ exports[`Sheet (light) matches the snapshot when open 1`] = `
                   "borderRadius": 9999,
                   "borderWidth": 0.5,
                   "justifyContent": "center",
-                  "paddingHorizontal": 16,
+                  "paddingHorizontal": 20,
                   "paddingVertical": 8,
                 },
                 {
                   "backgroundColor": "transparent",
+                  "backgroundImage": undefined,
                   "borderColor": "transparent",
                   "minHeight": 44,
                   "minWidth": 44,
@@ -536,10 +540,10 @@ exports[`Sheet (light) matches the snapshot when open 1`] = `
                 style={
                   [
                     {
-                      "color": "#2B2320",
+                      "color": "#1B1222",
                       "fontFamily": "DMSans-SemiBold",
-                      "fontSize": 14,
-                      "lineHeight": 18,
+                      "fontSize": 16,
+                      "lineHeight": 20,
                       "textAlign": "auto",
                       "textTransform": "none",
                       "writingDirection": "auto",
@@ -561,7 +565,7 @@ exports[`Sheet (light) matches the snapshot when open 1`] = `
         style={
           [
             {
-              "color": "#2B2320",
+              "color": "#1B1222",
               "fontFamily": "DMSans-Regular",
               "fontSize": 15,
               "lineHeight": 22,

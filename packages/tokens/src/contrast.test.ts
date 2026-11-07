@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { contrastPairs, contrastRatio, tokenTable, type ColorScheme } from './index';
+import {
+  contrastPairs,
+  contrastRatio,
+  gradient,
+  gradientTextPairs,
+  tokenTable,
+  type ColorScheme,
+} from './index';
 
 // Contrast check on the generated token table (T-33 acceptance, design-system.md §6).
 const table = new Map(tokenTable().map((row) => [row.name, row]));
@@ -28,4 +35,18 @@ describe.each<ColorScheme>(['light', 'dark'])('%s theme contrast', (scheme) => {
       ).toBeGreaterThanOrEqual(pair.min);
     },
   );
+});
+
+describe.each<ColorScheme>(['light', 'dark'])('%s text on gradients', (scheme) => {
+  it.each(
+    gradientTextPairs.map((p) => [`${p.fg} on gradient.${p.gradient} (${p.use})`, p] as const),
+  )('%s passes against every stop', (_label, pair) => {
+    const fg = String(table.get(pair.fg)?.[scheme]);
+    for (const stop of gradient[pair.gradient].stops) {
+      const ratio = contrastRatio(fg, stop);
+      expect(ratio, `${pair.fg} ${fg} on ${stop} = ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(
+        pair.min,
+      );
+    }
+  });
 });

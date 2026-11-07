@@ -157,14 +157,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: space[2],
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     paddingEnd: space[2],
+    overflow: 'hidden',
   },
   marker: {
     alignSelf: 'stretch',
     width: space[1],
-    borderTopStartRadius: radius.md,
-    borderBottomStartRadius: radius.md,
   },
   body: { flex: 1, justifyContent: 'center', paddingVertical: space[2], paddingStart: space[2] },
 });

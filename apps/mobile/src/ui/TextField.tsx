@@ -7,7 +7,7 @@ import {
   type TextInputProps,
 } from 'react-native';
 
-import { MAX_FONT_SCALE, radius, space, typeStyle } from '@card-sharing/tokens';
+import { MAX_FONT_SCALE, radius, size, space, typeStyle } from '@card-sharing/tokens';
 
 import { t } from '../i18n';
 import { Text } from './Text';
@@ -66,9 +66,9 @@ export const TextField = forwardRef<TextInputInstance, TextFieldProps>(function 
         style={[
           styles.input,
           {
-            minHeight: Math.max(theme.touchMin, 48),
+            minHeight: Math.max(theme.touchMin, size.button),
             color: c.fg.ink,
-            backgroundColor: c.surface.raised,
+            backgroundColor: c.bg.paperAlt,
             borderColor,
             borderWidth: focused || error ? 2 : 1,
             ...fontStyleFor(body.family, body.weight),
@@ -104,8 +104,8 @@ export const TextField = forwardRef<TextInputInstance, TextFieldProps>(function 
 const styles = StyleSheet.create({
   root: { gap: space[1], alignSelf: 'stretch' },
   input: {
-    borderRadius: radius.sm,
-    paddingHorizontal: space[3],
+    borderRadius: radius.md,
+    paddingHorizontal: space[4],
     paddingVertical: space[2],
     textAlign: 'auto',
   },
