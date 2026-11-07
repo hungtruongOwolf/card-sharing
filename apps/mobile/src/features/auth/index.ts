@@ -1,5 +1,6 @@
 import Constants from 'expo-constants';
 
+import { appSessionSync } from './appSessionSync';
 import { createAuthClient, type AuthClient } from './authClient';
 import { apiBaseUrl } from './config';
 import { createSecureTokenStore } from './tokenStore';
@@ -16,13 +17,18 @@ export type {
 } from './authClient';
 export { AuthProvider, useAuthClient, useAuthState } from './AuthProvider';
 
-/** The app's auth client: secure-store session, `EXPO_PUBLIC_API_URL`, app version from app config. */
+/**
+ * The app's auth client: secure-store session, `EXPO_PUBLIC_API_URL`, app version from app config, cross-tab
+ * refresh coordination on the web.
+ */
 export function createAppAuthClient(): AuthClient {
   return createAuthClient({
     baseUrl: apiBaseUrl,
     store: createSecureTokenStore(),
     appVersion: Constants.expoConfig?.version,
     streamFetch: streamingFetch,
+    // Browser tabs share the stored session: refreshes are coordinated across them (B5). Nothing on native.
+    sync: appSessionSync(),
   });
 }
 
