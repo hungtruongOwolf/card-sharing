@@ -130,6 +130,21 @@ describe('draft store', () => {
 describe('parseLocalCard', () => {
   const valid = card();
 
+  it('keeps a well-formed AI look and drops a malformed one without losing the draft', () => {
+    const ai = {
+      jobId: '11111111-1111-4111-8111-111111111111',
+      templateId: 'ai.watercolor',
+      templateVersion: 1,
+      title: 'Watercolor',
+      outputMediaId: '33333333-3333-4333-8333-333333333333',
+      basis: 'abcdef01',
+    };
+    const withAi = { ...valid, draft: { ...valid.draft, ai } };
+    expect(parseLocalCard(JSON.stringify(withAi))?.draft.ai).toEqual(ai);
+    const broken = { ...valid, draft: { ...valid.draft, ai: { ...ai, outputMediaId: 'x' } } };
+    expect(parseLocalCard(JSON.stringify(broken))?.draft).toEqual(valid.draft);
+  });
+
   it('round-trips a stored card and sanitizes the caption', () => {
     expect(parseLocalCard(JSON.stringify(valid))).toEqual(valid);
     const bidi = { ...valid, draft: { ...valid.draft, caption: 'hi‮there' } };

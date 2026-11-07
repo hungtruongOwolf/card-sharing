@@ -1,11 +1,19 @@
 import Constants from 'expo-constants';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import type { LocalCard } from '../features/cards';
+import { killedIds, registry } from '@card-sharing/effects-registry';
+
+import { useAiEffects } from '../features/ai-effects';
+import { newLocalCard, prepareForSend, type LocalCard } from '../features/cards';
 import type { CapturedPhoto } from '../features/capture';
 import { deviceDraftStore, useDraftAutosave } from '../features/drafts';
-import { appMaskSource, CardEditorScreen, parseEditorPhoto } from '../features/editor';
+import {
+  appMaskSource,
+  CardEditorScreen,
+  parseEditorPhoto,
+  type CardDraft,
+} from '../features/editor';
 import { useRemoteConfig } from '../features/remote-config';
 import { t } from '../i18n';
 import { Screen, Text, useToast } from '../ui';
@@ -14,7 +22,7 @@ import { Screen, Text, useToast } from '../ui';
  * Card editor (T-64). A new photo arrives as route params from capture; `?draft=<id>` reopens a draft from the
  * drafts tray (T-68). Every change auto-saves to the drafts tray. Subject masks come from `appMaskSource()` (web:
  * BiRefNet_lite; native until T-54/T-55: synthetic in development, whole-photo cards in release). Next saves the
- * draft and opens the send screen (T-77).
+ * draft and opens the send screen (T-77). AI effects (Tier 2) bake the same send render as their input.
  */
 export default function EditorRoute() {
   const params = useLocalSearchParams();
@@ -57,6 +65,14 @@ function Editor({ photo, existing }: { photo: CapturedPhoto; existing: LocalCard
   const remoteConfig = useRemoteConfig();
   const toast = useToast();
   const { onDraftChange, saveNow } = useDraftAutosave(deviceDraftStore(), photo, existing);
+  const killed = useMemo(() => killedIds(remoteConfig?.registry), [remoteConfig]);
+  const renderForAi = useCallback(
+    async (draft: CardDraft) =>
+      (await prepareForSend(newLocalCard(photo, draft), false, { registry, maskSource, killed }))
+        .render,
+    [photo, maskSource, killed],
+  );
+  const aiEffects = useAiEffects({ render: renderForAi });
   return (
     <CardEditorScreen
       photo={photo}
@@ -67,6 +83,7 @@ function Editor({ photo, existing }: { photo: CapturedPhoto; existing: LocalCard
       textFilter={remoteConfig?.textFilter}
       initialDraft={existing?.draft}
       onDraftChange={onDraftChange}
+      aiEffects={aiEffects}
       onNext={(draft) =>
         saveNow(draft).then(
           (card) => router.push({ pathname: '/send', params: { draft: card.id } }),

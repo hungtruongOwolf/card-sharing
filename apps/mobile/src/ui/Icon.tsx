@@ -31,6 +31,7 @@ export const ICONS = {
   settings: '⚙',
   shuffle: '⇄',
   layers: '≡',
+  sparkle: '✧',
 } as const;
 export type IconName = keyof typeof ICONS;
 

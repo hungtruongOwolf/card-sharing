@@ -1,5 +1,6 @@
 import type { Registry } from '@card-sharing/effects-registry';
 
+import { activeAiLook } from '../ai-effects/aiLook';
 import { styleBlock, type LocalCard, type StyleBlock } from '../cards/localCard';
 import type { PreparedCard } from '../cards/prepare';
 import { newIdempotencyKey } from '../friends/idempotencyKey';
@@ -39,7 +40,11 @@ export class SendError extends Error {
   }
 }
 
-/** Builds the job for `card`, or throws {@link SendError} when its style no longer passes the strict check. */
+/**
+ * Builds the job for `card`, or throws {@link SendError} when its style no longer passes the strict check. A card
+ * with an applied AI look sends the server-made render as is: nothing is baked or uploaded, and no original or mask
+ * goes with it (the AI image replaces the photo).
+ */
 export function newSendJob(
   card: LocalCard,
   registry: Registry,
@@ -49,14 +54,15 @@ export function newSendJob(
   const style = styleBlock(registry, card.draft);
   if (!style.ok) throw new SendError('stale_style');
   const caption = card.draft.caption.trim();
+  const ai = activeAiLook(card.draft);
   return {
     clientCardId: isCardId(card.id) ? card.id : newIdempotencyKey(),
     cardId: card.id,
     audience,
-    keepOriginal,
+    keepOriginal: ai ? false : keepOriginal,
     style: style.style,
     caption: caption.length > 0 ? caption : null,
-    media: null,
+    media: ai ? { render: ai.outputMediaId, mask: null, original: null } : null,
   };
 }
 

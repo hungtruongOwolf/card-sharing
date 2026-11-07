@@ -86,6 +86,11 @@ export interface CardItem {
   readonly hold: CardHold | null;
   /** My own reaction (recipients only). */
   readonly myReaction: string | null;
+  /**
+   * The card's render was made by an AI effect: show the visible "AI" badge. Read from `ai_generated`, which the
+   * backend lane is adding to `CardView` (genai-effects.md "Not yet"); absent = false until it ships.
+   */
+  readonly aiGenerated?: boolean;
 }
 
 /** One page of my feed (validated `FeedPage`), newest delivery first. */
@@ -288,6 +293,8 @@ export function parseCard(value: unknown): CardItem | null {
     status: v.is_mine ? status(v.status) : null,
     hold: v.is_mine ? holdFrom(v.hold) : null,
     myReaction: optionalText(v.my_reaction, MAX_REACTION_LENGTH),
+    // Only when set, so cards without the flag keep their exact shape.
+    ...(v.ai_generated === true ? { aiGenerated: true } : {}),
   };
 }
 

@@ -11,6 +11,8 @@ import { createRegistry, ENTRIES, registry } from '@card-sharing/effects-registr
 
 import { t } from '../../../i18n';
 import { renderThemed } from '../../../test/render';
+import type { AiOverview } from '../../ai-effects/aiEffectsApi';
+import type { AiEffectsController } from '../../ai-effects/useAiEffects';
 import type { CapturedPhoto } from '../../capture';
 import { CardEditorScreen, type CardEditorScreenProps } from '../CardEditorScreen';
 import { createSyntheticMaskSource, noMaskSource } from '../maskSource';
@@ -572,6 +574,68 @@ describe('CardEditorScreen', () => {
     },
     RENDER_TIMEOUT_MS,
   );
+
+  describe('AI effects', () => {
+    const overview = (available: boolean): AiOverview => ({
+      available,
+      consent: { requiredVersion: 1, granted: true },
+      credits: 5,
+      visibleBadge: true,
+      templates: available
+        ? [{ id: 'ai.watercolor', version: 1, title: 'Watercolor', cost: 1 }]
+        : [],
+    });
+    const controller = (available: boolean): AiEffectsController => ({
+      overview: overview(available),
+      refresh: jest.fn().mockResolvedValue(undefined),
+      grantConsent: jest.fn().mockResolvedValue(undefined),
+      hide: jest.fn(),
+      run: jest.fn(async (request) => ({
+        kind: 'done' as const,
+        previewUrl: 'https://media.test/ai.png?sig=x',
+        look: {
+          jobId: '11111111-1111-4111-8111-111111111111',
+          templateId: request.template.id,
+          templateVersion: request.template.version,
+          title: request.template.title,
+          outputMediaId: '33333333-3333-4333-8333-333333333333',
+          basis: request.basis,
+        },
+      })),
+    });
+
+    it('hides the AI entry when the server says AI effects are not available', async () => {
+      await renderEditor({ aiEffects: controller(false) });
+      expect(screen.queryByTestId('editor-ai')).toBeNull();
+    });
+
+    it(
+      'applies an AI result as the card with the badge, and removing it is one undo step',
+      async () => {
+        const onNext = jest.fn();
+        await renderEditor({ aiEffects: controller(true), onNext });
+        const user = userEvent.setup();
+        await user.press(screen.getByRole('button', { name: t('editor.tab.ai') }));
+        await user.press(screen.getByRole('button', { name: t('ai.apply', { count: 1 }) }));
+        await screen.findByTestId('editor-ai-badge');
+        expect(screen.getByTestId('editor-ai-preview').props.source).toEqual({
+          uri: 'https://media.test/ai.png?sig=x',
+        });
+        expect(
+          screen.getByLabelText(t('editor.ai.preview.label', { name: 'Watercolor' })),
+        ).toBeTruthy();
+        await user.press(screen.getByRole('button', { name: t('ai.done.ok') }));
+        await user.press(screen.getByRole('button', { name: t('editor.next') }));
+        expect(onNext.mock.calls.at(-1)[0].ai).toMatchObject({ templateId: 'ai.watercolor' });
+
+        await user.press(screen.getByRole('button', { name: t('editor.ai.remove') }));
+        expect(screen.queryByTestId('editor-ai-badge')).toBeNull();
+        await user.press(screen.getByRole('button', { name: t('editor.undo') }));
+        expect(screen.getByTestId('editor-ai-badge')).toBeTruthy();
+      },
+      RENDER_TIMEOUT_MS,
+    );
+  });
 
   it('falls back to the whole photo when segmentation fails', async () => {
     await renderEditor({ maskSource: { maskFor: () => Promise.reject(new Error('boom')) } });

@@ -128,6 +128,20 @@ describe('FeedScreen', () => {
     expect(screen.queryByTestId(`feed-image-${newest.id}`)).toBeNull();
   });
 
+  it('shows the AI badge only on AI-made cards', async () => {
+    const { newest, older } = await setup({
+      extra: (s) => {
+        const ai = s.addUser('Ana');
+        s.friends.add(ai.id);
+        s.addIncomingCard(ai.id, { aiGenerated: true, id: 'c0000000-0000-4000-8000-0000000000aa' });
+      },
+    });
+    expect(await screen.findByTestId('feed-ai-c0000000-0000-4000-8000-0000000000aa')).toBeTruthy();
+    expect(screen.getAllByLabelText(t('ai.badge.a11y'))).toHaveLength(1);
+    expect(screen.queryByTestId(`feed-ai-${newest.id}`)).toBeNull();
+    expect(screen.queryByTestId(`feed-ai-${older.id}`)).toBeNull();
+  });
+
   it('drops cards from people who are no longer friends on the next load', async () => {
     const { server, mai, newest, queryClient } = await setup();
     await screen.findByText('zoomies');

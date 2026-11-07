@@ -7,6 +7,7 @@ import { space } from '@card-sharing/tokens';
 
 import { t } from '../../i18n';
 import { Button, Screen, Text } from '../../ui';
+import { activeAiLook } from '../ai-effects/aiLook';
 import { AuthError } from '../auth';
 import { BakeError } from '../cards/bakeError';
 import type { LocalCard } from '../cards/localCard';
@@ -109,6 +110,7 @@ export function SendScreen({
   const [mode, setMode] = useState<'all' | 'subset'>('all');
   const [picked, setPicked] = useState<readonly string[]>([]);
   const [keepOriginal, setKeepOriginal] = useState(false);
+  const aiLook = activeAiLook(card.draft);
   const [phase, setPhase] = useState<Phase>({ step: 'compose' });
   const running = useRef(false);
 
@@ -241,19 +243,22 @@ export function SendScreen({
           ) : null}
         </View>
       )}
-      <View style={styles.toggle}>
-        <View style={styles.grow}>
-          <Text>{t('send.keepOriginal')}</Text>
-          <Text tone="muted">{t('send.keepOriginal.hint')}</Text>
+      {/* An AI look replaces the photo: there is no original to keep. */}
+      {aiLook ? null : (
+        <View style={styles.toggle}>
+          <View style={styles.grow}>
+            <Text>{t('send.keepOriginal')}</Text>
+            <Text tone="muted">{t('send.keepOriginal.hint')}</Text>
+          </View>
+          <Switch
+            accessibilityLabel={t('send.keepOriginal')}
+            accessibilityHint={t('send.keepOriginal.hint')}
+            value={keepOriginal}
+            disabled={locked || busy}
+            onValueChange={setKeepOriginal}
+          />
         </View>
-        <Switch
-          accessibilityLabel={t('send.keepOriginal')}
-          accessibilityHint={t('send.keepOriginal.hint')}
-          value={keepOriginal}
-          disabled={locked || busy}
-          onValueChange={setKeepOriginal}
-        />
-      </View>
+      )}
       {phase.step === 'failed' ? (
         <View style={styles.block} testID="send-failed">
           <Text accessibilityRole="alert">{sendErrorMessage(phase.error)}</Text>

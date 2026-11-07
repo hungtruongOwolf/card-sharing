@@ -10,6 +10,7 @@ import {
 } from '@card-sharing/effects-registry';
 
 import { sanitizeText } from '../../text';
+import { parseAiLook } from '../ai-effects/aiLook';
 import { LOCAL_CARD_SCHEMA, type LocalCard } from '../cards/localCard';
 import type { CardDraft, StyleChoice } from '../editor/editorState';
 import { parseEditorPhoto } from '../editor/editorRoute';
@@ -238,6 +239,9 @@ export function parseLocalCard(raw: string | null, expectedId?: string): LocalCa
     wholePhoto: value.draft.wholePhoto,
     caption: sanitizeText(value.draft.caption),
   };
+  // A malformed AI look is dropped; the draft itself stays.
+  const ai = parseAiLook(value.draft.ai);
+  if (ai) draft.ai = ai;
   return {
     id: value.id,
     schema: LOCAL_CARD_SCHEMA,

@@ -40,6 +40,8 @@ export interface FakeCard {
   sentAt: number;
   /** Classifier-hold appeal (T-148): `none` until filed. */
   appeal?: 'none' | 'pending' | 'released' | 'upheld';
+  /** The render came from an AI effect (`CardView.ai_generated`, being added by the backend lane). */
+  aiGenerated?: boolean;
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -350,6 +352,7 @@ export class FakeCardsServer extends FakeSocialServer {
       sent_at: new Date(card.sentAt).toISOString(),
       is_mine: mine,
       my_reaction: mine ? null : (this.reactions.get(card.id) ?? null),
+      ...(card.aiGenerated ? { ai_generated: true } : {}),
       ...(mine
         ? {
             status: card.status,

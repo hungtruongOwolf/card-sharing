@@ -60,7 +60,29 @@ The whole pipeline runs end to end with **no real provider, no keys and no netwo
   the job stores the output media id and the C2PA manifest. The job view always says `ai_generated: true`; `ai_label`
   (visible badge, C2PA) comes from the region policy.
 - **Routes** (all `ses`, owner-only job reads with the uniform 404): see [[api-mvp]] "AI effects".
-- **Not yet:** a real provider and real moderation gates (EM decision), C2PA signing and embedding (`c2pa-rs`), the "AI"
-  badge on cards that use an AI output (`ai_outputs` lookup exists; the card views and the app wire it next), push on
-  completion, credit purchases and rewarded ads, the app screens.
+- **Not yet:** a real provider and real moderation gates (EM decision), C2PA signing and embedding (`c2pa-rs`), the
+  `ai_generated` flag on card views (the backend lane is adding it; the app already reads it), push on completion,
+  credit purchases and rewarded ads, an owner preview URL for the output (see "App" below).
 
+## App (sprint 9, `apps/mobile/src/features/ai-effects`)
+- **Entry:** an "AI effects" button (sparkle) on the editor tool rail, shown only when `GET /v1/ai-effects` says
+  `available: true`; nothing on the device decides region or age. A 403 `POLICY_DISALLOWED` on submit hides it.
+- **Sheet** (`AiEffectsSheet`): credit balance, curated templates (server title + cost) with local preview art keyed
+  by template id (`templateArt.ts`, default art for unknown ids; CDN previews replace it later), Apply disabled when
+  the balance does not cover the cost. AI never runs without the tap.
+- **Consent:** before the first upload, an explicit step says the card picture goes to a third-party AI service and
+  that AI-made cards carry an "AI" label; Agree sends `PUT /v1/ai-effects/consent {version}` with the
+  `required_version` shown. A later 403 `CONSENT_REQUIRED` (withdrawn, text bumped) shows the step again.
+- **Run** (`runAiEffect`): bake the send render of the current draft → upload as my `card_render` → poll
+  `GET /v1/media/{id}` until clean → `POST /v1/ai-effects/jobs` (`client_job_id` = one id per Apply, reused after a
+  timeout or a lost answer, so a retry is never charged twice) → poll the job → poll the output upload until clean.
+  Refused / failed show whether credits were refunded; 402 shows "not enough credits" and refreshes the balance.
+- **Result as the card render:** the draft keeps an `AiLook` (job id, template, output media id, an 8-hex
+  fingerprint of cut / finish / effects / whole photo). While the fingerprint matches, Send uses the output media id
+  as `render_media_id` with no bake, no mask and no original; an edit sets it aside (undo brings it back), "Remove AI
+  look" is one undo step. The caption may change freely.
+- **Preview gap:** `AiJobView` has no URL and `GET /v1/media/{id}` never returns one, so the editor cannot show the
+  result yet: it shows the "AI" badge and says the look appears once sent. The app already reads an optional
+  `output_url` (signed, owner only) on the job view and draws it over the card; the backend needs to add it.
+- **Badge:** `AiBadge` (gradient pill, "Made with AI" for screen readers) on the editor preview and on feed cards whose
+  view says `ai_generated: true`. The story viewer badge waits for the ADR-0010 reply work in the viewer to land.
