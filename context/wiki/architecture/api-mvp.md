@@ -347,6 +347,7 @@ request goes out with the opaque `ref`, a silent drop looks like a sent request)
 | PUT | /v1/cards/{id}/reaction | Set/replace my reaction `{kind}` | ses | user | caller is recipient & friend | 120/h u | yes | US-17 |
 | DELETE | /v1/cards/{id}/reaction | Remove my reaction | ses | user | same | 120/h u | yes | US-17 AC-17.2 |
 | GET | /v1/cards/{id}/reactions | Reactions on my card | ses | user | card owner only | 60/min u | yes | US-17 AC-17.1 |
+| GET | /v1/cards/{id}/replies | Replies to my card (cards with `reply_to` = it), newest first, ≤ 50 (ADR-0010) | ses | user | card owner only; each reply under the card-read predicate | 60/min u (`cards.replies.read`) | yes | ADR-0010 |
 | GET | /v1/activity | Activity tab (cursor) | ses | user | `user_id` = caller | 60/min u | yes | US-31 AC-31.3 |
 | POST | /v1/activity/read | Mark read up to cursor | ses | user | self | 60/min u | yes | US-31 |
 
@@ -813,6 +814,19 @@ first card (202). Response `{card: {id, status, recipient_count}}`. The "AI" bad
 output of a succeeded AI effect (`GenAiService::ai_outputs`), `cards.cards.ai_generated` is stored `true` for the card's life;
 the body has no such field (an unknown field is 400), so a client can neither claim nor hide it.
 
+Implemented (replies, [[ADR-0010-realtime-delivery]]): `POST /v1/cards` takes an optional `reply_to_card_id`. The original must
+pass the card-read predicate for the caller right now (recipient, still friends, no block, card active, sender active), else
+the byte-identical 404 of a missing card (a malformed id too); replying to my own card is 400. The reply's audience is fixed to
+the original sender: `audience` may be omitted on a reply or must be exactly `{mode: subset, recipient_ids: [<sender>]}`,
+anything else is 400 (without a reply, `audience` stays required). Recipients still go through the normal friend intersection,
+so block and minor rules apply as for any card (they are friend-graph rules); boards are not involved. Same media gates, holds,
+`cards.create` limit, idempotency and delivery as any card. Stored as `cards.cards.reply_to_card_id`. `CardView.reply_to`
+(`{card_id}` or `null`) is resolved per viewer with `visible_many` (one extra query only when a page holds replies): `null`
+when the viewer may no longer read the original (deleted, unfriended, blocked), so the reply shows without the quote. The
+original sender gets the reply as a normal delivered card: feed item and `card.new` activity/push (no new activity kind; the
+app reads `reply_to` to say "replied to your card"). `GET /v1/cards/{id}/replies` (owner only, uniform 404) lists the replies
+she may read, newest delivery first, at most 50, signed and budgeted like the feed.
+
 Mobile client (T-77, #79, `apps/mobile/src/features/sharing`): the editor's Next (or Send in the drafts tray) opens
 `/send?draft=<id>`. Audience = all friends by default or a subset (`GET /v1/friends`, at most
 `limits.card_recipients_max`); "keep original" is off by default. Tapping Send bakes, uploads `card_render` (+ `mask`,
@@ -830,7 +844,7 @@ hidden ∧ `social::friends_unblocked_sql!(viewer, owner)` ∧ `identity::accoun
 macros keep those schemas owned by their modules; `cards::recipient_visible_sql!` is the shared recipient half (feed and
 boards reuse it). Anything else, or a malformed id, is the byte-identical 404. `CardView`: `{id, sender {id, display_name,
 avatar_url: null}, caption, alt_text, style, media {render_url, mask_url, original_url (owner only), expires_at} | null,
-sent_at, is_mine, status + hold (owner only), ai_generated}`. `ai_generated` (server-stored, see above) is on every
+sent_at, is_mine, status + hold (owner only), ai_generated, reply_to}`. `ai_generated` (server-stored, see above) is on every
 `CardView` (card read, feed, boards), on `GET /v1/widget` `card`, and on public board `card` pins; the app shows the badge
 when `GET /v1/me` `policy.ai_label.visible_badge` is true. URLs are signed per viewer for delivered cards whose media are `clean`
 (`feed_1080` derivatives; the original = full re-encode) and charged to the URL budget; a pending or held card has
@@ -937,7 +951,7 @@ returned. Visibility is one batched query per read (`CardAccess::visible_to` + f
 // CardView (GET /v1/cards/{id}, feed items, widget)
 { "id": "…", "sender": {"id":"…","display_name":"Mai","avatar_url":"<signed>"}, "caption": "zoomies", "alt_text": "Card from Mai",
   "style": {"finish":{"id":"fx.holo","version":1}}, "media": {"render_url":"<signed>","mask_url":"<signed>","expires_at":"…"},
-  "sent_at": "…", "my_reaction": "react.squish", "is_mine": false, "ai_generated": false }   // "original_url" present only when is_mine (AC-13.6)
+  "sent_at": "…", "my_reaction": "react.squish", "is_mine": false, "ai_generated": false, "reply_to": null }   // "original_url" present only when is_mine (AC-13.6)
 // GET /v1/boards/{id} pin items: {"id":"…","kind":"card","card":{CardView}} | {"id":"…","kind":"private_tile","x":…} | {"id":"…","kind":"removed"}
 // POST /v1/boards/{id}/invitations {"user_id":"…"} → 201 { "invitation": {"id":"…","status":"pending","expires_at":"…"} }   // also for silent drops
 // POST /v1/boards/{id}/ops

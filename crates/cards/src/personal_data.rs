@@ -15,7 +15,7 @@ const SENT: &str = "SELECT jsonb_agg(jsonb_build_object('id', c.id, 'status', c.
     'caption', c.caption, 'alt_text', c.alt_text, 'style', c.style,
     'audience_mode', c.audience_mode, 'render_media_id', c.render_media_id,
     'mask_media_id', c.mask_media_id, 'original_media_id', c.original_media_id,
-    'ai_generated', c.ai_generated, 'sent_at', c.sent_at, 'delivered_at', c.delivered_at, 'deleted_at', c.deleted_at,
+    'ai_generated', c.ai_generated, 'reply_to_card_id', c.reply_to_card_id, 'sent_at', c.sent_at, 'delivered_at', c.delivered_at, 'deleted_at', c.deleted_at,
     'recipient_ids', (SELECT coalesce(jsonb_agg(r.recipient_id ORDER BY r.recipient_id), '[]'::jsonb)
                       FROM cards.card_recipients r WHERE r.card_id = c.id))
     ORDER BY c.sent_at)

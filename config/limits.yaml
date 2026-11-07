@@ -487,3 +487,8 @@ limits:
     requests: 60
     per_secs: 60
     on_store_failure: open
+  cards.replies.read: # GET /v1/cards/{id}/replies (owner only, ADR-0010)
+    scope: user
+    requests: 60
+    per_secs: 60
+    on_store_failure: open

@@ -342,6 +342,10 @@ pub fn router() -> ApiRouter<AppState> {
             routes!(cards::list_reactions),
         )
         .route(
+            RoutePolicy::session().limited("cards.replies.read"),
+            routes!(cards::list_replies),
+        )
+        .route(
             RoutePolicy::session().limited("ai.read"),
             routes!(ai_effects::get_ai_effects),
         )

@@ -74,3 +74,11 @@ Fan-out between the worker (which delivers) and the API instance holding the con
   "reply with a card" entry in the card viewer; Phase 2 board realtime can reuse the same stream (`board.changed {board_id}`)
   before Yjs ([[ADR-0007-board-sync]]).
 - Free-text replies remain out until the EM decides how text is moderated for 13+ users.
+
+## Implementation notes
+- **Replies (decision 1)**: built as decided (`migrations/*_cards_replies.sql`, `apps/api/src/routes/cards.rs`
+  `reply_audience`, `CardService::replies`). Details: replying to my own card is 400 (I know it exists, so no oracle); a
+  reply may omit `audience`; `GET /v1/cards/{id}/replies` (limit `cards.replies.read` 60/min, owner only, ≤ 50 newest) lists
+  replies for the original sender; the reply reaches her as an ordinary `card.new` activity item and push, and the app shows
+  "replied to your card" from `CardView.reply_to`. The seed's "Nap time" card is a reply to Alice's first card. Tests:
+  `apps/api/tests/api/cards_replies.rs`.

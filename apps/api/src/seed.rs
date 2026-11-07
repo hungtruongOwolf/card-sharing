@@ -115,8 +115,11 @@ pub async fn run(
             gates,
             alice,
             &[bob.id, mia.id],
-            "First zoomies of the day",
-            CardArt::new([255, 183, 77], [244, 81, 30]),
+            SeedCard {
+                caption: "First zoomies of the day",
+                art: CardArt::new([255, 183, 77], [244, 81, 30]),
+                reply_to: None,
+            },
         )
         .await?;
         let second = send_card(
@@ -125,8 +128,11 @@ pub async fn run(
             gates,
             alice,
             &[bob.id],
-            "Breakfast thief",
-            CardArt::new([129, 212, 250], [57, 73, 171]),
+            SeedCard {
+                caption: "Breakfast thief",
+                art: CardArt::new([129, 212, 250], [57, 73, 171]),
+                reply_to: None,
+            },
         )
         .await?;
         let reply = send_card(
@@ -135,8 +141,12 @@ pub async fn run(
             gates,
             bob,
             &[alice.id],
-            "Nap time",
-            CardArt::new([197, 225, 165], [56, 142, 60]),
+            SeedCard {
+                caption: "Nap time",
+                art: CardArt::new([197, 225, 165], [56, 142, 60]),
+                // ADR-0010: Bob answers Alice's first card with a card.
+                reply_to: Some(first),
+            },
         )
         .await?;
         cards_created = 3;
@@ -301,15 +311,26 @@ fn encode(image: &RgbaImage) -> anyhow::Result<Vec<u8>> {
 }
 
 /// Uploads, processes and sends one card, then runs delivery; returns the card id.
+/// One demo card: caption, picture and (ADR-0010) the card it replies to.
+struct SeedCard<'a> {
+    caption: &'a str,
+    art: CardArt,
+    reply_to: Option<Uuid>,
+}
+
 async fn send_card(
     router: &Router,
     state: &AppState,
     gates: &ProcessSettings,
     sender: &SeededUser,
     recipients: &[Uuid],
-    caption: &str,
-    art: CardArt,
+    card: SeedCard<'_>,
 ) -> anyhow::Result<Uuid> {
+    let SeedCard {
+        caption,
+        art,
+        reply_to,
+    } = card;
     let render = upload(router, sender, "card_render", art.render()?).await?;
     let mask = upload(router, sender, "mask", art.mask()?).await?;
     for (id, clean) in [render, mask] {
@@ -324,7 +345,7 @@ async fn send_card(
     }
     let (render, mask) = (render.0, mask.0);
     let client_card_id = Uuid::now_v7();
-    let body = json!({
+    let mut body = json!({
         "client_card_id": client_card_id,
         "render_media_id": render,
         "mask_media_id": mask,
@@ -332,6 +353,9 @@ async fn send_card(
         "caption": caption,
         "audience": { "mode": "subset", "recipient_ids": recipients },
     });
+    if let Some(original) = reply_to {
+        body["reply_to_card_id"] = json!(original);
+    }
     let response = call(
         router,
         "POST",

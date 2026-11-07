@@ -733,6 +733,9 @@ export interface paths {
          *     known-CSAM hash gate and the nudity classifier pass (it may end `held_review`). Recipients are
          *     the caller's current friends (all, or the requested subset); others are dropped silently and
          *     never named. Replaying the same key or `client_card_id` returns the original 202.
+         *
+         *     A reply (`reply_to_card_id`, ADR-0010) goes to the original card's sender only, and only when
+         *     the caller may read that card right now; it runs through the same gates, limits and delivery.
          */
         post: operations["createCard"];
         delete?: never;
@@ -820,6 +823,29 @@ export interface paths {
         };
         /** Reactions on my card. Auth: ses. Owner only: recipients get the same 404 as a missing card. */
         get: operations["listCardReactions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cards/{id}/replies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Replies to my card (ADR-0010). Auth: ses. Owner only: anyone else gets the same 404 as a
+         *     missing card.
+         * @description Each reply is a card sent to me by a recipient of the original; it is listed only while I may
+         *     read it (still friends, no block, reply active, its sender active), with per-viewer signed URLs
+         *     charged to my URL budget like the feed.
+         */
+        get: operations["listCardReplies"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2199,6 +2225,7 @@ export interface components {
              *     `GET /v1/cards/{id}/reactions`).
              */
             my_reaction?: string | null;
+            reply_to?: components["schemas"]["ReplyToView"] | null;
             sender: components["schemas"]["CardSenderView"];
             /** Format: date-time */
             sent_at: string;
@@ -2262,7 +2289,7 @@ export interface components {
         /** @description Body of `POST /v1/cards`. */
         CreateCardRequest: {
             alt_text?: string | null;
-            audience: components["schemas"]["AudienceRequest"];
+            audience?: components["schemas"]["AudienceRequest"] | null;
             caption?: string | null;
             /**
              * Format: uuid
@@ -2278,6 +2305,12 @@ export interface components {
             original_media_id?: string | null;
             /** Format: uuid */
             render_media_id: string;
+            /**
+             * Format: uuid
+             * @description ADR-0010: reply with this card to a card delivered to me. The original must be one I may
+             *     read right now (else the same 404 as a missing card) and not my own (400).
+             */
+            reply_to_card_id?: string | null;
             /** @description `{cut, finish, effects[]}` registry references (validated, unknown ids -> 422). */
             style: Record<string, never>;
         };
@@ -3035,6 +3068,15 @@ export interface components {
             op_id: string;
             /** Format: uuid */
             pin_id: string;
+        };
+        ReplyList: {
+            /** @description Replies to my card that I may still read, newest delivery first (at most 50). */
+            items: components["schemas"]["CardView"][];
+        };
+        /** @description The card a reply answers, as one viewer may see it. */
+        ReplyToView: {
+            /** Format: uuid */
+            card_id: string;
         };
         ReportEnvelope: {
             report: components["schemas"]["ReportView"];
@@ -5899,7 +5941,7 @@ export interface operations {
                     "application/json": components["schemas"]["SentCardEnvelope"];
                 };
             };
-            /** @description VALIDATION_FAILED (unknown fields such as owner_id or status, caption, audience, mask size). */
+            /** @description VALIDATION_FAILED (unknown fields such as owner_id or status, caption, audience, mask size; a reply to my own card or to anyone but the original sender). */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -5926,7 +5968,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
-            /** @description NOT_FOUND: a media id that is not the caller's (or not of that kind). */
+            /** @description NOT_FOUND: a media id that is not the caller's (or not of that kind), or a reply_to_card_id the caller may not read. */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -6347,6 +6389,74 @@ export interface operations {
             };
             /** @description RATE_LIMITED. */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    listCardReplies: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The original card id. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Replies to my card. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplyList"];
+                };
+            };
+            /** @description UNAUTHENTICATED, SESSION_EXPIRED or SESSION_REVOKED. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description ONBOARDING_INCOMPLETE or ACCOUNT_SUSPENDED. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description NOT_FOUND: no card of mine with this id. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description RATE_LIMITED (requests or the signed-URL budget). */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description TEMPORARILY_UNAVAILABLE: media signing not configured. */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
