@@ -20,8 +20,8 @@ suite in CI gates every merge that touches the loop.
 ## Phases
 | Phase | Work | Status |
 |---|---|---|
-| 0. Browser E2E gate | Playwright suite in the repo (two users, full core loop, fails on console errors / HTTP 5xx), CI job against the docker stack + Expo web export ([[testing-strategy]] "Browser E2E") | in review |
-| 1. Bug fixes | See the bug list below | planned |
+| 0. Browser E2E gate | Playwright suite in the repo (two users, full core loop, fails on console errors / HTTP 5xx), CI job against the docker stack + Expo web export ([[testing-strategy]] "Browser E2E") | done (#395); fixme specs enabled as bugs close |
+| 1. Bug fixes | See the bug list below | in progress |
 | 2. Real sign-up | Magic-link verify (T-23) + email screen + web landing, invite-code gate, magic-link re-auth (unblocks delete account / data export), then Google web client | planned |
 | 3. Hosting | Deferred by the EM | — |
 | Later | Widget, web push (activity tab covers it), mask refine (US-8), moderation UI, real AI provider, real safety scanners | — |
@@ -43,3 +43,12 @@ suite in CI gates every merge that touches the loop.
 | D1 | minor | Demo seed clutter (30 duplicate cards, 99+ activity, 26 sessions) | seed / reset script |
 | V1 | major | Story viewer shows an empty card frame on the web: the picture is an `Image` with `flex: 1` inside the frame (`alignItems: 'center'`), so it gets no width (found by the E2E suite) | `features/feed/CardViewerScreen.tsx` |
 | W1 | minor | The web mints a widget token after every sign-in although it has no widget; web sessions have no device id, so device-scoped limits (`widget.token` 20/day, `auth.refresh` 30/h) fall back to the client IP: the E2E run (one IP) gets 429 past 20 sign-ins, and so would testers behind one NAT once hosted | `app/_layout.tsx` (WidgetToken), `config/limits.yaml` |
+
+## Progress
+| Id | PR | Result |
+|---|---|---|
+| Phase 0 | #395 | Merged. `e2e/web` Playwright suite + CI job "Web E2E (Playwright)" (~3 min). Runs Metro in dev mode (a dev static export collides route chunks; a production export drops dev sign-in). Cutout worker replaced by a stand-in through an init script, so CI never downloads the model. 10 specs pass; 9 `test.fixme` for B1, R1, B5, B3, E1, V1. Not yet a required check. |
+| B6 | #393 | Merged. Activity-related live events are sent from the transaction that records the activity item; payloads unchanged; events now wait for the outbox relay. |
+| B7 (server) | #390 | Merged. `me.notification_preferences` 30/h → 30/min. Client part with the app lane. |
+| B4 | #392 | Merged. `API_INVITE_URL_BASE` / `API_PUBLIC_LINK_URL_BASE`; invites open the Expo web app, board links stay on Next.js ([[ADR-0011-invite-links-open-web-app]] proposed, awaiting EM confirmation). Needs R1 for `/i/<token>` to open. |
+| D1 | #394 | Merged. `api seed --reset` / `pnpm dev:reset`; refuses unless `API_ENV=development` and Postgres/Valkey are on loopback or a Unix socket. |

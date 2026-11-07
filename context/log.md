@@ -339,3 +339,30 @@ Source: raw/discussions/2026-11-07-web-mvp-direction.md. See [[sprint-10]].
 - [[ADR-0010-realtime-delivery]] implementation notes and [[api-mvp]] fan-out: `card.delivered`, `card.reply` and a set
   `card.reaction` are now notified from the activity job's transaction instead of the delivery / reaction transaction.
 - Why: the app refetched activity on the event before the outbox consumer wrote the row (sprint 10 audit bug B6).
+
+
+## [2026-11-07] decision | notification preferences limit per minute (B7, server part)
+- `me.notification_preferences` 30/h → 30/min per user (`config/limits.yaml`, [[api-mvp]]).
+- Why: the app reads the preferences on every launch, web reload and new tab, so ordinary web use hit 30/h (audit B7).
+  The route is self-only, idempotent and cheap; the limit only caps a runaway client loop. The client part of B7
+  (no retry on 429) stays with the app lane.
+
+
+## [2026-11-07] decision | B4 link bases from env; invites open the web app (proposed)
+- `API_INVITE_URL_BASE` / `API_PUBLIC_LINK_URL_BASE` override the yaml link bases; `.env.example` points invites at the
+  Expo web app and board links at Next.js. Proposed [[ADR-0011-invite-links-open-web-app]] (needs lead/EM confirmation);
+  [[local-dev]] gains "Testing from a phone on the home network"; [[sprint-10]], [[api-mvp]], [[ADR-0009-app-on-web]] link it.
+- Why: testers use the dev PC on the home network; localhost links were dead, and the Next.js invite landing has no
+  way to send a request from a browser.
+
+
+## [2026-11-07] decision | browser E2E suite and CI job (sprint 10 phase 0)
+- Added `e2e/web` (Playwright, two users, fails on page/console errors, HTTP 5xx and unexpected 4xx) and the CI job
+  Web E2E (Playwright); documented in [[testing-strategy]], phase 0 row in [[sprint-10]].
+- Why: the EM wants every merge that touches the core loop gated by a real browser run. Tests blocked by the app
+  lane's open bugs (B1, R1, B5, B3, E1) are `test.fixme` with the bug id in the title until their fixes land.
+
+## [2026-11-07] progress | sprint 10 platform lane merged
+#393 (B6), #390 (B7 server), #394 (D1 seed reset), #392 (B4 link bases, ADR-0011 proposed) and #395 (browser E2E
+gate) merged after CI was green on each head commit; their log entries were moved here to avoid append conflicts.
+New bugs from the E2E suite: V1 (story viewer picture has no width on web), W1 (web mints widget tokens). See [[sprint-10]].
