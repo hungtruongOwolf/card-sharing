@@ -7,6 +7,8 @@ sources: [raw/research/2026-11-04-subject-cutout.md, raw/discussions/2026-11-05-
 related: [[ADR-0003-effects-tiers]], [[ADR-0009-app-on-web]], [[ADR-0002-cross-platform-stack]], [[genai-effects]], [[security-baseline]]
 ---
 # Subject cutout pipeline
+> **2026-11-07:** model choice is being reopened by a bake-off — see [[model-selection]].
+
 **TL;DR:** Segment on-device (free, private) → store an 8-bit **mask** as source of truth → render
 any cut style with Skia from the mask. **MVP fallback (EM decision 2026-11-05):** no server cutout; devices without
 on-device cutout (iOS < 17, Android without the bundled model) make **whole-photo cards** with mask-free shape cuts

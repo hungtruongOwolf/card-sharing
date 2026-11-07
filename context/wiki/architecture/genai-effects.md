@@ -7,6 +7,8 @@ sources: [raw/research/2026-11-04-genai-effects.md]
 related: [[ADR-0003-effects-tiers]], [[region-policy]], [[ADR-0002-cross-platform-stack]], [[subject-cutout]], [[security-baseline]], [[monetization]], [[api-mvp]], [[ADR-0006-job-queue]], [[sprint-9]]
 ---
 # GenAI effects
+> **2026-11-07:** model choice is being reopened by a bake-off — see [[model-selection]].
+
 **Scope (ADR-0003):** this page = **Tier 2 cloud effects** only (Pro / rewarded ads). Everyday effects are on-device — see [[ADR-0003-effects-tiers]].
 
 **TL;DR:** Curated templates only (no free prompts at launch). Provider-agnostic Rust adapter layer,

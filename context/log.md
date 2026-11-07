@@ -384,3 +384,9 @@ provider, an https origin for Google on the LAN, native Universal/App Links (T-4
 EM accepted [[ADR-0012-web-sign-up]]; friend invite links do not grant sign-up; real email through Postmark (EM puts
 the token in the local `.env`); https deferred, so testers use email links and Google waits.
 Source: raw/discussions/2026-11-07-sprint-10-em-confirmations.md. See [[sprint-10]].
+
+## [2026-11-07] decision | pause to choose models by a bake-off
+EM: we are going too fast; choose the cutout and AI-effect models first. Decided: server cutout through an API with
+consent for the web test (best-looking cut of one chosen item; objects, pets, people, multi-item photos); AI effects
+cover style, scene and meme templates; run a bake-off (~30 EM photos) before more code. See [[model-selection]].
+Source: raw/discussions/2026-11-07-model-choice-discussion.md.

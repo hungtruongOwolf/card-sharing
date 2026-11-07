@@ -13,6 +13,7 @@ react, reply, pin it to a board and share a board link — with **no console err
 suite in CI gates every merge that touches the loop.
 
 ## EM decisions (2026-11-07)
+- Pause: choose the cutout and AI-effect models by a bake-off before more feature work ([[model-selection]]).
 - After phase 2: [[ADR-0012-web-sign-up]] accepted; invite codes only (friend links do not grant sign-up); Postmark for real email (EM sets the token locally); https deferred, so Google waits.
 - Sign-in on web: magic link email first, Google Sign-In second (Apple waits for the paid account).
 - Not hosted yet: testers use the dev PC on the home network; links must point at the LAN web origin, not localhost.

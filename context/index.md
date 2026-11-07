@@ -32,6 +32,7 @@ Tip: open `context/` as an Obsidian vault for graph/backlinks; run `python tools
 - [[region-policy]] — wiki/architecture/region-policy.md — per-jurisdiction rules (age, consent, ads) as config (proposed)
 - [[subject-cutout]] — wiki/architecture/subject-cutout.md — on-device segmentation → mask → Skia cut styles (proposed)
 - [[genai-effects]] — wiki/architecture/genai-effects.md — Tier 2 cloud effects: models, pipeline, credits, compliance (proposed)
+- [[model-selection]] — wiki/architecture/model-selection.md — choosing cutout and AI-effect models: EM decisions (server cutout, item tap, effect kinds) and the bake-off plan (proposed)
 - [[content-safety]] — wiki/architecture/content-safety.md — CSAM hash vendors + nudity classifier: free-now vs launch, legal duties, open EM decisions (proposed)
 - [[adr-template]] — wiki/architecture/decisions/adr-template.md — template for new ADRs
 
