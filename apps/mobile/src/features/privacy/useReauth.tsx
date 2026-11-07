@@ -3,6 +3,8 @@ import { useCallback, useEffect, useRef, useState, type ReactElement } from 'rea
 import { t, type MessageKey } from '../../i18n';
 import { Button, Sheet, Text, TextField } from '../../ui';
 import type { IdTokenProvider } from '../auth';
+import { GoogleWebButton, type GoogleCredential } from '../auth/GoogleWebButton';
+import { googleWebClientId, type GisApi } from '../auth/googleIdentity';
 import { appMagicLinkChannel, type MagicLinkChannel } from '../auth/magicLinkChannel';
 import { createPkcePair, platformRandom } from '../auth/pkce';
 import type { SignInProvider } from '../onboarding/signInProviders';
@@ -39,6 +41,8 @@ export interface ReauthDeps {
   channel?: MagicLinkChannel;
   /** CSPRNG for the link's PKCE verifier; null = email confirmation unavailable here. */
   random?: ((bytes: Uint8Array) => Uint8Array) | null;
+  /** Google's web button; defaults to `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` on the web (tests inject one). */
+  googleWeb?: { clientId: string; loadGis: () => Promise<GisApi> } | null;
 }
 
 /** The re-auth link this sheet asked for: its request id and the verifier, kept in memory only. */
@@ -58,8 +62,10 @@ interface PendingLink {
 export function useReauth(
   api: PrivacyApi,
   providers: readonly SignInProvider[],
-  { channel = appMagicLinkChannel(), random = platformRandom() }: ReauthDeps = {},
+  { channel = appMagicLinkChannel(), random = platformRandom(), googleWeb }: ReauthDeps = {},
 ): Reauth {
+  const googleClientId =
+    googleWeb === undefined ? googleWebClientId() : (googleWeb?.clientId ?? null);
   const [options, setOptions] = useState<ReauthOptions | null>(null);
   const [busy, setBusy] = useState<IdTokenProvider | 'email' | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -156,6 +162,24 @@ export function useReauth(
       failed(error);
     } finally {
       setBusy((current) => (current === provider.id ? null : current));
+    }
+  }
+
+  async function confirmWithGoogle(credential: GoogleCredential) {
+    setMessage(null);
+    setBusy('google');
+    try {
+      finish(
+        await api.reauthenticate({
+          provider: 'google',
+          idToken: credential.idToken,
+          nonce: credential.nonce,
+        }),
+      );
+    } catch (error) {
+      failed(error);
+    } finally {
+      setBusy((current) => (current === 'google' ? null : current));
     }
   }
 
@@ -260,6 +284,14 @@ export function useReauth(
           onPress={() => void confirm(provider)}
         />
       ))}
+      {googleClientId && options !== null ? (
+        <GoogleWebButton
+          clientId={googleClientId}
+          context="use"
+          loadGis={googleWeb?.loadGis}
+          onCredential={(credential) => void confirmWithGoogle(credential)}
+        />
+      ) : null}
       {emailSection}
       {message ? (
         <Text tone="danger" accessibilityRole="alert" accessibilityLiveRegion="polite">

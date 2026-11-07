@@ -31,7 +31,7 @@ related: [[ADR-0004-auth-sessions]], [[ADR-0009-app-on-web]], [[ADR-0011-invite-
 2. **Start returns a request id.** `POST /v1/auth/email/start` answers 202 `{request_id}` (a fresh UUID for every
    well-formed request, so it reveals nothing about the address). The app keeps the PKCE verifier under that id.
 3. **Verifier storage (app).** The verifier lives in the app's secure store (on the web: `localStorage`, the same
-   accepted exception as the session itself, [[security-baseline]]) under `magic_link.<request id>`, with its creation
+   accepted exception as the session itself, [[security-baseline]]) under `cs.magiclink.v1.<request id>`, with its creation
    time, for 15 minutes; it is deleted after use, on a final error and when stale. A new tab finds it by the `rid` in
    the link. The link it was started from (an `/i/<token>` invite, a card) and an invite code travel in the same record,
    so the new tab can continue there (R1's remembered link is per tab).
@@ -66,6 +66,13 @@ related: [[ADR-0004-auth-sessions]], [[ADR-0009-app-on-web]], [[ADR-0011-invite-
    server accepts its tokens once that client id is in `API_GOOGLE_CLIENT_IDS`. Google allows plain-http JavaScript
    origins only for `http://localhost`, so on `http://<pc-lan-ip>:8081` Google sign-in cannot work: testers on the home
    network use magic links until there is an https origin.
+
+## Implementation (sprint 10 phase 2)
+- #407 verify (T-23) and link format; #408 invite-code gate and `api invites`; #409 app sign-in screen, landing route
+  (`/auth/link`, available only when the app was opened with such a link, so sign-outs still land on the sign-in
+  screen), E2E with Mailpit in CI; #410 re-auth links; #411 Google on the web.
+- Found while building: Expo Router keeps a URL's hash as its `#` route param and writes it back, so removing the token
+  from the address bar takes a `router.replace` of the landing route, not only `history.replaceState`.
 
 ## Consequences
 - Positive: a tester invited by the EM signs up on the web with an email and a code; delete account and data export work

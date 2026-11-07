@@ -201,6 +201,16 @@ browser or device, after 15 minutes or a second time does not sign in. For teste
 `API_MAGIC_LINK_URL=http://<pc-lan-ip>:8081/auth/link` (table above); real delivery needs the mail provider (Postmark)
 configured by the EM (`API_MAIL_TRANSPORT=postmark`, `API_POSTMARK_SERVER_TOKEN`, `API_MAIL_FROM`).
 
+### Google Sign-In on the web (sprint 10, [[ADR-0012-web-sign-up]])
+Hidden until configured. What the EM creates in Google Cloud Console (APIs & Services → Credentials): an **OAuth 2.0
+Client ID** of type **Web application** (the OAuth consent screen must exist first). Under **Authorized JavaScript origins**
+add every origin the web app is opened from: `http://localhost:8081` for this PC, and later the https origin of the
+hosted app. No redirect URI is needed (the button uses a popup). Then put the client id in `apps/mobile/.env` as
+`EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` (restart Metro with `--clear`) **and** add it to `API_GOOGLE_CLIENT_IDS` in `.env`
+(comma-separated with the native ids). Limit: Google accepts plain-http origins only for `localhost`, so testers on
+`http://<pc-lan-ip>:8081` cannot use Google; they use email links until there is an https origin (hosting or a TLS
+tunnel, an EM decision). New Google accounts pass the same invite-code gate as email sign-ups.
+
 ### Invite codes for testers (sprint 10, [[ADR-0012-web-sign-up]])
 Sign-up needs an invite code while `config/signup.yaml` has `invites.required: true` (existing accounts and the seed
 users are not affected). Mint one per tester: `cargo run -p api -- invites create --label "<who>" --uses 1 --days 14`

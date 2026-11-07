@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+
 import type { IdTokenProvider } from '../auth';
 
 /** What a native sign-in sheet hands back: the provider ID token and the raw nonce the app generated for it. */
@@ -39,7 +41,11 @@ function notYetAvailable(id: IdTokenProvider): SignInProvider {
   };
 }
 
-/** Buttons in display order. */
+/**
+ * Buttons in display order. None on the web: there are no native sheets there; the web has email links and, when
+ * configured, Google's own button (`GoogleWebButton`, ADR-0012). Apple waits for the paid developer account.
+ */
 export function createAppSignInProviders(): readonly SignInProvider[] {
+  if (Platform.OS === 'web') return [];
   return [notYetAvailable('apple'), notYetAvailable('google')];
 }

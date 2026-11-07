@@ -86,6 +86,7 @@ export const en = {
   'onboarding.signIn.emailUnsupported': 'Email sign-in isn’t available on this device yet.',
   'onboarding.signIn.inviteReady': 'Your invite code is ready. We’ll use it when you join.',
   'onboarding.signIn.or': 'or',
+  'googleWeb.unavailable': 'Google sign-in couldn’t load here. Use the email link instead.',
   'onboarding.checkEmail.title': 'Check your email',
   'onboarding.checkEmail.body':
     'We sent a sign-in link to {email}. Open it on this device, in this browser. It works once and expires in 15 minutes.',
