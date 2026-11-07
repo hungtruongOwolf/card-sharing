@@ -38,16 +38,15 @@ describe.each<ColorScheme>(['light', 'dark'])('%s theme contrast', (scheme) => {
 });
 
 describe.each<ColorScheme>(['light', 'dark'])('%s text on gradients', (scheme) => {
-  it.each(gradientTextPairs.map((p) => [`${p.fg} on gradient.${p.gradient} (${p.use})`, p] as const))(
-    '%s passes against every stop',
-    (_label, pair) => {
-      const fg = String(table.get(pair.fg)?.[scheme]);
-      for (const stop of gradient[pair.gradient].stops) {
-        const ratio = contrastRatio(fg, stop);
-        expect(ratio, `${pair.fg} ${fg} on ${stop} = ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(
-          pair.min,
-        );
-      }
-    },
-  );
+  it.each(
+    gradientTextPairs.map((p) => [`${p.fg} on gradient.${p.gradient} (${p.use})`, p] as const),
+  )('%s passes against every stop', (_label, pair) => {
+    const fg = String(table.get(pair.fg)?.[scheme]);
+    for (const stop of gradient[pair.gradient].stops) {
+      const ratio = contrastRatio(fg, stop);
+      expect(ratio, `${pair.fg} ${fg} on ${stop} = ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(
+        pair.min,
+      );
+    }
+  });
 });

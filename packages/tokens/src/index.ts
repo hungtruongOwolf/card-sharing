@@ -553,8 +553,19 @@ export const contrastPairs: readonly ContrastPair[] = [
 ];
 
 /** Text drawn on a gradient: the label token must pass against every stop (the gradient never helps contrast). */
-export const gradientTextPairs: readonly { fg: string; gradient: GradientName; min: number; use: string }[] =
-  [{ fg: 'color.primary.onGradient', gradient: 'primary', min: CONTRAST.text, use: 'primary button label' }];
+export const gradientTextPairs: readonly {
+  fg: string;
+  gradient: GradientName;
+  min: number;
+  use: string;
+}[] = [
+  {
+    fg: 'color.primary.onGradient',
+    gradient: 'primary',
+    min: CONTRAST.text,
+    use: 'primary button label',
+  },
+];
 
 function channel(c: number): number {
   const s = c / 255;
