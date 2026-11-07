@@ -10,7 +10,7 @@ import Animated, {
 import { motion, onMedia, radius, space } from '@card-sharing/tokens';
 
 import { t } from '../../i18n';
-import { animateTo, useTheme } from '../../ui';
+import { animateTo, pressedStateProps, useTheme } from '../../ui';
 import { REACTION_DISPLAY } from './reactions';
 
 export interface ReactionBarProps {
@@ -30,7 +30,7 @@ const GLYPH = 26;
 /**
  * Emoji reactions as pills. Choosing one pops it (`spring.pop`) and floats a copy up and away, like a Stories quick
  * reaction; reduced motion keeps only the selected outline. Selection is also an outline and the accessibility
- * state, never colour alone.
+ * state (`selected` on native, `aria-pressed` on the web, B9), never colour alone.
  */
 export function ReactionBar({
   reactions,
@@ -116,6 +116,7 @@ function ReactionPill({
       accessibilityLabel={t(display.labelKey)}
       accessibilityHint={t('feed.reactions.hint')}
       accessibilityState={{ selected: chosen, disabled: busy }}
+      {...pressedStateProps(chosen)}
       disabled={busy}
       onPressIn={() => {
         if (!reduced) scale.set(animateTo(0.86, 'pop', false));
