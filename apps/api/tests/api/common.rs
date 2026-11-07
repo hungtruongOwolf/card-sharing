@@ -181,6 +181,18 @@ pub fn offline_state() -> AppState {
     .with_ip_country_header(test_config().ip_country_header)
 }
 
+/// #330: a test that captures logs installs a thread-scoped subscriber. Without a global
+/// subscriber, a callsite first hit on another thread caches the interest "never" (no subscriber
+/// existed), and the scoped subscriber never sees that event. A global subscriber that is
+/// interested in everything (a bare registry, which writes nothing) makes every callsite cache
+/// "always", so events always reach whichever subscriber is current on their thread.
+fn install_always_interested_global_subscriber() {
+    static INSTALL: std::sync::Once = std::sync::Once::new();
+    INSTALL.call_once(|| {
+        let _ = tracing::subscriber::set_global_default(tracing_subscriber::registry());
+    });
+}
+
 /// Real Postgres + Redis, migrated, with a manual clock. `None` when the services are not
 /// configured (see [`service_url`]).
 pub struct TestEnv {
@@ -203,6 +215,7 @@ impl TestEnv {
     }
 
     pub async fn with_routes(routes: api::access::ApiRouter<AppState>) -> Option<Self> {
+        install_always_interested_global_subscriber();
         let database_url = service_url("TEST_DATABASE_URL")?;
         let redis_url = service_url("TEST_REDIS_URL")?;
         let pool = PgPoolOptions::new()
