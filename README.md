@@ -61,6 +61,7 @@ pnpm dev:api        # Rust API on http://127.0.0.1:8080 (loads .env; see .env.ex
 pnpm dev:worker     # job worker (loads .env)
 pnpm dev:web        # Next.js on http://localhost:3000  (try /b/abcdefghijklmnop1234)
 pnpm dev:mobile     # Expo dev server
+pnpm dev:reset      # wipe the local demo data and seed it again (API_ENV=development, local services only)
 ```
 
 The API reads its config from environment variables (`API_*`, `RUST_LOG`) and **fails fast**

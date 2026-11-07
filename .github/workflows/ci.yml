@@ -140,9 +140,12 @@ jobs:
           xargs -a shard-tests.txt cargo test -p api --test api --locked -- --exact
       # T-3: the local seed command, run through the api binary against this job's Postgres and Valkey after the
       # production migrations, twice (it must be idempotent). One shard is enough.
-      - name: Seed the local demo data (api migrate + api seed)
+      # D1: `api seed --reset` is refused with API_ENV=test before it writes anything, and with development it
+      # leaves exactly the seed data (this shard's integration tests left many more accounts in the database).
+      - name: Seed the local demo data (api migrate + api seed, api seed --reset)
         if: matrix.shard == 0
         env:
+          PG_CONTAINER: ${{ job.services.postgres.id }}
           API_ENV: test
           DATABASE_URL: postgres://cardsharing:ci-only-not-a-secret@127.0.0.1:5432/cardsharing
           REDIS_URL: redis://127.0.0.1:6379/0
@@ -158,6 +161,23 @@ jobs:
           grep -q '^Seeded 3 users, 3 new cards' seed-1.txt || grep -q '^Seeded 3 users, 0 new cards' seed-1.txt
           grep -q '^Seeded 3 users, 0 new cards' seed-2.txt
           echo "Seed ran twice: $(head -n 1 seed-2.txt)"
+          count() { docker exec "$PG_CONTAINER" psql -U cardsharing -d cardsharing -tAc "SELECT count(*) FROM $1"; }
+          sessions_before=$(count identity.sessions)
+          test "$sessions_before" -ge 6
+          if cargo run -q -p api --locked -- seed --reset > reset-refused.txt 2>&1; then
+            echo "::error::api seed --reset ran with API_ENV=test"; cat reset-refused.txt; exit 1
+          fi
+          grep -q 'only runs with API_ENV=development (now test)' reset-refused.txt
+          test "$(count identity.sessions)" -eq "$sessions_before"
+          API_ENV=development cargo run -q -p api --locked -- seed --reset > reset.txt
+          grep -q '^Reset: emptied [0-9]* tables' reset.txt
+          grep -q '^Seeded 3 users, 3 new cards' reset.txt
+          test "$(count identity.accounts)" -eq 3
+          test "$(count identity.sessions)" -eq 3
+          test "$(count cards.cards)" -eq 3
+          cargo run -q -p api --locked -- seed > seed-3.txt
+          grep -q '^Seeded 3 users, 0 new cards' seed-3.txt
+          echo "Reset: $(head -n 1 reset.txt)"
 
   rust:
     name: Rust (fmt, clippy, test)
