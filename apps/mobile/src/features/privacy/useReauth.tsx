@@ -67,6 +67,8 @@ export function useReauth(
   const [email, setEmail] = useState('');
   const [pending, setPending] = useState<PendingLink | null>(null);
   const resolver = useRef<((grant: ReauthGrant | null) => void) | null>(null);
+  /** Request ids whose link was already taken: a second hand-off of the same link is ignored. */
+  const redeemed = useRef(new Set<string>());
 
   const finish = useCallback((grant: ReauthGrant | null) => {
     resolver.current?.(grant);
@@ -119,6 +121,8 @@ export function useReauth(
     return channel.subscribe((received) => {
       if (received.type !== 'link' || received.requestId !== pending.requestId) return;
       channel.post({ type: 'ack', requestId: pending.requestId });
+      if (redeemed.current.has(pending.requestId)) return;
+      redeemed.current.add(pending.requestId);
       setBusy('email');
       setMessage(null);
       api.verifyEmailReauth(received.token, pending.verifier).then(

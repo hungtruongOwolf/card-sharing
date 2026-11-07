@@ -121,10 +121,13 @@ describe('confirm it’s you by email (ADR-0012)', () => {
     });
     await act(async () => {
       appMagicLinkChannel().post({ type: 'link', requestId: link.requestId, token: link.token });
+      // A second hand-off of the same link (e.g. the landing tab reloaded) is acknowledged, not redeemed again.
+      appMagicLinkChannel().post({ type: 'link', requestId: link.requestId, token: link.token });
     });
     await screen.findByTestId('data-export-status');
     off();
-    expect(acks).toEqual([link.requestId]);
+    expect(acks).toEqual([link.requestId, link.requestId]);
+    expect(server.auth.count('POST', '/v1/auth/reauth/email/verify')).toBe(1);
     expect(server.auth.count('POST', '/v1/me/exports')).toBe(1);
     // The verifier never left this tab: only its hash went with the request.
     expect(JSON.stringify(server.auth.requests.map((r) => r.body))).toContain('code_verifier');
