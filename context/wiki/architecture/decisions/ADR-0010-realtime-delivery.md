@@ -91,6 +91,16 @@ Fan-out between the worker (which delivers) and the API instance holding the con
   `API_EVENTS_MAX_PER_ACCOUNT` (5), `API_EVENTS_MAX_PER_INSTANCE` (2000), `events.connect` 30/min. Tests:
   `apps/api/tests/api/events.rs` (per-account isolation, ids-only payloads, reply and reaction events, the stream cap,
   revocation), unit tests in `apps/api/src/realtime.rs` and `crates/platform/src/realtime.rs`.
+- **Event ordering (B6, sprint 10)**: decision 3's "NOTIFY in the delivery transaction" let the app's refetch race the
+  activity row, which the outbox consumer writes later (`notify.activity` job), so the activity tab missed the item the
+  event announced. Now `card.delivered`, `card.reply` and `card.reaction` (set or changed) are queued by
+  `notifications::Activity::record` in the transaction that inserts the addressee's activity item, so Postgres sends them
+  on that commit and every refetch (feed, activity, reactions) finds what they announce; a job re-run that inserts nothing
+  sends nothing. The `cards.delivered` outbox payload gains `reply_to_card_id` (replies only) for `card.reply`. A removed
+  reaction has no activity item and is still announced from its own transaction. Payloads, addressees and the client are
+  unchanged (ids only, server-side addressing); the cost is the relay and job latency (outbox relay every 1 s, jobs woken
+  by `NOTIFY`), and an event is not sent when the worker is down (catch-up on reconnect still applies). Test:
+  `activity_events_arrive_once_the_activity_item_is_readable` in `apps/api/tests/api/events.rs`.
 - **Client (decision 5)**: as decided, with `expo/fetch` on every target (no `EventSource`, no new dependency); a
   polling fallback (30 s) exists only for a runtime without a readable body. Details in [[api-mvp]] (mobile client note).
 - **Security review (events)**: payloads are `{card_id, reply_to?}` only, addressed by account on the server; the

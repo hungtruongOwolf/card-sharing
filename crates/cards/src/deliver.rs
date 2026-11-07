@@ -14,14 +14,14 @@ use std::sync::Arc;
 use media::{GateState, MEDIA_SETTLED, MediaService, MediaState};
 use platform::jobs::{ClaimedJob, JobError, JobFuture, JobHandler, Lane, NewJob};
 use platform::outbox::{self, Event, StoredEvent, Subscriber};
-use platform::realtime::{self, EventKind, RealtimeEvent};
 use serde_json::json;
 use time::Duration;
 use uuid::Uuid;
 
 use crate::service::{CARD_SUBMITTED, CardError, CardService, CardStatus};
 
-/// Topic when a card reached its recipients: `{card_id, owner_id, recipient_ids}`.
+/// Topic when a card reached its recipients: `{card_id, owner_id, recipient_ids}`, plus
+/// `reply_to_card_id` when the card is a reply (ADR-0010).
 pub const CARD_DELIVERED: &str = "cards.delivered";
 /// Topic when the classifier held a card: `{card_id, owner_id}` (sender notification).
 pub const CARD_HELD: &str = "cards.held";
@@ -223,30 +223,21 @@ impl CardService {
         .bind(&variant_col)
         .execute(&mut *tx)
         .await?;
+        let mut payload = json!({
+            "card_id": card_id,
+            "owner_id": card.owner_id,
+            "recipient_ids": recipients,
+        });
+        // ADR-0010: the recipients' live `card.delivered` / `card.reply` is announced by the
+        // activity job once their activity item is written (B6), so it needs the original's id.
+        if let Some(original) = card.reply_to_card_id {
+            payload["reply_to_card_id"] = json!(original);
+        }
         let event = Event {
             topic: CARD_DELIVERED,
-            payload: json!({
-                "card_id": card_id,
-                "owner_id": card.owner_id,
-                "recipient_ids": recipients,
-            }),
+            payload,
         };
         outbox::publish(&mut *tx, &event, now).await?;
-        // ADR-0010: ids only, to each recipient; sent by Postgres on commit, never on rollback.
-        let (kind, reply_to) = match card.reply_to_card_id {
-            Some(original) => (EventKind::CardReply, Some(original)),
-            None => (EventKind::CardDelivered, None),
-        };
-        let announced: Vec<RealtimeEvent> = recipients
-            .iter()
-            .map(|to| RealtimeEvent {
-                to: *to,
-                kind,
-                card_id,
-                reply_to,
-            })
-            .collect();
-        realtime::notify(&mut *tx, &announced).await?;
         tx.commit().await?;
         tracing::info!(event = "card.delivered", card_id = %card_id, recipients = recipients.len());
         Ok(Evaluation::Delivered)

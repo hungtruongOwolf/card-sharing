@@ -1,7 +1,10 @@
 //! Real-time event fan-out ([[ADR-0010-realtime-delivery]]): a Postgres `NOTIFY` on
-//! [`CHANNEL`] inside the transaction that makes something visible (card delivered, reply
-//! delivered, reaction changed), so an event is announced only on commit. API instances listen
-//! and forward each event to the open streams of its addressee only.
+//! [`CHANNEL`] inside the transaction that makes the last thing the app refetches readable, so an
+//! event is announced only on commit and the refetch finds everything it announces: the
+//! addressee's activity item for a delivered card, a reply and a set reaction (written by the
+//! `notify.activity` job after the delivery or reaction committed), the removal itself for a
+//! removed reaction. API instances listen and forward each event to the open streams of its
+//! addressee only.
 //!
 //! Events carry ids, never content: the app reacts by calling the normal read routes, which
 //! authorize every id again. A missed event (instance restart, dropped connection) costs one
