@@ -15,6 +15,11 @@ const BASE_URL = /^(https?):\/\/(\[[0-9a-f:]+\]|[a-z0-9.-]+)(:\d{1,5})?(\/[A-Za-
 const PRIVATE_HOST =
   /^(localhost|\[::1\]|127\.\d+\.\d+\.\d+|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)$/i;
 
+/** Loopback or private-network host (RFC 1918, IPv6 loopback): where plain http is tolerated in development. */
+export function isPrivateHost(host: string): boolean {
+  return PRIVATE_HOST.test(host);
+}
+
 export function parseApiBaseUrl(raw: string | undefined, allowLocalHttp: boolean): string {
   const value = raw?.trim();
   if (!value) throw new ApiConfigError('EXPO_PUBLIC_API_URL is not set');
@@ -23,7 +28,7 @@ export function parseApiBaseUrl(raw: string | undefined, allowLocalHttp: boolean
     throw new ApiConfigError('EXPO_PUBLIC_API_URL must be a plain http(s) origin or path');
   const scheme = (match[1] ?? '').toLowerCase();
   const host = match[2] ?? '';
-  const localHttp = allowLocalHttp && scheme === 'http' && PRIVATE_HOST.test(host);
+  const localHttp = allowLocalHttp && scheme === 'http' && isPrivateHost(host);
   if (scheme !== 'https' && !localHttp) {
     throw new ApiConfigError('EXPO_PUBLIC_API_URL must use https');
   }

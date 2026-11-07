@@ -1,5 +1,6 @@
 import { problemCode } from '../../data/problemCode';
 import type { AuthClient } from '../auth';
+import { isPrivateHost } from '../auth/config';
 import { isCardId } from '../sharing/cardsApi';
 import { boardsFailure, BoardsError } from './boardsApi';
 
@@ -58,8 +59,16 @@ export function parseLink(value: unknown): PublicLink | null {
   return { id: value.id, createdAt, expiresAt };
 }
 
-/** Only an https URL on a share page path is shown or shared (a hostile body must not inject a scheme). */
-export function parseCreated(value: unknown): CreatedLink | null {
+/** `<scheme>://<host>[:port]/b/<token>`: a plain host (no userinfo, path prefix, query or fragment). */
+const SHARE_URL =
+  /^(https?):\/\/(\[[0-9a-f:]+\]|[a-z0-9.-]+)(?::\d{1,5})?\/b\/[A-Za-z0-9_-]{16,}$/i;
+
+/**
+ * Only a share page URL is shown or shared (a hostile body must not inject a scheme or a lookalike host). It must be
+ * https, except that development builds accept plain http to a loopback or private-network host: the local stack's
+ * share pages run on `http://<pc-lan-ip>:3000` (sprint 10 B3/B4), the same rule as the API base URL (auth/config.ts).
+ */
+export function parseCreated(value: unknown, allowLocalHttp = false): CreatedLink | null {
   const link = isObject(value) && isObject(value.link) ? value.link : null;
   const parsed = parseLink(link);
   if (!parsed || !link) return null;
@@ -67,13 +76,22 @@ export function parseCreated(value: unknown): CreatedLink | null {
   if (url === undefined || url === null) {
     return link.url_already_shown === true ? { ...parsed, url: null, urlAlreadyShown: true } : null;
   }
-  if (typeof url !== 'string' || !/^https:\/\/[^\s/]+\/b\/[A-Za-z0-9_-]{16,}$/.test(url)) {
-    return null;
-  }
+  const match = typeof url === 'string' ? SHARE_URL.exec(url) : null;
+  if (!match || typeof url !== 'string') return null;
+  const scheme = (match[1] ?? '').toLowerCase();
+  if (scheme !== 'https' && !(allowLocalHttp && isPrivateHost(match[2] ?? ''))) return null;
   return { ...parsed, url, urlAlreadyShown: false };
 }
 
-export function createPublicLinksApi(fetcher: AuthClient['fetch']): PublicLinksApi {
+export interface PublicLinksApiOptions {
+  /** Accept http share URLs on loopback or private hosts (development builds only, see {@link parseCreated}). */
+  allowLocalHttp?: boolean;
+}
+
+export function createPublicLinksApi(
+  fetcher: AuthClient['fetch'],
+  { allowLocalHttp = false }: PublicLinksApiOptions = {},
+): PublicLinksApi {
   const id = (value: string) => {
     if (!isCardId(value)) throw new BoardsError('not_found');
     return encodeURIComponent(value);
@@ -96,7 +114,7 @@ export function createPublicLinksApi(fetcher: AuthClient['fetch']): PublicLinksA
         throw new LinksDisallowedError('public links are not allowed for this account');
       }
       if (!response.ok) throw await boardsFailure(response);
-      const created = parseCreated(await response.json().catch(() => null));
+      const created = parseCreated(await response.json().catch(() => null), allowLocalHttp);
       if (!created) throw new BoardsError('unavailable');
       return created;
     },

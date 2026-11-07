@@ -37,17 +37,20 @@ test('a card is pinned to the shared board', async ({ app }) => {
   await expect.poll(() => pinsInView(page), { timeout: 20_000 }).toBe(before + 1);
 });
 
-test.fixme('B3: the owner creates a public board link and sees its URL', async ({ app }) => {
+test('B3: the owner creates a public board link and sees its URL', async ({ app }) => {
   const { page } = await app.signIn('alice');
   await openSharedBoard(page);
   await page.getByRole('button', { name: 'Share link', exact: true }).first().click();
   const sheet = page.getByTestId('public-links');
   await expect(sheet).toBeVisible();
+  // The one-time explanation shows first unless already seen; the expiry choices are radios.
   const gotIt = sheet.getByRole('button', { name: 'Got it', exact: true });
+  const day = sheet.getByRole('radio', { name: '24 hours', exact: true });
+  await expect(gotIt.or(day)).toBeVisible();
   if (await gotIt.isVisible()) await gotIt.click();
-  await sheet.getByRole('button', { name: '24 hours', exact: true }).click();
+  await day.click();
   await sheet.getByRole('button', { name: 'Create link', exact: true }).click();
-  // B3: the API answers 201 but the sheet says it could not update the links.
+  // B3: the API answered 201 with a plain-http local URL and the sheet said it could not update the links.
   const created = sheet.getByTestId('public-links-created');
   await expect(created).toBeVisible();
   await expect(created).toContainText(/https?:\/\/\S+\/b\/[A-Za-z0-9_-]{16,}/);
