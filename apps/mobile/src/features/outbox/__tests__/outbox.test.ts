@@ -92,6 +92,40 @@ describe('outbox', () => {
     expect(removeDraft).toHaveBeenCalledWith(CARD_ID);
   });
 
+  it('sends at once on reconnect, ignoring the backoff, still under one key (#265)', async () => {
+    const { server, outbox, job, advance } = setup();
+    await outbox.enqueueSend(job);
+    server.overrides.set('POST /v1/media', problem(503, 'TEMPORARILY_UNAVAILABLE'));
+    advance(BASE_BACKOFF_MS);
+    await outbox.process();
+    expect(await outbox.list()).toEqual([expect.objectContaining({ attempts: 1 })]);
+
+    // Back online well before the next backoff is due.
+    server.overrides.delete('POST /v1/media');
+    advance(1_000);
+    await outbox.process();
+    expect(server.sentCards()).toHaveLength(0);
+    await outbox.processNow();
+    expect(server.sentCards()).toHaveLength(1);
+    expect(await outbox.list()).toEqual([]);
+    const keys = server.auth.requests
+      .filter((r) => r.path === '/v1/cards')
+      .map((r) => r.idempotencyKey);
+    expect(keys).toEqual([CARD_ID]);
+  });
+
+  it('leaves failed entries alone on reconnect', async () => {
+    const { server, outbox, job, advance } = setup();
+    await outbox.enqueueSend(job);
+    advance(GIVE_UP_AFTER_MS + 1);
+    server.overrides.set('POST /v1/media', problem(503, 'TEMPORARILY_UNAVAILABLE'));
+    await outbox.process();
+    server.overrides.delete('POST /v1/media');
+    await outbox.processNow();
+    expect(await outbox.list()).toEqual([expect.objectContaining({ state: 'failed' })]);
+    expect(server.sentCards()).toHaveLength(0);
+  });
+
   it('retries with the same key after lost answers and never duplicates', async () => {
     const { server, outbox, job, prepareSend, advance } = setup();
     await outbox.enqueueSend(job);

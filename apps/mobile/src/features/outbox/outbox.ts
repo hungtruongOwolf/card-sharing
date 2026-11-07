@@ -35,6 +35,11 @@ export interface Outbox {
   retry(id: string): Promise<void>;
   /** Runs every entry that is due, one at a time. Concurrent calls share one run. */
   process(): Promise<void>;
+  /**
+   * Runs every pending entry now, ignoring its backoff (the device just came back online). Failed entries stay
+   * failed; an attempt that fails again backs off as usual. Waits for a run in progress first.
+   */
+  processNow(): Promise<void>;
   /** Epoch milliseconds of the next pending attempt, or null. */
   nextDueAt(): Promise<number | null>;
   clear(): Promise<void>;
@@ -101,9 +106,10 @@ export function createOutbox({
     }
   }
 
-  async function runDue(): Promise<void> {
+  async function runDue(ignoreBackoff = false): Promise<void> {
     for (const entry of await store.list()) {
-      if (entry.state !== 'pending' || entry.nextAttemptAt > now()) continue;
+      if (entry.state !== 'pending') continue;
+      if (!ignoreBackoff && entry.nextAttemptAt > now()) continue;
       const next = await attempt(entry);
       // The user may have cancelled it while the attempt ran: do not bring it back.
       const stillQueued = (await store.list()).some((e) => e.id === entry.id);
@@ -155,6 +161,13 @@ export function createOutbox({
     },
     process() {
       running ??= runDue().finally(() => {
+        running = null;
+      });
+      return running;
+    },
+    async processNow() {
+      await running?.catch(() => undefined);
+      running ??= runDue(true).finally(() => {
         running = null;
       });
       return running;
