@@ -495,7 +495,8 @@ function StoryCard({
                     <Image
                       testID="card-viewer-image"
                       source={{ uri: media.renderUrl }}
-                      style={styles.fill}
+                      // The card's own size: in the centred frame a `flex: 1` image gets no width on the web (V1).
+                      style={cardSize}
                       resizeMode="contain"
                       onError={() => {
                         setFailedUrl(media.renderUrl);

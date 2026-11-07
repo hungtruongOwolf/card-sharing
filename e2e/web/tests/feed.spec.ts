@@ -32,13 +32,13 @@ test('the feed lists friends’ cards and the story viewer opens and closes', as
   await expect(page.getByTestId('home-capture')).toBeVisible();
 });
 
-test.fixme('V1: the story viewer shows the card’s picture', async ({ app }) => {
+test('V1: the story viewer shows the card’s picture', async ({ app }) => {
   const { page } = await app.signIn('alice');
   await feedCard(page, 'Nap time')
     .getByTestId(/^feed-open-/)
     .click();
-  // V1: the picture is an Image with `flex: 1` inside the card frame (`alignItems: 'center'`), so on the web it gets
-  // no width and the card shows as an empty frame.
+  // V1: the picture was an Image with `flex: 1` inside the card frame (`alignItems: 'center'`), so on the web it got
+  // no width and the card showed as an empty frame.
   const picture = page.getByTestId('card-viewer-image');
   await expect(picture).toBeVisible({ timeout: 30_000 });
   const box = await picture.boundingBox();

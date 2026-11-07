@@ -3,7 +3,7 @@
  */
 import { Skia, type SkImage } from '@shopify/react-native-skia';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
-import { Platform } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 
 import { t } from '../../../i18n';
 import { renderCards } from '../../../test/cardsHarness';
@@ -204,6 +204,11 @@ describe('CardViewerScreen', () => {
       const image = await screen.findByTestId('card-viewer-image');
       expect(image.props.source.uri).toContain('https://media.test/');
       const card = screen.getByTestId('card-viewer-card');
+      // V1: the picture has the card frame's size, not `flex: 1` in a centred frame (no width on the web).
+      const frame = StyleSheet.flatten(card.props.style);
+      const picture = StyleSheet.flatten(image.props.style);
+      expect(picture.width).toBeGreaterThan(100);
+      expect([picture.width, picture.height]).toEqual([frame.width, frame.height]);
       expect(card.props.accessibilityRole).toBe('image');
       expect(card.props.accessibilityLabel).toBe(t('feed.card.a11y', { name: 'Mai' }));
       expect(screen.getByText('zoomies')).toBeTruthy();
