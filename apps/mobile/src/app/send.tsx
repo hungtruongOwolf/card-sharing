@@ -9,7 +9,7 @@ import { appMaskSource } from '../features/editor';
 import { useFriendsApi } from '../features/friends';
 import { useOutbox } from '../features/outbox';
 import { useRemoteConfig } from '../features/remote-config';
-import { SendScreen, useCardsApi } from '../features/sharing';
+import { parseReplyTarget, replyParams, SendScreen, useCardsApi } from '../features/sharing';
 import { t } from '../i18n';
 import { Screen, Text } from '../ui';
 
@@ -21,6 +21,7 @@ export default function SendRoute() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const draftId = typeof params.draft === 'string' ? params.draft : null;
+  const reply = useMemo(() => parseReplyTarget(params), [params]);
   const [card, setCard] = useState<LocalCard | null | 'loading'>(draftId ? 'loading' : null);
   const friendsApi = useFriendsApi();
   const cardsApi = useCardsApi();
@@ -67,7 +68,10 @@ export default function SendRoute() {
       registry={registry}
       recipientsMax={remoteConfig?.cardRecipientsMax}
       queue={outbox ? (job) => outbox.enqueueSend(job) : undefined}
-      onEdit={() => router.replace({ pathname: '/editor', params: { draft: card.id } })}
+      reply={reply}
+      onEdit={() =>
+        router.replace({ pathname: '/editor', params: { draft: card.id, ...replyParams(reply) } })
+      }
       onOpenFriends={() => router.push('/friends')}
       onDone={() => router.replace('/')}
     />

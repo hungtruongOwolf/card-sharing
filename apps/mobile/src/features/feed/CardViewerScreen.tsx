@@ -40,6 +40,7 @@ import {
 
 import { t } from '../../i18n';
 import { animateTo, Avatar, Button, IconButton, Text, useTheme, useToast } from '../../ui';
+import { AiBadge } from '../ai-effects';
 import { AuthError } from '../auth';
 import { LiveFinishPreview } from '../editor/LiveFinishPreview';
 import { canShareImages, exportRenderPng, shareImage } from '../export';
@@ -88,6 +89,11 @@ export interface CardViewerScreenProps {
   share?: (png: Uint8Array) => Promise<boolean>;
   /** Report a friend's card (US-26); absent hides the action. Never offered on my own cards (the server says 404). */
   onReport?: (cardId: string) => void;
+  /**
+   * Reply with a card (ADR-0010): opens capture with this card as the reply target. Absent hides the action; never
+   * offered on my own cards (the server refuses those with 400).
+   */
+  onReply?: (card: CardItem) => void;
   onClose: () => void;
 }
 
@@ -358,6 +364,7 @@ function StoryCard({
   loadRender = loadRenderFromUrl,
   share = shareImage,
   onReport,
+  onReply,
   onClose,
   screen,
   insets,
@@ -541,9 +548,12 @@ function StoryCard({
                 {name}
               </Text>
               <Text variant="label.sm" tone="onMediaMuted">
-                {sentLabel(card.sentAt, now())}
+                {card.replyTo && !card.isMine
+                  ? t('card.reply.label', { when: sentLabel(card.sentAt, now()) })
+                  : sentLabel(card.sentAt, now())}
               </Text>
             </View>
+            {card.aiGenerated ? <AiBadge testID="card-viewer-ai" /> : null}
           </View>
           <View
             pointerEvents="box-none"
@@ -580,6 +590,15 @@ function StoryCard({
                       toast.show({ message: t('card.export.failed') });
                     }
                   }}
+                />
+              ) : null}
+              {!card.isMine && onReply ? (
+                <IconButton
+                  icon="send"
+                  testID="card-viewer-reply"
+                  accessibilityLabel={t('card.reply.action', { name })}
+                  accessibilityHint={t('card.reply.hint')}
+                  onPress={() => onReply(card)}
                 />
               ) : null}
               {!card.isMine && onReport ? (

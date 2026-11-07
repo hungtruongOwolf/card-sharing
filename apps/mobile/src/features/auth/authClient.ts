@@ -62,6 +62,11 @@ export interface AuthClientOptions {
   baseUrl: () => string;
   store: TokenStore;
   fetch?: typeof fetch;
+  /**
+   * A fetch whose response body is a readable stream, for {@link AuthClient.fetchStream} (the app passes
+   * `expo/fetch`: React Native's built-in fetch cannot stream). Defaults to `fetch`.
+   */
+  streamFetch?: typeof fetch;
   now?: () => number;
   /** Sent as `X-App-Version` for the server's minimum-version gate (426 `UPGRADE_REQUIRED`). */
   appVersion?: string;
@@ -82,6 +87,11 @@ export interface AuthClient {
    * Non-auth failures come back as the `Response`; auth failures throw {@link AuthError}.
    */
   fetch(path: string, init?: RequestInit): Promise<Response>;
+  /**
+   * Like {@link fetch}, through the streaming fetch (`streamFetch`), for long-lived responses read as a stream
+   * (`GET /v1/events`, ADR-0010). Pass an `AbortSignal` to close it.
+   */
+  fetchStream(path: string, init?: RequestInit): Promise<Response>;
   /**
    * Like {@link fetch}, for a request whose body carries a credential the server may refuse with 401
    * `UNAUTHENTICATED` (a re-auth proof, T-26). That 401 comes back as the `Response` and never signs the device
@@ -143,6 +153,7 @@ export function createAuthClient(options: AuthClientOptions): AuthClient {
     logoutTimeoutMs = DEFAULT_LOGOUT_TIMEOUT_MS,
   } = options;
   const fetchFn = options.fetch ?? ((input, init) => fetch(input, init));
+  const streamFetchFn = options.streamFetch ?? fetchFn;
 
   let session: Session | null = null;
   let state: AuthState = { status: 'loading' };
@@ -256,8 +267,8 @@ export function createAuthClient(options: AuthClientOptions): AuthClient {
     return ready;
   }
 
-  const send = (path: string, request: RequestInit, accessToken: string) =>
-    fetchFn(`${baseUrl()}${path}`, {
+  const send = (path: string, request: RequestInit, accessToken: string, stream = false) =>
+    (stream ? streamFetchFn : fetchFn)(`${baseUrl()}${path}`, {
       ...request,
       headers: headers(request.headers, accessToken),
     }).catch(() => {
@@ -268,6 +279,7 @@ export function createAuthClient(options: AuthClientOptions): AuthClient {
     path: string,
     request: RequestInit = {},
     proof = false,
+    stream = false,
   ): Promise<Response> {
     await init();
     let current = session;
@@ -288,7 +300,7 @@ export function createAuthClient(options: AuthClientOptions): AuthClient {
       }
     }
 
-    const first = await send(path, request, current.accessToken);
+    const first = await send(path, request, current.accessToken, stream);
     if (first.status !== 401) return first;
 
     const code = await problemCode(first);
@@ -304,7 +316,7 @@ export function createAuthClient(options: AuthClientOptions): AuthClient {
 
     // SESSION_EXPIRED, or UNAUTHENTICATED because another request already rotated the pair.
     const latest = await refreshFrom(current);
-    const second = await send(path, request, latest.accessToken);
+    const second = await send(path, request, latest.accessToken, stream);
     if (second.status !== 401) return second;
     const retryCode = await problemCode(second);
     if (retryCode === 'REAUTH_REQUIRED') return second;
@@ -388,6 +400,7 @@ export function createAuthClient(options: AuthClientOptions): AuthClient {
       };
     },
     fetch: (path, request) => authorizedFetch(path, request),
+    fetchStream: (path, request) => authorizedFetch(path, request, false, true),
     fetchWithProof: (path, request) => authorizedFetch(path, request, true),
     signInWithIdToken,
     signInAsSeedUser,

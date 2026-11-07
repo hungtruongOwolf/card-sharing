@@ -18,6 +18,7 @@ export {
   type SentCard,
   type UploadedMedia,
 } from './cardsApi';
+export { parseReplyTarget, replyParams, type ReplyTarget } from './replyTarget';
 export { newSendJob, runSend, SendError, withNewCardId, type SendJob } from './sendCard';
 export { SendScreen, type SendScreenProps } from './SendScreen';
 export { useCardsApi } from './useCardsApi';

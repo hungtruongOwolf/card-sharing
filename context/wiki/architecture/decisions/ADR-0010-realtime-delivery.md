@@ -91,6 +91,8 @@ Fan-out between the worker (which delivers) and the API instance holding the con
   `API_EVENTS_MAX_PER_ACCOUNT` (5), `API_EVENTS_MAX_PER_INSTANCE` (2000), `events.connect` 30/min. Tests:
   `apps/api/tests/api/events.rs` (per-account isolation, ids-only payloads, reply and reaction events, the stream cap,
   revocation), unit tests in `apps/api/src/realtime.rs` and `crates/platform/src/realtime.rs`.
+- **Client (decision 5)**: as decided, with `expo/fetch` on every target (no `EventSource`, no new dependency); a
+  polling fallback (30 s) exists only for a runtime without a readable body. Details in [[api-mvp]] (mobile client note).
 - **Security review (events)**: payloads are `{card_id, reply_to?}` only, addressed by account on the server; the
   addressee is always someone the normal read already allows (recipient, original sender, card owner), and a frame never
   shows anything by itself: the client refetches through routes with the full predicate (so an unfriend or block between the

@@ -15,6 +15,7 @@ import {
   type CardDraft,
 } from '../features/editor';
 import { useRemoteConfig } from '../features/remote-config';
+import { parseReplyTarget, replyParams, type ReplyTarget } from '../features/sharing';
 import { t } from '../i18n';
 import { Screen, Text, useToast } from '../ui';
 
@@ -28,6 +29,7 @@ export default function EditorRoute() {
   const params = useLocalSearchParams();
   const draftId = typeof params.draft === 'string' ? params.draft : null;
   const photo = useMemo(() => (draftId ? null : parseEditorPhoto(params)), [draftId, params]);
+  const reply = useMemo(() => parseReplyTarget(params), [params]);
   const [draft, setDraft] = useState<LocalCard | null | 'loading'>(draftId ? 'loading' : null);
 
   useEffect(() => {
@@ -53,13 +55,22 @@ export default function EditorRoute() {
       );
     }
     if (!draft) return <Redirect href="/drafts" />;
-    return <Editor photo={draft.photo} existing={draft} />;
+    return <Editor photo={draft.photo} existing={draft} reply={reply} />;
   }
   if (!photo) return <Redirect href="/capture" />;
-  return <Editor photo={photo} existing={null} />;
+  return <Editor photo={photo} existing={null} reply={reply} />;
 }
 
-function Editor({ photo, existing }: { photo: CapturedPhoto; existing: LocalCard | null }) {
+function Editor({
+  photo,
+  existing,
+  reply,
+}: {
+  photo: CapturedPhoto;
+  existing: LocalCard | null;
+  /** ADR-0010: the card this one answers (from the story viewer), forwarded to the send screen. */
+  reply: ReplyTarget | null;
+}) {
   const router = useRouter();
   const maskSource = appMaskSource();
   const remoteConfig = useRemoteConfig();
@@ -86,7 +97,8 @@ function Editor({ photo, existing }: { photo: CapturedPhoto; existing: LocalCard
       aiEffects={aiEffects}
       onNext={(draft) =>
         saveNow(draft).then(
-          (card) => router.push({ pathname: '/send', params: { draft: card.id } }),
+          (card) =>
+            router.push({ pathname: '/send', params: { draft: card.id, ...replyParams(reply) } }),
           () => toast.show({ message: t('drafts.saveFailed'), variant: 'error' }),
         )
       }

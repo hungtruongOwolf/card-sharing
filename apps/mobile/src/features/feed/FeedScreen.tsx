@@ -357,7 +357,11 @@ function FeedRow({
         <MediaChrome
           avatarId={item.sender.id}
           name={name}
-          sent={sentLabel(item.sentAt, now)}
+          sent={
+            item.replyTo
+              ? t('card.reply.label', { when: sentLabel(item.sentAt, now) })
+              : sentLabel(item.sentAt, now)
+          }
           caption={item.caption}
         />
         {item.aiGenerated ? <AiBadge testID={`feed-ai-${item.id}`} style={styles.aiBadge} /> : null}

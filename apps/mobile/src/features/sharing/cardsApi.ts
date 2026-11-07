@@ -31,6 +31,11 @@ export interface NewCard {
   readonly style: StyleBlock;
   readonly caption: string | null;
   readonly audience: Audience;
+  /**
+   * ADR-0010: reply with this card to a friend's card. The server sends it to that card's sender only (the audience
+   * must then be exactly that sender) and answers 404 when I may no longer see the original.
+   */
+  readonly replyToCardId?: string;
 }
 
 /** Owner-only card status (`CardView.status`). */
@@ -91,6 +96,11 @@ export interface CardItem {
    * backend lane is adding to `CardView` (genai-effects.md "Not yet"); absent = false until it ships.
    */
   readonly aiGenerated?: boolean;
+  /**
+   * ADR-0010: this card is a reply to the card with this id (`reply_to`, resolved per viewer: absent when I may no
+   * longer see the original). The feed and viewer say "replied to your card".
+   */
+  readonly replyTo?: { readonly cardId: string };
 }
 
 /** One page of my feed (validated `FeedPage`), newest delivery first. */
@@ -295,7 +305,13 @@ export function parseCard(value: unknown): CardItem | null {
     myReaction: optionalText(v.my_reaction, MAX_REACTION_LENGTH),
     // Only when set, so cards without the flag keep their exact shape.
     ...(v.ai_generated === true ? { aiGenerated: true } : {}),
+    ...replyToFrom(v.reply_to),
   };
+}
+
+function replyToFrom(value: unknown): { replyTo: { cardId: string } } | Record<string, never> {
+  const cardId = record(value)?.card_id;
+  return typeof cardId === 'string' && UUID.test(cardId) ? { replyTo: { cardId } } : {};
 }
 
 /** Validates `PurgeInstructions`; a malformed body is null (nothing is deleted on a guess). */
@@ -324,7 +340,13 @@ function audienceBody(audience: Audience): Schemas['AudienceRequest'] {
 
 /** The exact JSON body of `POST /v1/cards`; deterministic so a retry hashes the same on the server. */
 export function createCardBody(card: NewCard): Schemas['CreateCardRequest'] {
-  const ids = [card.clientCardId, card.renderMediaId, card.maskMediaId, card.originalMediaId];
+  const ids = [
+    card.clientCardId,
+    card.renderMediaId,
+    card.maskMediaId,
+    card.originalMediaId,
+    card.replyToCardId ?? null,
+  ];
   if (!ids.every((id) => id === null || UUID.test(id))) throw new CardsError('invalid');
   return {
     client_card_id: card.clientCardId,
@@ -334,6 +356,8 @@ export function createCardBody(card: NewCard): Schemas['CreateCardRequest'] {
     style: card.style as unknown as Record<string, never>,
     caption: card.caption,
     audience: audienceBody(card.audience),
+    // Only on a reply, so every other body keeps its exact bytes (idempotent retries).
+    ...(card.replyToCardId ? { reply_to_card_id: card.replyToCardId } : {}),
   };
 }
 

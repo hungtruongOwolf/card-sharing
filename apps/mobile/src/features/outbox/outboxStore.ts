@@ -137,6 +137,8 @@ function parseJob(value: unknown): SendJob | null {
         : undefined;
   if (!audience || !style || media === undefined || caption === undefined) return null;
   if (typeof value.keepOriginal !== 'boolean') return null;
+  // ADR-0010 reply target: kept only when it is a card id, so a queued reply stays a reply.
+  if (value.replyToCardId !== undefined && !isUuid(value.replyToCardId)) return null;
   return {
     clientCardId: value.clientCardId,
     cardId: value.cardId,
@@ -145,6 +147,7 @@ function parseJob(value: unknown): SendJob | null {
     style,
     caption,
     media,
+    ...(isUuid(value.replyToCardId) ? { replyToCardId: value.replyToCardId } : {}),
   };
 }
 
