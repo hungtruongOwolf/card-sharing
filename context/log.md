@@ -318,3 +318,8 @@ real-time replies, home-screen widget, real sign-in, AI cutout around the item a
 ## [2026-11-07] plan | sprint 9
 ADR-0009 accepted (the app also runs on the web at phone size until native builds). Three lanes: web target, UI
 redesign, backend latency/replies/AI effects on a fake provider. See [[sprint-9]].
+
+## [2026-11-07] progress | sprint 9 lanes merged
+Web (#365, #366, #368, #369), UI (#367, #370, #372, #373, #375) and backend (#371, #374, #376-#379) merged after CI
+was green on each head commit. EM decisions: ADR-0010 accepted (build in sprint 10), token refresh fails open to the
+memory bucket, AI effects 18+ with 5 starter credits until legal review. See [[sprint-9]].
