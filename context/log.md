@@ -323,3 +323,8 @@ redesign, backend latency/replies/AI effects on a fake provider. See [[sprint-9]
 Web (#365, #366, #368, #369), UI (#367, #370, #372, #373, #375) and backend (#371, #374, #376-#379) merged after CI
 was green on each head commit. EM decisions: ADR-0010 accepted (build in sprint 10), token refresh fails open to the
 memory bucket, AI effects 18+ with 5 starter credits until legal review. See [[sprint-9]].
+
+## [2026-11-07] progress | real-time replies merged (ADR-0010)
+#384 (AI badge flag, AI output preview URL), #387 (replies are cards), #388 (SSE `GET /v1/events`) and #389 (app
+events hook, Reply in the story viewer) merged after CI was green on each rebased head commit. Not yet tried on a
+device or in a browser. Five open questions recorded in [[sprint-9]].

@@ -52,8 +52,19 @@ native builds can be tried without an Apple account, and measures latency in par
 | App (part 2) | Outbox retry on reconnect | #383 | Merged. Closes #265. |
 | App (part 2) | Haptics and sound | #385 | Merged. Closes #246; placeholder sound clips. |
 | Lead | Log-capture test race | #386 | Merged. Global always-interested subscriber in the test harness; closes #330. |
+| Replies (ADR-0010) | AI badge flag + AI output preview URL | #384 | Merged. Server-set `ai_generated` on card, feed, board, widget and public pin views; owner-only signed `output_url` on AI jobs after content gates. |
+| Replies (ADR-0010) | Replies are cards | #387 | Merged. `reply_to_card_id` on send (card-read rule, audience fixed to the original sender, friend check), `CardView.reply_to` per viewer, owner-only `GET /v1/cards/{id}/replies`. |
+| Replies (ADR-0010) | Real-time events stream | #388 | Merged. `GET /v1/events` SSE, ids only, `pg_notify` in the write transaction; 5 streams per account, 2000 per instance, 30 min max age, token re-check every 30 s. |
+| Replies (ADR-0010) | App events hook + Reply in the viewer | #389 | Merged. `expo/fetch` streaming (works in Expo Go and web), 30 s polling fallback, Reply flow capture → editor → send, AI badge in the viewer. Verified by jest only. |
 
 ## Exit checklist
 - [ ] The EM can open the app in a phone browser and in Expo Go, and the main screens follow the new design system.
 - [ ] Latency numbers on release builds are recorded with budgets; the worst paths are fixed.
 - [ ] Web AI cutout works on a photo of an object; AI effects run end to end on the fake provider.
+
+## Open questions from the replies lane (for the EM)
+1. A reply reopened from the drafts tray loses its target (it lives only in route params).
+2. Activity tab shows a reply as `card.new`; add a `card.reply` activity kind and push copy?
+3. The per-instance stream cap (2000) is a guess until memory per stream is measured on Fly.
+4. When the session store is down, open streams stay open (ids only; every refetch is authorized).
+5. Public board pages (apps/web) do not draw the AI badge yet.
