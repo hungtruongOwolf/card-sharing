@@ -51,7 +51,7 @@ hyper-util = { version = "0.1.21", features = ["client-legacy", "http1", "tokio"
 # so identity installs a ring-backed RS256 verifier (crates/identity/src/oidc/ring_provider.rs).
 jsonwebtoken = { version = "11.1.0", default-features = false }
 # Test-only (identity `test-support`): RSA test keys without the `rsa` crate.
-num-bigint = { version = "0.4.6", default-features = false, features = ["std"] }
+num-bigint = { version = "0.5.1", default-features = false, features = ["std"] }
 redis = { version = "1.8.1", default-features = false, features = ["tokio-rustls-comp", "connection-manager", "script"] }
 # TLS for Redis/Postgres uses rustls with the ring provider only (no aws-lc / OpenSSL-licensed code).
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
