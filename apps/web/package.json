@@ -11,7 +11,7 @@
     "test": "node --test \"src/**/*.test.ts\""
   },
   "dependencies": {
-    "canvaskit-wasm": "0.41.0",
+    "canvaskit-wasm": "0.42.0",
     "next": "16.4.5",
     "react": "19.3.0",
     "react-dom": "19.3.0"
