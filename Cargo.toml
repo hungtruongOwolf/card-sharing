@@ -49,7 +49,7 @@ hyper-util = { version = "0.1.21", features = ["client-legacy", "http1", "tokio"
 # ID-token (JWS) parsing and claim checks for Apple/Google sign-in. No built-in crypto backend: its
 # `rust_crypto` backend pulls `rsa` (RUSTSEC-2023-0071, unpatched) and `aws_lc_rs` is OpenSSL-licensed,
 # so identity installs a ring-backed RS256 verifier (crates/identity/src/oidc/ring_provider.rs).
-jsonwebtoken = { version = "11.1.0", default-features = false }
+jsonwebtoken = { version = "12.0.0", default-features = false }
 # Test-only (identity `test-support`): RSA test keys without the `rsa` crate.
 num-bigint = { version = "0.4.6", default-features = false, features = ["std"] }
 redis = { version = "1.8.1", default-features = false, features = ["tokio-rustls-comp", "connection-manager", "script"] }
