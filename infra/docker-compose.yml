@@ -5,7 +5,7 @@ name: card-sharing
 
 services:
   postgres:
-    image: postgres:17.11-alpine
+    image: postgres:17.12-alpine
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:?set in .env}
